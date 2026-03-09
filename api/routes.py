@@ -3,12 +3,12 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 import re
 import shlex
 
-from database import get_db_connection
-from sockets import stream_logs_over_websocket
-from ssh_manager import pool
-from tree_scanner import fetch_all_quadlets
-from systemd_manager import systemctl_action, reload_and_restart
-from events_manager import publisher
+from core.database import get_db_connection
+from api.sockets import stream_logs_over_websocket
+from services.ssh_manager import pool
+from services.tree_scanner import fetch_all_quadlets
+from services.systemd_manager import systemctl_action, reload_and_restart
+from core.events_manager import publisher
 import logging
 
 logger = logging.getLogger("quadlet-manager.routes")

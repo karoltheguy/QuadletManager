@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import List
 from fastapi import WebSocket, WebSocketDisconnect
-from ssh_manager import pool
+from services.ssh_manager import pool
 
 logger = logging.getLogger("quadlet-manager.sockets")
 

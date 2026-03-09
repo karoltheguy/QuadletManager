@@ -3,10 +3,10 @@ import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from database import init_db
-from sync_engine import polling_engine_loop
-from ssh_manager import pool
-from routes import router as web_router
+from core.database import init_db
+from services.sync_engine import polling_engine_loop
+from services.ssh_manager import pool
+from api.routes import router as web_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("quadlet-manager")

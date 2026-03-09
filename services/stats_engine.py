@@ -1,8 +1,8 @@
 import asyncio
 import json
 import logging
-from database import get_db_connection
-from ssh_manager import pool
+from core.database import get_db_connection
+from services.ssh_manager import pool
 
 logger = logging.getLogger("quadlet-manager.stats")
 

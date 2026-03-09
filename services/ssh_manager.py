@@ -1,8 +1,8 @@
 import asyncio
 import asyncssh
 import logging
-from database import get_db_connection
-from crypto import decrypt_private_key
+from core.database import get_db_connection
+from core.crypto import decrypt_private_key
 
 logger = logging.getLogger("quadlet-manager.ssh")
 

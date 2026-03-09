@@ -1,6 +1,6 @@
 import os
 import unittest
-from crypto import encrypt_private_key, decrypt_private_key, get_master_key
+from core.crypto import encrypt_private_key, decrypt_private_key, get_master_key
 
 class TestCrypto(unittest.TestCase):
     def setUp(self):

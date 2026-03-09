@@ -23,7 +23,7 @@ class TestConfigLoader(unittest.TestCase):
 
     def test_yaml_override(self):
         # We import here so it evaluates the environment variables freshly
-        from config_loader import AppConfig
+        from core.config_loader import AppConfig
         
         config = AppConfig()
         
@@ -35,7 +35,7 @@ class TestConfigLoader(unittest.TestCase):
         os.environ["QUADLET_CONFIG_PATH"] = "/nonexistent/config.yaml"
         os.environ["QUADLET_MASTER_KEY"] = "env_fallback_key"
         
-        from config_loader import AppConfig
+        from core.config_loader import AppConfig
         config = AppConfig()
         
         self.assertEqual(config.master_key, "env_fallback_key")

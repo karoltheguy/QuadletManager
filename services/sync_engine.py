@@ -1,8 +1,8 @@
 import asyncio
 import logging
-from database import get_db_connection
-from ssh_manager import pool
-from events_manager import publisher
+from core.database import get_db_connection
+from services.ssh_manager import pool
+from core.events_manager import publisher
 
 logger = logging.getLogger("quadlet-manager.sync")
 

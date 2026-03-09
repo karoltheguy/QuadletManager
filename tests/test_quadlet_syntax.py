@@ -1,5 +1,5 @@
 import unittest
-from quadlet_parser import validate_quadlet_syntax, QuadletValidationError
+from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 
 class TestQuadletParser(unittest.TestCase):
     def test_valid_container(self):
