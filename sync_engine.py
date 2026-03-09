@@ -1,0 +1,61 @@
+import asyncio
+import logging
+from database import get_db_connection
+from ssh_manager import pool
+
+logger = logging.getLogger("quadlet-manager.sync")
+
+POLL_INTERVAL_SEC = 10
+
+async def parse_mtime(stdout: str) -> int:
+    try:
+        return int(stdout.strip())
+    except ValueError:
+        return 0
+
+async def check_quadlets():
+    """Polls all registered quadlets to see if the remote file has been modified."""
+    async with await get_db_connection() as db:
+        db.row_factory = lambda cursor, row: {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+        async with db.execute("SELECT id, server_id, file_path, scope, last_known_mtime FROM quadlets") as cursor:
+            quadlets = await cursor.fetchall()
+            
+    for q in quadlets:
+        try:
+            use_sudo = (q['scope'] == 'global')
+            stat_cmd = f"stat -c %Y {q['file_path']}"
+            
+            # Fetch remote mtime
+            mtime_str = await pool.execute_command(q['server_id'], stat_cmd, use_sudo=use_sudo)
+            remote_mtime = await parse_mtime(mtime_str)
+            
+            # If the remote is newer than the DB timestamp
+            if q['last_known_mtime'] is not None and remote_mtime > q['last_known_mtime']:
+                logger.warning(f"File {q['file_path']} on server {q['server_id']} was modified externally!")
+                
+                # Fetch new content
+                cat_cmd = f"cat {q['file_path']}"
+                new_content = await pool.execute_command(q['server_id'], cat_cmd, use_sudo=use_sudo)
+                
+                # Here we will emit an SSE or WebSocket event
+                # For example: await event_manager.broadcast("file_changed", {"quadlet_id": q['id'], "content": new_content})
+                # For now just update DB to avoid double-logging
+                
+                async with await get_db_connection() as db:
+                    await db.execute(
+                        "UPDATE quadlets SET last_known_mtime = ? WHERE id = ?",
+                        (remote_mtime, q['id'])
+                    )
+                    await db.commit()
+                
+        except Exception as e:
+            logger.error(f"Error polling quadlet {q['id']}: {e}")
+
+async def polling_engine_loop():
+    logger.info("Starting Timestamp Polling background task.")
+    while True:
+        await asyncio.sleep(POLL_INTERVAL_SEC)
+        try:
+            await check_quadlets()
+        except Exception as e:
+            logger.error(f"Polling engine error: {e}")

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # The "Fake Remote Server"
+  remote-systemd:
+    image: jrei/systemd-ubuntu:22.04
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    ports:
+      - "2222:22"
+    command: /lib/systemd/systemd
+    # Note: In a real test setup, you would add a Dockerfile building on this image
+    # to install SSH, set up the 'editor' user, and insert the test public key.
+
+  # The App Backend
+  quadlet-manager:
+    build: .
+    environment:
+      - QUADLET_MASTER_KEY=0000000000000000000000000000000000000000000000000000000000000000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - remote-systemd
