@@ -25,9 +25,10 @@ async def dashboard_view(request: Request):
         <title>QuadletManager Setup</title>
         <script src="https://unpkg.com/htmx.org@1.9.11"></script>
         <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
         <link rel="stylesheet" href="/static/style.css">
     </head>
-    <body class="bg-gray-900 text-white flex h-screen overflow-hidden" hx-ext="sse" sse-connect="/api/events" sse-swap="file_changed" hx-target="#status-toast">
+    <body class="bg-gray-900 text-white flex h-screen overflow-hidden">
         <div id="navigator" class="w-1/4 bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold">Servers</h2>
@@ -58,7 +59,7 @@ async def dashboard_view(request: Request):
             </div>
         </div>
         
-        <div id="inspector" class="w-1/4 bg-gray-800 p-4">
+        <div id="inspector" class="w-1/4 bg-gray-800 p-4 overflow-y-auto">
             <h2 class="text-xl font-bold mb-4">Inspector</h2>
             <div id="status-toast" class="mb-4"></div>
             
@@ -66,8 +67,21 @@ async def dashboard_view(request: Request):
                 <!-- Action buttons loaded dynamically -->
             </div>
             
-            <div id="systemd-status" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-64 overflow-y-auto whitespace-pre-wrap">
+            <div id="systemd-status" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-48 overflow-y-auto whitespace-pre-wrap">
                 Systemd status will appear here...
+            </div>
+            
+            <!-- Live Container Resource Stats -->
+            <div class="mt-4">
+                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 live-pulse">Container Resources</h3>
+                <div class="bg-gray-950 rounded-lg p-3 border border-gray-700">
+                    <div style="height: 180px; position: relative;">
+                        <canvas id="stats-chart"></canvas>
+                    </div>
+                </div>
+                <div id="stats-table" class="mt-3 bg-gray-950 rounded-lg border border-gray-700 text-xs font-mono text-gray-300 max-h-40 overflow-y-auto">
+                    <div class="p-3 text-gray-500 italic">Waiting for stats data...</div>
+                </div>
             </div>
         </div>
         

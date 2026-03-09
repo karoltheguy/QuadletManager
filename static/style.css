@@ -16,3 +16,29 @@ body {
     from { opacity: 0; bottom: 0; }
     to { opacity: 1; bottom: 30px; }
 }
+
+/* Stats table styles */
+#stats-table table {
+    border-collapse: collapse;
+}
+
+#stats-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+/* Live indicator pulse */
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.live-pulse::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #22c55e;
+    margin-right: 6px;
+    animation: pulse-dot 2s ease-in-out infinite;
+}
