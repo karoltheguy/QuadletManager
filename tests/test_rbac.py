@@ -51,5 +51,101 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         except HTTPException:
             self.fail("Editor role raised HTTPException unexpectedly")
 
+    async def test_viewer_cannot_create(self):
+        from routes import create_new_quadlet
+        
+        role = "viewer"
+        
+        with self.assertRaises(HTTPException) as context:
+            await create_new_quadlet(
+                server_id=1,
+                scope="user",
+                type="container",
+                name="test",
+                role=role
+            )
+            
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIn("cannot create files", context.exception.detail)
+
+    @patch('routes.get_db_connection', new_callable=AsyncMock)
+    @patch('routes.pool.execute_command', new_callable=AsyncMock)
+    async def test_editor_can_create(self, mock_execute, mock_db):
+        from routes import create_new_quadlet
+        from unittest.mock import MagicMock
+        
+        role = "editor"
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchone.return_value = ("[Container]\n",)
+        
+        cursor_context_mock = AsyncMock()
+        cursor_context_mock.__aenter__.return_value = mock_cursor
+        
+        conn_mock = AsyncMock()
+        conn_mock.execute = MagicMock(return_value=cursor_context_mock)
+        mock_db.return_value.__aenter__.return_value = conn_mock
+        
+        try:
+            response = await create_new_quadlet(
+                server_id=1,
+                scope="user",
+                type="container",
+                name="test",
+                role=role
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Created", response.body.decode())
+        except HTTPException:
+            self.fail("Editor role raised HTTPException unexpectedly")
+
+    async def test_viewer_cannot_systemctl_post(self):
+        from routes import api_systemctl_post
+        
+        role = "viewer"
+        
+        # viewer can check status (action="status")
+        try:
+            from fastapi.responses import HTMLResponse
+            with patch('routes.systemctl_action', new_callable=AsyncMock) as mock_action:
+                mock_action.return_value = "fake status"
+                response = await api_systemctl_post(
+                    server_id=1,
+                    action="status",
+                    unit="fake.service",
+                    scope="user",
+                    role=role
+                )
+                self.assertEqual(response.status_code, 200)
+        except Exception as e:
+            self.fail(f"Viewer role raised Exception unexpectedly on status: {e}")
+            
+        # viewer cannot start
+        response_forbid = await api_systemctl_post(
+            server_id=1,
+            action="start",
+            unit="fake.service",
+            scope="user",
+            role=role
+        )
+        self.assertEqual(response_forbid.status_code, 403)
+        self.assertEqual(response_forbid.body.decode(), "Permission denied")
+
+    @patch('routes.systemctl_action', new_callable=AsyncMock)
+    async def test_editor_can_systemctl_post(self, mock_action):
+        from routes import api_systemctl_post
+        
+        role = "editor"
+        mock_action.return_value = "fake result"
+        
+        response = await api_systemctl_post(
+            server_id=1,
+            action="start",
+            unit="fake.service",
+            scope="user",
+            role=role
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("fake result", response.body.decode())
+
 if __name__ == "__main__":
     unittest.main()
