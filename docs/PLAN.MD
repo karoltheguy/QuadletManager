@@ -42,3 +42,7 @@ Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multip
 * [x] **Integration Testing (Containerized Lab)**: Docker systemd-enabled container to simulate an actual remote target (verifying file DB persistence and valid `systemctl daemon-reload` responses).
 * [x] **End-to-End Testing (HTMX Flows)**: Playwright testing of Monaco UI, Toast injections, template workflows, and SSE reactions.
 * [x] **Regression Testing**: Syntax validation of standard Quadlet format edge cases.
+
+## 8. Configuration & Deployment
+* [x] **App Config**: Provide `config.yaml` to define Master Key and configuration options.
+* [x] **Documentation**: Provide a setup guide (`SETUP.MD`) for remote servers with specifics on sudoers configuration and deployment steps.

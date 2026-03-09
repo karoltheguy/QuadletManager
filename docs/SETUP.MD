@@ -38,3 +38,10 @@ On your host machine, you **must** export the Master Key or set it in your `conf
 export QUADLET_MASTER_KEY="a_secure_256_bit_hex_string_here"
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+## 5. Application Login
+Upon first startup, the database is seeded with two default users:
+- **Username:** `admin` | **Password:** `admin` (Role: Editor)
+- **Username:** `viewer` | **Password:** `viewer` (Role: Viewer)
+
+You will be prompted via HTTP Basic Authentication when loading the dashboard. Please change these passwords if deploying in production.
