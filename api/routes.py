@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+import hashlib
 import re
 import shlex
 
@@ -9,6 +10,7 @@ from api.sockets import stream_logs_over_websocket
 from services.ssh_manager import pool
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
+from services.sync_engine import parse_mtime
 from core.events_manager import publisher
 import logging
 
@@ -98,6 +100,26 @@ async def save_file(
         await pool.execute_command(server_id, cmd, use_sudo=False)
         await reload_and_restart(server_id, unit_name, scope)
         status_output = await systemctl_action(server_id, "status", unit_name, scope)
+        
+        # ── Collision Avoidance ──
+        # Immediately update the DB with the new mtime so the sync poller
+        # doesn't flag our own save as an "external modification."
+        try:
+            stat_cmd = f"stat -c %Y {shlex.quote(file_path)}"
+            mtime_str = await pool.execute_command(server_id, stat_cmd, use_sudo=use_sudo)
+            new_mtime = await parse_mtime(mtime_str)
+            content_hash = hashlib.sha256(content.encode()).hexdigest()
+            
+            async with await get_db_connection() as db:
+                await db.execute(
+                    "UPDATE quadlets SET last_known_mtime = ?, last_content_hash = ? "
+                    "WHERE server_id = ? AND file_path = ?",
+                    (new_mtime, content_hash, server_id, file_path)
+                )
+                await db.commit()
+        except Exception as ca_err:
+            # Non-fatal: the save succeeded, collision avoidance is best-effort
+            logger.warning(f"Collision avoidance update failed (save was OK): {ca_err}")
         
         return templates.TemplateResponse(request, "partials/toast.html", {
             "color": "green",

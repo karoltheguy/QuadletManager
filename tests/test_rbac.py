@@ -29,14 +29,23 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         msg = context.exception.detail
         self.assertTrue("cannot create files" in msg or "cannot save" in msg)
 
+    @patch('api.routes.get_db_connection', new_callable=AsyncMock)
     @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
     @patch('api.routes.reload_and_restart', new_callable=AsyncMock)
     @patch('api.routes.systemctl_action', new_callable=AsyncMock)
-    async def test_editor_can_save(self, mock_systemctl, mock_reload, mock_execute):
+    async def test_editor_can_save(self, mock_systemctl, mock_reload, mock_execute, mock_db):
         from api.routes import save_file
         
         role = "editor"
         mock_systemctl.return_value = "Active: active (running)"
+        # execute_command is called for: 1) tee write, 2) stat -c %Y
+        mock_execute.side_effect = ["", "1709827200\n"]
+        
+        # Mock DB for the collision avoidance UPDATE
+        conn_mock = AsyncMock()
+        conn_mock.execute = AsyncMock()
+        conn_mock.commit = AsyncMock()
+        mock_db.return_value.__aenter__.return_value = conn_mock
         
         try:
             response = await save_file(

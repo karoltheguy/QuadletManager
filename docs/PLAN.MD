@@ -17,9 +17,9 @@ Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multip
 * [x] `templates`: `id, name, type` (container/volume/network/pod), `content`
 
 ## 3. The Synchronization Engine
-* **Timestamp Polling**: Run background task every 10s -> `stat -c %Y [file]`. Update DB, fetch content via `cat` if remote is newer.
-* **Change Notification**: Push SSE/WebSocket message for "File modified externally" to update UI reactively.
-* **Collision Avoidance**: Immediately update DB timestamp on Web UI save to prevent false-positive notifications from our own edits.
+* [x] **Timestamp Polling**: Run background task every 10s -> `stat -c %Y [file]`. Update DB, fetch content via `cat` if remote is newer.
+* [x] **Change Notification**: Push SSE/WebSocket message for "File modified externally" to update UI reactively.
+* [x] **Collision Avoidance**: Immediately update DB timestamp on Web UI save to prevent false-positive notifications from our own edits.
 
 ## 4. Web UI Features (HTMX + Tailwind)
 * **Layout**: Three-Pane Layout.
