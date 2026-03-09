@@ -4,17 +4,17 @@
 Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multiple remote Linux servers via Systemd.
 
 ## 1. Backend Infrastructure & Security
-* **SSH Tunneling**: Maintain a connection pool (`asyncssh` or `ssh2-promise`) to 5-10 servers to avoid re-auth overhead per HTMX request.
-* **Key Encryption**: Master Key in environment variables. Encrypt/decrypt SSH private keys via AES-256-GCM. Decrypt only in memory during the session lifecycle; never store plaintext.
-* **Sudo Execution**: All writes to `/etc/containers/systemd/` and `systemctl daemon-reload` prepended with `sudo`.
-* **User Scopes**: Rootless targets `~/.config/containers/systemd/` (no sudo, standard user logic). Rootful targets `/etc/containers/systemd/`.
+* [x] **SSH Tunneling**: Maintain a connection pool (`asyncssh` or `ssh2-promise`) to 5-10 servers to avoid re-auth overhead per HTMX request.
+* [x] **Key Encryption**: Master Key in environment variables. Encrypt/decrypt SSH private keys via AES-256-GCM. Decrypt only in memory during the session lifecycle; never store plaintext.
+* [x] **Sudo Execution**: All writes to `/etc/containers/systemd/` and `systemctl daemon-reload` prepended with `sudo`.
+* [x] **User Scopes**: Rootless targets `~/.config/containers/systemd/` (no sudo, standard user logic). Rootful targets `/etc/containers/systemd/`.
 
 ## 2. Database Schema (SQLite)
-* `users`: `id, username, password_hash, role` (viewer/editor)
-* `servers`: `id, name, ip_address, ssh_user, ssh_key_id`
-* `ssh_keys`: `id, key_name, encrypted_private_key`
-* `quadlets`: `id, server_id, file_path, scope, last_known_mtime, last_content_hash`
-* `templates`: `id, name, type` (container/volume/network/pod), `content`
+* [x] `users`: `id, username, password_hash, role` (viewer/editor)
+* [x] `servers`: `id, name, ip_address, ssh_user, ssh_key_id`
+* [x] `ssh_keys`: `id, key_name, encrypted_private_key`
+* [x] `quadlets`: `id, server_id, file_path, scope, last_known_mtime, last_content_hash`
+* [x] `templates`: `id, name, type` (container/volume/network/pod), `content`
 
 ## 3. The Synchronization Engine
 * **Timestamp Polling**: Run background task every 10s -> `stat -c %Y [file]`. Update DB, fetch content via `cat` if remote is newer.
@@ -38,7 +38,7 @@ Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multip
 * **Editor Role**: Full CRUD, start/stop capabilities. Checked strictly on Backend and hidden conditionally in UI templates.
 
 ## 7. Testing Strategy
-* **Unit Testing (Mocked SSH)**: Pure logic, encryption, permission guards, state alerts without actual SSH connection.
-* **Integration Testing (Containerized Lab)**: Docker systemd-enabled container to simulate an actual remote target (verifying file DB persistence and valid `systemctl daemon-reload` responses).
-* **End-to-End Testing (HTMX Flows)**: Playwright testing of Monaco UI, Toast injections, template workflows, and SSE reactions.
-* **Regression Testing**: Syntax validation of standard Quadlet format edge cases.
+* [x] **Unit Testing (Mocked SSH)**: Pure logic, encryption, permission guards, state alerts without actual SSH connection.
+* [x] **Integration Testing (Containerized Lab)**: Docker systemd-enabled container to simulate an actual remote target (verifying file DB persistence and valid `systemctl daemon-reload` responses).
+* [x] **End-to-End Testing (HTMX Flows)**: Playwright testing of Monaco UI, Toast injections, template workflows, and SSE reactions.
+* [x] **Regression Testing**: Syntax validation of standard Quadlet format edge cases.

@@ -7,11 +7,11 @@
 
 ## Architectural Context
 * **Web Interface:** HTMX + TailwindCSS + Monaco Editor snippet injection.
-* **Backend:** [TBD based on user input - Python/FastAPI vs Node/Express].
+* **Backend:** Python/FastAPI.
 * **Database:** SQLite (local file only).
 * **Execution Model:** Agentless SSH against remote servers. Rootless/Rootful modes supported based on deployment directory scope.
 
 ## Progress & Memory
-* **Phase:** Initial Planning & Definition.
-* **Current Action:** Wrote objective logic into PLAN.MD and setup project tasks. Pending decision on the specific backend technology before implementing the database and server logic.
-* **Next Steps:** Setup boilerplate project for chosen stack, create SQLite migrations, implement crypto/SSH utility module, and push next atomic commit.
+* **Phase:** Backend infrastructure ready. Implementing systemd control & layout.
+* **Current Action:** Setting up `tree_scanner.py` to index remote Quadlets and `systemd_manager.py` to handle systemctl tasks.
+* **Next Steps:** Implement daemon-reload handlers and tie file reads/writes to the UI templates.
