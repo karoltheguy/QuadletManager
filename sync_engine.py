@@ -2,6 +2,7 @@ import asyncio
 import logging
 from database import get_db_connection
 from ssh_manager import pool
+from events_manager import publisher
 
 logger = logging.getLogger("quadlet-manager.sync")
 
@@ -37,9 +38,12 @@ async def check_quadlets():
                 cat_cmd = f"cat {q['file_path']}"
                 new_content = await pool.execute_command(q['server_id'], cat_cmd, use_sudo=use_sudo)
                 
-                # Here we will emit an SSE or WebSocket event
-                # For example: await event_manager.broadcast("file_changed", {"quadlet_id": q['id'], "content": new_content})
-                # For now just update DB to avoid double-logging
+                # Emit Server-Sent Event broadcast (SSE)
+                await publisher.publish("file_changed", {
+                    "server_id": q['server_id'],
+                    "file_path": q['file_path'],
+                    "message": "File modified externally!"
+                })
                 
                 async with await get_db_connection() as db:
                     await db.execute(

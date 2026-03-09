@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 import re
 import shlex
 
@@ -8,6 +8,7 @@ from sockets import stream_logs_over_websocket
 from ssh_manager import pool
 from tree_scanner import fetch_all_quadlets
 from systemd_manager import systemctl_action, reload_and_restart
+from events_manager import publisher
 import logging
 
 logger = logging.getLogger("quadlet-manager.routes")
@@ -26,9 +27,15 @@ async def dashboard_view(request: Request):
         <script src="https://cdn.tailwindcss.com"></script>
         <link rel="stylesheet" href="/static/style.css">
     </head>
-    <body class="bg-gray-900 text-white flex h-screen overflow-hidden">
+    <body class="bg-gray-900 text-white flex h-screen overflow-hidden" hx-ext="sse" sse-connect="/api/events" sse-swap="file_changed" hx-target="#status-toast">
         <div id="navigator" class="w-1/4 bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
-            <h2 class="text-xl font-bold mb-4">Servers</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Servers</h2>
+                <button class="bg-indigo-600 hover:bg-indigo-500 text-xs px-2 py-1 rounded"
+                        hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
+                    + New
+                </button>
+            </div>
             <div hx-get="/api/servers" hx-trigger="load">Loading servers...</div>
         </div>
         
@@ -252,6 +259,101 @@ async def api_systemctl_post(server_id: int, action: str, unit: str, scope: str,
         return HTMLResponse(output)
     except Exception as e:
         return HTMLResponse(f"Action failed: {str(e)}")
+
+@router.get("/api/events")
+async def sse_events(request: Request):
+    """EventSource stream for reacting to backend background worker updates."""
+    return StreamingResponse(publisher.event_generator(request), media_type="text/event-stream")
+
+@router.get("/api/modal/new")
+async def new_file_modal():
+    """Returns the HTML for the 'New Quadlet' modal."""
+    # Assuming basic templates exist in DB, but realistically we map types here
+    # for simplicity. We need to select the server as well.
+    async with await get_db_connection() as db:
+        async with db.execute("SELECT id, name FROM servers") as cursor:
+            servers = await cursor.fetchall()
+            
+    server_options = "".join([f'<option value="{s[0]}">{s[1]}</option>' for s in servers])
+    
+    html = f"""
+    <div id="new-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-1/3 shadow-xl">
+            <h2 class="text-xl font-bold mb-4">Create New Quadlet</h2>
+            <form hx-post="/api/create" hx-target="#status-toast" hx-swap="innerHTML" onsubmit="document.getElementById('new-modal').remove()">
+                <div class="mb-4">
+                    <label class="block text-sm mb-1">Target Server</label>
+                    <select name="server_id" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm">
+                        {server_options}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm mb-1">Scope</label>
+                    <select name="scope" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm">
+                        <option value="user">User (~/.config/containers/systemd)</option>
+                        <option value="global">Global (/etc/containers/systemd)</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm mb-1">Quadlet Type</label>
+                    <select name="type" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm">
+                        <option value="container">.container</option>
+                        <option value="volume">.volume</option>
+                        <option value="network">.network</option>
+                        <option value="pod">.pod</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm mb-1">Name (without extension)</label>
+                    <input type="text" name="name" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm" required placeholder="e.g. webserver">
+                </div>
+                
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button type="button" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" onclick="document.getElementById('new-modal').remove()">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-bold">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    """
+    return HTMLResponse(html)
+
+@router.post("/api/create")
+async def create_new_quadlet(
+    server_id: int = Form(...),
+    scope: str = Form(...),
+    type: str = Form(...),
+    name: str = Form(...),
+    role: str = Depends(get_current_user_role)
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Viewer role cannot create files.")
+        
+    # Fetch template out of DB
+    async with await get_db_connection() as db:
+        async with db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (type,)) as cursor:
+            row = await cursor.fetchone()
+            content = row[0] if row else f"[{type.capitalize()}]\n"
+            
+    # Assemble Path
+    file_name = f"{name}.{type}"
+    target_dir = "/etc/containers/systemd" if scope == "global" else "~/.config/containers/systemd"
+    file_path = f"{target_dir}/{file_name}"
+    
+    # Run the SSH pipe write
+    use_sudo = (scope == "global")
+    safe_content = shlex.quote(content)
+    cmd = f"printf '%s' {safe_content} | "
+    cmd += (f"sudo tee {shlex.quote(file_path)} > /dev/null" if use_sudo else f"tee {shlex.quote(file_path)} > /dev/null")
+    
+    try:
+        await pool.execute_command(server_id, f"mkdir -p {target_dir}", use_sudo=use_sudo)
+        await pool.execute_command(server_id, cmd, use_sudo=False)
+        
+        return HTMLResponse(f"<div class='bg-green-600 p-2 rounded text-sm font-bold toast-enter'>Created {file_name}! (Refresh Server to see)</div>")
+    except Exception as e:
+        logger.error(f"Failed to create quadlet: {e}")
+        return HTMLResponse(f"<div class='bg-red-600 p-2 rounded text-sm font-bold toast-enter'>Creation Failed.</div>")
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
 async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str):
