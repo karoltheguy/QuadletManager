@@ -185,5 +185,60 @@ function connectSSE() {
 // ── Initialize on DOM Ready ──────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
     initStatsChart();
+    // Wait for the HTML body to be present or just delay SSE slightly if needed
     connectSSE();
 });
+
+// ── Real-time Logs WebSocket ─────────────────────────────
+let currentLogSocket = null;
+
+window.toggleLogs = function(serverId, unitName) {
+    let statusDiv = document.getElementById('systemd-status');
+    let btn = document.getElementById('toggle-logs-btn');
+
+    if (currentLogSocket) {
+        // Stop current tail
+        currentLogSocket.send("STOP");
+        currentLogSocket.close();
+        currentLogSocket = null;
+        
+        if (btn) btn.innerText = 'Tail Logs';
+        if (btn) btn.classList.replace('bg-orange-700', 'bg-blue-700');
+        if (btn) btn.classList.replace('hover:bg-orange-600', 'hover:bg-blue-600');
+        
+        statusDiv.innerHTML += '\n--- Stopped log stream. Re-fetch status to view current. ---\n';
+        return;
+    }
+
+    statusDiv.innerHTML = 'Connecting to log stream...\n';
+    
+    if (btn) btn.innerText = 'Stop Logs';
+    if (btn) btn.classList.replace('bg-blue-700', 'bg-orange-700');
+    if (btn) btn.classList.replace('hover:bg-blue-600', 'hover:bg-orange-600');
+
+    const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName;
+    currentLogSocket = new WebSocket(wsUrl);
+
+    currentLogSocket.onmessage = function(event) {
+        // Append text (escaping HTML safely if needed, but innerText might be safer except it removes formatting)
+        // Journalctl logs are relatively safe but let's just create a text node or use innerHTML with simple escape if we cared. 
+        // For now simple append.
+        statusDiv.appendChild(document.createTextNode(event.data));
+        statusDiv.scrollTop = statusDiv.scrollHeight;
+    };
+
+    currentLogSocket.onclose = function(e) {
+        if (currentLogSocket) {
+            statusDiv.innerHTML += '\n--- Log Stream Disconnected ---\n';
+            currentLogSocket = null;
+            if (btn) btn.innerText = 'Tail Logs';
+            if (btn) btn.classList.replace('bg-orange-700', 'bg-blue-700');
+            if (btn) btn.classList.replace('hover:bg-orange-600', 'hover:bg-blue-600');
+        }
+    };
+    
+    currentLogSocket.onerror = function(err) {
+        console.error('WebSocket Error:', err);
+        statusDiv.innerHTML += '\n--- Error connecting to Log Stream ---\n';
+    };
+};

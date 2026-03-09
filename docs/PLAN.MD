@@ -30,8 +30,8 @@ Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multip
 * **Templates**: "New File" modal to inject container/volume/network/pod boilerplate.
 
 ## 5. Monitoring & Logs
-* **Real-time Logs**: WebSocket connection, run `sudo journalctl -u [unit] -f -n 100`. Catch WebSocket disconnects/kill signals to kill remote processes cleanly.
-* **Resource Stats**: `podman stats --no-stream --format "json"` every 5s, visual chart pushed to UI.
+* [x] **Real-time Logs**: WebSocket connection, run `sudo journalctl -u [unit] -f -n 100`. Catch WebSocket disconnects/kill signals to kill remote processes cleanly.
+* [x] **Resource Stats**: `podman stats --no-stream --format "json"` every 5s, visual chart pushed to UI.
 
 ## 6. RBAC Logic
 * **Viewer Role**: Read-only tree view, logs, stats.
