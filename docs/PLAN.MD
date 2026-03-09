@@ -34,8 +34,8 @@ Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multip
 * [x] **Resource Stats**: `podman stats --no-stream --format "json"` every 5s, visual chart pushed to UI.
 
 ## 6. RBAC Logic
-* **Viewer Role**: Read-only tree view, logs, stats.
-* **Editor Role**: Full CRUD, start/stop capabilities. Checked strictly on Backend and hidden conditionally in UI templates.
+* [x] **Viewer Role**: Read-only tree view, logs, stats.
+* [x] **Editor Role**: Full CRUD, start/stop capabilities. Checked strictly on Backend and hidden conditionally in UI templates.
 
 ## 7. Testing Strategy
 * [x] **Unit Testing (Mocked SSH)**: Pure logic, encryption, permission guards, state alerts without actual SSH connection.

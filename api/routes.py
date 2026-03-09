@@ -18,8 +18,39 @@ logger = logging.getLogger("quadlet-manager.routes")
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-async def get_current_user_role():
-    return "editor"
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
+import hashlib
+
+security = HTTPBasic()
+
+async def get_current_user_role(credentials: HTTPBasicCredentials = Depends(security)):
+    async with await get_db_connection() as db:
+        async with db.execute(
+            "SELECT password_hash, role FROM users WHERE username = ?",
+            (credentials.username,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            
+            if not row:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Incorrect username or password",
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+            
+            stored_hash = row[0]
+            role = row[1]
+            current_hash = hashlib.sha256(credentials.password.encode()).hexdigest()
+            
+            if not secrets.compare_digest(current_hash, stored_hash):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Incorrect username or password",
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+            
+            return role
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_view(request: Request, role: str = Depends(get_current_user_role)):

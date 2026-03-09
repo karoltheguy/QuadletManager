@@ -60,6 +60,13 @@ async def init_db():
         # Seed basic templates if they do not exist
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (1, 'Basic Container', 'container', '[Container]\\nImage=docker.io/library/nginx:latest\\nNetwork=host\\n')")
         
+        # Seed default users (password is same as username)
+        import hashlib
+        admin_hash = hashlib.sha256(b"admin").hexdigest()
+        viewer_hash = hashlib.sha256(b"viewer").hexdigest()
+        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (1, 'admin', ?, 'editor')", (admin_hash,))
+        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (2, 'viewer', ?, 'viewer')", (viewer_hash,))
+        
         await db.commit()
 
 async def get_db_connection():
