@@ -160,3 +160,5 @@ Since Quadlets have specific key-value requirements (e.g., [Container], Image=),
         Verify the app correctly parses a file containing a .pod and its associated .container units.
 
         Ensure the app doesn't crash if it encounters a malformed unit file on the server.
+
+Note: Each developed features should have unit tests and if possible, integration tests.

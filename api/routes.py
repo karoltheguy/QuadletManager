@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.templating import Jinja2Templates
 import re
 import shlex
 
@@ -13,209 +14,68 @@ import logging
 
 logger = logging.getLogger("quadlet-manager.routes")
 router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 async def get_current_user_role():
     return "editor"
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard_view(request: Request):
-    return """
-    <html>
-    <head>
-        <title>QuadletManager Setup</title>
-        <script src="https://unpkg.com/htmx.org@1.9.11"></script>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-        <link rel="stylesheet" href="/static/style.css">
-    </head>
-    <body class="bg-gray-900 text-white flex h-screen overflow-hidden">
-        <div id="navigator" class="w-1/4 bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Servers</h2>
-                <button class="bg-indigo-600 hover:bg-indigo-500 text-xs px-2 py-1 rounded"
-                        hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
-                    + New
-                </button>
-            </div>
-            <div hx-get="/api/servers" hx-trigger="load">Loading servers...</div>
-        </div>
-        
-        <div id="editor-pane" class="w-1/2 flex flex-col border-r border-gray-700">
-            <div class="p-4 bg-gray-800 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Editor</h2>
-                <!-- Buttons injected dynamically when a file is opened -->
-                <div id="editor-actions"></div>
-            </div>
-            <!-- The form that HTMX submits -->
-            <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
-                <input type="hidden" name="server_id" id="hidden-server-id">
-                <input type="hidden" name="file_path" id="hidden-file-path">
-                <input type="hidden" name="scope" id="hidden-scope">
-                <input type="hidden" name="unit_name" id="hidden-unit-name">
-                <textarea name="content" id="hidden-content"></textarea>
-            </form>
-            <div id="editor-container" class="flex-1 bg-gray-950 p-4 font-mono text-sm" contenteditable="true">
-                # Select a file from the navigator...
-            </div>
-        </div>
-        
-        <div id="inspector" class="w-1/4 bg-gray-800 p-4 overflow-y-auto">
-            <h2 class="text-xl font-bold mb-4">Inspector</h2>
-            <div id="status-toast" class="mb-4"></div>
-            
-            <div class="flex space-x-2 mb-2" id="systemctl-actions">
-                <!-- Action buttons loaded dynamically -->
-            </div>
-            
-            <div id="systemd-status" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-48 overflow-y-auto whitespace-pre-wrap">
-                Systemd status will appear here...
-            </div>
-            
-            <!-- Live Container Resource Stats -->
-            <div class="mt-4">
-                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 live-pulse">Container Resources</h3>
-                <div class="bg-gray-950 rounded-lg p-3 border border-gray-700">
-                    <div style="height: 180px; position: relative;">
-                        <canvas id="stats-chart"></canvas>
-                    </div>
-                </div>
-                <div id="stats-table" class="mt-3 bg-gray-950 rounded-lg border border-gray-700 text-xs font-mono text-gray-300 max-h-40 overflow-y-auto">
-                    <div class="p-3 text-gray-500 italic">Waiting for stats data...</div>
-                </div>
-            </div>
-        </div>
-        
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
-        <script src="/static/main.js"></script>
-    </body>
-    </html>
-    """
+async def dashboard_view(request: Request, role: str = Depends(get_current_user_role)):
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "user_role": role
+    })
 
-@router.get("/api/servers")
-async def api_servers():
+@router.get("/api/servers", response_class=HTMLResponse)
+async def api_servers(request: Request):
     async with await get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
             servers = await cursor.fetchall()
             
-    html = '<ul class="space-y-4">'
-    for server in servers:
-        html += f'''
-        <li>
-            <div class="font-bold text-lg mb-1">{server[1]}</div>
-            <div class="pl-4 text-sm" hx-get="/api/quadlets/{server[0]}" hx-trigger="load">
-                Scanning quadlets...
-            </div>
-        </li>'''
-    
-    if not servers:
-        html += '<li class="text-gray-500 italic">No servers configured. Db seeded?</li>'
-    html += '</ul>'
-    return HTMLResponse(html)
+    return templates.TemplateResponse(request, "partials/servers_list.html", {
+        "servers": servers
+    })
 
-@router.get("/api/quadlets/{server_id}")
-async def fetch_quadlet_tree(server_id: int):
+@router.get("/api/quadlets/{server_id}", response_class=HTMLResponse)
+async def fetch_quadlet_tree(request: Request, server_id: int):
     try:
         data = await fetch_all_quadlets(server_id)
-        
-        html = ""
-        for scope in ['global', 'user']:
-            html += f'<div class="font-semibold text-gray-400 mt-2 uppercase text-xs">{scope} Scope</div>'
-            html += '<ul class="space-y-1 mt-1">'
-            if not data[scope]:
-                html += '<li class="text-gray-500 italic text-xs">No files found</li>'
-                
-            for file_info in data[scope]:
-                # Endpoint to load file into editor
-                url = f"/api/file/{server_id}?path={file_info['path']}&scope={scope}&name={file_info['name']}"
-                html += f'''
-                <li>
-                    <button class="text-blue-400 hover:text-blue-300 hover:underline text-left block w-full"
-                            hx-get="{url}" hx-target="#editor-pane" hx-swap="outerHTML">
-                        📄 {file_info['name']}
-                    </button>
-                </li>
-                '''
-            html += '</ul>'
-        return HTMLResponse(html)
+        return templates.TemplateResponse(request, "partials/quadlet_tree.html", {
+            "server_id": server_id,
+            "data": data
+        })
     except Exception as e:
         logger.error(f"Error fetching quadlets: {e}")
-        return HTMLResponse(f"<div class='text-red-500'>Error loading files</div>")
+        return HTMLResponse(f"<div class='text-red-500 text-xs'>Error loading files</div>")
 
-@router.get("/api/file/{server_id}")
-async def fetch_file(server_id: int, path: str, scope: str, name: str):
+@router.get("/api/file/{server_id}", response_class=HTMLResponse)
+async def fetch_file(request: Request, server_id: int, path: str, scope: str, name: str, role: str = Depends(get_current_user_role)):
     use_sudo = (scope == 'global')
     cmd = f"cat {shlex.quote(path)}"
     try:
         content = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
-        # Unit name is derived from filename (e.g. 'nginx.container' -> 'nginx.service')
-        # Though podman auto-generates .service for .container
         base_name = name.rsplit('.', 1)[0]
         unit_name = f"{base_name}.service"
         
-        # We need to swap the editor-pane to re-initialize Monaco with new content,
-        # or we can emit an HTMX event to trigger the existing JS.
-        # Sending JS directly to update the editor is easier for HTMX:
         safe_content = content.replace('`', '\\`').replace('$', '\\$').replace('<', '\\u003c')
-        
-        # Load the right panel systemctl status too
         status_url = f"/api/systemctl/status/{server_id}?unit={unit_name}&scope={scope}"
         
-        return HTMLResponse(f"""
-        <div id="editor-pane" class="w-1/2 flex flex-col border-r border-gray-700">
-            <div class="p-4 bg-gray-800 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Editor: {name}</h2>
-                <div id="editor-actions">
-                    <button id="save-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold"
-                            onclick="document.getElementById('hidden-content').value = window.editor.getValue(); document.getElementById('save-form').dispatchEvent(new Event('submit', {{cancelable: true, bubbles: true}}));">
-                        Save Quadlet
-                    </button>
-                </div>
-            </div>
-            <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
-                <input type="hidden" name="server_id" value="{server_id}">
-                <input type="hidden" name="file_path" value="{path}">
-                <input type="hidden" name="scope" value="{scope}">
-                <input type="hidden" name="unit_name" value="{unit_name}">
-                <textarea name="content" id="hidden-content"></textarea>
-            </form>
-            <div id="editor-container" class="flex-1 bg-gray-950 p-4 font-mono text-sm"></div>
-            
-            <!-- Update the Inspector Pane simultaneously using HTMX OOB Swaps -->
-            <div id="systemctl-actions" hx-swap-oob="true" class="flex space-x-2 mb-2">
-                <button class="bg-green-700 hover:bg-green-600 px-2 py-1 text-xs rounded"
-                        hx-post="/api/systemctl/{server_id}?action=start&unit={unit_name}&scope={scope}" hx-target="#systemd-status">Start</button>
-                <button class="bg-red-700 hover:bg-red-600 px-2 py-1 text-xs rounded"
-                        hx-post="/api/systemctl/{server_id}?action=stop&unit={unit_name}&scope={scope}" hx-target="#systemd-status">Stop</button>
-                <button class="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 text-xs rounded"
-                        hx-post="/api/systemctl/{server_id}?action=restart&unit={unit_name}&scope={scope}" hx-target="#systemd-status">Restart</button>
-            </div>
-            
-            <div id="systemd-status" hx-swap-oob="true" hx-get="{status_url}" hx-trigger="load" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-64 overflow-y-auto whitespace-pre-wrap">
-                Loading status...
-            </div>
-            
-            <script>
-                if (window.editor) {{
-                    window.editor.setValue(`{safe_content}`);
-                }} else {{
-                    require(['vs/editor/editor.main'], function() {{
-                        window.editor = monaco.editor.create(document.getElementById('editor-container'), {{
-                            value: `{safe_content}`,
-                            language: 'ini',
-                            theme: 'vs-dark',
-                            automaticLayout: true
-                        }});
-                    }});
-                }}
-            </script>
-        </div>
-        """)
+        return templates.TemplateResponse(request, "partials/editor_pane.html", {
+            "server_id": server_id,
+            "name": name,
+            "path": path,
+            "scope": scope,
+            "unit_name": unit_name,
+            "safe_content": safe_content,
+            "status_url": status_url,
+            "user_role": role
+        })
     except Exception as e:
         logger.error(f"Error fetching file: {e}")
-        return HTMLResponse("<div class='text-red-500'>Failed to load file content</div>")
+        return HTMLResponse("<div class='text-red-500 p-4'>Failed to load file content</div>")
 
-@router.post("/api/save")
+@router.post("/api/save", response_class=HTMLResponse)
 async def save_file(
+    request: Request,
     server_id: int = Form(...),
     file_path: str = Form(...),
     scope: str = Form(...),
@@ -227,8 +87,6 @@ async def save_file(
         raise HTTPException(status_code=403, detail="Viewer role cannot save files.")
     
     use_sudo = (scope == 'global')
-    # Write to a temporary file via printf, then move to avoid escaping nightmares
-    # But since it's SSH, we can pipe it
     safe_content = shlex.quote(content)
     cmd = f"printf '%s' {safe_content} | "
     if use_sudo:
@@ -237,23 +95,24 @@ async def save_file(
         cmd += f"tee {shlex.quote(file_path)} > /dev/null"
         
     try:
-        await pool.execute_command(server_id, cmd, use_sudo=False) # Sudo is inside the pipe
-        
-        # Do daemon-reload and restart
+        await pool.execute_command(server_id, cmd, use_sudo=False)
         await reload_and_restart(server_id, unit_name, scope)
-        
-        # Fetch updated status
         status_output = await systemctl_action(server_id, "status", unit_name, scope)
         
-        return HTMLResponse(f"""
-        <div class="bg-green-600 p-2 rounded text-sm font-bold toast-enter">Saved & Restarted {unit_name}!</div>
-        <div id="systemd-status" hx-swap-oob="true" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-64 overflow-y-auto whitespace-pre-wrap">{status_output}</div>
-        """)
+        return templates.TemplateResponse(request, "partials/toast.html", {
+            "color": "green",
+            "message": f"Saved & Restarted {unit_name}!",
+            "status_output": status_output
+        })
     except Exception as e:
         logger.error(f"Save failed: {e}")
-        return HTMLResponse(f"<div class='bg-red-600 p-2 rounded text-sm font-bold toast-enter'>Failed to save: {str(e)}</div>")
+        return templates.TemplateResponse(request, "partials/toast.html", {
+            "color": "red",
+            "message": f"Failed to save: {str(e)}",
+            "status_output": None
+        })
 
-@router.get("/api/systemctl/status/{server_id}")
+@router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_status(server_id: int, unit: str, scope: str):
     try:
         output = await systemctl_action(server_id, "status", unit, scope)
@@ -261,14 +120,13 @@ async def api_systemctl_status(server_id: int, unit: str, scope: str):
     except Exception as e:
         return HTMLResponse(str(e))
 
-@router.post("/api/systemctl/{server_id}")
+@router.post("/api/systemctl/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_post(server_id: int, action: str, unit: str, scope: str, role: str = Depends(get_current_user_role)):
     if role != "editor" and action != "status":
         return HTMLResponse("Permission denied", status_code=403)
         
     try:
         await systemctl_action(server_id, action, unit, scope)
-        # Fetch status to show update
         output = await systemctl_action(server_id, "status", unit, scope)
         return HTMLResponse(output)
     except Exception as e:
@@ -276,64 +134,24 @@ async def api_systemctl_post(server_id: int, action: str, unit: str, scope: str,
 
 @router.get("/api/events")
 async def sse_events(request: Request):
-    """EventSource stream for reacting to backend background worker updates."""
     return StreamingResponse(publisher.event_generator(request), media_type="text/event-stream")
 
-@router.get("/api/modal/new")
-async def new_file_modal():
-    """Returns the HTML for the 'New Quadlet' modal."""
-    # Assuming basic templates exist in DB, but realistically we map types here
-    # for simplicity. We need to select the server as well.
+@router.get("/api/modal/new", response_class=HTMLResponse)
+async def new_file_modal(request: Request, role: str = Depends(get_current_user_role)):
+    if role != "editor":
+        return HTMLResponse("<div class='bg-red-600 p-2 rounded'>Permission denied</div>", status_code=403)
+        
     async with await get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
             servers = await cursor.fetchall()
             
-    server_options = "".join([f'<option value="{s[0]}">{s[1]}</option>' for s in servers])
-    
-    html = f"""
-    <div id="new-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-        <div class="bg-gray-800 p-6 rounded-lg w-1/3 shadow-xl">
-            <h2 class="text-xl font-bold mb-4">Create New Quadlet</h2>
-            <form hx-post="/api/create" hx-target="#status-toast" hx-swap="innerHTML" onsubmit="document.getElementById('new-modal').remove()">
-                <div class="mb-4">
-                    <label class="block text-sm mb-1">Target Server</label>
-                    <select name="server_id" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm">
-                        {server_options}
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm mb-1">Scope</label>
-                    <select name="scope" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm">
-                        <option value="user">User (~/.config/containers/systemd)</option>
-                        <option value="global">Global (/etc/containers/systemd)</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm mb-1">Quadlet Type</label>
-                    <select name="type" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm">
-                        <option value="container">.container</option>
-                        <option value="volume">.volume</option>
-                        <option value="network">.network</option>
-                        <option value="pod">.pod</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm mb-1">Name (without extension)</label>
-                    <input type="text" name="name" class="w-full bg-gray-900 border border-gray-700 p-2 rounded text-sm" required placeholder="e.g. webserver">
-                </div>
-                
-                <div class="flex justify-end space-x-2 mt-6">
-                    <button type="button" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" onclick="document.getElementById('new-modal').remove()">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-bold">Create</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    """
-    return HTMLResponse(html)
+    return templates.TemplateResponse(request, "partials/modal_new.html", {
+        "servers": servers
+    })
 
-@router.post("/api/create")
+@router.post("/api/create", response_class=HTMLResponse)
 async def create_new_quadlet(
+    request: Request,
     server_id: int = Form(...),
     scope: str = Form(...),
     type: str = Form(...),
@@ -343,18 +161,15 @@ async def create_new_quadlet(
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot create files.")
         
-    # Fetch template out of DB
     async with await get_db_connection() as db:
         async with db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (type,)) as cursor:
             row = await cursor.fetchone()
             content = row[0] if row else f"[{type.capitalize()}]\n"
             
-    # Assemble Path
     file_name = f"{name}.{type}"
     target_dir = "/etc/containers/systemd" if scope == "global" else "~/.config/containers/systemd"
     file_path = f"{target_dir}/{file_name}"
     
-    # Run the SSH pipe write
     use_sudo = (scope == "global")
     safe_content = shlex.quote(content)
     cmd = f"printf '%s' {safe_content} | "
@@ -364,10 +179,18 @@ async def create_new_quadlet(
         await pool.execute_command(server_id, f"mkdir -p {target_dir}", use_sudo=use_sudo)
         await pool.execute_command(server_id, cmd, use_sudo=False)
         
-        return HTMLResponse(f"<div class='bg-green-600 p-2 rounded text-sm font-bold toast-enter'>Created {file_name}! (Refresh Server to see)</div>")
+        return templates.TemplateResponse(request, "partials/toast.html", {
+            "color": "green",
+            "message": f"Created {file_name}! (Refresh Server to see)",
+            "status_output": None
+        })
     except Exception as e:
         logger.error(f"Failed to create quadlet: {e}")
-        return HTMLResponse(f"<div class='bg-red-600 p-2 rounded text-sm font-bold toast-enter'>Creation Failed.</div>")
+        return templates.TemplateResponse(request, "partials/toast.html", {
+            "color": "red",
+            "message": f"Creation Failed: {str(e)}",
+            "status_output": None
+        })
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
 async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str):

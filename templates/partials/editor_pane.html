@@ -1,0 +1,52 @@
+<div id="editor-pane" class="w-1/2 flex flex-col border-r border-gray-700">
+    <div class="p-4 bg-gray-800 flex justify-between items-center">
+        <h2 class="text-xl font-bold">Editor: {{ name }}</h2>
+        <div id="editor-actions">
+            {% if user_role == 'editor' %}
+            <button id="save-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold"
+                    onclick="document.getElementById('hidden-content').value = window.editor.getValue(); document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));">
+                Save Quadlet
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
+        <input type="hidden" name="server_id" value="{{ server_id }}">
+        <input type="hidden" name="file_path" value="{{ path }}">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        <input type="hidden" name="unit_name" value="{{ unit_name }}">
+        <textarea name="content" id="hidden-content"></textarea>
+    </form>
+    <div id="editor-container" class="flex-1 bg-gray-950 p-4 font-mono text-sm"></div>
+    
+    <!-- Update the Inspector Pane simultaneously using HTMX OOB Swaps -->
+    <div id="systemctl-actions" hx-swap-oob="true" class="flex space-x-2 mb-2">
+        {% if user_role == 'editor' %}
+        <button class="bg-green-700 hover:bg-green-600 px-2 py-1 text-xs rounded"
+                hx-post="/api/systemctl/{{ server_id }}?action=start&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Start</button>
+        <button class="bg-red-700 hover:bg-red-600 px-2 py-1 text-xs rounded"
+                hx-post="/api/systemctl/{{ server_id }}?action=stop&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Stop</button>
+        <button class="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 text-xs rounded"
+                hx-post="/api/systemctl/{{ server_id }}?action=restart&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Restart</button>
+        {% endif %}
+    </div>
+    
+    <div id="systemd-status" hx-swap-oob="true" hx-get="{{ status_url }}" hx-trigger="load" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-64 overflow-y-auto whitespace-pre-wrap">
+        Loading status...
+    </div>
+    
+    <script>
+        if (window.editor) {
+            window.editor.setValue(`{{ safe_content | safe }}`);
+        } else {
+            require(['vs/editor/editor.main'], function() {
+                window.editor = monaco.editor.create(document.getElementById('editor-container'), {
+                    value: `{{ safe_content | safe }}`,
+                    language: 'ini',
+                    theme: 'vs-dark',
+                    automaticLayout: true
+                });
+            });
+        }
+    </script>
+</div>

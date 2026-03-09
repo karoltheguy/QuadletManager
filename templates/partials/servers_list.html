@@ -1,0 +1,12 @@
+<ul class="space-y-4">
+    {% for server in servers %}
+    <li>
+        <div class="font-bold text-lg mb-1">{{ server[1] }}</div>
+        <div class="pl-4 text-sm" hx-get="/api/quadlets/{{ server[0] }}" hx-trigger="load">
+            Scanning quadlets...
+        </div>
+    </li>
+    {% else %}
+    <li class="text-gray-500 italic">No servers configured. Db seeded?</li>
+    {% endfor %}
+</ul>

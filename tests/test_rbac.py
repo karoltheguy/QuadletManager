@@ -2,7 +2,7 @@ import unittest
 from fastapi import HTTPException
 import sys
 import os
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 # Add parent directory to path to import routes
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -16,6 +16,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         
         with self.assertRaises(HTTPException) as context:
             await save_file(
+                request=MagicMock(),
                 server_id=1,
                 file_path="/fake/path",
                 scope="user",
@@ -39,6 +40,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         
         try:
             response = await save_file(
+                request=MagicMock(),
                 server_id=1,
                 file_path="/fake/path",
                 scope="user",
@@ -58,6 +60,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         
         with self.assertRaises(HTTPException) as context:
             await create_new_quadlet(
+                request=MagicMock(),
                 server_id=1,
                 scope="user",
                 type="container",
@@ -87,6 +90,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         
         try:
             response = await create_new_quadlet(
+                request=MagicMock(),
                 server_id=1,
                 scope="user",
                 type="container",
