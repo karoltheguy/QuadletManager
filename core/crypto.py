@@ -5,13 +5,24 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 # Master key must be securely provided via environment variables.
 # For AES-256 it should be 32 bytes (256 bits).
 def get_master_key() -> bytes:
+    from core.config_loader import global_config
     key_hex = os.getenv("QUADLET_MASTER_KEY")
+    if not key_hex and getattr(global_config, "master_key", ""):
+        key_hex = global_config.master_key
+        # Check if the length is a valid hex encoded 256-bit key (64 characters)
+        if len(key_hex) != 64:
+            # Hash it if it's not a proper 256-bit hex key to ensure it works
+            import hashlib
+            key_hex = hashlib.sha256(key_hex.encode()).hexdigest()
+            print("WARNING: Configured master_key is not an explicit 64-char hex string, hashing it.")
+            
     if not key_hex:
         # For development purposes ONLY. In production, fail if missing.
         print("WARNING: Quadlet Manager Master Key not found in Env! Using volatile dev key.")
         dev_key = AESGCM.generate_key(bit_length=256)
         os.environ["QUADLET_MASTER_KEY"] = dev_key.hex()
         return dev_key
+    
     return bytes.fromhex(key_hex)
 
 def encrypt_private_key(private_key: str) -> bytes:

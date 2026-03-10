@@ -58,7 +58,7 @@ async def fetch_server_stats():
             })
 
         except Exception as e:
-            logger.error(f"Error polling stats for server {server_id}: {e}")
+            logger.exception(f"Error polling stats for server {server_id}: {e}")
 
 
 async def stats_engine_loop():
