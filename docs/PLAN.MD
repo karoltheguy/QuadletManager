@@ -22,12 +22,12 @@ Build a self-hosted, agentless web dashboard to manage Podman Quadlets on multip
 * [x] **Collision Avoidance**: Immediately update DB timestamp on Web UI save to prevent false-positive notifications from our own edits.
 
 ## 4. Web UI Features (HTMX + Tailwind)
-* **Layout**: Three-Pane Layout.
+* [x] **Layout**: Three-Pane Layout.
   - Left (Navigator): Server Tree -> Scope -> Files.
   - Center (Editor): Monaco Editor instance.
   - Right (Inspector): `systemctl status` + process resource graphs.
-* **Editor Workflow**: Save triggers `hx-post`. 200 OK triggers HTMX Toast notification and right-panel state refresh.
-* **Templates**: "New File" modal to inject container/volume/network/pod boilerplate.
+* [x] **Editor Workflow**: Save triggers `hx-post`. 200 OK triggers HTMX Toast notification and right-panel state refresh.
+* [x] **Templates**: "New File" modal to inject container/volume/network/pod boilerplate.
 
 ## 5. Monitoring & Logs
 * [x] **Real-time Logs**: WebSocket connection, run `sudo journalctl -u [unit] -f -n 100`. Catch WebSocket disconnects/kill signals to kill remote processes cleanly.
