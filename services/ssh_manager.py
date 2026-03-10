@@ -25,7 +25,7 @@ class SSHConnectionPool:
     async def connect_to_server(self, server_id: int):
         conn = None
         logger.info(f"Establishing new SSH connection to server {server_id}")
-        async with await get_db_connection() as db:
+        async with get_db_connection() as db:
             async with db.execute("""
                 SELECT s.ip_address, s.ssh_user, k.encrypted_private_key 
                 FROM servers s JOIN ssh_keys k ON s.ssh_key_id = k.id 

@@ -69,5 +69,6 @@ async def init_db():
         
         await db.commit()
 
-async def get_db_connection():
-    return await aiosqlite.connect(DATABASE_PATH)
+def get_db_connection():
+    """Return an aiosqlite connection to be used as: async with get_db_connection() as db:"""
+    return aiosqlite.connect(DATABASE_PATH)

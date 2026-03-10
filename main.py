@@ -14,6 +14,9 @@ logger = logging.getLogger("quadlet-manager")
 
 app = FastAPI(title="QuadletManager Dashboard")
 
+# Background task references for clean shutdown
+_background_tasks: list[asyncio.Task] = []
+
 # Mock static files mount to prevent startup crash if missing
 import os
 os.makedirs("static", exist_ok=True)
@@ -29,12 +32,20 @@ async def startup_event():
     await init_db()
     
     # 2. Start the Polling Engine as a background asyncio task
-    asyncio.create_task(polling_engine_loop())
+    _background_tasks.append(asyncio.create_task(polling_engine_loop()))
     
     # 3. Start the Resource Stats Engine as a background asyncio task
-    asyncio.create_task(stats_engine_loop())
+    _background_tasks.append(asyncio.create_task(stats_engine_loop()))
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down QuadletManager backend...")
+    
+    # Cancel background tasks first so they stop making new DB connections
+    for task in _background_tasks:
+        task.cancel()
+    # Wait for tasks to finish cancellation
+    await asyncio.gather(*_background_tasks, return_exceptions=True)
+    _background_tasks.clear()
+    
     await pool.close_all()

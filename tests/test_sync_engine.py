@@ -41,7 +41,7 @@ class TestParseMtime(unittest.IsolatedAsyncioTestCase):
 
 def _make_db_cm(quadlet_rows):
     """Build a single async context manager mock that satisfies:
-        async with await get_db_connection() as db:
+        async with get_db_connection() as db:
             db.row_factory = ...
             async with db.execute(...) as cursor:
                 rows = await cursor.fetchall()
@@ -54,7 +54,7 @@ def _make_db_cm(quadlet_rows):
     this with a custom class.
 
     Returns (mock_db_cm, mock_db) — the CM is what get_db_connection()
-    should return (after await), and mock_db lets tests inspect calls.
+    should return, and mock_db lets tests inspect calls.
     """
     mock_cursor = AsyncMock()
     mock_cursor.fetchall = AsyncMock(return_value=quadlet_rows)

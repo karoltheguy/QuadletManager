@@ -16,7 +16,7 @@ async def parse_mtime(stdout: str) -> int:
 
 async def check_quadlets():
     """Polls all registered quadlets to see if the remote file has been modified."""
-    async with await get_db_connection() as db:
+    async with get_db_connection() as db:
         db.row_factory = lambda cursor, row: {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
         async with db.execute("SELECT id, server_id, file_path, scope, last_known_mtime FROM quadlets") as cursor:
             quadlets = await cursor.fetchall()
@@ -45,7 +45,7 @@ async def check_quadlets():
                     "message": "File modified externally!"
                 })
                 
-                async with await get_db_connection() as db:
+                async with get_db_connection() as db:
                     await db.execute(
                         "UPDATE quadlets SET last_known_mtime = ? WHERE id = ?",
                         (remote_mtime, q['id'])
@@ -57,9 +57,14 @@ async def check_quadlets():
 
 async def polling_engine_loop():
     logger.info("Starting Timestamp Polling background task.")
-    while True:
-        await asyncio.sleep(POLL_INTERVAL_SEC)
-        try:
-            await check_quadlets()
-        except Exception as e:
-            logger.error(f"Polling engine error: {e}")
+    try:
+        while True:
+            await asyncio.sleep(POLL_INTERVAL_SEC)
+            try:
+                await check_quadlets()
+            except asyncio.CancelledError:
+                raise  # Re-raise to exit the loop
+            except Exception as e:
+                logger.error(f"Polling engine error: {e}")
+    except asyncio.CancelledError:
+        logger.info("Polling engine stopped.")

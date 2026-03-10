@@ -29,7 +29,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         msg = context.exception.detail
         self.assertTrue("cannot create files" in msg or "cannot save" in msg)
 
-    @patch('api.routes.get_db_connection', new_callable=AsyncMock)
+    @patch('api.routes.get_db_connection')
     @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
     @patch('api.routes.reload_and_restart', new_callable=AsyncMock)
     @patch('api.routes.systemctl_action', new_callable=AsyncMock)
@@ -80,7 +80,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context.exception.status_code, 403)
         self.assertIn("cannot create files", context.exception.detail)
 
-    @patch('api.routes.get_db_connection', new_callable=AsyncMock)
+    @patch('api.routes.get_db_connection')
     @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
     async def test_editor_can_create(self, mock_execute, mock_db):
         from api.routes import create_new_quadlet

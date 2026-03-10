@@ -108,7 +108,7 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def _make_db_mock(server_rows):
         """Build a mock that satisfies:
-            async with await get_db_connection() as db:
+            async with get_db_connection() as db:
                 async with db.execute(...) as cursor:
                     rows = await cursor.fetchall()
         """
@@ -123,12 +123,12 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
         mock_db = AsyncMock()
         mock_db.execute = MagicMock(return_value=mock_cursor_cm)
 
-        # get_db_connection() is awaited, then used as async CM → returns mock_db
+        # get_db_connection() is now a regular function returning an async CM
         mock_db_cm = AsyncMock()
         mock_db_cm.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_cm.__aexit__ = AsyncMock(return_value=False)
 
-        mock_get_db = AsyncMock(return_value=mock_db_cm)
+        mock_get_db = MagicMock(return_value=mock_db_cm)
         return mock_get_db
 
     @patch("services.stats_engine.publisher")

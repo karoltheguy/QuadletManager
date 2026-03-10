@@ -25,7 +25,7 @@ import hashlib
 security = HTTPBasic()
 
 async def get_current_user_role(credentials: HTTPBasicCredentials = Depends(security)):
-    async with await get_db_connection() as db:
+    async with get_db_connection() as db:
         async with db.execute(
             "SELECT password_hash, role FROM users WHERE username = ?",
             (credentials.username,)
@@ -60,7 +60,7 @@ async def dashboard_view(request: Request, role: str = Depends(get_current_user_
 
 @router.get("/api/servers", response_class=HTMLResponse)
 async def api_servers(request: Request):
-    async with await get_db_connection() as db:
+    async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
             servers = await cursor.fetchall()
             
@@ -141,7 +141,7 @@ async def save_file(
             new_mtime = await parse_mtime(mtime_str)
             content_hash = hashlib.sha256(content.encode()).hexdigest()
             
-            async with await get_db_connection() as db:
+            async with get_db_connection() as db:
                 await db.execute(
                     "UPDATE quadlets SET last_known_mtime = ?, last_content_hash = ? "
                     "WHERE server_id = ? AND file_path = ?",
@@ -194,7 +194,7 @@ async def new_file_modal(request: Request, role: str = Depends(get_current_user_
     if role != "editor":
         return HTMLResponse("<div class='bg-red-600 p-2 rounded'>Permission denied</div>", status_code=403)
         
-    async with await get_db_connection() as db:
+    async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
             servers = await cursor.fetchall()
             
@@ -214,7 +214,7 @@ async def create_new_quadlet(
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot create files.")
         
-    async with await get_db_connection() as db:
+    async with get_db_connection() as db:
         async with db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (type,)) as cursor:
             row = await cursor.fetchone()
             content = row[0] if row else f"[{type.capitalize()}]\n"

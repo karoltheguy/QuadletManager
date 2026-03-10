@@ -25,7 +25,7 @@ def normalize_container_stats(raw: dict) -> dict:
 
 async def fetch_server_stats():
     """Polls all registered servers for Podman stats and pushes via SSE."""
-    async with await get_db_connection() as db:
+    async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
             servers = await cursor.fetchall()
 
@@ -63,9 +63,14 @@ async def fetch_server_stats():
 
 async def stats_engine_loop():
     logger.info("Starting Resource Stats polling background task.")
-    while True:
-        await asyncio.sleep(STATS_INTERVAL_SEC)
-        try:
-            await fetch_server_stats()
-        except Exception as e:
-            logger.error(f"Stats engine error: {e}")
+    try:
+        while True:
+            await asyncio.sleep(STATS_INTERVAL_SEC)
+            try:
+                await fetch_server_stats()
+            except asyncio.CancelledError:
+                raise  # Re-raise to exit the loop
+            except Exception as e:
+                logger.error(f"Stats engine error: {e}")
+    except asyncio.CancelledError:
+        logger.info("Stats engine stopped.")
