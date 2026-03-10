@@ -39,16 +39,15 @@
     
     <script>
         if (window.editor) {
-            window.editor.setValue(`{{ safe_content | safe }}`);
-        } else {
-            require(['vs/editor/editor.main'], function() {
-                window.editor = monaco.editor.create(document.getElementById('editor-container'), {
-                    value: `{{ safe_content | safe }}`,
-                    language: 'ini',
-                    theme: 'vs-dark',
-                    automaticLayout: true
-                });
-            });
+            window.editor.dispose();
         }
+        require(['vs/editor/editor.main'], function() {
+            window.editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: `{{ safe_content | safe }}`,
+                language: 'ini',
+                theme: 'vs-dark',
+                automaticLayout: true
+            });
+        });
     </script>
 </div>
