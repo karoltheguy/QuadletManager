@@ -54,15 +54,26 @@ class SSHConnectionPool:
                 self.connections[server_id] = conn
                 return conn
 
-    async def execute_command(self, server_id: int, command: str, use_sudo: bool = False) -> str:
-        """Executes a command. Prepends sudo if requested."""
+    async def execute_command(self, server_id: int, command: str, use_sudo: bool = False, timeout: float = 30.0) -> str:
+        """Executes a command. Prepends sudo if requested.
+        
+        Args:
+            timeout: Maximum seconds to wait for the command to complete.
+                     Defaults to 30s. Set to None to wait indefinitely (not recommended).
+        """
         if use_sudo:
             command = f"sudo {command}"
             
         conn = await self.get_connection(server_id)
         try:
-            result = await conn.run(command, check=True)
+            result = await asyncio.wait_for(
+                conn.run(command, check=True),
+                timeout=timeout
+            )
             return result.stdout or ""
+        except asyncio.TimeoutError:
+            logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
+            raise Exception(f"Command timed out after {timeout}s: {command}")
         except asyncssh.ProcessError as exc:
             logger.error(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
             raise Exception(f"Command execution failed: {exc.stderr}")
@@ -71,8 +82,15 @@ class SSHConnectionPool:
             logger.warning(f"Connection lost for server {server_id}. Reconnecting...")
             self.connections.pop(server_id, None)
             conn = await self.get_connection(server_id)
-            result = await conn.run(command, check=True)
-            return result.stdout or ""
+            try:
+                result = await asyncio.wait_for(
+                    conn.run(command, check=True),
+                    timeout=timeout
+                )
+                return result.stdout or ""
+            except asyncio.TimeoutError:
+                logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id} (after reconnect)")
+                raise Exception(f"Command timed out after {timeout}s: {command}")
 
     async def close_all(self):
         for conn in self.connections.values():

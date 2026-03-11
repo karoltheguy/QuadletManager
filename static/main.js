@@ -148,9 +148,31 @@ function connectSSE() {
     evtSource.addEventListener('stats_update', function(e) {
         try {
             var data = JSON.parse(e.data);
+            // Clear any error state when we successfully receive stats
+            var tableEl = document.getElementById('stats-table');
+            if (tableEl) tableEl.classList.remove('stats-error');
             updateStats(data);
         } catch (err) {
             console.error('Stats parse error:', err);
+        }
+    });
+
+    // Stats error events (when podman is unreachable/timed out)
+    evtSource.addEventListener('stats_error', function(e) {
+        try {
+            var data = JSON.parse(e.data);
+            var tableEl = document.getElementById('stats-table');
+            if (tableEl) {
+                tableEl.classList.add('stats-error');
+                tableEl.innerHTML = '<div class="p-3 text-red-400">' +
+                    '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
+                    (data.server_name || 'server') + '</div>' +
+                    '<div class="text-xs text-gray-500">' + (data.error || 'Unknown error') + '</div>' +
+                    '<div class="text-xs text-gray-600 mt-1">Will retry automatically…</div>' +
+                    '</div>';
+            }
+        } catch (err) {
+            console.error('Stats error parse error:', err);
         }
     });
 

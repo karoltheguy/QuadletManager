@@ -8,6 +8,7 @@ from core.events_manager import publisher
 logger = logging.getLogger("quadlet-manager.stats")
 
 STATS_INTERVAL_SEC = 5
+STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
 
 
 def normalize_container_stats(raw: dict) -> dict:
@@ -33,9 +34,14 @@ async def fetch_server_stats():
         server_id = server[0]
         server_name = server[1]
         try:
-            # We fetch podman stats as JSON
+            # We fetch podman stats as JSON with a tight timeout.
+            # podman stats --no-stream returns immediately on a healthy system,
+            # but can hang indefinitely if podman's internal DB is locked
+            # (e.g. by a stuck pod rm/create operation).
             cmd = "podman stats --no-stream --format json"
-            stats_json_str = await pool.execute_command(server_id, cmd)
+            stats_json_str = await pool.execute_command(
+                server_id, cmd, timeout=STATS_CMD_TIMEOUT
+            )
 
             if not stats_json_str.strip():
                 # No containers running — push empty update
@@ -58,7 +64,14 @@ async def fetch_server_stats():
             })
 
         except Exception as e:
-            logger.exception(f"Error polling stats for server {server_id}: {e}")
+            logger.error(f"Error polling stats for server {server_id} ({server_name}): {e}")
+            # Publish an error event so the frontend can show feedback
+            # instead of forever displaying "Waiting for stats data..."
+            await publisher.publish("stats_error", {
+                "server_id": server_id,
+                "server_name": server_name,
+                "error": str(e)
+            })
 
 
 async def stats_engine_loop():
