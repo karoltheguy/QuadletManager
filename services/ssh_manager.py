@@ -13,13 +13,17 @@ class SSHConnectionPool:
 
     async def get_connection(self, server_id: int):
         if server_id in self.connections:
-            # Check if connection is still active; if so return it.
-            # Otherwise we'll drop it and reconnect.
             conn = self.connections[server_id]
-            # asyncssh doesn't have an explicit is_active without trying a keepalive 
-            # or checking if writer is closing, but we'll try a basic ping or catch exceptions on use.
-            return conn
-            
+            # Check whether the underlying transport is still open.
+            # asyncssh's SSHClientConnection wraps an asyncio Transport;
+            # if the transport is closing/closed the connection is stale.
+            transport = getattr(conn, '_transport', None)
+            if transport is None or transport.is_closing():
+                logger.info(f"Cached SSH connection for server {server_id} has a closed transport – dropping.")
+                self.connections.pop(server_id, None)
+            else:
+                return conn
+
         return await self.connect_to_server(server_id)
 
     async def connect_to_server(self, server_id: int):
@@ -54,6 +58,52 @@ class SSHConnectionPool:
                 self.connections[server_id] = conn
                 return conn
 
+    async def _run_with_timeout(self, conn, command: str, timeout: float, server_id: int) -> str:
+        """Run a command on the given connection with proper timeout handling.
+
+        Uses create_process() so we get a handle to explicitly kill the remote
+        process when the local timeout fires, preventing orphaned processes from
+        piling up and locking the podman database on the server.
+        """
+        process = await conn.create_process(command)
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=timeout
+            )
+            if process.exit_status and process.exit_status != 0:
+                raise asyncssh.ProcessError(
+                    env=None, command=command,
+                    subsystem=None, exit_status=process.exit_status,
+                    exit_signal=None, returncode=process.exit_status,
+                    stdout=stdout or '', stderr=stderr or ''
+                )
+            return stdout or ""
+        except asyncio.TimeoutError:
+            # Kill the remote process so it doesn't linger on the server
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                process.close()
+            except Exception:
+                pass
+            logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
+            raise Exception(f"Command timed out after {timeout}s: {command}")
+
+    async def _reconnect_and_retry(self, server_id: int, command: str, timeout: float, reason: str) -> str:
+        """Drop the cached connection, reconnect, and retry the command once."""
+        logger.warning(f"{reason} for server {server_id}. Reconnecting...")
+        old_conn = self.connections.pop(server_id, None)
+        if old_conn:
+            try:
+                old_conn.close()
+            except Exception:
+                pass
+        conn = await self.get_connection(server_id)
+        return await self._run_with_timeout(conn, command, timeout, server_id)
+
     async def execute_command(self, server_id: int, command: str, use_sudo: bool = False, timeout: float = 30.0) -> str:
         """Executes a command. Prepends sudo if requested.
         
@@ -66,31 +116,22 @@ class SSHConnectionPool:
             
         conn = await self.get_connection(server_id)
         try:
-            result = await asyncio.wait_for(
-                conn.run(command, check=True),
-                timeout=timeout
-            )
-            return result.stdout or ""
-        except asyncio.TimeoutError:
-            logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
-            raise Exception(f"Command timed out after {timeout}s: {command}")
+            return await self._run_with_timeout(conn, command, timeout, server_id)
         except asyncssh.ProcessError as exc:
             logger.error(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
             raise Exception(f"Command execution failed: {exc.stderr}")
-        except asyncssh.ConnectionLost:
-            # Reconnect once and retry
-            logger.warning(f"Connection lost for server {server_id}. Reconnecting...")
-            self.connections.pop(server_id, None)
-            conn = await self.get_connection(server_id)
-            try:
-                result = await asyncio.wait_for(
-                    conn.run(command, check=True),
-                    timeout=timeout
-                )
-                return result.stdout or ""
-            except asyncio.TimeoutError:
-                logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id} (after reconnect)")
-                raise Exception(f"Command timed out after {timeout}s: {command}")
+        except asyncssh.ChannelOpenError:
+            # The SSH connection is alive at the TCP level but the server
+            # refused to open a new session channel (e.g. stale connection,
+            # server channel limit reached).  Reconnect and retry once.
+            return await self._reconnect_and_retry(
+                server_id, command, timeout, "Channel open failed"
+            )
+        except (asyncssh.ConnectionLost, asyncssh.DisconnectError):
+            # Connection dropped — reconnect once and retry
+            return await self._reconnect_and_retry(
+                server_id, command, timeout, "Connection lost"
+            )
 
     async def close_all(self):
         for conn in self.connections.values():
