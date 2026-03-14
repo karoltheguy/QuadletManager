@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.database import init_db
@@ -13,6 +14,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("quadlet-manager")
 
 app = FastAPI(title="QuadletManager Dashboard")
+
+@app.exception_handler(HTTPException)
+async def redirect_on_auth(request: Request, exc: HTTPException):
+    """Convert 303 auth-redirect exceptions into actual browser redirects."""
+    if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
+        return RedirectResponse(url=exc.headers["Location"], status_code=303)
+    # For all other HTTPExceptions, return the default JSON response
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 # Background task references for clean shutdown
 _background_tasks: list[asyncio.Task] = []

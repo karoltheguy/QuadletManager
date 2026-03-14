@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import hashlib
 import re
@@ -14,44 +14,115 @@ from services.sync_engine import parse_mtime
 from core.events_manager import publisher
 import logging
 
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+import secrets
+
 logger = logging.getLogger("quadlet-manager.routes")
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import secrets
-import hashlib
+# ── Session Configuration ─────────────────────────────────
+# Secret key for signing session cookies
+SESSION_SECRET = secrets.token_hex(32)
+SESSION_MAX_AGE = 3600  # 1 hour
 
-security = HTTPBasic()
+serializer = URLSafeTimedSerializer(SESSION_SECRET)
 
-async def get_current_user_role(credentials: HTTPBasicCredentials = Depends(security)):
+COOKIE_NAME = "qm_session"
+
+
+def _create_session_cookie(username: str, role: str) -> str:
+    """Create a signed session cookie value."""
+    return serializer.dumps({"username": username, "role": role})
+
+
+def _read_session_cookie(cookie_value: str) -> dict | None:
+    """Read and validate a signed session cookie. Returns None if invalid."""
+    try:
+        return serializer.loads(cookie_value, max_age=SESSION_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+async def get_current_user_role(request: Request) -> str:
+    """Extract the user role from the session cookie.
+    Raises HTTPException(303) redirect to /login if not authenticated.
+    """
+    cookie = request.cookies.get(COOKIE_NAME)
+    if not cookie:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+    
+    session = _read_session_cookie(cookie)
+    if not session:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+    
+    return session["role"]
+
+
+async def get_optional_user_role(request: Request) -> str | None:
+    """Same as get_current_user_role but returns None instead of redirecting."""
+    cookie = request.cookies.get(COOKIE_NAME)
+    if not cookie:
+        return None
+    session = _read_session_cookie(cookie)
+    if not session:
+        return None
+    return session["role"]
+
+
+# ── Login / Logout ────────────────────────────────────────
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    # If already logged in, redirect to dashboard
+    role = await get_optional_user_role(request)
+    if role:
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@router.post("/login", response_class=HTMLResponse)
+async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     async with get_db_connection() as db:
         async with db.execute(
             "SELECT password_hash, role FROM users WHERE username = ?",
-            (credentials.username,)
+            (username,)
         ) as cursor:
             row = await cursor.fetchone()
-            
-            if not row:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Incorrect username or password",
-                    headers={"WWW-Authenticate": "Basic"},
-                )
-            
-            stored_hash = row[0]
-            role = row[1]
-            current_hash = hashlib.sha256(credentials.password.encode()).hexdigest()
-            
-            if not secrets.compare_digest(current_hash, stored_hash):
-                raise HTTPException(
-                    status_code=401,
-                    detail="Incorrect username or password",
-                    headers={"WWW-Authenticate": "Basic"},
-                )
-            
-            return role
+    
+    if not row:
+        return templates.TemplateResponse(request, "login.html", {
+            "error": "Invalid username or password"
+        }, status_code=401)
+    
+    stored_hash = row[0]
+    role = row[1]
+    current_hash = hashlib.sha256(password.encode()).hexdigest()
+    
+    if not secrets.compare_digest(current_hash, stored_hash):
+        return templates.TemplateResponse(request, "login.html", {
+            "error": "Invalid username or password"
+        }, status_code=401)
+    
+    # Credentials valid – set session cookie and redirect to dashboard
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=_create_session_cookie(username, role),
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
+
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie(COOKIE_NAME)
+    return response
+
+
+# ── Dashboard ─────────────────────────────────────────────
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_view(request: Request, role: str = Depends(get_current_user_role)):
     return templates.TemplateResponse(request, "dashboard.html", {
