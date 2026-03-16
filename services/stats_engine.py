@@ -8,6 +8,7 @@ from core.events_manager import publisher
 logger = logging.getLogger("quadlet-manager.stats")
 
 STATS_INTERVAL_SEC = 5
+PODMAN_PS_TIMEOUT = 5   # seconds – `podman ps` is near-instant; fail fast if Podman is frozen
 STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
 
 
@@ -34,21 +35,44 @@ async def fetch_server_stats():
         server_id = server[0]
         server_name = server[1]
         try:
-            # We fetch podman stats as JSON with a tight timeout.
-            # podman stats --no-stream returns immediately on a healthy system,
-            # but can hang indefinitely if podman's internal DB is locked
-            # (e.g. by a stuck pod rm/create operation).
-            cmd = "podman stats --no-stream --format json"
+            # Step 1: Get the names of *running* containers only.
+            # Passing no filter to `podman stats --no-stream` probes ALL
+            # containers (including stopped/broken ones), which can cause
+            # Podman to hang waiting for cgroup data that never arrives.
+            # By filtering to running containers first we avoid the hang.
+            running_str = await pool.execute_command(
+                server_id,
+                'podman ps --format "{{.Names}}"',
+                timeout=PODMAN_PS_TIMEOUT,
+            )
+
+            logger.debug(f"podman ps output for server {server_id}: {running_str!r}")
+            running_names = running_str.strip().split() if running_str.strip() else []
+
+            if not running_names:
+                # No containers running — push empty update immediately
+                await publisher.publish("stats_update", {
+                    "server_id": server_id,
+                    "server_name": server_name,
+                    "containers": [],
+                })
+                continue
+
+            # Step 2: Stat only the running containers by name.
+            # This prevents the command from blocking on exited/broken containers.
+            names_arg = " ".join(running_names)
+            cmd = f"podman stats --no-stream --format json {names_arg}"
             stats_json_str = await pool.execute_command(
                 server_id, cmd, timeout=STATS_CMD_TIMEOUT
             )
 
+            logger.debug(f"podman stats output for server {server_id}: {stats_json_str!r}")
+
             if not stats_json_str.strip():
-                # No containers running — push empty update
                 await publisher.publish("stats_update", {
                     "server_id": server_id,
                     "server_name": server_name,
-                    "containers": []
+                    "containers": [],
                 })
                 continue
 
@@ -60,7 +84,7 @@ async def fetch_server_stats():
             await publisher.publish("stats_update", {
                 "server_id": server_id,
                 "server_name": server_name,
-                "containers": containers
+                "containers": containers,
             })
 
         except Exception as e:
@@ -70,7 +94,7 @@ async def fetch_server_stats():
             await publisher.publish("stats_error", {
                 "server_id": server_id,
                 "server_name": server_name,
-                "error": str(e)
+                "error": str(e),
             })
 
 

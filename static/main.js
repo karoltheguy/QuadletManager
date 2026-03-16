@@ -12,6 +12,38 @@ window.addEventListener('resize', function() {
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;
 
+// Track which server the user is currently working in.
+// The stats chart only renders updates for this server.
+// null = show whichever server reports first (auto-set on first update).
+window.activeServerId = null;
+
+// Cache the last-seen data per server so we can re-render immediately
+// when the user switches servers without waiting for the next 5s poll.
+const lastStatsPerServer = {};
+
+// Called from quadlet_tree.html when the user clicks a file button.
+window.setActiveServer = function(serverId) {
+    serverId = parseInt(serverId, 10);
+    if (window.activeServerId === serverId) return;
+    window.activeServerId = serverId;
+    // Re-render immediately with cached data for this server, if we have it.
+    if (lastStatsPerServer[serverId]) {
+        updateStats(lastStatsPerServer[serverId]);
+    } else {
+        // No data yet for this server – show a waiting message.
+        var tableEl = document.getElementById('stats-table');
+        if (tableEl) {
+            tableEl.innerHTML = '<div class="p-3 text-gray-500 italic">Waiting for stats data...</div>';
+        }
+        if (statsChart) {
+            statsChart.data.labels = [];
+            statsChart.data.datasets[0].data = [];
+            statsChart.data.datasets[1].data = [];
+            statsChart.update();
+        }
+    }
+};
+
 function initStatsChart() {
     const ctx = document.getElementById('stats-chart');
     if (!ctx) return;
@@ -148,6 +180,17 @@ function connectSSE() {
     evtSource.addEventListener('stats_update', function(e) {
         try {
             var data = JSON.parse(e.data);
+            // Cache the latest data for this server so we can switch to it instantly.
+            lastStatsPerServer[data.server_id] = data;
+
+            // Auto-select the first server that reports in if nothing is selected yet.
+            if (window.activeServerId === null) {
+                window.activeServerId = data.server_id;
+            }
+
+            // Only update the chart for the currently active server.
+            if (data.server_id !== window.activeServerId) return;
+
             // Clear any error state when we successfully receive stats
             var tableEl = document.getElementById('stats-table');
             if (tableEl) tableEl.classList.remove('stats-error');

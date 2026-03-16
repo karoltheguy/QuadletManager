@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +11,8 @@ from services.stats_engine import stats_engine_loop
 from services.ssh_manager import pool
 from api.routes import router as web_router
 
-logging.basicConfig(level=logging.INFO)
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
 logger = logging.getLogger("quadlet-manager")
 
 app = FastAPI(title="QuadletManager Dashboard")

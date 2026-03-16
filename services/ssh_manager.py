@@ -79,8 +79,11 @@ class SSHConnectionPool:
                     stdout=stdout or '', stderr=stderr or ''
                 )
             return stdout or ""
-        except asyncio.TimeoutError:
-            # Kill the remote process so it doesn't linger on the server
+        except (asyncio.TimeoutError, asyncio.CancelledError) as exc:
+            # Kill the remote process regardless of whether we're timing out or
+            # being cancelled (e.g. app shutdown via Ctrl+C).  Without this,
+            # CancelledError would bypass the cleanup block entirely, leaving
+            # the SSH channel open and making uvicorn loop on shutdown.
             try:
                 process.kill()
             except Exception:
@@ -89,6 +92,8 @@ class SSHConnectionPool:
                 process.close()
             except Exception:
                 pass
+            if isinstance(exc, asyncio.CancelledError):
+                raise  # Let cancellation propagate normally so shutdown works
             logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
             raise Exception(f"Command timed out after {timeout}s: {command}")
 

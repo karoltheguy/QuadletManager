@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -47,7 +48,11 @@ def _read_session_cookie(cookie_value: str) -> dict | None:
 async def get_current_user_role(request: Request) -> str:
     """Extract the user role from the session cookie.
     Raises HTTPException(303) redirect to /login if not authenticated.
+    Set DEV_AUTO_LOGIN=1 to bypass auth entirely during development.
     """
+    if os.getenv("DEV_AUTO_LOGIN") == "1":
+        return "editor"
+
     cookie = request.cookies.get(COOKIE_NAME)
     if not cookie:
         raise HTTPException(status_code=303, headers={"Location": "/login"})
@@ -61,6 +66,9 @@ async def get_current_user_role(request: Request) -> str:
 
 async def get_optional_user_role(request: Request) -> str | None:
     """Same as get_current_user_role but returns None instead of redirecting."""
+    if os.getenv("DEV_AUTO_LOGIN") == "1":
+        return "editor"
+
     cookie = request.cookies.get(COOKIE_NAME)
     if not cookie:
         return None
