@@ -325,5 +325,5 @@ async def create_new_quadlet(
         })
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
-async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str):
-    await stream_logs_over_websocket(websocket, server_id, unit_name)
+async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
+    await stream_logs_over_websocket(websocket, server_id, unit_name, scope)

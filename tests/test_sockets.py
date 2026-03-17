@@ -45,7 +45,7 @@ async def test_stream_logs_over_websocket_disconnect(mock_websocket, monkeypatch
     await stream_logs_over_websocket(mock_websocket, server_id=1, unit_name="my_unit.service")
     
     mock_pool.get_connection.assert_called_once_with(1)
-    mock_conn.create_process.assert_called_once_with("sudo journalctl -u my_unit.service -f -n 100")
+    mock_conn.create_process.assert_called_once_with("journalctl --user -u my_unit.service -f -n 100")
     
     mock_process.terminate.assert_called_once()
     mock_process.wait.assert_awaited_once_with(check=False)

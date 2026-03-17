@@ -27,11 +27,14 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str):
+async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
     await manager.connect(websocket)
     # Start journalctl process on remote server via ssh
     conn = await pool.get_connection(server_id)
-    cmd = f"sudo journalctl -u {unit_name} -f -n 100"
+    if scope == "global":
+        cmd = f"sudo journalctl -u {unit_name} -f -n 100"
+    else:
+        cmd = f"journalctl --user -u {unit_name} -f -n 100"
     
     logger.info(f"Starting log stream for {unit_name} on server {server_id}")
     

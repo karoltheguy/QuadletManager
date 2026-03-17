@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ── Real-time Logs WebSocket ─────────────────────────────
 let currentLogSocket = null;
 
-window.toggleLogs = function(serverId, unitName) {
+window.toggleLogs = function(serverId, unitName, scope) {
     let statusDiv = document.getElementById('systemd-status');
     let btn = document.getElementById('toggle-logs-btn');
 
@@ -281,7 +281,7 @@ window.toggleLogs = function(serverId, unitName) {
     if (btn) btn.classList.replace('bg-blue-700', 'bg-orange-700');
     if (btn) btn.classList.replace('hover:bg-blue-600', 'hover:bg-orange-600');
 
-    const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName;
+    const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
     currentLogSocket = new WebSocket(wsUrl);
 
     currentLogSocket.onmessage = function(event) {
