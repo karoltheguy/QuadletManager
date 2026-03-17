@@ -147,12 +147,14 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
             "BlockIO": "1kB / 2kB",
             "PIDs": "7",
         }])
-        mock_pool.execute_command = AsyncMock(return_value=podman_output)
+        mock_pool.execute_command = AsyncMock(side_effect=["web", podman_output])
         mock_publisher.publish = AsyncMock()
 
         await fetch_server_stats()
 
-        mock_pool.execute_command.assert_called_once_with(1, "podman stats --no-stream --format json")
+        self.assertEqual(mock_pool.execute_command.call_count, 2)
+        mock_pool.execute_command.assert_any_call(1, 'podman ps --format "{{.Names}}"', timeout=5)
+        mock_pool.execute_command.assert_any_call(1, "podman stats --no-stream --format json web", timeout=15)
 
         mock_publisher.publish.assert_called_once()
         call_args = mock_publisher.publish.call_args
@@ -195,7 +197,11 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
 
         await fetch_server_stats()
 
-        mock_publisher.publish.assert_not_called()
+        mock_publisher.publish.assert_called_once_with("stats_error", {
+            "server_id": 3,
+            "server_name": "badbox",
+            "error": "SSH timeout",
+        })
 
     @patch("services.stats_engine.publisher")
     @patch("services.stats_engine.pool")
@@ -209,7 +215,11 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
 
         await fetch_server_stats()
 
-        mock_publisher.publish.assert_not_called()
+        mock_publisher.publish.assert_called_once_with("stats_error", {
+            "server_id": 4,
+            "server_name": "garblebox",
+            "error": "Expecting value: line 1 column 1 (char 0)",
+        })
 
     @patch("services.stats_engine.publisher")
     @patch("services.stats_engine.pool")
@@ -220,7 +230,7 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
 
         stats_a = json.dumps([{"name": "app-a", "cpu_percent": "1%", "mem_percent": "2%"}])
         stats_b = json.dumps([{"name": "app-b", "cpu_percent": "3%", "mem_percent": "4%"}])
-        mock_pool.execute_command = AsyncMock(side_effect=[stats_a, stats_b])
+        mock_pool.execute_command = AsyncMock(side_effect=["app-a", stats_a, "app-b", stats_b])
         mock_publisher.publish = AsyncMock()
 
         await fetch_server_stats()

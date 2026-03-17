@@ -38,16 +38,29 @@
     </div>
     
     <script>
+        // Dispose any previously-running Monaco instance before requesting a new one.
         if (window.editor) {
             window.editor.dispose();
+            window.editor = null;
         }
-        require(['vs/editor/editor.main'], function() {
-            window.editor = monaco.editor.create(document.getElementById('editor-container'), {
-                value: `{{ safe_content | safe }}`,
-                language: 'ini',
-                theme: 'vs-dark',
-                automaticLayout: true
+
+        // Capture the container reference *synchronously* (before require fires) so
+        // that even if Monaco's async callback is delayed, it always writes into the
+        // element that was present when THIS script block ran – not a later swap's
+        // element that happens to share the same ID.
+        (function() {
+            var targetContainer = document.getElementById('editor-container');
+            require(['vs/editor/editor.main'], function() {
+                // Guard: if this container is no longer in the document (i.e. another
+                // click happened and HTMX already replaced this pane), skip init.
+                if (!document.body.contains(targetContainer)) return;
+                window.editor = monaco.editor.create(targetContainer, {
+                    value: `{{ safe_content | safe }}`,
+                    language: 'ini',
+                    theme: 'vs-dark',
+                    automaticLayout: true
+                });
             });
-        });
+        })();
     </script>
 </div>
