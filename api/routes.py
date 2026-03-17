@@ -1,4 +1,3 @@
-import os
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -14,6 +13,7 @@ from services.systemd_manager import systemctl_action, reload_and_restart
 from services.sync_engine import parse_mtime
 from core.events_manager import publisher
 import logging
+from core.config_loader import global_config
 
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import secrets
@@ -48,9 +48,10 @@ def _read_session_cookie(cookie_value: str) -> dict | None:
 async def get_current_user_role(request: Request) -> str:
     """Extract the user role from the session cookie.
     Raises HTTPException(303) redirect to /login if not authenticated.
-    Set DEV_AUTO_LOGIN=1 to bypass auth entirely during development.
+    Set DEV_AUTO_LOGIN=1 or dev_auto_login: true in config.yaml
+    to bypass auth entirely during development.
     """
-    if os.getenv("DEV_AUTO_LOGIN") == "1":
+    if global_config.dev_auto_login:
         return "editor"
 
     cookie = request.cookies.get(COOKIE_NAME)
@@ -66,7 +67,7 @@ async def get_current_user_role(request: Request) -> str:
 
 async def get_optional_user_role(request: Request) -> str | None:
     """Same as get_current_user_role but returns None instead of redirecting."""
-    if os.getenv("DEV_AUTO_LOGIN") == "1":
+    if global_config.dev_auto_login:
         return "editor"
 
     cookie = request.cookies.get(COOKIE_NAME)

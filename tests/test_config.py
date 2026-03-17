@@ -13,7 +13,8 @@ class TestConfigLoader(unittest.TestCase):
         test_data = {
             "master_key": "yaml_secret_key",
             "poll_frequency": 25,
-            "session_timeout": 7200
+            "session_timeout": 7200,
+            "dev_auto_login": True
         }
         
         with open(self.config_path, "w") as f:
@@ -30,6 +31,7 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(config.master_key, "yaml_secret_key")
         self.assertEqual(config.poll_frequency, 25)
         self.assertEqual(config.session_timeout, 7200)
+        self.assertTrue(config.dev_auto_login)
 
     def test_missing_config_fallback(self):
         os.environ["QUADLET_CONFIG_PATH"] = "/nonexistent/config.yaml"
@@ -40,6 +42,8 @@ class TestConfigLoader(unittest.TestCase):
         
         self.assertEqual(config.master_key, "env_fallback_key")
         self.assertEqual(config.poll_frequency, 10)  # Default
+        # Default dev_auto_login follows DEV_AUTO_LOGIN env
+        self.assertFalse(config.dev_auto_login)
 
     def tearDown(self):
         self.test_dir.cleanup()
@@ -47,6 +51,8 @@ class TestConfigLoader(unittest.TestCase):
             del os.environ["QUADLET_CONFIG_PATH"]
         if "QUADLET_MASTER_KEY" in os.environ:
             del os.environ["QUADLET_MASTER_KEY"]
+        if "DEV_AUTO_LOGIN" in os.environ:
+            del os.environ["DEV_AUTO_LOGIN"]
 
 if __name__ == "__main__":
     unittest.main()

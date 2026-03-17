@@ -9,6 +9,9 @@ class AppConfig:
         self.master_key = os.getenv("QUADLET_MASTER_KEY", "")
         self.session_timeout = 3600
         self.poll_frequency = 10
+        # When True, backend skips login and treats all users as 'editor'.
+        # Defaults from DEV_AUTO_LOGIN env, but can be overridden in config.yaml.
+        self.dev_auto_login = os.getenv("DEV_AUTO_LOGIN") == "1"
         self._load_from_yaml()
 
     def _load_from_yaml(self):
@@ -28,6 +31,13 @@ class AppConfig:
                 self.session_timeout = int(data["session_timeout"])
             if "poll_frequency" in data:
                 self.poll_frequency = int(data["poll_frequency"])
+            if "dev_auto_login" in data:
+                # Accept booleans or 0/1 style ints in YAML
+                value = data["dev_auto_login"]
+                if isinstance(value, bool):
+                    self.dev_auto_login = value
+                else:
+                    self.dev_auto_login = str(value) == "1"
                 
             logger.info("Loaded configuration from config.yaml.")
                 
