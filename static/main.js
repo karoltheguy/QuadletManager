@@ -180,6 +180,10 @@ function connectSSE() {
     evtSource.addEventListener('stats_update', function(e) {
         try {
             var data = JSON.parse(e.data);
+            // Mark that we have received at least one update
+            _statsReceived = true;
+            if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
+
             // Cache the latest data for this server so we can switch to it instantly.
             lastStatsPerServer[data.server_id] = data;
 
@@ -248,10 +252,25 @@ function connectSSE() {
 
 
 // ── Initialize on DOM Ready ──────────────────────────────
+// Track whether we've received at least one stats update
+let _statsReceived = false;
+let _statsWaitTimeout = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     initStatsChart();
-    // Wait for the HTML body to be present or just delay SSE slightly if needed
     connectSSE();
+
+    // If no stats arrive within 15s of page load, update the placeholder
+    // so the user isn't left staring at "Waiting for stats data..." forever.
+    _statsWaitTimeout = setTimeout(function() {
+        if (!_statsReceived) {
+            var tableEl = document.getElementById('stats-table');
+            if (tableEl) {
+                tableEl.innerHTML = '<div class="p-3 text-yellow-400 italic">' +
+                    'No stats received yet — verify server connectivity.</div>';
+            }
+        }
+    }, 15000);
 });
 
 // ── Real-time Logs WebSocket ─────────────────────────────

@@ -11,6 +11,11 @@ STATS_INTERVAL_SEC = 5
 PODMAN_PS_TIMEOUT = 5   # seconds – `podman ps` is near-instant; fail fast if Podman is frozen
 STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
 
+# Rootless podman over non-interactive SSH needs XDG_RUNTIME_DIR so it can
+# locate the user session (socket, cgroup delegates, etc.).  Without this
+# the command either hangs or silently returns nothing.
+ROOTLESS_ENV_PREFIX = 'XDG_RUNTIME_DIR=/run/user/$(id -u)'
+
 
 def normalize_container_stats(raw: dict) -> dict:
     """Normalize podman stats JSON keys across different Podman versions."""
@@ -25,6 +30,46 @@ def normalize_container_stats(raw: dict) -> dict:
     }
 
 
+async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
+    """Fetch container stats for one scope (rootful or rootless).
+
+    Returns a list of normalised container dicts, or an empty list on error.
+    """
+    if rootful:
+        ps_cmd = 'sudo podman ps --format "{{.Names}}"'
+        stats_prefix = "sudo podman stats"
+    else:
+        ps_cmd = f'{ROOTLESS_ENV_PREFIX} podman ps --format "{{{{.Names}}}}"'
+        stats_prefix = f"{ROOTLESS_ENV_PREFIX} podman stats"
+
+    try:
+        running_str = await pool.execute_command(
+            server_id, ps_cmd, timeout=PODMAN_PS_TIMEOUT,
+        )
+        running_names = running_str.strip().split() if running_str.strip() else []
+        if not running_names:
+            return []
+
+        names_arg = " ".join(running_names)
+        cmd = f"{stats_prefix} --no-stream --format json {names_arg}"
+        stats_json_str = await pool.execute_command(
+            server_id, cmd, timeout=STATS_CMD_TIMEOUT,
+        )
+
+        if not stats_json_str.strip():
+            return []
+
+        stats_data = json.loads(stats_json_str)
+        return [normalize_container_stats(c) for c in stats_data]
+
+    except Exception as e:
+        scope_label = "global" if rootful else "user"
+        logger.warning(
+            f"Could not fetch {scope_label}-scope stats for server {server_id}: {e}"
+        )
+        return []
+
+
 async def fetch_server_stats():
     """Polls all registered servers for Podman stats and pushes via SSE."""
     async with get_db_connection() as db:
@@ -35,51 +80,14 @@ async def fetch_server_stats():
         server_id = server[0]
         server_name = server[1]
         try:
-            # Step 1: Get the names of *running* containers only.
-            # Passing no filter to `podman stats --no-stream` probes ALL
-            # containers (including stopped/broken ones), which can cause
-            # Podman to hang waiting for cgroup data that never arrives.
-            # By filtering to running containers first we avoid the hang.
-            running_str = await pool.execute_command(
-                server_id,
-                'podman ps --format "{{.Names}}"',
-                timeout=PODMAN_PS_TIMEOUT,
+            # Fetch both rootless (user) and rootful (global) containers,
+            # then merge into a single update so the frontend shows all.
+            user_containers, global_containers = await asyncio.gather(
+                _fetch_scope_stats(server_id, rootful=False),
+                _fetch_scope_stats(server_id, rootful=True),
             )
 
-            logger.debug(f"podman ps output for server {server_id}: {running_str!r}")
-            running_names = running_str.strip().split() if running_str.strip() else []
-
-            if not running_names:
-                # No containers running — push empty update immediately
-                await publisher.publish("stats_update", {
-                    "server_id": server_id,
-                    "server_name": server_name,
-                    "containers": [],
-                })
-                continue
-
-            # Step 2: Stat only the running containers by name.
-            # This prevents the command from blocking on exited/broken containers.
-            names_arg = " ".join(running_names)
-            cmd = f"podman stats --no-stream --format json {names_arg}"
-            stats_json_str = await pool.execute_command(
-                server_id, cmd, timeout=STATS_CMD_TIMEOUT
-            )
-
-            logger.debug(f"podman stats output for server {server_id}: {stats_json_str!r}")
-
-            if not stats_json_str.strip():
-                await publisher.publish("stats_update", {
-                    "server_id": server_id,
-                    "server_name": server_name,
-                    "containers": [],
-                })
-                continue
-
-            stats_data = json.loads(stats_json_str)
-
-            # Normalize across Podman versions for a stable frontend contract
-            containers = [normalize_container_stats(c) for c in stats_data]
+            containers = user_containers + global_containers
 
             await publisher.publish("stats_update", {
                 "server_id": server_id,

@@ -2,7 +2,12 @@ import json
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.stats_engine import normalize_container_stats, fetch_server_stats
+from services.stats_engine import (
+    normalize_container_stats,
+    fetch_server_stats,
+    _fetch_scope_stats,
+    ROOTLESS_ENV_PREFIX,
+)
 
 
 class TestNormalizeContainerStats(unittest.TestCase):
@@ -102,6 +107,78 @@ class TestNormalizeContainerStats(unittest.TestCase):
         self.assertEqual(set(result.keys()), expected_keys)
 
 
+class TestFetchScopeStats(unittest.IsolatedAsyncioTestCase):
+    """Tests for the new _fetch_scope_stats() helper."""
+
+    @patch("services.stats_engine.pool")
+    async def test_rootless_commands_include_env_prefix(self, mock_pool):
+        """Rootless (user) scope must prefix commands with XDG_RUNTIME_DIR."""
+        stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
+        mock_pool.execute_command = AsyncMock(side_effect=["app", stats_json])
+
+        result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["name"], "app")
+
+        # Verify the ps command includes the env prefix
+        ps_call = mock_pool.execute_command.call_args_list[0]
+        self.assertIn(ROOTLESS_ENV_PREFIX, ps_call[0][1])
+        self.assertNotIn("sudo", ps_call[0][1])
+
+        # Verify the stats command also includes the env prefix
+        stats_call = mock_pool.execute_command.call_args_list[1]
+        self.assertIn(ROOTLESS_ENV_PREFIX, stats_call[0][1])
+        self.assertNotIn("sudo", stats_call[0][1])
+
+    @patch("services.stats_engine.pool")
+    async def test_rootful_commands_use_sudo(self, mock_pool):
+        """Global (rootful) scope must use sudo, not the env prefix."""
+        stats_json = json.dumps([{"Name": "system-app", "CPUPerc": "5%", "MemPerc": "10%"}])
+        mock_pool.execute_command = AsyncMock(side_effect=["system-app", stats_json])
+
+        result = await _fetch_scope_stats(server_id=1, rootful=True)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["name"], "system-app")
+
+        # Verify sudo is used
+        ps_call = mock_pool.execute_command.call_args_list[0]
+        self.assertIn("sudo", ps_call[0][1])
+
+        stats_call = mock_pool.execute_command.call_args_list[1]
+        self.assertIn("sudo", stats_call[0][1])
+
+    @patch("services.stats_engine.pool")
+    async def test_no_running_containers_returns_empty(self, mock_pool):
+        """If podman ps returns nothing, we get an empty list (no crash)."""
+        mock_pool.execute_command = AsyncMock(return_value="  \n")
+
+        result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+        self.assertEqual(result, [])
+        # Only one call (ps), no stats call needed
+        self.assertEqual(mock_pool.execute_command.call_count, 1)
+
+    @patch("services.stats_engine.pool")
+    async def test_ssh_error_returns_empty_list(self, mock_pool):
+        """SSH errors are caught and logged; an empty list is returned."""
+        mock_pool.execute_command = AsyncMock(side_effect=Exception("Connection refused"))
+
+        result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+        self.assertEqual(result, [])
+
+    @patch("services.stats_engine.pool")
+    async def test_invalid_json_returns_empty_list(self, mock_pool):
+        """If podman stats returns garbage, we return an empty list."""
+        mock_pool.execute_command = AsyncMock(side_effect=["app", "not json"])
+
+        result = await _fetch_scope_stats(server_id=1, rootful=True)
+
+        self.assertEqual(result, [])
+
+
 class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
     """Tests for fetch_server_stats() with mocked SSH pool, DB, and publisher."""
 
@@ -132,29 +209,22 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
         return mock_get_db
 
     @patch("services.stats_engine.publisher")
-    @patch("services.stats_engine.pool")
+    @patch("services.stats_engine._fetch_scope_stats")
     @patch("services.stats_engine.get_db_connection")
-    async def test_publishes_normalized_stats(self, mock_get_db, mock_pool, mock_publisher):
-        """Verifies the full flow: DB query → SSH command → normalize → publish."""
+    async def test_merges_user_and_global_containers(self, mock_get_db, mock_fetch, mock_publisher):
+        """fetch_server_stats should merge rootless + rootful containers."""
         mock_get_db.side_effect = self._make_db_mock([(1, "testbox")])
 
-        podman_output = json.dumps([{
-            "Name": "web",
-            "CPUPerc": "3.21%",
-            "MemPerc": "8.50%",
-            "MemUsage": "256MiB / 4GiB",
-            "NetIO": "12kB / 5kB",
-            "BlockIO": "1kB / 2kB",
-            "PIDs": "7",
-        }])
-        mock_pool.execute_command = AsyncMock(side_effect=["web", podman_output])
+        user_containers = [{"name": "user-app", "cpu": "1%", "mem": "2%",
+                            "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
+        global_containers = [{"name": "system-svc", "cpu": "3%", "mem": "4%",
+                              "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "2"}]
+
+        # _fetch_scope_stats is called twice: once rootful=False, once rootful=True
+        mock_fetch.side_effect = [user_containers, global_containers]
         mock_publisher.publish = AsyncMock()
 
         await fetch_server_stats()
-
-        self.assertEqual(mock_pool.execute_command.call_count, 2)
-        mock_pool.execute_command.assert_any_call(1, 'podman ps --format "{{.Names}}"', timeout=5)
-        mock_pool.execute_command.assert_any_call(1, "podman stats --no-stream --format json web", timeout=15)
 
         mock_publisher.publish.assert_called_once()
         call_args = mock_publisher.publish.call_args
@@ -163,18 +233,19 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
         payload = call_args[0][1]
         self.assertEqual(payload["server_id"], 1)
         self.assertEqual(payload["server_name"], "testbox")
-        self.assertEqual(len(payload["containers"]), 1)
-        self.assertEqual(payload["containers"][0]["name"], "web")
-        self.assertEqual(payload["containers"][0]["cpu"], "3.21%")
+        self.assertEqual(len(payload["containers"]), 2)
+        names = [c["name"] for c in payload["containers"]]
+        self.assertIn("user-app", names)
+        self.assertIn("system-svc", names)
 
     @patch("services.stats_engine.publisher")
-    @patch("services.stats_engine.pool")
+    @patch("services.stats_engine._fetch_scope_stats")
     @patch("services.stats_engine.get_db_connection")
-    async def test_empty_stats_output_publishes_empty_list(self, mock_get_db, mock_pool, mock_publisher):
-        """When podman returns empty output (no containers), we still publish an empty update."""
+    async def test_empty_both_scopes_publishes_empty(self, mock_get_db, mock_fetch, mock_publisher):
+        """When no containers run in either scope, publish empty update."""
         mock_get_db.side_effect = self._make_db_mock([(2, "emptybox")])
 
-        mock_pool.execute_command = AsyncMock(return_value="   \n")
+        mock_fetch.side_effect = [[], []]
         mock_publisher.publish = AsyncMock()
 
         await fetch_server_stats()
@@ -182,17 +253,17 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
         mock_publisher.publish.assert_called_once_with("stats_update", {
             "server_id": 2,
             "server_name": "emptybox",
-            "containers": []
+            "containers": [],
         })
 
     @patch("services.stats_engine.publisher")
-    @patch("services.stats_engine.pool")
+    @patch("services.stats_engine._fetch_scope_stats")
     @patch("services.stats_engine.get_db_connection")
-    async def test_ssh_error_does_not_crash(self, mock_get_db, mock_pool, mock_publisher):
-        """If SSH fails for a server, the function logs the error but doesn't raise."""
+    async def test_gather_exception_publishes_error(self, mock_get_db, mock_fetch, mock_publisher):
+        """If the gather itself raises, we publish a stats_error event."""
         mock_get_db.side_effect = self._make_db_mock([(3, "badbox")])
 
-        mock_pool.execute_command = AsyncMock(side_effect=ConnectionError("SSH timeout"))
+        mock_fetch.side_effect = Exception("something broke")
         mock_publisher.publish = AsyncMock()
 
         await fetch_server_stats()
@@ -200,37 +271,22 @@ class TestFetchServerStats(unittest.IsolatedAsyncioTestCase):
         mock_publisher.publish.assert_called_once_with("stats_error", {
             "server_id": 3,
             "server_name": "badbox",
-            "error": "SSH timeout",
+            "error": "something broke",
         })
 
     @patch("services.stats_engine.publisher")
-    @patch("services.stats_engine.pool")
+    @patch("services.stats_engine._fetch_scope_stats")
     @patch("services.stats_engine.get_db_connection")
-    async def test_invalid_json_does_not_crash(self, mock_get_db, mock_pool, mock_publisher):
-        """If podman returns garbage, we log the error but don't crash."""
-        mock_get_db.side_effect = self._make_db_mock([(4, "garblebox")])
-
-        mock_pool.execute_command = AsyncMock(return_value="not valid json {{{")
-        mock_publisher.publish = AsyncMock()
-
-        await fetch_server_stats()
-
-        mock_publisher.publish.assert_called_once_with("stats_error", {
-            "server_id": 4,
-            "server_name": "garblebox",
-            "error": "Expecting value: line 1 column 1 (char 0)",
-        })
-
-    @patch("services.stats_engine.publisher")
-    @patch("services.stats_engine.pool")
-    @patch("services.stats_engine.get_db_connection")
-    async def test_multiple_servers_each_publish(self, mock_get_db, mock_pool, mock_publisher):
+    async def test_multiple_servers_each_publish(self, mock_get_db, mock_fetch, mock_publisher):
         """When multiple servers exist, stats are fetched and published for each."""
         mock_get_db.side_effect = self._make_db_mock([(1, "server-a"), (2, "server-b")])
 
-        stats_a = json.dumps([{"name": "app-a", "cpu_percent": "1%", "mem_percent": "2%"}])
-        stats_b = json.dumps([{"name": "app-b", "cpu_percent": "3%", "mem_percent": "4%"}])
-        mock_pool.execute_command = AsyncMock(side_effect=["app-a", stats_a, "app-b", stats_b])
+        # Each server gets two _fetch_scope_stats calls (user + global)
+        containers_a = [{"name": "app-a", "cpu": "1%", "mem": "2%",
+                         "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
+        containers_b = [{"name": "app-b", "cpu": "3%", "mem": "4%",
+                         "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
+        mock_fetch.side_effect = [containers_a, [], [], containers_b]
         mock_publisher.publish = AsyncMock()
 
         await fetch_server_stats()
