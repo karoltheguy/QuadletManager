@@ -18,7 +18,7 @@
             </button>
             {% endif %}
         </div>
-        <div hx-get="/api/servers" hx-trigger="load">Loading servers...</div>
+        <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body">Loading servers...</div>
     </div>
     
     <div id="editor-pane" class="w-1/2 flex flex-col border-r border-gray-700">

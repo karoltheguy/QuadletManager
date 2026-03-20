@@ -312,11 +312,13 @@ async def create_new_quadlet(
         await pool.execute_command(server_id, f"mkdir -p {target_dir}", use_sudo=use_sudo)
         await pool.execute_command(server_id, cmd, use_sudo=False)
         
-        return templates.TemplateResponse(request, "partials/toast.html", {
+        response = templates.TemplateResponse(request, "partials/toast.html", {
             "color": "green",
-            "message": f"Created {file_name}! (Refresh Server to see)",
+            "message": f"Created {file_name}!",
             "status_output": None
         })
+        response.headers["HX-Trigger"] = "reload-servers"
+        return response
     except Exception as e:
         logger.error(f"Failed to create quadlet: {e}")
         return templates.TemplateResponse(request, "partials/toast.html", {

@@ -108,6 +108,7 @@ class TestRBAC(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(response.status_code, 200)
             self.assertIn("Created", response.body.decode())
+            self.assertEqual(response.headers.get("HX-Trigger"), "reload-servers")
         except HTTPException:
             self.fail("Editor role raised HTTPException unexpectedly")
 
