@@ -22,38 +22,38 @@ QuadletManager is a self-hosted, agentless web dashboard for managing Podman Qua
 
 ### High-Level Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              QuadletManager                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │   Browser   │◄──►│   FastAPI   │◄──►│   SQLite    │                     │
-│  │  (HTMX/JS)  │    │   Server    │    │  Database   │                     │
-│  └─────────────┘    └──────┬──────┘    └─────────────┘                     │
-│                            │                                                 │
-│         ┌──────────────────┼──────────────────┐                            │
-│         │                  │                  │                             │
-│         ▼                  ▼                  ▼                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │Sync Engine  │    │Stats Engine │    │SSH Manager  │                     │
-│  │ (Polling)   │    │ (Polling)   │    │  (Pool)     │                     │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                     │
-│         │                  │                  │                             │
-└─────────┼──────────────────┼──────────────────┼─────────────────────────────┘
-          │                  │                  │
-          ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Remote Linux Servers                                │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐                   │
-│  │   Server 1    │  │   Server 2    │  │   Server N    │                   │
-│  │  (systemd +   │  │  (systemd +   │  │  (systemd +   │                   │
-│  │   podman)     │  │   podman)     │  │   podman)     │                   │
-│  └───────────────┘  └───────────────┘  └───────────────┘                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Key Design Principles
+```mermaid
+flowchart TB
+    subgraph QM["QuadletManager"]
+        Browser["Browser\n(HTMX/JS)"]
+        FastAPI["FastAPI\nServer"]
+        SQLite["SQLite\nDatabase"]
+        
+        Browser <--> FastAPI
+        FastAPI <--> SQLite
+        
+        SyncEngine["Sync Engine\n(Polling)"]
+        StatsEngine["Stats Engine\n(Polling)"]
+        SSHManager["SSH Manager\n(Pool)"]
+        
+        FastAPI --> SyncEngine
+        FastAPI --> StatsEngine
+        FastAPI --> SSHManager
+    end
+    
+    subgraph Remote["Remote Linux Servers"]
+        Server1["Server 1\n(systemd + podman)"]
+        Server2["Server 2\n(systemd + podman)"]
+        ServerN["Server N\n(systemd + podman)"]
+    end
+    
+    SyncEngine --> Remote
+    StatsEngine --> Remote
+    SSHManager --> Remote
+    end
+    ```
+    
+    ### Key Design Principles
 
 - **Agentless**: No software installed on managed servers; all operations via SSH
 - **Event-Driven**: Real-time UI updates via Server-Sent Events (SSE)
@@ -125,20 +125,41 @@ SSH connection pool implementation:
 
 ### Three-Pane Layout
 
-```
-┌──────────────┬────────────────────────┬──────────────┐
-│   Navigator  │        Editor          │   Inspector  │
-│   (Servers)  │      (Monaco)          │  (Status +   │
-│              │                        │   Stats)     │
-│  ┌────────┐  │  ┌──────────────────┐  │  ┌─────────┐ │
-│  │Server 1│  │  │ [Container]      │  │  │ Status  │ │
-│  │ ├ global│  │  │ Image=nginx      │  │  │ Output  │ │
-│  │ │ └ file│  │  │ Network=host     │  │  │         │ │
-│  │ └ user  │  │  │                  │  │  │ [Chart] │ │
-│  │   └ file│  │  │                  │  │  │         │ │
-│  └────────┘  │  └──────────────────┘  │  │ [Table] │ │
-│              │                        │  └─────────┘ │
-└──────────────┴────────────────────────┴──────────────┘
+```mermaid
+block-beta
+    columns 3
+    block:nav:1
+        columns 1
+        A["Navigator (Servers)"]
+        B["┌────────┐"]
+        C["│Server 1│"]
+        D["│ ├ global│"]
+        E["│ │ └ file│"]
+        F["│ └ user │"]
+        G["│ └ file│"]
+        H["└────────┘"]
+    end
+    block:edit:1
+        columns 1
+        I["Editor (Monaco)"]
+        J["┌──────────────────┐"]
+        K["│ [Container] │"]
+        L["│ Image=nginx │"]
+        M["│ Network=host │"]
+        N["│ │"]
+        O["└──────────────────┘"]
+    end
+    block:insp:1
+        columns 1
+        P["Inspector (Status + Stats)"]
+        Q["┌─────────┐"]
+        R["│ Status │"]
+        S["│ Output │"]
+        T["│ │"]
+        U["│ [Chart] │"]
+        V["│ [Table] │"]
+        W["└─────────┘"]
+    end
 ```
 
 ### Key Files
@@ -206,14 +227,11 @@ CREATE TABLE templates (
 
 ### Entity Relationships
 
-```
-users ─────┐
-           │ (authentication)
-           ▼
-servers ───┬──► ssh_keys (encrypted)
-           │
-           ▼
-quadlets ──┘ (tracks files per server)
+```mermaid
+erDiagram
+    users ||--o{ servers : "authentication"
+    servers ||--o{ quadlets : "tracks files per server"
+    servers }o--|| ssh_keys : "encrypted"
 ```
 
 ---
@@ -228,12 +246,10 @@ quadlets ──┘ (tracks files per server)
 
 ### SSH Key Protection
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Master Key     │     │  AES-256-GCM    │     │  Encrypted      │
-│  (env/config)   │────►│  Encryption     │────►│  Private Key    │
-│                 │     │                 │     │  (in SQLite)    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+```mermaid
+flowchart LR
+    A["Master Key\n(env/config)"] --> B["AES-256-GCM\nEncryption"]
+    B --> C["Encrypted\nPrivate Key\n(in SQLite)"]
 ```
 
 - Master key stored in environment variable or config file
@@ -307,37 +323,49 @@ Real-time log streaming via `journalctl -f`:
 
 ### Sync Engine ([`services/sync_engine.py`](services/sync_engine.py))
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Sync Engine Loop                         │
-├─────────────────────────────────────────────────────────────┤
-│  Every 10 seconds:                                          │
-│  1. Query all quadlets from database                        │
-│  2. For each quadlet:                                       │
-│     a. Execute: stat -c %Y [file_path]                      │
-│     b. Compare remote mtime with last_known_mtime           │
-│     c. If newer:                                            │
-│        - Fetch content via cat                              │
-│        - Emit SSE "file_changed" event                      │
-│        - Update last_known_mtime in database                │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph SyncLoop["Sync Engine Loop (Every 10 seconds)"]
+        A["1. Query all quadlets from database"]
+        B["2. For each quadlet:"]
+        C["a. Execute: stat -c %Y [file_path]"]
+        D["b. Compare remote mtime with last_known_mtime"]
+        E{"c. If newer:"}
+        F["- Fetch content via cat"]
+        G["- Emit SSE 'file_changed' event"]
+        H["- Update last_known_mtime in database"]
+        
+        A --> B
+        B --> C
+        C --> D
+        D --> E
+        E -->|Yes| F
+        F --> G
+        G --> H
+        E -->|No| B
+    end
 ```
 
 ### Stats Engine ([`services/stats_engine.py`](services/stats_engine.py))
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Stats Engine Loop                        │
-├─────────────────────────────────────────────────────────────┤
-│  Every 5 seconds:                                           │
-│  1. Query all servers from database                         │
-│  2. For each server:                                        │
-│     a. Execute: podman ps --format "{{.Names}}"             │
-│     b. Execute: podman stats --no-stream --format json      │
-│     c. Normalize and parse JSON                             │
-│     d. Emit SSE "stats_update" event                        │
-│  Handles both rootless and rootful containers               │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph StatsLoop["Stats Engine Loop (Every 5 seconds)"]
+        A["1. Query all servers from database"]
+        B["2. For each server:"]
+        C["a. Execute: podman ps --format '{{.Names}}'"]
+        D["b. Execute: podman stats --no-stream --format json"]
+        E["c. Normalize and parse JSON"]
+        F["d. Emit SSE 'stats_update' event"]
+        G["Handles both rootless and rootful containers"]
+        
+        A --> B
+        B --> C
+        C --> D
+        D --> E
+        E --> F
+        F --> G
+    end
 ```
 
 ---
