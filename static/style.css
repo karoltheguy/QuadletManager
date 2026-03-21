@@ -161,6 +161,11 @@ body.view-dashboard #editor-pane,
 body.view-dashboard #settings-pane,
 body.view-dashboard #resize-handle-right { display: none !important; }
 
+body.view-dashboard #inspector {
+    flex: 1;
+    max-width: none;
+}
+
 body.view-editor #inspector,
 body.view-editor #settings-pane,
 body.view-editor #resize-handle-right { display: none !important; }

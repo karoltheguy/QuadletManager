@@ -291,6 +291,7 @@ function initResizableHandles() {
                 var delta = e.clientX - startX;
                 var newPx = Math.min(maxPx, Math.max(minPx, startPx + delta));
                 document.documentElement.style.setProperty(cssVar, newPx + 'px');
+                if (statsChart) statsChart.resize();
             }
 
             function onUp() {
@@ -306,6 +307,7 @@ function initResizableHandles() {
 
                 // Re-layout Monaco if open
                 if (window.editor) window.editor.layout();
+                if (statsChart) statsChart.resize();
             }
 
             document.addEventListener('mousemove', onMove);
@@ -341,6 +343,7 @@ function initResizableHandles() {
                 var delta = startX - e.clientX;   // dragging left widens inspector
                 var newPx = Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, startPx + delta));
                 document.documentElement.style.setProperty('--inspector-width', newPx + 'px');
+                if (statsChart) statsChart.resize();
             }
 
             function onUp() {
@@ -352,6 +355,7 @@ function initResizableHandles() {
                     .getPropertyValue('--inspector-width').trim();
                 localStorage.setItem('qm-inspector-width', finalPx);
                 if (window.editor) window.editor.layout();
+                if (statsChart) statsChart.resize();
             }
 
             document.addEventListener('mousemove', onMove);
