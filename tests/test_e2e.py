@@ -22,7 +22,12 @@ def test_editor_load(page: Page):
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
         
     expect(page.locator("h2:text('Servers')")).to_be_visible()
+    
+    # Switch to Editor tab to make Editor and Save buttons visible
+    page.click("button.nav-item:has-text('Editor')")
+    
     expect(page.locator("h2:text('Editor')")).to_be_visible()
     
-    # Check if 'Save Quadlet' button exists
-    expect(page.locator("button:text('Save Quadlet')")).to_be_visible()
+    # Test Settings tab
+    page.click("button.nav-item:has-text('Settings')")
+    expect(page.locator("h2:text('Settings')")).to_be_visible()

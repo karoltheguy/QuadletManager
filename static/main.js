@@ -256,7 +256,23 @@ function connectSSE() {
 let _statsReceived = false;
 let _statsWaitTimeout = null;
 
+window.switchTab = function(tabId) {
+    document.body.className = 'view-' + tabId;
+    document.querySelectorAll('.nav-item').forEach(function(btn) {
+        if (btn.innerText.toLowerCase() === tabId) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    // Trigger resize for Monaco
+    if (tabId === 'editor' && window.editor) {
+        window.editor.layout();
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
+    window.switchTab('dashboard');
     initStatsChart();
     connectSSE();
 

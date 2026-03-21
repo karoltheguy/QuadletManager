@@ -29,18 +29,66 @@ body {
     background-color: var(--bg-base);
     color: var(--text-primary);
     display: flex;
+    flex-direction: column;
     height: 100vh;
     overflow: hidden;
+}
+
+/* Top Nav */
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    height: 48px;
+}
+
+.nav-brand {
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--text-primary);
+    letter-spacing: 0.05em;
+}
+
+.nav-links {
+    display: flex;
+    height: 100%;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 0 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    height: 100%;
+}
+
+.nav-item:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-element);
+}
+
+.nav-item.active {
+    color: var(--brand-primary);
+    border-bottom-color: var(--brand-primary);
 }
 
 /* Base structural classes */
 .app-container {
     display: flex;
     width: 100%;
+    flex: 1;
+    overflow: hidden;
 }
 
 .sidebar {
-    width: 25%;
+    width: 300px;
     background-color: var(--bg-surface);
     border-right: 1px solid var(--border-color);
     padding: 1rem;
@@ -49,12 +97,36 @@ body {
     flex-direction: column;
 }
 
-.main-content {
-    width: 50%;
+.main-content, .inspector-panel, .settings-pane {
+    flex: 1;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+}
+
+.main-content {
     border-right: 1px solid var(--border-color);
 }
+
+.inspector-panel {
+    background-color: var(--bg-surface);
+    padding: 1rem;
+}
+
+.settings-pane {
+    padding: 1.5rem;
+}
+
+/* View Control Classes */
+body.view-dashboard #editor-pane,
+body.view-dashboard #settings-pane { display: none !important; }
+
+body.view-editor #inspector,
+body.view-editor #settings-pane { display: none !important; }
+
+body.view-settings #navigator,
+body.view-settings #editor-pane,
+body.view-settings #inspector { display: none !important; }
 
 .header-bar {
     padding: 1rem;
@@ -68,13 +140,6 @@ body {
 .panel-title {
     font-size: 1.25rem;
     font-weight: 700;
-}
-
-.inspector-panel {
-    width: 25%;
-    background-color: var(--bg-surface);
-    padding: 1rem;
-    overflow-y: auto;
 }
 
 /* Editor specific */

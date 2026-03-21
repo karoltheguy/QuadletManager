@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <nav class="top-nav">
+        <div class="nav-brand pl-4">QM Dashboard</div>
+        <div class="nav-links">
+            <button class="nav-item active" onclick="switchTab('dashboard')">Dashboard</button>
+            <button class="nav-item" onclick="switchTab('editor')">Editor</button>
+            <button class="nav-item" onclick="switchTab('settings')">Settings</button>
+        </div>
+    </nav>
     <div class="app-container">
         <div id="navigator" class="sidebar">
             <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
@@ -19,6 +27,11 @@
                 {% endif %}
             </div>
             <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body" class="mt-4">Loading servers...</div>
+        </div>
+        
+        <div id="settings-pane" class="settings-pane">
+            <h2 class="panel-title mb-4">Settings</h2>
+            <p class="text-muted">Configuration options will appear here.</p>
         </div>
         
         <div id="editor-pane" class="main-content">
