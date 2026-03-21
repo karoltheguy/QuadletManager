@@ -20,6 +20,10 @@
     --success-hover: #059669;
     --danger-hover: #dc2626;
     --warning-hover: #d97706;
+
+    /* Resizable panel widths (overridden by JS / localStorage) */
+    --sidebar-width: 300px;
+    --inspector-width: 320px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -88,7 +92,10 @@ body {
 }
 
 .sidebar {
-    width: 300px;
+    width: var(--sidebar-width);
+    min-width: 180px;
+    max-width: 500px;
+    flex-shrink: 0;
     background-color: var(--bg-surface);
     border-right: 1px solid var(--border-color);
     padding: 1rem;
@@ -97,18 +104,21 @@ body {
     flex-direction: column;
 }
 
-.main-content, .inspector-panel, .settings-pane {
+.main-content, .settings-pane {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
 }
 
-.main-content {
-    border-right: 1px solid var(--border-color);
-}
-
 .inspector-panel {
+    width: var(--inspector-width);
+    min-width: 220px;
+    max-width: 600px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
     background-color: var(--bg-surface);
     padding: 1rem;
 }
@@ -117,16 +127,49 @@ body {
     padding: 1.5rem;
 }
 
+/* ── Resize Handles ─────────────────────────────────────── */
+.resize-handle {
+    width: 5px;
+    flex-shrink: 0;
+    background-color: var(--border-color);
+    cursor: col-resize;
+    position: relative;
+    transition: background-color 0.15s ease;
+    z-index: 10;
+}
+
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    inset: 0 -3px;   /* wider invisible hit-area for easier grabbing */
+}
+
+.resize-handle:hover,
+.resize-handle.dragging {
+    background-color: var(--brand-primary);
+    box-shadow: 0 0 6px rgba(99, 102, 241, 0.5);
+}
+
+/* Prevent text selection while dragging */
+body.is-resizing {
+    user-select: none;
+    cursor: col-resize;
+}
+
 /* View Control Classes */
 body.view-dashboard #editor-pane,
-body.view-dashboard #settings-pane { display: none !important; }
+body.view-dashboard #settings-pane,
+body.view-dashboard #resize-handle-right { display: none !important; }
 
 body.view-editor #inspector,
-body.view-editor #settings-pane { display: none !important; }
+body.view-editor #settings-pane,
+body.view-editor #resize-handle-right { display: none !important; }
 
 body.view-settings #navigator,
 body.view-settings #editor-pane,
-body.view-settings #inspector { display: none !important; }
+body.view-settings #inspector,
+body.view-settings #resize-handle-left,
+body.view-settings #resize-handle-right { display: none !important; }
 
 .header-bar {
     padding: 1rem;

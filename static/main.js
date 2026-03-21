@@ -271,10 +271,108 @@ window.switchTab = function(tabId) {
     }
 };
 
+// ── Resizable Panel Handles ──────────────────────────────
+function initResizableHandles() {
+    var SIDEBAR_MIN = 180, SIDEBAR_MAX = 500;
+    var INSPECTOR_MIN = 220, INSPECTOR_MAX = 600;
+
+    function makeDraggable(handleEl, cssVar, storageKey, minPx, maxPx, getInitialPx) {
+        if (!handleEl) return;
+
+        handleEl.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            var startX = e.clientX;
+            var startPx = getInitialPx();
+
+            handleEl.classList.add('dragging');
+            document.body.classList.add('is-resizing');
+
+            function onMove(e) {
+                var delta = e.clientX - startX;
+                var newPx = Math.min(maxPx, Math.max(minPx, startPx + delta));
+                document.documentElement.style.setProperty(cssVar, newPx + 'px');
+            }
+
+            function onUp() {
+                handleEl.classList.remove('dragging');
+                document.body.classList.remove('is-resizing');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+
+                // Persist width to localStorage
+                var finalPx = getComputedStyle(document.documentElement)
+                    .getPropertyValue(cssVar).trim();
+                localStorage.setItem(storageKey, finalPx);
+
+                // Re-layout Monaco if open
+                if (window.editor) window.editor.layout();
+            }
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    // Left handle: controls sidebar width
+    makeDraggable(
+        document.getElementById('resize-handle-left'),
+        '--sidebar-width',
+        'qm-sidebar-width',
+        SIDEBAR_MIN, SIDEBAR_MAX,
+        function() {
+            var sidebar = document.getElementById('navigator');
+            return sidebar ? sidebar.getBoundingClientRect().width : 300;
+        }
+    );
+
+    // Right handle: controls inspector width (drag left = bigger inspector)
+    var rightHandle = document.getElementById('resize-handle-right');
+    if (rightHandle) {
+        rightHandle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            var startX = e.clientX;
+            var inspector = document.getElementById('inspector');
+            var startPx = inspector ? inspector.getBoundingClientRect().width : 320;
+
+            rightHandle.classList.add('dragging');
+            document.body.classList.add('is-resizing');
+
+            function onMove(e) {
+                var delta = startX - e.clientX;   // dragging left widens inspector
+                var newPx = Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, startPx + delta));
+                document.documentElement.style.setProperty('--inspector-width', newPx + 'px');
+            }
+
+            function onUp() {
+                rightHandle.classList.remove('dragging');
+                document.body.classList.remove('is-resizing');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                var finalPx = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--inspector-width').trim();
+                localStorage.setItem('qm-inspector-width', finalPx);
+                if (window.editor) window.editor.layout();
+            }
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+}
+
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Restore persisted panel widths before first paint
+    (function restorePanelWidths() {
+        var saved = { sidebar: localStorage.getItem('qm-sidebar-width'), inspector: localStorage.getItem('qm-inspector-width') };
+        if (saved.sidebar)   document.documentElement.style.setProperty('--sidebar-width',   saved.sidebar);
+        if (saved.inspector) document.documentElement.style.setProperty('--inspector-width', saved.inspector);
+    })();
+
     window.switchTab('dashboard');
     initStatsChart();
     connectSSE();
+    initResizableHandles();
 
     // If no stats arrive within 15s of page load, update the placeholder
     // so the user isn't left staring at "Waiting for stats data..." forever.

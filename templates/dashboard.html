@@ -29,6 +29,8 @@
             <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body" class="mt-4">Loading servers...</div>
         </div>
         
+        <div id="resize-handle-left" class="resize-handle" aria-hidden="true"></div>
+        
         <div id="settings-pane" class="settings-pane">
             <h2 class="panel-title mb-4">Settings</h2>
             <p class="text-muted">Configuration options will appear here.</p>
@@ -52,6 +54,8 @@
                 # Select a file from the navigator...
             </div>
         </div>
+        
+        <div id="resize-handle-right" class="resize-handle" aria-hidden="true"></div>
         
         <div id="inspector" class="inspector-panel">
             <h2 class="panel-title mb-4">Inspector</h2>
