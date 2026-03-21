@@ -21,6 +21,11 @@ window.activeServerId = null;
 // when the user switches servers without waiting for the next 5s poll.
 const lastStatsPerServer = {};
 
+// Per-server map of currently running container name stems.
+// Key: serverId (int), Value: Set<string> of lowercase container name stems.
+const runningContainersBySid = {};
+
+
 // Called from quadlet_tree.html when the user clicks a file button.
 window.setActiveServer = function(serverId) {
     serverId = parseInt(serverId, 10);
@@ -29,6 +34,7 @@ window.setActiveServer = function(serverId) {
     // Re-render immediately with cached data for this server, if we have it.
     if (lastStatsPerServer[serverId]) {
         updateStats(lastStatsPerServer[serverId]);
+        applyStatusDots(serverId);
     } else {
         // No data yet for this server – show a waiting message.
         var tableEl = document.getElementById('stats-table');
@@ -43,6 +49,41 @@ window.setActiveServer = function(serverId) {
         }
     }
 };
+
+/**
+ * Update all status dots for a given server based on the cached
+ * runningContainersBySid map.
+ *
+ * Quadlet filenames like "my-app.container" map to container name stems by
+ * stripping the extension. Podman container names are compared
+ * case-insensitively — podman often uses the stem directly as the container
+ * name, though operators may prefix/suffix it. We do a "contains" check so
+ * that "my-app" matches a running container named "systemd-my-app".
+ *
+ * @param {number} serverId
+ */
+function applyStatusDots(serverId) {
+    var running = runningContainersBySid[serverId] || new Set();
+    var dots = document.querySelectorAll('.status-dot[data-server-id="' + serverId + '"]');
+    dots.forEach(function(dot) {
+        var stem = (dot.dataset.unitStem || '').toLowerCase();
+        var isRunning = false;
+        running.forEach(function(name) {
+            if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+                isRunning = true;
+            }
+        });
+        dot.classList.remove('dot-running', 'dot-stopped', 'dot-failed');
+        if (isRunning) {
+            dot.classList.add('dot-running');
+            dot.title = 'Running';
+        } else {
+            dot.classList.add('dot-stopped');
+            dot.title = 'Stopped / not running';
+        }
+    });
+}
+
 
 function initStatsChart() {
     const ctx = document.getElementById('stats-chart');
@@ -187,6 +228,17 @@ function connectSSE() {
             // Cache the latest data for this server so we can switch to it instantly.
             lastStatsPerServer[data.server_id] = data;
 
+            // Build / refresh the running-set for this server.
+            var runningSet = new Set();
+            (data.containers || []).forEach(function(c) {
+                runningSet.add((c.name || '').toLowerCase());
+            });
+            runningContainersBySid[data.server_id] = runningSet;
+
+            // Update status dots for this server regardless of which server
+            // is "active" in the inspector – every server's tree is visible.
+            applyStatusDots(data.server_id);
+
             // Auto-select the first server that reports in if nothing is selected yet.
             if (window.activeServerId === null) {
                 window.activeServerId = data.server_id;
@@ -203,6 +255,7 @@ function connectSSE() {
             console.error('Stats parse error:', err);
         }
     });
+
 
     // Stats error events (when podman is unreachable/timed out)
     evtSource.addEventListener('stats_error', function(e) {

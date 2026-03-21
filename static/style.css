@@ -393,3 +393,45 @@ ul { list-style: none; }
 .toast-danger { background-color: var(--danger); }
 .toast-warning { background-color: var(--warning); }
 .toast-info { background-color: var(--brand-primary); }
+
+/* ── Quadlet Tree Buttons ────────────────────────────────── */
+.quadlet-tree-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* ── Status Dots ─────────────────────────────────────────── */
+@keyframes pulse-running {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+    50%       { opacity: 0.85; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+
+@keyframes flash-failed {
+    0%, 100% { background-color: var(--danger); }
+    50%       { background-color: #7f1d1d; }
+}
+
+.status-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.status-dot.dot-stopped {
+    background-color: var(--text-muted);
+    box-shadow: none;
+}
+
+.status-dot.dot-running {
+    background-color: var(--success);
+    animation: pulse-running 2s ease-in-out infinite;
+}
+
+.status-dot.dot-failed {
+    background-color: var(--danger);
+    animation: flash-failed 1.2s ease-in-out infinite;
+}

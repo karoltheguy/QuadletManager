@@ -6,10 +6,14 @@
     {% else %}
         {% for file_info in data[scope] %}
         <li>
-            <button class="text-accent block w-full text-sm"
+            <button class="quadlet-tree-btn text-accent block w-full text-sm"
                     onclick="window.setActiveServer({{ server_id }})"
                     hx-get="/api/file/{{ server_id }}?path={{ file_info['path'] }}&scope={{ scope }}&name={{ file_info['name'] }}" hx-target="#editor-pane" hx-swap="outerHTML">
-                📄 {{ file_info['name'] }}
+                <span class="status-dot dot-stopped"
+                      data-server-id="{{ server_id }}"
+                      data-unit-stem="{{ file_info['name'].rsplit('.', 1)[0] }}"
+                      title="Status unknown"></span>
+                {{ file_info['name'] }}
             </button>
         </li>
         {% endfor %}
