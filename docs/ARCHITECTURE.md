@@ -51,7 +51,7 @@ flowchart TB
     StatsEngine --> Remote
     SSHManager --> Remote
     end
-    ```
+```
     
     ### Key Design Principles
 
