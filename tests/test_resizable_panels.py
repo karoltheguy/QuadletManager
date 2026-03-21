@@ -4,15 +4,16 @@ E2E tests for resizable panel handles (Issue #12).
 Requires the backend running on localhost:8000 and Playwright installed.
 Run with: pytest tests/test_resizable_panels.py
 """
-import pytest
+import pytest  # type: ignore
 
 try:
-    from playwright.sync_api import Page, expect
+    from playwright.sync_api import Page, expect  # type: ignore
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
-    Page = type('Page', (object,), {})
-    def expect(x): pass
+    import typing
+    Page = typing.Any  # type: ignore
+    def expect(x: typing.Any) -> typing.Any: pass
 
 pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT,
