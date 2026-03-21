@@ -50,7 +50,6 @@ flowchart TB
     SyncEngine --> Remote
     StatsEngine --> Remote
     SSHManager --> Remote
-    end
 ```
     
     ### Key Design Principles
