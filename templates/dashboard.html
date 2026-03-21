@@ -3,65 +3,66 @@
 <head>
     <title>QuadletManager Setup</title>
     <script src="https://unpkg.com/htmx.org@1.9.11"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="bg-gray-900 text-white flex h-screen overflow-hidden">
-    <div id="navigator" class="w-1/4 bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold">Servers</h2>
-            {% if user_role == 'editor' %}
-            <button class="bg-indigo-600 hover:bg-indigo-500 text-xs px-2 py-1 rounded"
-                    hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
-                + New
-            </button>
-            {% endif %}
-        </div>
-        <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body">Loading servers...</div>
-    </div>
-    
-    <div id="editor-pane" class="w-1/2 flex flex-col border-r border-gray-700">
-        <div class="p-4 bg-gray-800 flex justify-between items-center">
-            <h2 class="text-xl font-bold">Editor</h2>
-            <!-- Buttons injected dynamically when a file is opened -->
-            <div id="editor-actions"></div>
-        </div>
-        <!-- The form that HTMX submits -->
-        <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
-            <input type="hidden" name="server_id" id="hidden-server-id">
-            <input type="hidden" name="file_path" id="hidden-file-path">
-            <input type="hidden" name="scope" id="hidden-scope">
-            <input type="hidden" name="unit_name" id="hidden-unit-name">
-            <textarea name="content" id="hidden-content"></textarea>
-        </form>
-        <div id="editor-container" class="flex-1 bg-gray-950 p-4 font-mono text-sm" contenteditable="true">
-            # Select a file from the navigator...
-        </div>
-    </div>
-    
-    <div id="inspector" class="w-1/4 bg-gray-800 p-4 overflow-y-auto">
-        <h2 class="text-xl font-bold mb-4">Inspector</h2>
-        <div id="status-toast" class="mb-4"></div>
-        
-        <div class="flex space-x-2 mb-2" id="systemctl-actions">
-            <!-- Action buttons loaded dynamically -->
-        </div>
-        
-        <div id="systemd-status" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-48 overflow-y-auto whitespace-pre-wrap">
-            Systemd status will appear here...
-        </div>
-        
-        <!-- Live Container Resource Stats -->
-        <div class="mt-4">
-            <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 live-pulse">Container Resources</h3>
-            <div class="bg-gray-950 rounded-lg p-3 border border-gray-700">
-                <div style="height: 180px; position: relative;">
-                    <canvas id="stats-chart"></canvas>
-                </div>
+<body>
+    <div class="app-container">
+        <div id="navigator" class="sidebar">
+            <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
+                <h2 class="panel-title">Servers</h2>
+                {% if user_role == 'editor' %}
+                <button class="btn btn-primary btn-sm"
+                        hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
+                    + New
+                </button>
+                {% endif %}
             </div>
-            <div id="stats-table" class="mt-3 bg-gray-950 rounded-lg border border-gray-700 text-xs font-mono text-gray-300 max-h-40 overflow-y-auto">
-                <div class="p-3 text-gray-500 italic">Waiting for stats data...</div>
+            <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body" class="mt-4">Loading servers...</div>
+        </div>
+        
+        <div id="editor-pane" class="main-content">
+            <div class="header-bar">
+                <h2 class="panel-title">Editor</h2>
+                <!-- Buttons injected dynamically when a file is opened -->
+                <div id="editor-actions"></div>
+            </div>
+            <!-- The form that HTMX submits -->
+            <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
+                <input type="hidden" name="server_id" id="hidden-server-id">
+                <input type="hidden" name="file_path" id="hidden-file-path">
+                <input type="hidden" name="scope" id="hidden-scope">
+                <input type="hidden" name="unit_name" id="hidden-unit-name">
+                <textarea name="content" id="hidden-content"></textarea>
+            </form>
+            <div id="editor-container">
+                # Select a file from the navigator...
+            </div>
+        </div>
+        
+        <div id="inspector" class="inspector-panel">
+            <h2 class="panel-title mb-4">Inspector</h2>
+            <div id="status-toast" class="mb-4"></div>
+            
+            <div class="space-x-2 mb-2" id="systemctl-actions">
+                <!-- Action buttons loaded dynamically -->
+            </div>
+            
+            <div id="systemd-status" class="status-box">
+                Systemd status will appear here...
+            </div>
+            
+            <!-- Live Container Resource Stats -->
+            <div class="mt-4">
+                <h3 class="text-sm font-bold text-muted uppercase live-pulse mb-2">Container Resources</h3>
+                <div class="stats-container">
+                    <div style="height: 180px; position: relative;">
+                        <canvas id="stats-chart"></canvas>
+                    </div>
+                </div>
+                <div id="stats-table" class="stats-table-wrapper">
+                    <div class="p-4 text-muted italic">Waiting for stats data...</div>
+                </div>
             </div>
         </div>
     </div>

@@ -16,7 +16,7 @@ def test_stats_update_received(page: Page):
     # This proves that updateStats or stats_error handler was called from the SSE listener
     try:
         # We wait up to 12 seconds because the stats loop runs every 5 seconds
-        page.wait_for_selector("#stats-table table, #stats-table .italic, #stats-table .text-red-400", timeout=12000)
+        page.wait_for_selector("#stats-table table, #stats-table .italic, #stats-table .text-danger", timeout=12000)
     except Exception:
         content = page.locator("#stats-table").inner_text()
         pytest.fail(f"Stats table did not update in time. Current content: {content}")

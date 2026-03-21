@@ -33,7 +33,7 @@ window.setActiveServer = function(serverId) {
         // No data yet for this server – show a waiting message.
         var tableEl = document.getElementById('stats-table');
         if (tableEl) {
-            tableEl.innerHTML = '<div class="p-3 text-gray-500 italic">Waiting for stats data...</div>';
+            tableEl.innerHTML = '<div class="p-4 text-muted italic">Waiting for stats data...</div>';
         }
         if (statsChart) {
             statsChart.data.labels = [];
@@ -142,32 +142,32 @@ function updateStats(data) {
     if (!tableEl) return;
 
     if (containers.length === 0) {
-        tableEl.innerHTML = '<div class="p-3 text-gray-500 italic">No containers running on ' +
+        tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
             (data.server_name || 'server') + '</div>';
         return;
     }
 
     var html = '<table class="w-full">';
-    html += '<thead><tr class="text-gray-500 border-b border-gray-700">';
-    html += '<th class="text-left p-2">Container</th>';
-    html += '<th class="p-2 text-right">CPU</th>';
-    html += '<th class="p-2 text-right">MEM</th>';
-    html += '<th class="p-2 text-right">NET I/O</th>';
-    html += '<th class="p-2 text-right">PIDs</th>';
+    html += '<thead><tr class="text-muted border-b">';
+    html += '<th class="text-left p-4">Container</th>';
+    html += '<th class="p-4 text-right">CPU</th>';
+    html += '<th class="p-4 text-right">MEM</th>';
+    html += '<th class="p-4 text-right">NET I/O</th>';
+    html += '<th class="p-4 text-right">PIDs</th>';
     html += '</tr></thead><tbody>';
 
     containers.forEach(function(c) {
-        html += '<tr class="border-b border-gray-800 hover:bg-gray-900">';
-        html += '<td class="text-left p-2 text-indigo-400 font-semibold">' + c.name + '</td>';
-        html += '<td class="p-2 text-right">' + c.cpu + '</td>';
-        html += '<td class="p-2 text-right">' + c.mem + '</td>';
-        html += '<td class="p-2 text-right text-gray-400">' + c.net_io + '</td>';
-        html += '<td class="p-2 text-right text-gray-400">' + c.pids + '</td>';
+        html += '<tr class="border-b">';
+        html += '<td class="text-left p-4 text-accent font-semibold">' + c.name + '</td>';
+        html += '<td class="p-4 text-right">' + c.cpu + '</td>';
+        html += '<td class="p-4 text-right">' + c.mem + '</td>';
+        html += '<td class="p-4 text-right text-muted">' + c.net_io + '</td>';
+        html += '<td class="p-4 text-right text-muted">' + c.pids + '</td>';
         html += '</tr>';
     });
 
     html += '</tbody></table>';
-    html += '<div class="px-2 py-1 text-gray-600 text-right">' + (data.server_name || '') + '</div>';
+    html += '<div class="p-4 text-muted text-right text-xs">' + (data.server_name || '') + '</div>';
     tableEl.innerHTML = html;
 }
 
@@ -211,11 +211,11 @@ function connectSSE() {
             var tableEl = document.getElementById('stats-table');
             if (tableEl) {
                 tableEl.classList.add('stats-error');
-                tableEl.innerHTML = '<div class="p-3 text-red-400">' +
+                tableEl.innerHTML = '<div class="p-4 text-danger">' +
                     '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
                     (data.server_name || 'server') + '</div>' +
-                    '<div class="text-xs text-gray-500">' + (data.error || 'Unknown error') + '</div>' +
-                    '<div class="text-xs text-gray-600 mt-1">Will retry automatically…</div>' +
+                    '<div class="text-xs text-muted">' + (data.error || 'Unknown error') + '</div>' +
+                    '<div class="text-xs text-muted mt-1">Will retry automatically…</div>' +
                     '</div>';
             }
         } catch (err) {
@@ -229,7 +229,7 @@ function connectSSE() {
             var data = JSON.parse(e.data);
             var toast = document.getElementById('status-toast');
             if (toast) {
-                toast.innerHTML = '<div class="bg-yellow-600 p-2 rounded text-sm font-bold toast-enter">' +
+                toast.innerHTML = '<div class="toast-msg toast-warning toast-enter">' +
                     '⚠ ' + data.message + ' (' + data.file_path + ')</div>';
                 // Auto-dismiss after 8 seconds
                 setTimeout(function() {
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!_statsReceived) {
             var tableEl = document.getElementById('stats-table');
             if (tableEl) {
-                tableEl.innerHTML = '<div class="p-3 text-yellow-400 italic">' +
+                tableEl.innerHTML = '<div class="p-4 text-warning italic">' +
                     'No stats received yet — verify server connectivity.</div>';
             }
         }
@@ -287,8 +287,7 @@ window.toggleLogs = function(serverId, unitName, scope) {
         currentLogSocket = null;
         
         if (btn) btn.innerText = 'Tail Logs';
-        if (btn) btn.classList.replace('bg-orange-700', 'bg-blue-700');
-        if (btn) btn.classList.replace('hover:bg-orange-600', 'hover:bg-blue-600');
+        if (btn) btn.classList.replace('btn-warning', 'btn-primary');
         
         statusDiv.innerHTML += '\n--- Stopped log stream. Re-fetch status to view current. ---\n';
         return;
@@ -297,8 +296,7 @@ window.toggleLogs = function(serverId, unitName, scope) {
     statusDiv.innerHTML = 'Connecting to log stream...\n';
     
     if (btn) btn.innerText = 'Stop Logs';
-    if (btn) btn.classList.replace('bg-blue-700', 'bg-orange-700');
-    if (btn) btn.classList.replace('hover:bg-blue-600', 'hover:bg-orange-600');
+    if (btn) btn.classList.replace('btn-primary', 'btn-warning');
 
     const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
     currentLogSocket = new WebSocket(wsUrl);
@@ -316,8 +314,7 @@ window.toggleLogs = function(serverId, unitName, scope) {
             statusDiv.innerHTML += '\n--- Log Stream Disconnected ---\n';
             currentLogSocket = null;
             if (btn) btn.innerText = 'Tail Logs';
-            if (btn) btn.classList.replace('bg-orange-700', 'bg-blue-700');
-            if (btn) btn.classList.replace('hover:bg-orange-600', 'hover:bg-blue-600');
+            if (btn) btn.classList.replace('btn-warning', 'btn-primary');
         }
     };
     

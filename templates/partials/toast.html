@@ -1,4 +1,4 @@
-<div class="bg-{{ color }}-600 p-2 rounded text-sm font-bold toast-enter">{{ message }}</div>
+<div class="toast-msg toast-{{ color }} toast-enter">{{ message }}</div>
 {% if status_output %}
-<div id="systemd-status" hx-swap-oob="true" class="bg-black p-2 rounded text-xs font-mono text-green-400 h-64 overflow-y-auto whitespace-pre-wrap">{{ status_output }}</div>
+<div id="systemd-status" hx-swap-oob="true" class="status-box">{{ status_output }}</div>
 {% endif %}

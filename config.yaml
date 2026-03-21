@@ -1,4 +1,4 @@
 master_key: "development_only_master_key_for_db_encryption"
 session_timeout: 3600
 poll_frequency: 10
-dev_auto_login: false
+dev_auto_login: true

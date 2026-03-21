@@ -1,4 +1,4 @@
-<ul class="space-y-4">
+<ul class="space-y-4 text-sm">
     {% for server in servers %}
     <li>
         <div class="font-bold text-lg mb-1">{{ server[1] }}</div>
@@ -7,6 +7,6 @@
         </div>
     </li>
     {% else %}
-    <li class="text-gray-500 italic">No servers configured. Db seeded?</li>
+    <li class="text-muted italic">No servers configured. Db seeded?</li>
     {% endfor %}
 </ul>
