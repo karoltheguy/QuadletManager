@@ -275,6 +275,11 @@ ul { list-style: none; }
 .mt-4 { margin-top: 1rem; }
 .mt-6 { margin-top: 1.5rem; }
 .pl-4 { padding-left: 1rem; }
+.p-4 { padding: 1rem; }
+
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
 
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
@@ -422,15 +427,19 @@ ul { list-style: none; }
     overflow-y: auto;
 }
 
-#stats-table table {
+#stats-table table,
+#monitoring-stats-table table {
     border-collapse: collapse;
     width: 100%;
 }
 
-#stats-table tbody tr {
+#stats-table tbody tr,
+#monitoring-stats-table tbody tr {
     transition: background-color 0.15s ease;
 }
-#stats-table tbody tr:hover {
+
+#stats-table tbody tr:hover,
+#monitoring-stats-table tbody tr:hover {
     background-color: var(--bg-element);
 }
 
