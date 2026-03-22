@@ -76,12 +76,19 @@ flowchart TB
 │   ├── database.py            # SQLite schema and connection management
 │   └── events_manager.py      # SSE publisher/subscriber system
 └── services/
-    ├── ssh_manager.py         # SSH connection pool (asyncssh)
-    ├── sync_engine.py         # File modification polling engine
-    ├── stats_engine.py        # Podman stats polling engine
-    ├── systemd_manager.py     # systemctl command wrappers
-    ├── tree_scanner.py        # Quadlet file tree discovery
-    └── quadlet_parser.py      # Quadlet file parsing utilities
+    ├── ssh_manager.py # SSH connection pool (asyncssh)
+    ├── sync_engine.py # File modification polling engine
+    ├── stats_engine.py # Podman stats polling engine
+    ├── systemd_manager.py # systemctl command wrappers
+    ├── tree_scanner.py # Quadlet file tree discovery
+    └── quadlet_parser.py # Quadlet file parsing utilities
+tests/
+├── test_stats_engine.py # Stats engine unit tests (pytest-asyncio)
+├── test_sync_engine.py # Sync engine unit tests (pytest-asyncio)
+├── test_rbac.py # RBAC permission tests (pytest-asyncio)
+├── test_new_quadlet_modal.py # Modal UI tests (pytest-asyncio)
+├── test_sockets.py # WebSocket tests (pytest-asyncio)
+└── ... # Other test files
 ```
 
 ### Core Modules
@@ -476,4 +483,22 @@ services:
 
 ---
 
-*Document last updated: 2026-03-21*
+### Testing
+
+The project uses pytest with pytest-asyncio for async test support. All async tests use the native pytest-asyncio style with `@pytest.mark.asyncio` decorator rather than `unittest.IsolatedAsyncioTestCase` to avoid event loop conflicts.
+
+Running tests:
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio
+
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_stats_engine.py -v
+```
+
+---
+
+*Document last updated: 2026-03-22*
