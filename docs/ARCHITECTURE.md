@@ -195,6 +195,7 @@ The dedicated Monitoring tab provides full-width container resource visualizatio
 - **Server Selector**: Dropdown to select which server's stats to display
 - **Resource Chart**: Bar chart showing CPU and Memory usage per container
 - **Stats Table**: Detailed table with CPU, Memory, Network I/O, and PIDs
+- **Health History Chart**: Stepped line chart showing running (1) vs stopped (0) state per container over time, with 15m/30m/1h time-range selectors. Data is fetched from `GET /api/health/history/{server_id}?minutes=N`
 
 ### Key Files
 
@@ -257,6 +258,19 @@ CREATE TABLE templates (
     type TEXT NOT NULL CHECK(type IN ('container', 'volume', 'network', 'pod')),
     content TEXT NOT NULL
 );
+
+-- Container health snapshots (1-hour rolling window, written every 5s poll cycle)
+CREATE TABLE container_health_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    container_name TEXT NOT NULL,
+    is_running INTEGER NOT NULL DEFAULT 1,  -- 1 = running, 0 = stopped
+    cpu_pct REAL DEFAULT 0,
+    mem_pct REAL DEFAULT 0,
+    recorded_at INTEGER NOT NULL,           -- Unix timestamp
+    FOREIGN KEY(server_id) REFERENCES servers(id)
+);
+CREATE INDEX idx_health_history_server_time ON container_health_history(server_id, recorded_at);
 ```
 
 ### Entity Relationships
@@ -397,14 +411,16 @@ flowchart TD
         D["b. Execute: podman stats --no-stream --format json"]
         E["c. Normalize and parse JSON"]
         F["d. Emit SSE 'stats_update' event"]
-        G["Handles both rootless and rootful containers"]
-        
+        G["e. Persist health snapshot to container_health_history"]
+        H["Handles both rootless and rootful containers"]
+
         A --> B
         B --> C
         C --> D
         D --> E
         E --> F
         F --> G
+        G --> H
     end
 ```
 
@@ -442,6 +458,12 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/api/systemctl/status/{server_id}` | Get unit status |
 | POST | `/api/systemctl/{server_id}` | Execute action (start/stop/restart) |
+
+### Monitoring Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health/history/{server_id}` | Per-container health history (`?minutes=N`, default 60) |
 
 ### Real-time Endpoints
 
@@ -541,4 +563,4 @@ pytest tests/test_stats_engine.py -v
 
 ---
 
-*Document last updated: 2026-03-22*
+*Document last updated: 2026-03-22 — Health history feature added (issue #18)*
