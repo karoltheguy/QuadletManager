@@ -164,6 +164,7 @@ body.view-dashboard #monitoring-pane { display: none !important; }
 
 body.view-dashboard #inspector {
   flex: 1;
+  width: auto;
   max-width: none;
 }
 
@@ -184,6 +185,8 @@ body.view-monitoring #editor-pane,
 body.view-monitoring #inspector,
 body.view-monitoring #settings-pane,
 body.view-monitoring .resize-handle { display: none !important; }
+
+body.view-monitoring #monitoring-pane { display: flex !important; }
 
 /* Monitoring Pane */
 .monitoring-pane {
