@@ -9,6 +9,102 @@ window.addEventListener('resize', function() {
 });
 
 
+// ── Notifications Configuration ──────────────────────────
+if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+    Notification.requestPermission();
+}
+
+const manualStops = new Set(); // tracks serverId:stem that we intentionally stopped
+const pendingStarts = {}; // tracks stems waiting for active status
+
+function sendNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body: body });
+    }
+}
+
+function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
+    delete pendingStarts[watchId];
+    
+    var running = runningContainersBySid[serverId] || new Set();
+    var isRunning = false;
+    running.forEach(function(name) {
+        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+            isRunning = true;
+        }
+    });
+    
+    if (isRunning) {
+        sendNotification('Success', 'Quadlet ' + stem + ' started successfully');
+    } else {
+        // Fetch status HTML to extract the error message
+        var statusUrl = '/api/systemctl/status/' + serverId + '?unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope);
+        fetch(statusUrl)
+            .then(function(res) { return res.text(); })
+            .then(function(html) {
+                var temp = document.createElement('div');
+                temp.innerHTML = html;
+                var lines = temp.textContent.split('\n');
+                var errorMsg = 'Unknown error';
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (line.indexOf('Failed') !== -1 || line.indexOf('failed with') !== -1 || line.indexOf('error') !== -1) {
+                        errorMsg = line;
+                        break;
+                    }
+                }
+                sendNotification('Error', 'Quadlet ' + stem + ' failed with error ' + errorMsg);
+            })
+            .catch(function(err) {
+                sendNotification('Error', 'Quadlet ' + stem + ' failed to start');
+            });
+    }
+}
+
+document.body.addEventListener('htmx:beforeRequest', function(evt) {
+    var path = evt.detail.pathInfo.requestPath;
+    var params = evt.detail.requestConfig.parameters || {};
+    var unitName = '';
+    var serverId = null;
+    var scope = '';
+    var action = '';
+    
+    if (path.indexOf('/api/systemctl/') !== -1) {
+        var urlParts = path.split('?');
+        serverId = parseInt(urlParts[0].split('/').pop(), 10);
+        var searchParams = new URLSearchParams(urlParts[1] || window.location.search);
+        unitName = params.unit || searchParams.get('unit') || '';
+        scope = params.scope || searchParams.get('scope') || '';
+        action = params.action || searchParams.get('action') || '';
+    } else if (path.indexOf('/api/save') !== -1) {
+        unitName = params.unit_name || '';
+        serverId = parseInt(params.server_id, 10);
+        scope = params.scope || '';
+        action = 'restart'; // saving implies a restart
+    }
+    
+    if (unitName && serverId) {
+        var stem = unitName.replace('.service', '').toLowerCase();
+        var watchId = serverId + ':' + stem;
+        
+        if (action === 'stop') {
+            manualStops.add(watchId);
+        } else if (action === 'start' || action === 'restart') {
+            manualStops.delete(watchId);
+            if (pendingStarts[watchId]) clearTimeout(pendingStarts[watchId].timer);
+            pendingStarts[watchId] = {
+                unit: unitName,
+                serverId: serverId,
+                scope: scope,
+                timer: setTimeout(function() {
+                    checkQuadletStartup(watchId, stem, serverId, unitName, scope);
+                }, 5000)
+            };
+        }
+    }
+});
+
+
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;
 let monitoringChart = null;
@@ -304,12 +400,32 @@ function connectSSE() {
       // Cache the latest data for this server so we can switch to it instantly.
       lastStatsPerServer[data.server_id] = data;
 
+      var oldSet = runningContainersBySid[data.server_id] || new Set();
+
       // Build / refresh the running-set for this server.
       var runningSet = new Set();
       (data.containers || []).forEach(function(c) {
         runningSet.add((c.name || '').toLowerCase());
       });
       runningContainersBySid[data.server_id] = runningSet;
+      
+      // Detect spontaneously stopped containers
+      oldSet.forEach(function(oldName) {
+          if (!runningSet.has(oldName)) {
+              var wasManual = false;
+              manualStops.forEach(function(manualKey) {
+                  var parts = manualKey.split(':');
+                  var mServerId = parseInt(parts[0], 10);
+                  var mStem = parts[1];
+                  if (mServerId === data.server_id && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
+                      wasManual = true;
+                  }
+              });
+              if (!wasManual) {
+                  sendNotification('Alert', 'Quadlet container ' + oldName + ' stopped or failed unexpectedly');
+              }
+          }
+      });
 
       // Update status dots for this server regardless of which server
       // is "active" in the inspector – every server's tree is visible.
