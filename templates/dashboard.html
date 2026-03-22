@@ -9,11 +9,12 @@
 <body>
     <nav class="top-nav">
         <div class="nav-brand pl-4">QM Dashboard</div>
-        <div class="nav-links">
-            <button class="nav-item active" onclick="switchTab('dashboard')">Dashboard</button>
-            <button class="nav-item" onclick="switchTab('editor')">Editor</button>
-            <button class="nav-item" onclick="switchTab('settings')">Settings</button>
-        </div>
+  <div class="nav-links">
+    <button class="nav-item active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="nav-item" onclick="switchTab('monitoring')">Monitoring</button>
+    <button class="nav-item" onclick="switchTab('editor')">Editor</button>
+    <button class="nav-item" onclick="switchTab('settings')">Settings</button>
+  </div>
     </nav>
     <div class="app-container">
         <div id="navigator" class="sidebar">
@@ -31,10 +32,31 @@
         
         <div id="resize-handle-left" class="resize-handle" aria-hidden="true"></div>
         
-        <div id="settings-pane" class="settings-pane">
-            <h2 class="panel-title mb-4">Settings</h2>
-            <p class="text-muted">Configuration options will appear here.</p>
+  <div id="monitoring-pane" class="monitoring-pane">
+    <div class="header-bar">
+      <h2 class="panel-title">Monitoring</h2>
+      <div class="server-selector">
+        <select id="monitoring-server-select" class="form-control" onchange="selectMonitoringServer(this.value)">
+          <option value="">Select a server...</option>
+        </select>
+      </div>
+    </div>
+    <div class="monitoring-content">
+      <div class="stats-container monitoring-chart-container">
+        <div style="height: 300px; position: relative; width: 100%;">
+          <canvas id="monitoring-chart"></canvas>
         </div>
+      </div>
+      <div id="monitoring-stats-table" class="stats-table-wrapper monitoring-table">
+        <div class="p-4 text-muted italic">Waiting for stats data...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-pane" class="settings-pane">
+    <h2 class="panel-title mb-4">Settings</h2>
+    <p class="text-muted">Configuration options will appear here.</p>
+  </div>
         
         <div id="editor-pane" class="main-content">
             <div class="header-bar">
@@ -57,31 +79,18 @@
         
         <div id="resize-handle-right" class="resize-handle" aria-hidden="true"></div>
         
-        <div id="inspector" class="inspector-panel">
-            <h2 class="panel-title mb-4">Inspector</h2>
-            <div id="status-toast" class="mb-4"></div>
-            
-            <div class="space-x-2 mb-2" id="systemctl-actions">
-                <!-- Action buttons loaded dynamically -->
-            </div>
-            
-            <div id="systemd-status" class="status-box">
-                Systemd status will appear here...
-            </div>
-            
-            <!-- Live Container Resource Stats -->
-            <div class="mt-4">
-                <h3 class="text-sm font-bold text-muted uppercase live-pulse mb-2">Container Resources</h3>
-                <div class="stats-container" style="overflow: hidden; width: 100%;">
-                    <div style="height: 180px; position: relative; width: 100%;">
-                        <canvas id="stats-chart"></canvas>
-                    </div>
-                </div>
-                <div id="stats-table" class="stats-table-wrapper">
-                    <div class="p-4 text-muted italic">Waiting for stats data...</div>
-                </div>
-            </div>
-        </div>
+  <div id="inspector" class="inspector-panel">
+    <h2 class="panel-title mb-4">Inspector</h2>
+    <div id="status-toast" class="mb-4"></div>
+
+    <div class="space-x-2 mb-2" id="systemctl-actions">
+      <!-- Action buttons loaded dynamically -->
+    </div>
+
+    <div id="systemd-status" class="status-box">
+      Systemd status will appear here...
+    </div>
+  </div>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>

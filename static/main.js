@@ -11,6 +11,7 @@ window.addEventListener('resize', function() {
 
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;
+let monitoringChart = null;
 
 // Track which server the user is currently working in.
 // The stats chart only renders updates for this server.
@@ -86,78 +87,153 @@ function applyStatusDots(serverId) {
 
 
 function initStatsChart() {
-    const ctx = document.getElementById('stats-chart');
-    if (!ctx) return;
+  const ctx = document.getElementById('stats-chart');
+  if (!ctx) return;
 
-    statsChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'CPU %',
-                    data: [],
-                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
-                    borderColor: 'rgba(99, 102, 241, 1)',
-                    borderWidth: 1,
-                    borderRadius: 3
-                },
-                {
-                    label: 'Memory %',
-                    data: [],
-                    backgroundColor: 'rgba(236, 72, 153, 0.6)',
-                    borderColor: 'rgba(236, 72, 153, 1)',
-                    borderWidth: 1,
-                    borderRadius: 3
-                }
-            ]
+  statsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'CPU %',
+          data: [],
+          backgroundColor: 'rgba(99, 102, 241, 0.6)',
+          borderColor: 'rgba(99, 102, 241, 1)',
+          borderWidth: 1,
+          borderRadius: 3
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,   // Disable for frequent (5s) updates
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        color: '#9ca3af',
-                        font: { size: 10 },
-                        callback: function(value) { return value + '%'; }
-                    },
-                    grid: { color: 'rgba(75, 85, 99, 0.3)' }
-                },
-                x: {
-                    ticks: {
-                        color: '#9ca3af',
-                        font: { size: 10 },
-                        maxRotation: 45,
-                        minRotation: 0
-                    },
-                    grid: { display: false }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        color: '#d1d5db',
-                        font: { size: 11 },
-                        boxWidth: 12,
-                        padding: 8
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(17, 24, 39, 0.9)',
-                    titleColor: '#f3f4f6',
-                    bodyColor: '#d1d5db',
-                    borderColor: 'rgba(75, 85, 99, 0.5)',
-                    borderWidth: 1,
-                    cornerRadius: 6,
-                    padding: 8
-                }
-            }
+        {
+          label: 'Memory %',
+          data: [],
+          backgroundColor: 'rgba(236, 72, 153, 0.6)',
+          borderColor: 'rgba(236, 72, 153, 1)',
+          borderWidth: 1,
+          borderRadius: 3
         }
-    });
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false, // Disable for frequent (5s) updates
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 10 },
+            callback: function(value) { return value + '%'; }
+          },
+          grid: { color: 'rgba(75, 85, 99, 0.3)' }
+        },
+        x: {
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 10 },
+            maxRotation: 45,
+            minRotation: 0
+          },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#d1d5db',
+            font: { size: 11 },
+            boxWidth: 12,
+            padding: 8
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.9)',
+          titleColor: '#f3f4f6',
+          bodyColor: '#d1d5db',
+          borderColor: 'rgba(75, 85, 99, 0.5)',
+          borderWidth: 1,
+          cornerRadius: 6,
+          padding: 8
+        }
+      }
+    }
+  });
+}
+
+function initMonitoringChart() {
+  const ctx = document.getElementById('monitoring-chart');
+  if (!ctx) return;
+
+  monitoringChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'CPU %',
+          data: [],
+          backgroundColor: 'rgba(99, 102, 241, 0.6)',
+          borderColor: 'rgba(99, 102, 241, 1)',
+          borderWidth: 1,
+          borderRadius: 4
+        },
+        {
+          label: 'Memory %',
+          data: [],
+          backgroundColor: 'rgba(236, 72, 153, 0.6)',
+          borderColor: 'rgba(236, 72, 153, 1)',
+          borderWidth: 1,
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 11 },
+            callback: function(value) { return value + '%'; }
+          },
+          grid: { color: 'rgba(75, 85, 99, 0.3)' }
+        },
+        x: {
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 11 },
+            maxRotation: 45,
+            minRotation: 0
+          },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#d1d5db',
+            font: { size: 12 },
+            boxWidth: 14,
+            padding: 10
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.9)',
+          titleColor: '#f3f4f6',
+          bodyColor: '#d1d5db',
+          borderColor: 'rgba(75, 85, 99, 0.5)',
+          borderWidth: 1,
+          cornerRadius: 6,
+          padding: 10
+        }
+      }
+    }
+  });
 }
 
 function parsePercent(val) {
@@ -215,66 +291,81 @@ function updateStats(data) {
 
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
-    var evtSource = new EventSource('/api/events');
+  var evtSource = new EventSource('/api/events');
 
-    // Stats updates (every 5s from stats_engine)
-    evtSource.addEventListener('stats_update', function(e) {
-        try {
-            var data = JSON.parse(e.data);
-            // Mark that we have received at least one update
-            _statsReceived = true;
-            if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
+  // Stats updates (every 5s from stats_engine)
+  evtSource.addEventListener('stats_update', function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      // Mark that we have received at least one update
+      _statsReceived = true;
+      if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
 
-            // Cache the latest data for this server so we can switch to it instantly.
-            lastStatsPerServer[data.server_id] = data;
+      // Cache the latest data for this server so we can switch to it instantly.
+      lastStatsPerServer[data.server_id] = data;
 
-            // Build / refresh the running-set for this server.
-            var runningSet = new Set();
-            (data.containers || []).forEach(function(c) {
-                runningSet.add((c.name || '').toLowerCase());
-            });
-            runningContainersBySid[data.server_id] = runningSet;
+      // Build / refresh the running-set for this server.
+      var runningSet = new Set();
+      (data.containers || []).forEach(function(c) {
+        runningSet.add((c.name || '').toLowerCase());
+      });
+      runningContainersBySid[data.server_id] = runningSet;
 
-            // Update status dots for this server regardless of which server
-            // is "active" in the inspector – every server's tree is visible.
-            applyStatusDots(data.server_id);
+      // Update status dots for this server regardless of which server
+      // is "active" in the inspector – every server's tree is visible.
+      applyStatusDots(data.server_id);
 
-            // Auto-select the first server that reports in if nothing is selected yet.
-            if (window.activeServerId === null) {
-                window.activeServerId = data.server_id;
-            }
+      // Auto-select the first server that reports in if nothing is selected yet.
+      if (window.activeServerId === null) {
+        window.activeServerId = data.server_id;
+      }
 
-            // Only update the chart for the currently active server.
-            if (data.server_id !== window.activeServerId) return;
+      // Update server selector with new data
+      populateServerSelector();
 
-            // Clear any error state when we successfully receive stats
-            var tableEl = document.getElementById('stats-table');
-            if (tableEl) tableEl.classList.remove('stats-error');
-            updateStats(data);
-        } catch (err) {
-            console.error('Stats parse error:', err);
-        }
-    });
+      // Only update the chart for the currently active server.
+      if (data.server_id !== window.activeServerId) return;
 
+      // Clear any error state when we successfully receive stats
+      var tableEl = document.getElementById('stats-table');
+      if (tableEl) tableEl.classList.remove('stats-error');
+      updateStats(data);
+      
+      // Also update monitoring view if it exists
+      updateMonitoringView(data);
+    } catch (err) {
+      console.error('Stats parse error:', err);
+    }
+  });
 
-    // Stats error events (when podman is unreachable/timed out)
-    evtSource.addEventListener('stats_error', function(e) {
-        try {
-            var data = JSON.parse(e.data);
-            var tableEl = document.getElementById('stats-table');
-            if (tableEl) {
-                tableEl.classList.add('stats-error');
-                tableEl.innerHTML = '<div class="p-4 text-danger">' +
-                    '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
-                    (data.server_name || 'server') + '</div>' +
-                    '<div class="text-xs text-muted">' + (data.error || 'Unknown error') + '</div>' +
-                    '<div class="text-xs text-muted mt-1">Will retry automatically…</div>' +
-                    '</div>';
-            }
-        } catch (err) {
-            console.error('Stats error parse error:', err);
-        }
-    });
+  // Stats error events (when podman is unreachable/timed out)
+  evtSource.addEventListener('stats_error', function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      var tableEl = document.getElementById('stats-table');
+      if (tableEl) {
+        tableEl.classList.add('stats-error');
+        tableEl.innerHTML = '<div class="p-4 text-danger">' +
+          '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
+          (data.server_name || 'server') + '</div>' +
+          '<div class="text-xs text-muted">' + (data.error || 'Unknown error') + '</div>' +
+          '<div class="text-xs text-muted mt-1">Will retry automatically…</div>' +
+          '</div>';
+      }
+      // Also show error in monitoring table
+      var monitoringTableEl = document.getElementById('monitoring-stats-table');
+      if (monitoringTableEl) {
+        monitoringTableEl.innerHTML = '<div class="p-4 text-danger">' +
+          '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
+          (data.server_name || 'server') + '</div>' +
+          '<div class="text-xs text-muted">' + (data.error || 'Unknown error') + '</div>' +
+          '<div class="text-xs text-muted mt-1">Will retry automatically…</div>' +
+          '</div>';
+      }
+    } catch (err) {
+      console.error('Stats error parse error:', err);
+    }
+  });
 
     // File change notifications (from sync_engine)
     evtSource.addEventListener('file_changed', function(e) {
@@ -310,19 +401,112 @@ let _statsReceived = false;
 let _statsWaitTimeout = null;
 
 window.switchTab = function(tabId) {
-    document.body.className = 'view-' + tabId;
-    document.querySelectorAll('.nav-item').forEach(function(btn) {
-        if (btn.innerText.toLowerCase() === tabId) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    // Trigger resize for Monaco
-    if (tabId === 'editor' && window.editor) {
-        window.editor.layout();
+  document.body.className = 'view-' + tabId;
+  document.querySelectorAll('.nav-item').forEach(function(btn) {
+    if (btn.innerText.toLowerCase() === tabId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
     }
+  });
+  // Trigger resize for Monaco
+  if (tabId === 'editor' && window.editor) {
+    window.editor.layout();
+  }
+  // Trigger resize for monitoring chart
+  if (tabId === 'monitoring' && monitoringChart) {
+    monitoringChart.resize();
+  }
 };
+
+// ── Monitoring Server Selector ────────────────────────────
+window.selectMonitoringServer = function(serverId) {
+  serverId = parseInt(serverId, 10);
+  if (window.activeServerId === serverId) return;
+  window.activeServerId = serverId;
+  
+  // Re-render with cached data for this server
+  if (lastStatsPerServer[serverId]) {
+    updateMonitoringView(lastStatsPerServer[serverId]);
+  } else {
+    // No data yet – show waiting message
+    var tableEl = document.getElementById('monitoring-stats-table');
+    if (tableEl) {
+      tableEl.innerHTML = '<div class="p-4 text-muted italic">Waiting for stats data...</div>';
+    }
+    if (monitoringChart) {
+      monitoringChart.data.labels = [];
+      monitoringChart.data.datasets[0].data = [];
+      monitoringChart.data.datasets[1].data = [];
+      monitoringChart.update();
+    }
+  }
+};
+
+function updateMonitoringView(data) {
+  const containers = data.containers || [];
+  
+  // Update Monitoring Chart
+  if (monitoringChart) {
+    monitoringChart.data.labels = containers.map(function(c) { return c.name; });
+    monitoringChart.data.datasets[0].data = containers.map(function(c) { return parsePercent(c.cpu); });
+    monitoringChart.data.datasets[1].data = containers.map(function(c) { return parsePercent(c.mem); });
+    monitoringChart.update();
+  }
+  
+  // Update Monitoring Stats Table
+  var tableEl = document.getElementById('monitoring-stats-table');
+  if (!tableEl) return;
+  
+  if (containers.length === 0) {
+    tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
+      (data.server_name || 'server') + '</div>';
+    return;
+  }
+  
+  var html = '<table class="w-full">';
+  html += '<thead><tr class="text-muted border-b">';
+  html += '<th class="text-left p-4">Container</th>';
+  html += '<th class="p-4 text-right">CPU</th>';
+  html += '<th class="p-4 text-right">MEM</th>';
+  html += '<th class="p-4 text-right">NET I/O</th>';
+  html += '<th class="p-4 text-right">PIDs</th>';
+  html += '</tr></thead><tbody>';
+  
+  containers.forEach(function(c) {
+    html += '<tr class="border-b">';
+    html += '<td class="text-left p-4 text-accent font-semibold">' + c.name + '</td>';
+    html += '<td class="p-4 text-right">' + c.cpu + '</td>';
+    html += '<td class="p-4 text-right">' + c.mem + '</td>';
+    html += '<td class="p-4 text-right text-muted">' + c.net_io + '</td>';
+    html += '<td class="p-4 text-right text-muted">' + c.pids + '</td>';
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  html += '<div class="p-4 text-muted text-right text-xs">' + (data.server_name || '') + '</div>';
+  tableEl.innerHTML = html;
+}
+
+function populateServerSelector() {
+  var select = document.getElementById('monitoring-server-select');
+  if (!select) return;
+  
+  // Clear existing options except the placeholder
+  select.innerHTML = '<option value="">Select a server...</option>';
+  
+  // Add servers from the cached stats data
+  Object.keys(lastStatsPerServer).forEach(function(serverId) {
+    var data = lastStatsPerServer[serverId];
+    var option = document.createElement('option');
+    option.value = serverId;
+    option.textContent = data.server_name || ('Server ' + serverId);
+    if (parseInt(serverId) === window.activeServerId) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+}
 
 // ── Resizable Panel Handles ──────────────────────────────
 function initResizableHandles() {
@@ -419,29 +603,35 @@ function initResizableHandles() {
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Restore persisted panel widths before first paint
-    (function restorePanelWidths() {
-        var saved = { sidebar: localStorage.getItem('qm-sidebar-width'), inspector: localStorage.getItem('qm-inspector-width') };
-        if (saved.sidebar)   document.documentElement.style.setProperty('--sidebar-width',   saved.sidebar);
-        if (saved.inspector) document.documentElement.style.setProperty('--inspector-width', saved.inspector);
-    })();
+// Restore persisted panel widths before first paint
+(function restorePanelWidths() {
+  var saved = { sidebar: localStorage.getItem('qm-sidebar-width'), inspector: localStorage.getItem('qm-inspector-width') };
+  if (saved.sidebar) document.documentElement.style.setProperty('--sidebar-width', saved.sidebar);
+  if (saved.inspector) document.documentElement.style.setProperty('--inspector-width', saved.inspector);
+})();
 
-    window.switchTab('dashboard');
-    initStatsChart();
-    connectSSE();
-    initResizableHandles();
+window.switchTab('dashboard');
+initStatsChart();
+initMonitoringChart();
+connectSSE();
+initResizableHandles();
 
-    // If no stats arrive within 15s of page load, update the placeholder
-    // so the user isn't left staring at "Waiting for stats data..." forever.
-    _statsWaitTimeout = setTimeout(function() {
-        if (!_statsReceived) {
-            var tableEl = document.getElementById('stats-table');
-            if (tableEl) {
-                tableEl.innerHTML = '<div class="p-4 text-warning italic">' +
-                    'No stats received yet — verify server connectivity.</div>';
-            }
-        }
-    }, 15000);
+// If no stats arrive within 15s of page load, update the placeholder
+// so the user isn't left staring at "Waiting for stats data..." forever.
+_statsWaitTimeout = setTimeout(function() {
+  if (!_statsReceived) {
+    var tableEl = document.getElementById('stats-table');
+    if (tableEl) {
+      tableEl.innerHTML = '<div class="p-4 text-warning italic">' +
+        'No stats received yet — verify server connectivity.</div>';
+    }
+    var monitoringTableEl = document.getElementById('monitoring-stats-table');
+    if (monitoringTableEl) {
+      monitoringTableEl.innerHTML = '<div class="p-4 text-warning italic">' +
+        'No stats received yet — verify server connectivity.</div>';
+    }
+  }
+}, 15000);
 });
 
 // ── Real-time Logs WebSocket ─────────────────────────────

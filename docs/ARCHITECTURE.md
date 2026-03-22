@@ -129,49 +129,83 @@ SSH connection pool implementation:
 - **Chart.js 4.4.1**: Resource usage visualization
 - **Tailwind CSS**: Utility-first styling
 
-### Three-Pane Layout
+### Tabbed Navigation
+
+The dashboard uses a tabbed navigation system with four main views:
+
+```mermaid
+flowchart TB
+subgraph Navigation["Top Navigation Bar"]
+    Dashboard["Dashboard Tab"]
+    Monitoring["Monitoring Tab"]
+    Editor["Editor Tab"]
+    Settings["Settings Tab"]
+end
+
+subgraph Views["Content Views"]
+    DashboardView["Dashboard View<br/>Navigator + Inspector"]
+    MonitoringView["Monitoring View<br/>Full-width Stats/Charts"]
+    EditorView["Editor View<br/>Navigator + Editor + Inspector"]
+    SettingsView["Settings View<br/>Configuration Panel"]
+end
+
+Dashboard --> DashboardView
+Monitoring --> MonitoringView
+Editor --> EditorView
+Settings --> SettingsView
+```
+
+### Three-Pane Layout (Dashboard/Editor Views)
 
 ```mermaid
 flowchart LR
-    subgraph Navigator["Navigator (Left)"]
-        N1["Server Tree"]
-        N2["├─ Server 1"]
-        N3["│  ├─ global/"]
-        N4["│  │  └─ file.container"]
-        N5["│  └─ user/"]
-        N6["│     └─ file.container"]
-        N1 --> N2 --> N3 --> N4
-        N2 --> N5 --> N6
-    end
+subgraph Navigator["Navigator (Left)"]
+N1["Server Tree"]
+N2["├─ Server 1"]
+N3["│ ├─ global/"]
+N4["│ │ └─ file.container"]
+N5["│ └─ user/"]
+N6["│ └─ file.container"]
+N1 --> N2 --> N3 --> N4
+N2 --> N5 --> N6
+end
 
-    subgraph Editor["Editor (Center)"]
-        E1["Monaco Editor"]
-        E2["[Container]"]
-        E3["Image=nginx:latest"]
-        E4["Network=host"]
-        E1 --> E2 --> E3 --> E4
-    end
+subgraph Editor["Editor (Center)"]
+E1["Monaco Editor"]
+E2["[Container]"]
+E3["Image=nginx:latest"]
+E4["Network=host"]
+E1 --> E2 --> E3 --> E4
+end
 
-    subgraph Inspector["Inspector (Right)"]
-        I1["Systemd Status"]
-        I2["Resource Chart"]
-        I3["Stats Table"]
-        I1 --> I2 --> I3
-    end
+subgraph Inspector["Inspector (Right)"]
+I1["Systemd Status"]
+I2["Action Buttons"]
+I3["Log Output"]
+I1 --> I2 --> I3
+end
 
-    Navigator --> Editor --> Inspector
+Navigator --> Editor --> Inspector
 ```
+
+### Monitoring View
+
+The dedicated Monitoring tab provides full-width container resource visualization:
+
+- **Server Selector**: Dropdown to select which server's stats to display
+- **Resource Chart**: Bar chart showing CPU and Memory usage per container
+- **Stats Table**: Detailed table with CPU, Memory, Network I/O, and PIDs
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| [`templates/dashboard.html`](templates/dashboard.html) | Main layout with three-pane structure |
+| [`templates/dashboard.html`](templates/dashboard.html) | Main layout with tabbed navigation and panes |
 | [`templates/partials/editor_pane.html`](templates/partials/editor_pane.html) | Monaco editor container and action buttons |
-| [`templates/partials/quadlet_tree.html`](templates/partials/quadlet_tree.html) | Server/file tree navigation |
+| [`templates/partials/quadlet_tree.html`](templates/partials/quadlet_tree.html) | Server/file tree navigation with status dots |
 | [`templates/partials/servers_list.html`](templates/partials/servers_list.html) | Server list rendering |
-| [`static/main.js`](static/main.js) | Monaco initialization, SSE handling, chart updates |
-| [`static/style.css`](static/style.css) | Custom styles and Tailwind extensions |
+| [`static/main.js`](static/main.js) | Monaco initialization, SSE handling, chart updates, tab switching |
+| [`static/style.css`](static/style.css) | Custom styles, dark theme, and view control classes |
 
 ---
 
