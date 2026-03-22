@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from core.database import get_db_connection
 from services.ssh_manager import pool
 from core.events_manager import publisher
@@ -8,6 +9,58 @@ from core.events_manager import publisher
 logger = logging.getLogger("quadlet-manager.stats")
 
 STATS_INTERVAL_SEC = 5
+HEALTH_HISTORY_RETENTION_SEC = 3600  # Keep 1 hour of history
+
+# Track previously-running containers per server so we can write is_running=0
+# records when a container disappears.
+_prev_running_by_sid: dict[int, set] = {}
+
+
+def _parse_pct(val) -> float:
+    """Parse a percentage value from '5.23%' string or numeric."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, str):
+        try:
+            return float(val.rstrip('%'))
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+async def _record_health_history(server_id: int, containers: list[dict]) -> None:
+    """Persist a health snapshot and prune records older than 1 hour."""
+    global _prev_running_by_sid
+    now = int(time.time())
+    cutoff = now - HEALTH_HISTORY_RETENTION_SEC
+
+    current_names = {c['name'] for c in containers}
+    prev_names = _prev_running_by_sid.get(server_id, set())
+    stopped_names = prev_names - current_names
+
+    records = []
+    for c in containers:
+        records.append((server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now))
+    for name in stopped_names:
+        records.append((server_id, name, 0, 0.0, 0.0, now))
+
+    _prev_running_by_sid[server_id] = current_names
+
+    if not records:
+        return
+
+    async with get_db_connection() as db:
+        await db.executemany(
+            "INSERT INTO container_health_history "
+            "(server_id, container_name, is_running, cpu_pct, mem_pct, recorded_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            records,
+        )
+        await db.execute(
+            "DELETE FROM container_health_history WHERE server_id = ? AND recorded_at < ?",
+            (server_id, cutoff),
+        )
+        await db.commit()
 PODMAN_PS_TIMEOUT = 5   # seconds – `podman ps` is near-instant; fail fast if Podman is frozen
 STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
 
@@ -94,6 +147,7 @@ async def fetch_server_stats():
                 "server_name": server_name,
                 "containers": containers,
             })
+            await _record_health_history(server_id, containers)
 
         except Exception as e:
             logger.error(f"Error polling stats for server {server_id} ({server_name}): {e}")

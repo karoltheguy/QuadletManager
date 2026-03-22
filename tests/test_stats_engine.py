@@ -11,6 +11,8 @@ from services.stats_engine import (
     normalize_container_stats,
     fetch_server_stats,
     _fetch_scope_stats,
+    _parse_pct,
+    _record_health_history,
     ROOTLESS_ENV_PREFIX,
 )
 
@@ -230,10 +232,11 @@ def _make_db_mock(server_rows):
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
-async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_publisher):
+async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """fetch_server_stats should merge rootless + rootful containers."""
     mock_get_db.side_effect = _make_db_mock([(1, "testbox")])
 
@@ -262,10 +265,11 @@ async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_p
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
-async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_publisher):
+async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """When no containers run in either scope, publish empty update."""
     mock_get_db.side_effect = _make_db_mock([(2, "emptybox")])
 
@@ -282,10 +286,11 @@ async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_p
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
-async def test_gather_exception_publishes_error(mock_get_db, mock_fetch, mock_publisher):
+async def test_gather_exception_publishes_error(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """If the gather itself raises, we publish a stats_error event."""
     mock_get_db.side_effect = _make_db_mock([(3, "badbox")])
 
@@ -302,10 +307,11 @@ async def test_gather_exception_publishes_error(mock_get_db, mock_fetch, mock_pu
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
-async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publisher):
+async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """When multiple servers exist, stats are fetched and published for each."""
     mock_get_db.side_effect = _make_db_mock([(1, "server-a"), (2, "server-b")])
 
@@ -328,3 +334,120 @@ async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publi
     second_call = mock_publisher.publish.call_args_list[1][0]
     assert second_call[1]["server_name"] == "server-b"
     assert second_call[1]["containers"][0]["name"] == "app-b"
+
+
+# =============================================================================
+# TestParsePct - pure sync helper
+# =============================================================================
+
+
+def test_parse_pct_string_with_percent():
+    assert _parse_pct("5.23%") == pytest.approx(5.23)
+
+
+def test_parse_pct_string_without_percent():
+    assert _parse_pct("12.5") == pytest.approx(12.5)
+
+
+def test_parse_pct_float():
+    assert _parse_pct(3.14) == pytest.approx(3.14)
+
+
+def test_parse_pct_int():
+    assert _parse_pct(7) == pytest.approx(7.0)
+
+
+def test_parse_pct_empty_string():
+    assert _parse_pct("") == 0.0
+
+
+def test_parse_pct_invalid_string():
+    assert _parse_pct("N/A") == 0.0
+
+
+def test_parse_pct_zero_string():
+    assert _parse_pct("0%") == 0.0
+
+
+# =============================================================================
+# TestRecordHealthHistory - async persistence tests
+# =============================================================================
+
+
+def _make_health_db_mock():
+    """Build a mock that satisfies executemany / execute / commit calls."""
+    mock_db = AsyncMock()
+    mock_db.executemany = AsyncMock()
+    mock_db.execute = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    mock_db_cm = AsyncMock()
+    mock_db_cm.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db_cm.__aexit__ = AsyncMock(return_value=False)
+
+    mock_get_db = MagicMock(return_value=mock_db_cm)
+    return mock_get_db, mock_db
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.get_db_connection")
+async def test_record_health_history_inserts_running_containers(mock_get_db):
+    """Running containers must produce is_running=1 records."""
+    mock_get_db_fn, mock_db = _make_health_db_mock()
+    mock_get_db.side_effect = mock_get_db_fn.side_effect
+    mock_get_db.return_value = mock_get_db_fn.return_value
+
+    containers = [
+        {"name": "nginx", "cpu": "5%", "mem": "10%"},
+        {"name": "redis", "cpu": "1.5%", "mem": "3%"},
+    ]
+    import services.stats_engine as se
+    se._prev_running_by_sid.pop(42, None)  # ensure clean state
+
+    await _record_health_history(42, containers)
+
+    mock_db.executemany.assert_called_once()
+    records = mock_db.executemany.call_args[0][1]
+    assert len(records) == 2
+    names = [r[1] for r in records]
+    assert "nginx" in names
+    assert "redis" in names
+    # All records should be is_running=1
+    for r in records:
+        assert r[2] == 1
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.get_db_connection")
+async def test_record_health_history_writes_stopped_for_disappeared(mock_get_db):
+    """Containers that were running before but are absent now get is_running=0."""
+    mock_get_db_fn, mock_db = _make_health_db_mock()
+    mock_get_db.side_effect = mock_get_db_fn.side_effect
+    mock_get_db.return_value = mock_get_db_fn.return_value
+
+    import services.stats_engine as se
+    se._prev_running_by_sid[99] = {"nginx", "redis"}
+
+    # Now only nginx is running — redis disappeared
+    await _record_health_history(99, [{"name": "nginx", "cpu": "2%", "mem": "5%"}])
+
+    records = mock_db.executemany.call_args[0][1]
+    by_name = {r[1]: r[2] for r in records}
+    assert by_name["nginx"] == 1
+    assert by_name["redis"] == 0
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.get_db_connection")
+async def test_record_health_history_skips_db_when_no_change(mock_get_db):
+    """If containers list is empty and no prev containers, no DB write occurs."""
+    mock_get_db_fn, mock_db = _make_health_db_mock()
+    mock_get_db.side_effect = mock_get_db_fn.side_effect
+    mock_get_db.return_value = mock_get_db_fn.return_value
+
+    import services.stats_engine as se
+    se._prev_running_by_sid.pop(77, None)
+
+    await _record_health_history(77, [])
+
+    mock_db.executemany.assert_not_called()

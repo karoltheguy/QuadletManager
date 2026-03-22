@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
-from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import hashlib
 import re
 import shlex
+import time
 
 from core.database import get_db_connection
 from api.sockets import stream_logs_over_websocket
@@ -326,6 +327,35 @@ async def create_new_quadlet(
             "message": f"Creation Failed: {str(e)}",
             "status_output": None
         })
+
+@router.get("/api/health/history/{server_id}")
+async def api_health_history(server_id: int, minutes: int = 60):
+    """Return per-container health history for the last N minutes."""
+    cutoff = int(time.time()) - minutes * 60
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT container_name, is_running, cpu_pct, mem_pct, recorded_at "
+            "FROM container_health_history "
+            "WHERE server_id = ? AND recorded_at >= ? "
+            "ORDER BY recorded_at ASC",
+            (server_id, cutoff),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    containers: dict[str, dict] = {}
+    for row in rows:
+        name, is_running, cpu, mem, ts = row
+        if name not in containers:
+            containers[name] = {"container_name": name, "history": []}
+        containers[name]["history"].append({
+            "ts": ts,
+            "is_running": is_running,
+            "cpu": cpu,
+            "mem": mem,
+        })
+
+    return JSONResponse(list(containers.values()))
+
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
 async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):

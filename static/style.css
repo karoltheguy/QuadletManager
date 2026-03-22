@@ -478,8 +478,8 @@ ul { list-style: none; }
 .status-dot {
     display: inline-block;
     flex-shrink: 0;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     transition: background-color 0.4s ease, box-shadow 0.4s ease;
 }
@@ -497,4 +497,42 @@ ul { list-style: none; }
 .status-dot.dot-failed {
     background-color: var(--danger);
     animation: flash-failed 1.2s ease-in-out infinite;
+}
+
+/* Health History Section */
+.health-history-section {
+    background-color: var(--bg-surface);
+    border-radius: 8px;
+    padding: 1rem 1.5rem 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.health-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.health-history-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.health-range-btn {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    opacity: 0.6;
+}
+
+.health-range-btn.active {
+    opacity: 1;
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
 }

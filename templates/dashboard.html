@@ -50,6 +50,20 @@
       <div id="monitoring-stats-table" class="stats-table-wrapper monitoring-table">
         <div class="p-4 text-muted italic">Waiting for stats data...</div>
       </div>
+      <div class="health-history-section">
+        <div class="health-history-header">
+          <h3 class="section-title">Health History</h3>
+          <div class="health-history-controls">
+            <button class="btn btn-sm btn-secondary health-range-btn active" onclick="loadHealthHistory(15, this)">15m</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadHealthHistory(30, this)">30m</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadHealthHistory(60, this)">1h</button>
+          </div>
+        </div>
+        <div id="health-history-chart-wrap" style="height: 220px; position: relative; width: 100%;">
+          <canvas id="health-history-chart"></canvas>
+        </div>
+        <div id="health-history-empty" class="p-4 text-muted italic" style="display:none;">No history data yet — data accumulates every 5 seconds.</div>
+      </div>
     </div>
   </div>
 

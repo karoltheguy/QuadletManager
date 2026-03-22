@@ -108,6 +108,18 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;
 let monitoringChart = null;
+let healthHistoryChart = null;
+
+const HISTORY_COLORS = [
+    'rgba(99, 102, 241, 1)',
+    'rgba(16, 185, 129, 1)',
+    'rgba(236, 72, 153, 1)',
+    'rgba(245, 158, 11, 1)',
+    'rgba(6, 182, 212, 1)',
+    'rgba(239, 68, 68, 1)',
+    'rgba(139, 92, 246, 1)',
+    'rgba(251, 146, 60, 1)',
+];
 
 // Track which server the user is currently working in.
 // The stats chart only renders updates for this server.
@@ -161,19 +173,31 @@ window.setActiveServer = function(serverId) {
  */
 function applyStatusDots(serverId) {
     var running = runningContainersBySid[serverId] || new Set();
+    var serverStats = lastStatsPerServer[serverId];
+    var containersByName = {};
+    if (serverStats) {
+        (serverStats.containers || []).forEach(function(c) {
+            containersByName[(c.name || '').toLowerCase()] = c;
+        });
+    }
+
     var dots = document.querySelectorAll('.status-dot[data-server-id="' + serverId + '"]');
     dots.forEach(function(dot) {
         var stem = (dot.dataset.unitStem || '').toLowerCase();
         var isRunning = false;
+        var matchedContainer = null;
         running.forEach(function(name) {
             if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
                 isRunning = true;
+                if (containersByName[name]) matchedContainer = containersByName[name];
             }
         });
         dot.classList.remove('dot-running', 'dot-stopped', 'dot-failed');
         if (isRunning) {
             dot.classList.add('dot-running');
-            dot.title = 'Running';
+            dot.title = matchedContainer
+                ? 'Running — CPU: ' + matchedContainer.cpu + ' | MEM: ' + matchedContainer.mem
+                : 'Running';
         } else {
             dot.classList.add('dot-stopped');
             dot.title = 'Stopped / not running';
@@ -331,6 +355,128 @@ function initMonitoringChart() {
     }
   });
 }
+
+function initHealthHistoryChart() {
+  const ctx = document.getElementById('health-history-chart');
+  if (!ctx) return;
+
+  healthHistoryChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      stepped: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 1,
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 10 },
+            stepSize: 1,
+            callback: function(v) { return v === 1 ? 'Running' : 'Stopped'; }
+          },
+          grid: { color: 'rgba(75, 85, 99, 0.3)' }
+        },
+        x: {
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 10 },
+            maxTicksLimit: 8,
+            maxRotation: 0,
+          },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: { color: '#d1d5db', font: { size: 11 }, boxWidth: 12, padding: 8 }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.9)',
+          titleColor: '#f3f4f6',
+          bodyColor: '#d1d5db',
+          borderColor: 'rgba(75, 85, 99, 0.5)',
+          borderWidth: 1,
+          cornerRadius: 6,
+          padding: 8,
+          callbacks: {
+            label: function(ctx) {
+              return ctx.dataset.label + ': ' + (ctx.parsed.y === 1 ? 'Running' : 'Stopped');
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+window._healthHistoryMinutes = 15;
+
+window.loadHealthHistory = function(minutes, btnEl) {
+  window._healthHistoryMinutes = minutes;
+
+  // Update active button style
+  if (btnEl) {
+    document.querySelectorAll('.health-range-btn').forEach(function(b) { b.classList.remove('active'); });
+    btnEl.classList.add('active');
+  }
+
+  var serverId = window.activeServerId;
+  if (!serverId) return;
+
+  fetch('/api/health/history/' + serverId + '?minutes=' + minutes)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var emptyEl = document.getElementById('health-history-empty');
+      var wrapEl = document.getElementById('health-history-chart-wrap');
+
+      if (!data || data.length === 0) {
+        if (emptyEl) emptyEl.style.display = '';
+        if (wrapEl) wrapEl.style.display = 'none';
+        return;
+      }
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (wrapEl) wrapEl.style.display = '';
+
+      if (!healthHistoryChart) return;
+
+      // Build unified sorted timestamp labels from all containers
+      var tsSet = new Set();
+      data.forEach(function(c) { c.history.forEach(function(p) { tsSet.add(p.ts); }); });
+      var tsSorted = Array.from(tsSet).sort(function(a, b) { return a - b; });
+
+      var labels = tsSorted.map(function(ts) {
+        var d = new Date(ts * 1000);
+        return d.getHours().toString().padStart(2, '0') + ':' +
+               d.getMinutes().toString().padStart(2, '0') + ':' +
+               d.getSeconds().toString().padStart(2, '0');
+      });
+
+      var datasets = data.map(function(c, i) {
+        var byTs = {};
+        c.history.forEach(function(p) { byTs[p.ts] = p.is_running; });
+        return {
+          label: c.container_name,
+          data: tsSorted.map(function(ts) { return byTs[ts] !== undefined ? byTs[ts] : null; }),
+          borderColor: HISTORY_COLORS[i % HISTORY_COLORS.length],
+          backgroundColor: HISTORY_COLORS[i % HISTORY_COLORS.length].replace('1)', '0.15)'),
+          borderWidth: 2,
+          pointRadius: 0,
+          stepped: true,
+          fill: true,
+          spanGaps: false,
+        };
+      });
+
+      healthHistoryChart.data.labels = labels;
+      healthHistoryChart.data.datasets = datasets;
+      healthHistoryChart.update();
+    })
+    .catch(function(err) { console.error('Health history fetch error:', err); });
+};
 
 function parsePercent(val) {
     if (typeof val === 'string') {
@@ -532,6 +678,7 @@ window.switchTab = function(tabId) {
   // Trigger resize for monitoring chart
   if (tabId === 'monitoring' && monitoringChart) {
     monitoringChart.resize();
+    loadHealthHistory(window._healthHistoryMinutes || 15);
   }
 };
 
@@ -544,6 +691,7 @@ window.selectMonitoringServer = function(serverId) {
   // Re-render with cached data for this server
   if (lastStatsPerServer[serverId]) {
     updateMonitoringView(lastStatsPerServer[serverId]);
+    loadHealthHistory(window._healthHistoryMinutes || 15);
   } else {
     // No data yet – show waiting message
     var tableEl = document.getElementById('monitoring-stats-table');
@@ -729,6 +877,7 @@ document.addEventListener('DOMContentLoaded', function() {
 window.switchTab('dashboard');
 initStatsChart();
 initMonitoringChart();
+initHealthHistoryChart();
 connectSSE();
 initResizableHandles();
 
