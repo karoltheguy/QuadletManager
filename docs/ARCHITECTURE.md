@@ -125,40 +125,34 @@ SSH connection pool implementation:
 ### Three-Pane Layout
 
 ```mermaid
-block-beta
-    columns 3
-    block:nav:1
-        columns 1
-        A["Navigator (Servers)"]
-        B["┌────────┐"]
-        C["│Server 1│"]
-        D["│ ├ global│"]
-        E["│ │ └ file│"]
-        F["│ └ user │"]
-        G["│ └ file│"]
-        H["└────────┘"]
+flowchart LR
+    subgraph Navigator["Navigator (Left)"]
+        N1["Server Tree"]
+        N2["├─ Server 1"]
+        N3["│  ├─ global/"]
+        N4["│  │  └─ file.container"]
+        N5["│  └─ user/"]
+        N6["│     └─ file.container"]
+        N1 --> N2 --> N3 --> N4
+        N2 --> N5 --> N6
     end
-    block:edit:1
-        columns 1
-        I["Editor (Monaco)"]
-        J["┌──────────────────┐"]
-        K["│ [Container] │"]
-        L["│ Image=nginx │"]
-        M["│ Network=host │"]
-        N["│ │"]
-        O["└──────────────────┘"]
+
+    subgraph Editor["Editor (Center)"]
+        E1["Monaco Editor"]
+        E2["[Container]"]
+        E3["Image=nginx:latest"]
+        E4["Network=host"]
+        E1 --> E2 --> E3 --> E4
     end
-    block:insp:1
-        columns 1
-        P["Inspector (Status + Stats)"]
-        Q["┌─────────┐"]
-        R["│ Status │"]
-        S["│ Output │"]
-        T["│ │"]
-        U["│ [Chart] │"]
-        V["│ [Table] │"]
-        W["└─────────┘"]
+
+    subgraph Inspector["Inspector (Right)"]
+        I1["Systemd Status"]
+        I2["Resource Chart"]
+        I3["Stats Table"]
+        I1 --> I2 --> I3
     end
+
+    Navigator --> Editor --> Inspector
 ```
 
 ### Key Files
