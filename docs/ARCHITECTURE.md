@@ -342,6 +342,12 @@ evtSource.addEventListener('stats_update', function(e) {
 });
 ```
 
+### Browser Notifications
+
+The frontend leverages the native HTML5 Notification API to alert users of state changes even when the dashboard tab is in the background:
+- **Action Watches**: When a user triggers `start`, `restart`, or `save`, the frontend tracks the action and checks the next SSE update. It emits a success toast or dynamically fetches `systemctl status` to extract and display the specific failure reason.
+- **Spontaneous Failures**: By diffing the set of running containers on every SSE `stats_update`, the application alerts the user globally if a quadlet stops or fails unexpectedly without manual intervention.
+
 ### WebSocket (Logs)
 
 Endpoint: `WS /ws/logs/{server_id}/{unit_name}`
