@@ -124,7 +124,71 @@ body {
 }
 
 .settings-pane {
+    padding: 0;
+}
+
+.settings-pane .header-bar {
+    padding: 1rem 1.5rem;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-content {
     padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    max-width: 800px;
+}
+
+.settings-section {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.settings-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.settings-table tr:last-child td {
+    border-bottom: none;
+}
+
+.add-server-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.form-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
 }
 
 /* ── Resize Handles ─────────────────────────────────────── */

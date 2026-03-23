@@ -7,6 +7,7 @@ import shlex
 import time
 
 from core.database import get_db_connection
+from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket
 from services.ssh_manager import pool
 from services.tree_scanner import fetch_all_quadlets
@@ -355,6 +356,83 @@ async def api_health_history(server_id: int, minutes: int = 60):
         })
 
     return JSONResponse(list(containers.values()))
+
+
+@router.get("/api/settings/servers", response_class=HTMLResponse)
+async def settings_list_servers(request: Request, role: str = Depends(get_current_user_role)):
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name "
+            "FROM servers s LEFT JOIN ssh_keys k ON s.ssh_key_id = k.id "
+            "ORDER BY s.name"
+        ) as cursor:
+            servers = await cursor.fetchall()
+    return templates.TemplateResponse(request, "partials/settings_servers.html", {
+        "servers": servers,
+        "user_role": role,
+    })
+
+
+@router.post("/api/settings/servers", response_class=HTMLResponse)
+async def settings_add_server(
+    request: Request,
+    name: str = Form(...),
+    ip_address: str = Form(...),
+    ssh_user: str = Form(...),
+    key_name: str = Form(...),
+    private_key: str = Form(...),
+    role: str = Depends(get_current_user_role),
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    encrypted = encrypt_private_key(private_key)
+    async with get_db_connection() as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO ssh_keys (key_name, encrypted_private_key) VALUES (?, ?)",
+            (key_name, encrypted),
+        )
+        await db.commit()
+        async with db.execute("SELECT id FROM ssh_keys WHERE key_name = ?", (key_name,)) as cursor:
+            key_row = await cursor.fetchone()
+        await db.execute(
+            "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id) VALUES (?, ?, ?, ?)",
+            (name, ip_address, ssh_user, key_row[0]),
+        )
+        await db.commit()
+
+    return await settings_list_servers(request, role)
+
+
+@router.delete("/api/settings/servers/{server_id}", response_class=HTMLResponse)
+async def settings_delete_server(
+    request: Request,
+    server_id: int,
+    role: str = Depends(get_current_user_role),
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    # Close cached SSH connection if present
+    pool.connections.pop(server_id, None)
+
+    async with get_db_connection() as db:
+        async with db.execute("SELECT ssh_key_id FROM servers WHERE id = ?", (server_id,)) as cursor:
+            row = await cursor.fetchone()
+        await db.execute("DELETE FROM servers WHERE id = ?", (server_id,))
+        await db.commit()
+
+        # Clean up the SSH key if no other server references it
+        if row and row[0]:
+            async with db.execute(
+                "SELECT COUNT(*) FROM servers WHERE ssh_key_id = ?", (row[0],)
+            ) as cursor:
+                count_row = await cursor.fetchone()
+            if count_row[0] == 0:
+                await db.execute("DELETE FROM ssh_keys WHERE id = ?", (row[0],))
+                await db.commit()
+
+    return await settings_list_servers(request, role)
 
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
