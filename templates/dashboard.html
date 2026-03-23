@@ -112,6 +112,39 @@
           <button type="submit" class="btn btn-primary mt-2">Add Server</button>
         </form>
       </div>
+
+      <div class="settings-section">
+        <h3 class="section-title mb-4">User Management</h3>
+        <div id="users-list" hx-get="/api/settings/users" hx-trigger="load">
+          <p class="text-muted">Loading users...</p>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="section-title mb-4">Add User</h3>
+        <form class="add-server-form"
+              hx-post="/api/settings/users"
+              hx-target="#users-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="this.reset()">
+          <div class="form-row">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" required placeholder="jane">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" required placeholder="Enter password">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Role</label>
+            <select name="user_role" class="form-control" required>
+              <option value="viewer">viewer</option>
+              <option value="editor">editor</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary mt-2">Add User</button>
+        </form>
+      </div>
       {% endif %}
 
     </div>

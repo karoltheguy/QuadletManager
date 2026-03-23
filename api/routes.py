@@ -47,23 +47,31 @@ def _read_session_cookie(cookie_value: str) -> dict | None:
         return None
 
 
+async def _get_session(request: Request) -> dict:
+    """Return the full session dict {"username": ..., "role": ...}.
+    Raises HTTPException(303) redirect to /login if not authenticated.
+    """
+    if global_config.dev_auto_login:
+        return {"username": "admin", "role": "editor"}
+
+    cookie = request.cookies.get(COOKIE_NAME)
+    if not cookie:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+
+    session = _read_session_cookie(cookie)
+    if not session:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+
+    return session
+
+
 async def get_current_user_role(request: Request) -> str:
     """Extract the user role from the session cookie.
     Raises HTTPException(303) redirect to /login if not authenticated.
     Set DEV_AUTO_LOGIN=1 or dev_auto_login: true in config.yaml
     to bypass auth entirely during development.
     """
-    if global_config.dev_auto_login:
-        return "editor"
-
-    cookie = request.cookies.get(COOKIE_NAME)
-    if not cookie:
-        raise HTTPException(status_code=303, headers={"Location": "/login"})
-    
-    session = _read_session_cookie(cookie)
-    if not session:
-        raise HTTPException(status_code=303, headers={"Location": "/login"})
-    
+    session = await _get_session(request)
     return session["role"]
 
 
@@ -433,6 +441,114 @@ async def settings_delete_server(
                 await db.commit()
 
     return await settings_list_servers(request, role)
+
+
+# ── User Management ───────────────────────────────────────
+@router.get("/api/settings/users", response_class=HTMLResponse)
+async def settings_list_users(request: Request, role: str = Depends(get_current_user_role)):
+    if role != "editor":
+        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+
+    session = await _get_session(request)
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT id, username, role FROM users ORDER BY username"
+        ) as cursor:
+            users = await cursor.fetchall()
+    return templates.TemplateResponse(request, "partials/settings_users.html", {
+        "users": users,
+        "current_username": session["username"],
+    })
+
+
+@router.post("/api/settings/users", response_class=HTMLResponse)
+async def settings_add_user(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    user_role: str = Form(...),
+    role: str = Depends(get_current_user_role),
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    if user_role not in ("viewer", "editor"):
+        raise HTTPException(status_code=400, detail="Invalid role.")
+
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    async with get_db_connection() as db:
+        try:
+            await db.execute(
+                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                (username, password_hash, user_role),
+            )
+            await db.commit()
+        except Exception:
+            return HTMLResponse(
+                "<p class='text-danger'>Username already exists.</p>",
+                status_code=409,
+            )
+
+    return await settings_list_users(request, role)
+
+
+@router.put("/api/settings/users/{user_id}", response_class=HTMLResponse)
+async def settings_update_user_role(
+    request: Request,
+    user_id: int,
+    user_role: str = Form(...),
+    role: str = Depends(get_current_user_role),
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    if user_role not in ("viewer", "editor"):
+        raise HTTPException(status_code=400, detail="Invalid role.")
+
+    session = await _get_session(request)
+    async with get_db_connection() as db:
+        # Prevent demoting yourself
+        async with db.execute("SELECT username FROM users WHERE id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+        if row and row[0] == session["username"]:
+            return HTMLResponse(
+                "<p class='text-danger'>Cannot change your own role.</p>",
+                status_code=400,
+            )
+
+        await db.execute(
+            "UPDATE users SET role = ? WHERE id = ?",
+            (user_role, user_id),
+        )
+        await db.commit()
+
+    return await settings_list_users(request, role)
+
+
+@router.delete("/api/settings/users/{user_id}", response_class=HTMLResponse)
+async def settings_delete_user(
+    request: Request,
+    user_id: int,
+    role: str = Depends(get_current_user_role),
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    session = await _get_session(request)
+    async with get_db_connection() as db:
+        # Prevent self-deletion
+        async with db.execute("SELECT username FROM users WHERE id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+        if row and row[0] == session["username"]:
+            return HTMLResponse(
+                "<p class='text-danger'>Cannot delete your own account.</p>",
+                status_code=400,
+            )
+
+        await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        await db.commit()
+
+    return await settings_list_users(request, role)
 
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
