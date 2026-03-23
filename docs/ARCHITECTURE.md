@@ -207,6 +207,15 @@ The dedicated Monitoring tab provides full-width container resource visualizatio
 | [`templates/partials/servers_list.html`](templates/partials/servers_list.html) | Server list rendering |
 | [`static/main.js`](static/main.js) | Monaco initialization, SSE handling, chart updates, tab switching |
 | [`static/style.css`](static/style.css) | Custom styles, dark theme, and view control classes |
+| [`templates/partials/settings_servers.html`](templates/partials/settings_servers.html) | Settings server list with Remove buttons |
+| [`templates/partials/settings_users.html`](templates/partials/settings_users.html) | Settings user list with inline role editing |
+
+### Settings View
+
+The Settings tab (editor-only sections) provides administrative controls:
+
+- **Server Management**: View, add, and remove monitored servers with SSH key configuration. Adding a server encrypts the private key via AES-256-GCM before storing it. Removing a server also closes any cached SSH connection and cleans up orphaned SSH key records.
+- **User Management**: View, add, edit roles, and delete users. Roles are changed inline via a dropdown. Self-deletion and self-demotion are prevented. Passwords are SHA-256 hashed before storage.
 
 ---
 
@@ -310,7 +319,7 @@ flowchart LR
 | Role | Permissions |
 |------|-------------|
 | `viewer` | Read file tree, view logs, view stats |
-| `editor` | Full CRUD, start/stop/restart services |
+| `editor` | Full CRUD, start/stop/restart services, manage servers & users |
 
 Permission checks in [`api/routes.py`](api/routes.py):
 ```python
@@ -465,6 +474,18 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/api/health/history/{server_id}` | Per-container health history (`?minutes=N`, default 60) |
 
+### Settings Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/settings/servers` | List servers (HTML partial) |
+| POST | `/api/settings/servers` | Add server with encrypted SSH key |
+| DELETE | `/api/settings/servers/{server_id}` | Remove server and clean up SSH key |
+| GET | `/api/settings/users` | List users (HTML partial) |
+| POST | `/api/settings/users` | Add new user |
+| PUT | `/api/settings/users/{user_id}` | Update user role |
+| DELETE | `/api/settings/users/{user_id}` | Delete user |
+
 ### Real-time Endpoints
 
 | Method | Path | Description |
@@ -563,4 +584,4 @@ pytest tests/test_stats_engine.py -v
 
 ---
 
-*Document last updated: 2026-03-22 — Health history feature added (issue #18)*
+*Document last updated: 2026-03-23 — Settings tab: server management (issue #21), user management (issue #22)*
