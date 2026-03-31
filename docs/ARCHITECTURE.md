@@ -513,6 +513,8 @@ stats_interval: 5
 | Variable | Description |
 |----------|-------------|
 | `QUADLET_MASTER_KEY` | AES-256 master key (64 hex chars) |
+| `QUADLET_CONFIG_PATH` | Path to config YAML file (default: `config.yaml`) |
+| `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) |
 
 ### Running the Application
@@ -528,22 +530,23 @@ export QUADLET_MASTER_KEY=$(openssl rand -hex 32)
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### Docker Deployment
+### Container Deployment
 
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  quadlet-manager:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./config.yaml:/app/config.yaml
-      - ./quadlets.db:/app/quadlets.db
-    environment:
-      - QUADLET_MASTER_KEY=${QUADLET_MASTER_KEY}
+The project includes three deployment artifacts for containerized self-hosting. Both `config.yaml` and `quadlets.db` are persisted under a single `/data` volume via the `QUADLET_CONFIG_PATH` and `QUADLET_DB_PATH` environment variables.
+
+**Docker/Podman Compose** ([`docker-compose.yml`](docker-compose.yml)):
+```bash
+QUADLET_MASTER_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
+
+**Podman Quadlet** ([`quadletmanager.container`](quadletmanager.container)):
+Copy `quadletmanager.container` to `~/.config/containers/systemd/` (rootless) or `/etc/containers/systemd/` (rootful), then:
+```bash
+systemctl --user daemon-reload
+systemctl --user start quadletmanager
+```
+
+**Dockerfile** ([`Dockerfile`](Dockerfile)): Multi-stage build with `python:3.12-slim`. Stage 1 installs dependencies, stage 2 copies only the app code and installed packages.
 
 ---
 
@@ -584,4 +587,4 @@ pytest tests/test_stats_engine.py -v
 
 ---
 
-*Document last updated: 2026-03-23 — Settings tab: server management (issue #21), user management (issue #22)*
+*Document last updated: 2026-03-31 — Containerized deployment: Dockerfile, docker-compose.yml, Quadlet unit file (issue #25)*
