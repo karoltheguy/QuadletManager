@@ -1,0 +1,14 @@
+services:
+  quadletmanager:
+    build: .
+    container_name: quadletmanager
+    ports:
+      - "8000:8000"
+    volumes:
+      - quadletmanager-data:/data
+    environment:
+      - QUADLET_MASTER_KEY=${QUADLET_MASTER_KEY}
+    restart: unless-stopped
+
+volumes:
+  quadletmanager-data:

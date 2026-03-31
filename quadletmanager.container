@@ -1,0 +1,18 @@
+[Unit]
+Description=QuadletManager Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=quadletmanager:latest
+PublishPort=8000:8000
+Volume=quadletmanager-data.volume:/data
+Environment=QUADLET_MASTER_KEY=${QUADLET_MASTER_KEY}
+AutoUpdate=local
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target default.target

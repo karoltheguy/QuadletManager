@@ -1,9 +1,10 @@
+import os
 import aiosqlite
 import logging
 
 logger = logging.getLogger("quadlet-manager.db")
 
-DATABASE_PATH = "quadlets.db"
+DATABASE_PATH = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
 
 async def init_db():
     logger.info("Initializing SQLite Database Schema...")
