@@ -174,3 +174,66 @@ async def test_editor_can_systemctl_post(mock_action):
     )
     assert response.status_code == 200
     assert "fake result" in response.body.decode()
+
+
+# =============================================================================
+# Test quadlet syntax validation on save
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+async def test_save_invalid_container_returns_validation_error(mock_execute):
+    """Saving a .container file with invalid content must return an error toast
+    without calling execute_command (file must not be written)."""
+    from api.routes import save_file
+
+    invalid_content = "[Container]\n# Missing required Image key\nNetwork=host\n"
+
+    response = await save_file(
+        request=MagicMock(),
+        server_id=1,
+        file_path="/etc/containers/systemd/myapp.container",
+        scope="user",
+        unit_name="myapp.service",
+        content=invalid_content,
+        role="editor"
+    )
+
+    body = response.body.decode()
+    assert "Validation error" in body
+    assert "toast-red" in body
+    mock_execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+@patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@patch('api.routes.reload_and_restart', new_callable=AsyncMock)
+@patch('api.routes.systemctl_action', new_callable=AsyncMock)
+async def test_save_valid_container_proceeds(mock_systemctl, mock_reload, mock_execute, mock_db):
+    """Saving a .container file with valid content must write the file."""
+    from api.routes import save_file
+
+    valid_content = "[Container]\nImage=nginx:latest\nNetwork=host\n"
+    mock_systemctl.return_value = "Active: active (running)"
+    mock_execute.side_effect = ["", "1709827200\n"]
+
+    conn_mock = AsyncMock()
+    conn_mock.execute = AsyncMock()
+    conn_mock.commit = AsyncMock()
+    mock_db.return_value.__aenter__.return_value = conn_mock
+
+    response = await save_file(
+        request=MagicMock(),
+        server_id=1,
+        file_path="/etc/containers/systemd/myapp.container",
+        scope="user",
+        unit_name="myapp.service",
+        content=valid_content,
+        role="editor"
+    )
+
+    body = response.body.decode()
+    assert "Saved" in body
+    mock_execute.assert_called()

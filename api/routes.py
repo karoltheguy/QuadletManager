@@ -10,6 +10,7 @@ from core.database import get_db_connection
 from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket
 from services.ssh_manager import pool
+from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
 from services.sync_engine import parse_mtime
@@ -208,7 +209,18 @@ async def save_file(
 ):
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot save files.")
-    
+
+    quadlet_type = file_path.rsplit('.', 1)[-1].lower()
+    if quadlet_type in ('container', 'volume', 'network', 'pod', 'kube'):
+        try:
+            validate_quadlet_syntax(content, quadlet_type)
+        except QuadletValidationError as ve:
+            return templates.TemplateResponse(request, "partials/toast.html", {
+                "color": "red",
+                "message": f"Validation error: {ve}",
+                "status_output": None
+            })
+
     use_sudo = (scope == 'global')
     safe_content = shlex.quote(content)
     cmd = f"printf '%s' {safe_content} | "
