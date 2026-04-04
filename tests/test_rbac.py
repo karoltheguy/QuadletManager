@@ -157,6 +157,127 @@ async def test_editor_can_create(mock_execute, mock_db):
     assert response.headers.get("HX-Trigger") == "reload-servers"
 
 
+# =============================================================================
+# Test admin API navigator refresh (issue #35)
+# =============================================================================
+
+class _AioDualMock:
+    """Supports both `await db.execute(...)` and `async with db.execute(...) as cur:`."""
+    def __init__(self, fetchone_result=None):
+        self._result = fetchone_result
+
+    def __await__(self):
+        async def _noop(): pass
+        return _noop().__await__()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        pass
+
+    async def fetchone(self):
+        return self._result
+
+
+@pytest.mark.asyncio
+@patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers, mock_encrypt):
+    from fastapi.responses import HTMLResponse
+    from api.routes import settings_add_server
+
+    mock_list_servers.return_value = HTMLResponse("<table></table>")
+
+    _insert = _AioDualMock()
+    _select = _AioDualMock(fetchone_result=(1,))
+
+    conn_mock = MagicMock()
+    conn_mock.execute = MagicMock(side_effect=[_insert, _select, _insert])
+    conn_mock.commit = AsyncMock()
+    mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
+    mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    response = await settings_add_server(
+        request=MagicMock(),
+        name="test-server",
+        ip_address="192.168.1.1",
+        ssh_user="ubuntu",
+        key_name="my-key",
+        private_key="-----BEGIN OPENSSH PRIVATE KEY-----",
+        role="editor",
+    )
+    assert response.headers.get("HX-Trigger") == "reload-servers"
+
+
+@pytest.mark.asyncio
+@patch('api.routes.pool')
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_delete_server_triggers_navigator_refresh(mock_db, mock_list_servers, mock_pool):
+    from fastapi.responses import HTMLResponse
+    from api.routes import settings_delete_server
+
+    mock_list_servers.return_value = HTMLResponse("<table></table>")
+
+    _select_key = _AioDualMock(fetchone_result=(1,))    # ssh_key_id = 1
+    _delete_server = _AioDualMock()
+    _select_count = _AioDualMock(fetchone_result=(0,))  # no other servers use key
+    _delete_key = _AioDualMock()
+
+    conn_mock = MagicMock()
+    conn_mock.execute = MagicMock(side_effect=[
+        _select_key, _delete_server, _select_count, _delete_key,
+    ])
+    conn_mock.commit = AsyncMock()
+    mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
+    mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    response = await settings_delete_server(
+        request=MagicMock(),
+        server_id=1,
+        role="editor",
+    )
+    assert response.headers.get("HX-Trigger") == "reload-servers"
+
+
+@pytest.mark.asyncio
+@patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_viewer_cannot_add_server(mock_db, mock_list_servers, mock_encrypt):
+    from api.routes import settings_add_server
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_add_server(
+            request=MagicMock(),
+            name="test-server",
+            ip_address="192.168.1.1",
+            ssh_user="ubuntu",
+            key_name="my-key",
+            private_key="key",
+            role="viewer",
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.pool')
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool):
+    from api.routes import settings_delete_server
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_delete_server(
+            request=MagicMock(),
+            server_id=1,
+            role="viewer",
+        )
+    assert exc_info.value.status_code == 403
+
+
 @pytest.mark.asyncio
 @patch('api.routes.systemctl_action', new_callable=AsyncMock)
 async def test_editor_can_systemctl_post(mock_action):

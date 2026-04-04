@@ -421,7 +421,9 @@ async def settings_add_server(
         )
         await db.commit()
 
-    return await settings_list_servers(request, role)
+    response = await settings_list_servers(request, role)
+    response.headers["HX-Trigger"] = "reload-servers"
+    return response
 
 
 @router.delete("/api/settings/servers/{server_id}", response_class=HTMLResponse)
@@ -452,7 +454,9 @@ async def settings_delete_server(
                 await db.execute("DELETE FROM ssh_keys WHERE id = ?", (row[0],))
                 await db.commit()
 
-    return await settings_list_servers(request, role)
+    response = await settings_list_servers(request, role)
+    response.headers["HX-Trigger"] = "reload-servers"
+    return response
 
 
 # ── User Management ───────────────────────────────────────
