@@ -35,9 +35,9 @@ serializer = URLSafeTimedSerializer(SESSION_SECRET)
 COOKIE_NAME = "qm_session"
 
 
-def _create_session_cookie(username: str, role: str) -> str:
+def _create_session_cookie(username: str, role: str, is_admin: bool = False) -> str:
     """Create a signed session cookie value."""
-    return serializer.dumps({"username": username, "role": role})
+    return serializer.dumps({"username": username, "role": role, "is_admin": is_admin})
 
 
 def _read_session_cookie(cookie_value: str) -> dict | None:
@@ -53,7 +53,7 @@ async def _get_session(request: Request) -> dict:
     Raises HTTPException(303) redirect to /login if not authenticated.
     """
     if global_config.dev_auto_login:
-        return {"username": "admin", "role": "editor"}
+        return {"username": "admin", "role": "editor", "is_admin": True}
 
     cookie = request.cookies.get(COOKIE_NAME)
     if not cookie:
@@ -90,6 +90,20 @@ async def get_optional_user_role(request: Request) -> str | None:
     return session["role"]
 
 
+async def get_current_user_is_admin(request: Request) -> bool:
+    """Return True if the current session user has admin privileges."""
+    if global_config.dev_auto_login:
+        return True
+    session = await _get_session(request)
+    return bool(session.get("is_admin", False))
+
+
+async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> None:
+    """FastAPI dependency that raises 403 if the current user is not an admin."""
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+
 # ── Login / Logout ────────────────────────────────────────
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
@@ -104,30 +118,31 @@ async def login_page(request: Request):
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     async with get_db_connection() as db:
         async with db.execute(
-            "SELECT password_hash, role FROM users WHERE username = ?",
+            "SELECT password_hash, role, is_admin FROM users WHERE username = ?",
             (username,)
         ) as cursor:
             row = await cursor.fetchone()
-    
+
     if not row:
         return templates.TemplateResponse(request, "login.html", {
             "error": "Invalid username or password"
         }, status_code=401)
-    
+
     stored_hash = row[0]
     role = row[1]
+    is_admin = bool(row[2])
     current_hash = hashlib.sha256(password.encode()).hexdigest()
-    
+
     if not secrets.compare_digest(current_hash, stored_hash):
         return templates.TemplateResponse(request, "login.html", {
             "error": "Invalid username or password"
         }, status_code=401)
-    
+
     # Credentials valid – set session cookie and redirect to dashboard
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key=COOKIE_NAME,
-        value=_create_session_cookie(username, role),
+        value=_create_session_cookie(username, role, is_admin),
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
@@ -402,9 +417,10 @@ async def settings_add_server(
     key_name: str = Form(...),
     private_key: str = Form(...),
     role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ):
-    if role != "editor":
-        raise HTTPException(status_code=403, detail="Permission denied.")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
 
     encrypted = encrypt_private_key(private_key)
     async with get_db_connection() as db:
@@ -431,9 +447,10 @@ async def settings_delete_server(
     request: Request,
     server_id: int,
     role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ):
-    if role != "editor":
-        raise HTTPException(status_code=403, detail="Permission denied.")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
 
     # Close cached SSH connection if present
     pool.connections.pop(server_id, None)
@@ -461,8 +478,12 @@ async def settings_delete_server(
 
 # ── User Management ───────────────────────────────────────
 @router.get("/api/settings/users", response_class=HTMLResponse)
-async def settings_list_users(request: Request, role: str = Depends(get_current_user_role)):
-    if role != "editor":
+async def settings_list_users(
+    request: Request,
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
         return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
 
     session = await _get_session(request)
@@ -484,9 +505,10 @@ async def settings_add_user(
     password: str = Form(...),
     user_role: str = Form(...),
     role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ):
-    if role != "editor":
-        raise HTTPException(status_code=403, detail="Permission denied.")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
 
     if user_role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role.")
@@ -505,7 +527,7 @@ async def settings_add_user(
                 status_code=409,
             )
 
-    return await settings_list_users(request, role)
+    return await settings_list_users(request, role, is_admin=True)
 
 
 @router.put("/api/settings/users/{user_id}", response_class=HTMLResponse)
@@ -514,9 +536,10 @@ async def settings_update_user_role(
     user_id: int,
     user_role: str = Form(...),
     role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ):
-    if role != "editor":
-        raise HTTPException(status_code=403, detail="Permission denied.")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
 
     if user_role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role.")
@@ -538,7 +561,7 @@ async def settings_update_user_role(
         )
         await db.commit()
 
-    return await settings_list_users(request, role)
+    return await settings_list_users(request, role, is_admin=True)
 
 
 @router.delete("/api/settings/users/{user_id}", response_class=HTMLResponse)
@@ -546,9 +569,10 @@ async def settings_delete_user(
     request: Request,
     user_id: int,
     role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ):
-    if role != "editor":
-        raise HTTPException(status_code=403, detail="Permission denied.")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
 
     session = await _get_session(request)
     async with get_db_connection() as db:
@@ -564,7 +588,7 @@ async def settings_delete_user(
         await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         await db.commit()
 
-    return await settings_list_users(request, role)
+    return await settings_list_users(request, role, is_admin=True)
 
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")

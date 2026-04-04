@@ -14,9 +14,15 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL CHECK(role IN ('viewer', 'editor'))
+                role TEXT NOT NULL CHECK(role IN ('viewer', 'editor')),
+                is_admin INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # Migration: add is_admin column to existing databases
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass  # Column already exists
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS ssh_keys (
@@ -83,8 +89,10 @@ async def init_db():
         import hashlib
         admin_hash = hashlib.sha256(b"admin").hexdigest()
         viewer_hash = hashlib.sha256(b"viewer").hexdigest()
-        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (1, 'admin', ?, 'editor')", (admin_hash,))
+        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role, is_admin) VALUES (1, 'admin', ?, 'editor', 1)", (admin_hash,))
         await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (2, 'viewer', ?, 'viewer')", (viewer_hash,))
+        # Ensure existing admin seed user has is_admin=1
+        await db.execute("UPDATE users SET is_admin = 1 WHERE id = 1 AND is_admin = 0")
         
         await db.commit()
 

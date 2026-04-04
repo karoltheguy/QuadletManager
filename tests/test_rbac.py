@@ -207,6 +207,7 @@ async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers,
         key_name="my-key",
         private_key="-----BEGIN OPENSSH PRIVATE KEY-----",
         role="editor",
+        is_admin=True,
     )
     assert response.headers.get("HX-Trigger") == "reload-servers"
 
@@ -238,6 +239,7 @@ async def test_delete_server_triggers_navigator_refresh(mock_db, mock_list_serve
         request=MagicMock(),
         server_id=1,
         role="editor",
+        is_admin=True,
     )
     assert response.headers.get("HX-Trigger") == "reload-servers"
 
@@ -258,6 +260,7 @@ async def test_viewer_cannot_add_server(mock_db, mock_list_servers, mock_encrypt
             key_name="my-key",
             private_key="key",
             role="viewer",
+            is_admin=False,
         )
     assert exc_info.value.status_code == 403
 
@@ -274,6 +277,116 @@ async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool
             request=MagicMock(),
             server_id=1,
             role="viewer",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+# =============================================================================
+# Test admin role: server management
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers, mock_encrypt):
+    from api.routes import settings_add_server
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_add_server(
+            request=MagicMock(),
+            name="test-server",
+            ip_address="1.2.3.4",
+            ssh_user="ubuntu",
+            key_name="key",
+            private_key="pem",
+            role="editor",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.pool')
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_delete_server(mock_db, mock_list_servers, mock_pool):
+    from api.routes import settings_delete_server
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_delete_server(
+            request=MagicMock(),
+            server_id=1,
+            role="editor",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+# =============================================================================
+# Test admin role: user management
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_list_users(mock_db):
+    from api.routes import settings_list_users
+
+    response = await settings_list_users(
+        request=MagicMock(),
+        role="editor",
+        is_admin=False,
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_add_user(mock_db):
+    from api.routes import settings_add_user
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_add_user(
+            request=MagicMock(),
+            username="newuser",
+            password="pass",
+            user_role="viewer",
+            role="editor",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_update_user_role(mock_db):
+    from api.routes import settings_update_user_role
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_update_user_role(
+            request=MagicMock(),
+            user_id=2,
+            user_role="editor",
+            role="editor",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_delete_user(mock_db):
+    from api.routes import settings_delete_user
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_delete_user(
+            request=MagicMock(),
+            user_id=2,
+            role="editor",
+            is_admin=False,
         )
     assert exc_info.value.status_code == 403
 
