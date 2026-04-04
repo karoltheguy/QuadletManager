@@ -391,6 +391,74 @@ async def test_non_admin_editor_cannot_delete_user(mock_db):
     assert exc_info.value.status_code == 403
 
 
+# =============================================================================
+# Test admin role: server update (PUT)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@patch('api.routes.settings_list_servers', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_admin_can_update_server(mock_db, mock_list_servers):
+    from fastapi.responses import HTMLResponse
+    from api.routes import settings_update_server
+
+    mock_list_servers.return_value = HTMLResponse("<table></table>")
+
+    conn_mock = MagicMock()
+    conn_mock.execute = MagicMock(return_value=_AioDualMock())
+    conn_mock.commit = AsyncMock()
+    mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
+    mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    response = await settings_update_server(
+        request=MagicMock(),
+        server_id=1,
+        name="updated-name",
+        ip_address="10.0.0.1",
+        ssh_user="ubuntu",
+        role="editor",
+        is_admin=True,
+    )
+    assert response.headers.get("HX-Trigger") == "reload-servers"
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_non_admin_editor_cannot_update_server(mock_db):
+    from api.routes import settings_update_server
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_update_server(
+            request=MagicMock(),
+            server_id=1,
+            name="updated-name",
+            ip_address="10.0.0.1",
+            ssh_user="ubuntu",
+            role="editor",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_viewer_cannot_update_server(mock_db):
+    from api.routes import settings_update_server
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_update_server(
+            request=MagicMock(),
+            server_id=1,
+            name="updated-name",
+            ip_address="10.0.0.1",
+            ssh_user="ubuntu",
+            role="viewer",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
 @pytest.mark.asyncio
 @patch('api.routes.systemctl_action', new_callable=AsyncMock)
 async def test_editor_can_systemctl_post(mock_action):

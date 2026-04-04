@@ -442,6 +442,31 @@ async def settings_add_server(
     return response
 
 
+@router.put("/api/settings/servers/{server_id}", response_class=HTMLResponse)
+async def settings_update_server(
+    request: Request,
+    server_id: int,
+    name: str = Form(...),
+    ip_address: str = Form(...),
+    ssh_user: str = Form(...),
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    async with get_db_connection() as db:
+        await db.execute(
+            "UPDATE servers SET name = ?, ip_address = ?, ssh_user = ? WHERE id = ?",
+            (name, ip_address, ssh_user, server_id),
+        )
+        await db.commit()
+
+    response = await settings_list_servers(request, role)
+    response.headers["HX-Trigger"] = "reload-servers"
+    return response
+
+
 @router.delete("/api/settings/servers/{server_id}", response_class=HTMLResponse)
 async def settings_delete_server(
     request: Request,
