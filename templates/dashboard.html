@@ -80,7 +80,7 @@
         </div>
       </div>
 
-      {% if user_role == 'editor' %}
+      {% if is_admin %}
       <div class="settings-section">
         <h3 class="section-title mb-4">Add Server</h3>
         <form class="add-server-form"
@@ -110,6 +110,38 @@
                       placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
           </div>
           <button type="submit" class="btn btn-primary mt-2">Add Server</button>
+        </form>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="section-title mb-4">SSH Key Management</h3>
+        <div id="keys-list" hx-get="/api/keys" hx-trigger="load">
+          <p class="text-muted">Loading keys...</p>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="section-title mb-4">Add SSH Key</h3>
+        <form class="add-server-form"
+              hx-post="/api/keys"
+              hx-target="#keys-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="this.reset()"
+              enctype="multipart/form-data">
+          <div class="form-row">
+            <label class="form-label">Key Name</label>
+            <input type="text" name="key_name" class="form-control" required placeholder="deploy-key">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Private Key (paste)</label>
+            <textarea name="private_key" class="form-control" rows="6"
+                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Or upload key file</label>
+            <input type="file" name="key_file" class="form-control">
+          </div>
+          <button type="submit" class="btn btn-primary mt-2">Add Key</button>
         </form>
       </div>
 

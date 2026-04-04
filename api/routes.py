@@ -160,9 +160,14 @@ async def logout():
 
 # ── Dashboard ─────────────────────────────────────────────
 @router.get("/", response_class=HTMLResponse)
-async def dashboard_view(request: Request, role: str = Depends(get_current_user_role)):
+async def dashboard_view(
+    request: Request,
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
     return templates.TemplateResponse(request, "dashboard.html", {
-        "user_role": role
+        "user_role": role,
+        "is_admin": is_admin,
     })
 
 @router.get("/api/servers", response_class=HTMLResponse)
@@ -395,7 +400,11 @@ async def api_health_history(server_id: int, minutes: int = 60):
 
 
 @router.get("/api/settings/servers", response_class=HTMLResponse)
-async def settings_list_servers(request: Request, role: str = Depends(get_current_user_role)):
+async def settings_list_servers(
+    request: Request,
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
     async with get_db_connection() as db:
         async with db.execute(
             "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name "
@@ -406,6 +415,7 @@ async def settings_list_servers(request: Request, role: str = Depends(get_curren
     return templates.TemplateResponse(request, "partials/settings_servers.html", {
         "servers": servers,
         "user_role": role,
+        "is_admin": is_admin,
     })
 
 
@@ -438,7 +448,7 @@ async def settings_add_server(
         )
         await db.commit()
 
-    response = await settings_list_servers(request, role)
+    response = await settings_list_servers(request, role, is_admin=True)
     response.headers["HX-Trigger"] = "reload-servers"
     return response
 
@@ -463,7 +473,7 @@ async def settings_update_server(
         )
         await db.commit()
 
-    response = await settings_list_servers(request, role)
+    response = await settings_list_servers(request, role, is_admin=True)
     response.headers["HX-Trigger"] = "reload-servers"
     return response
 
@@ -497,7 +507,7 @@ async def settings_delete_server(
                 await db.execute("DELETE FROM ssh_keys WHERE id = ?", (row[0],))
                 await db.commit()
 
-    response = await settings_list_servers(request, role)
+    response = await settings_list_servers(request, role, is_admin=True)
     response.headers["HX-Trigger"] = "reload-servers"
     return response
 
