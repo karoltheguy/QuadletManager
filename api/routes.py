@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Request, Depends, Form, HTTPException, WebSocket
+from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse
+from typing import Optional
 from fastapi.templating import Jinja2Templates
 import hashlib
 import re
@@ -614,6 +615,79 @@ async def settings_delete_user(
         await db.commit()
 
     return await settings_list_users(request, role, is_admin=True)
+
+
+# ── SSH Key Management ────────────────────────────────────
+@router.get("/api/keys", response_class=HTMLResponse)
+async def api_list_keys(
+    request: Request,
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+
+    async with get_db_connection() as db:
+        async with db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
+            keys = await cursor.fetchall()
+
+    return templates.TemplateResponse(request, "partials/settings_keys.html", {
+        "keys": keys,
+    })
+
+
+@router.post("/api/keys", response_class=HTMLResponse)
+async def api_add_key(
+    request: Request,
+    key_name: str = Form(...),
+    private_key: str = Form(default=""),
+    key_file: Optional[UploadFile] = File(default=None),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    if key_file and key_file.filename:
+        raw = await key_file.read()
+        key_content = raw.decode("utf-8")
+    elif private_key.strip():
+        key_content = private_key
+    else:
+        raise HTTPException(status_code=400, detail="No key content provided.")
+
+    encrypted = encrypt_private_key(key_content)
+    async with get_db_connection() as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO ssh_keys (key_name, encrypted_private_key) VALUES (?, ?)",
+            (key_name, encrypted),
+        )
+        await db.commit()
+
+    return await api_list_keys(request, is_admin=True)
+
+
+@router.delete("/api/keys/{key_id}", response_class=HTMLResponse)
+async def api_delete_key(
+    request: Request,
+    key_id: int,
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM servers WHERE ssh_key_id = ?", (key_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row and row[0] > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Key is still in use by one or more servers.",
+            )
+        await db.execute("DELETE FROM ssh_keys WHERE id = ?", (key_id,))
+        await db.commit()
+
+    return await api_list_keys(request, is_admin=True)
 
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
