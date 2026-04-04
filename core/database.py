@@ -84,6 +84,9 @@ async def init_db():
         
         # Seed basic templates if they do not exist
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (1, 'Basic Container', 'container', '[Container]\\nImage=docker.io/library/nginx:latest\\nNetwork=host\\n')")
+        await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (2, 'Basic Volume', 'volume', '[Volume]\\nLabel=app=myapp\\n')")
+        await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (3, 'Basic Network', 'network', '[Network]\\nLabel=app=myapp\\n')")
+        await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (4, 'Basic Pod', 'pod', '[Pod]\\nPodName=mypod\\n')")
         
         # Seed default users (password is same as username)
         import hashlib
