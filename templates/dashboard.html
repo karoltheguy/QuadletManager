@@ -109,6 +109,14 @@
             <textarea name="private_key" class="form-control" rows="6" required
                       placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
           </div>
+          <div class="form-row">
+            <label class="form-label">Scope Filter</label>
+            <select name="scope_filter" class="form-control">
+              <option value="both">Both (user + global)</option>
+              <option value="user">User only (~/.config/containers/systemd)</option>
+              <option value="global">Global only (/etc/containers/systemd)</option>
+            </select>
+          </div>
           <button type="submit" class="btn btn-primary mt-2">Add Server</button>
         </form>
       </div>

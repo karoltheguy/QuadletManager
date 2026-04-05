@@ -206,6 +206,7 @@ async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers,
         ssh_user="ubuntu",
         key_name="my-key",
         private_key="-----BEGIN OPENSSH PRIVATE KEY-----",
+        scope_filter="both",
         role="editor",
         is_admin=True,
     )
@@ -417,6 +418,7 @@ async def test_admin_can_update_server(mock_db, mock_list_servers):
         name="updated-name",
         ip_address="10.0.0.1",
         ssh_user="ubuntu",
+        scope_filter="both",
         role="editor",
         is_admin=True,
     )

@@ -39,9 +39,15 @@ async def init_db():
                 ip_address TEXT NOT NULL,
                 ssh_user TEXT NOT NULL,
                 ssh_key_id INTEGER,
+                scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both')),
                 FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
             )
         """)
+        # Migration: add scope_filter column to existing databases
+        try:
+            await db.execute("ALTER TABLE servers ADD COLUMN scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both'))")
+        except Exception:
+            pass  # Column already exists
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS quadlets (

@@ -126,21 +126,23 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
 async def fetch_server_stats():
     """Polls all registered servers for Podman stats and pushes via SSE."""
     async with get_db_connection() as db:
-        async with db.execute("SELECT id, name FROM servers") as cursor:
+        async with db.execute("SELECT id, name, scope_filter FROM servers") as cursor:
             servers = await cursor.fetchall()
 
     for server in servers:
         server_id = server[0]
         server_name = server[1]
+        scope_filter = server[2] if len(server) > 2 else "both"
         try:
-            # Fetch both rootless (user) and rootful (global) containers,
-            # then merge into a single update so the frontend shows all.
-            user_containers, global_containers = await asyncio.gather(
-                _fetch_scope_stats(server_id, rootful=False),
-                _fetch_scope_stats(server_id, rootful=True),
-            )
+            # Fetch containers only for the scopes configured on this server.
+            tasks = []
+            if scope_filter in ("both", "user"):
+                tasks.append(_fetch_scope_stats(server_id, rootful=False))
+            if scope_filter in ("both", "global"):
+                tasks.append(_fetch_scope_stats(server_id, rootful=True))
 
-            containers = user_containers + global_containers
+            results = await asyncio.gather(*tasks)
+            containers = [c for scope_result in results for c in scope_result]
 
             await publisher.publish("stats_update", {
                 "server_id": server_id,

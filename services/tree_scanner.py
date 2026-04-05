@@ -36,15 +36,22 @@ async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict
         logger.error(f"Error scanning {path} on server {server_id}: {e}")
         return []
 
-async def fetch_all_quadlets(server_id: int) -> Dict[str, List[Dict]]:
-    """Scans both global and rootless Quadlet scopes"""
-    logger.info(f"Scanning server {server_id} for Quadlets...")
-    
-    # Needs sudo for /etc
-    global_files = await scan_directory(server_id, GLOBAL_DIR, use_sudo=True)
-    # No sudo for ~
-    user_files = await scan_directory(server_id, USER_DIR, use_sudo=False)
-    
+async def fetch_all_quadlets(server_id: int, scope_filter: str = "both") -> Dict[str, List[Dict]]:
+    """Scans Quadlet scopes for the given server, respecting scope_filter.
+
+    scope_filter: 'both' | 'user' | 'global'
+    """
+    logger.info(f"Scanning server {server_id} for Quadlets (scope_filter={scope_filter})...")
+
+    global_files: List[Dict] = []
+    user_files: List[Dict] = []
+
+    if scope_filter in ("both", "global"):
+        global_files = await scan_directory(server_id, GLOBAL_DIR, use_sudo=True)
+
+    if scope_filter in ("both", "user"):
+        user_files = await scan_directory(server_id, USER_DIR, use_sudo=False)
+
     return {
         "global": global_files,
         "user": user_files

@@ -183,7 +183,13 @@ async def api_servers(request: Request):
 @router.get("/api/quadlets/{server_id}", response_class=HTMLResponse)
 async def fetch_quadlet_tree(request: Request, server_id: int):
     try:
-        data = await fetch_all_quadlets(server_id)
+        async with get_db_connection() as db:
+            async with db.execute(
+                "SELECT scope_filter FROM servers WHERE id = ?", (server_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+        scope_filter = row[0] if row else "both"
+        data = await fetch_all_quadlets(server_id, scope_filter=scope_filter)
         return templates.TemplateResponse(request, "partials/quadlet_tree.html", {
             "server_id": server_id,
             "data": data
@@ -407,7 +413,7 @@ async def settings_list_servers(
 ):
     async with get_db_connection() as db:
         async with db.execute(
-            "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name "
+            "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name, s.scope_filter "
             "FROM servers s LEFT JOIN ssh_keys k ON s.ssh_key_id = k.id "
             "ORDER BY s.name"
         ) as cursor:
@@ -419,6 +425,8 @@ async def settings_list_servers(
     })
 
 
+VALID_SCOPE_FILTERS = {"user", "global", "both"}
+
 @router.post("/api/settings/servers", response_class=HTMLResponse)
 async def settings_add_server(
     request: Request,
@@ -427,11 +435,14 @@ async def settings_add_server(
     ssh_user: str = Form(...),
     key_name: str = Form(...),
     private_key: str = Form(...),
+    scope_filter: str = Form("both"),
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
+    if scope_filter not in VALID_SCOPE_FILTERS:
+        raise HTTPException(status_code=422, detail="scope_filter must be 'user', 'global', or 'both'.")
 
     encrypted = encrypt_private_key(private_key)
     async with get_db_connection() as db:
@@ -443,8 +454,8 @@ async def settings_add_server(
         async with db.execute("SELECT id FROM ssh_keys WHERE key_name = ?", (key_name,)) as cursor:
             key_row = await cursor.fetchone()
         await db.execute(
-            "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id) VALUES (?, ?, ?, ?)",
-            (name, ip_address, ssh_user, key_row[0]),
+            "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter) VALUES (?, ?, ?, ?, ?)",
+            (name, ip_address, ssh_user, key_row[0], scope_filter),
         )
         await db.commit()
 
@@ -460,16 +471,19 @@ async def settings_update_server(
     name: str = Form(...),
     ip_address: str = Form(...),
     ssh_user: str = Form(...),
+    scope_filter: str = Form("both"),
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
+    if scope_filter not in VALID_SCOPE_FILTERS:
+        raise HTTPException(status_code=422, detail="scope_filter must be 'user', 'global', or 'both'.")
 
     async with get_db_connection() as db:
         await db.execute(
-            "UPDATE servers SET name = ?, ip_address = ?, ssh_user = ? WHERE id = ?",
-            (name, ip_address, ssh_user, server_id),
+            "UPDATE servers SET name = ?, ip_address = ?, ssh_user = ?, scope_filter = ? WHERE id = ?",
+            (name, ip_address, ssh_user, scope_filter, server_id),
         )
         await db.commit()
 
