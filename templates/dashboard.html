@@ -4,6 +4,8 @@
     <title>QuadletManager Setup</title>
     <script src="https://unpkg.com/htmx.org@1.9.11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -223,6 +225,25 @@
     <div id="status-toast" class="mb-4"></div>
 
     <div id="container-stats-card" class="container-stats-card hidden"></div>
+
+    <div id="container-terminal-section" class="container-terminal-section hidden">
+      <div class="terminal-controls">
+        <div class="terminal-controls-row">
+          <label for="terminal-shell-select" class="terminal-label">Shell:</label>
+          <select id="terminal-shell-select" class="form-control terminal-shell-select">
+            <option value="bash">bash</option>
+            <option value="sh">sh</option>
+            <option value="custom">Custom command...</option>
+          </select>
+        </div>
+        <div id="terminal-custom-cmd-row" class="terminal-controls-row hidden">
+          <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
+        </div>
+        <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
+        <button id="terminal-disconnect-btn" class="btn btn-secondary btn-sm hidden" onclick="disconnectTerminal()">Disconnect</button>
+      </div>
+      <div id="xterm-container" class="xterm-container hidden"></div>
+    </div>
 
     <div id="container-activity-log" class="container-activity-log hidden">
       <h3 class="section-title">Activity</h3>

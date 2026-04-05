@@ -9,7 +9,7 @@ import time
 
 from core.database import get_db_connection
 from core.crypto import encrypt_private_key
-from api.sockets import stream_logs_over_websocket
+from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 from services.tree_scanner import fetch_all_quadlets
@@ -815,3 +815,8 @@ async def delete_file(
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
 async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
     await stream_logs_over_websocket(websocket, server_id, unit_name, scope)
+
+
+@router.websocket("/ws/exec/{server_id}/{container_name}")
+async def websocket_exec(websocket: WebSocket, server_id: int, container_name: str, scope: str = "user", cmd: str = "bash"):
+    await exec_terminal_over_websocket(websocket, server_id, container_name, scope, cmd)

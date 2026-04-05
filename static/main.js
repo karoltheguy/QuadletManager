@@ -153,6 +153,7 @@ function updateInspectorStatsCard() {
     var serverId = window._selectedContainerServerId;
     if (!stem || !serverId) {
         card.classList.add('hidden');
+        hideTerminalSection();
         return;
     }
 
@@ -179,6 +180,18 @@ function updateInspectorStatsCard() {
     });
 
     card.classList.remove('hidden');
+
+    // Show/hide terminal section based on running state
+    var terminalSection = document.getElementById('container-terminal-section');
+    if (isRunning && terminalSection) {
+        terminalSection.classList.remove('hidden');
+        // Enable connect button
+        var connectBtn = document.getElementById('terminal-connect-btn');
+        if (connectBtn) connectBtn.disabled = false;
+    } else if (terminalSection) {
+        terminalSection.classList.add('hidden');
+        disconnectTerminal();
+    }
 
     if (matched) {
         card.innerHTML =
@@ -920,6 +933,210 @@ function populateServerSelector() {
   });
 }
 
+// ── Terminal Session Management ──────────────────────────
+window._terminalInstance = null;
+window._terminalWs = null;
+window._terminalSession = null;
+window._fitAddonLoaded = false;
+
+function loadFitAddon(callback) {
+    if (window._fitAddonLoaded) {
+        callback();
+        return;
+    }
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.umd.min.js';
+    script.onload = function() {
+        window._fitAddonLoaded = true;
+        callback();
+    };
+    script.onerror = function() {
+        console.error('Failed to load FitAddon');
+        callback();
+    };
+    document.head.appendChild(script);
+}
+
+function showTerminalSection() {
+    var section = document.getElementById('container-terminal-section');
+    if (section) section.classList.remove('hidden');
+}
+
+function hideTerminalSection() {
+    var section = document.getElementById('container-terminal-section');
+    if (section) section.classList.add('hidden');
+    disconnectTerminal();
+}
+
+window.connectTerminal = function() {
+    var stem = window._selectedContainerStem;
+    var serverId = window._selectedContainerServerId;
+    if (!stem || !serverId) {
+        console.error('No container selected');
+        return;
+    }
+
+    var running = runningContainersBySid[serverId] || new Set();
+    var isRunning = false;
+    var actualContainerName = null;
+
+    // Find the actual container name that matches the stem
+    running.forEach(function(name) {
+        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+            isRunning = true;
+            actualContainerName = name;  // Use the actual container name
+        }
+    });
+
+    if (!isRunning) {
+        alert('Container must be running to open a terminal');
+        return;
+    }
+
+    // Use the actual container name, fallback to stem if not found
+    var containerName = actualContainerName || stem;
+
+    // Get shell selection
+    var shellSelect = document.getElementById('terminal-shell-select');
+    var shell = shellSelect ? shellSelect.value : 'bash';
+    var cmd = shell;
+
+    if (shell === 'custom') {
+        var customInput = document.getElementById('terminal-custom-cmd-input');
+        cmd = customInput ? customInput.value.trim() : 'bash';
+        if (!cmd) {
+            alert('Please enter a command');
+            return;
+        }
+    }
+
+    // Close existing connection
+    if (window._terminalWs) {
+        window._terminalWs.close();
+        window._terminalWs = null;
+    }
+
+    // Initialize xterm if needed
+    if (!window._terminalInstance) {
+        var container = document.getElementById('xterm-container');
+        if (!container) return;
+        window._terminalInstance = new Terminal({ rows: 24, cols: 80 });
+        window._terminalInstance.open(container);
+    }
+
+    loadFitAddon(function() {
+        // Connect to WebSocket
+        var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        var wsUrl = protocol + '//' + window.location.host + '/ws/exec/' + serverId + '/' + encodeURIComponent(containerName) + '?scope=user&cmd=' + encodeURIComponent(cmd);
+
+        window._terminalWs = new WebSocket(wsUrl);
+        window._terminalSession = { serverId: serverId, container: containerName, cmd: cmd };
+
+        window._terminalWs.onopen = function() {
+            console.log('Terminal WebSocket connected');
+            var connectBtn = document.getElementById('terminal-connect-btn');
+            var disconnectBtn = document.getElementById('terminal-disconnect-btn');
+            if (connectBtn) connectBtn.classList.add('hidden');
+            if (disconnectBtn) disconnectBtn.classList.remove('hidden');
+
+            // Fit terminal to container
+            if (window.FitAddon) {
+                var fitAddon = new window.FitAddon.FitAddon();
+                window._terminalInstance.loadAddon(fitAddon);
+                fitAddon.fit();
+                var dims = window._terminalInstance.proposeGeometry();
+                window._terminalWs.send(JSON.stringify({
+                    type: 'resize',
+                    cols: dims ? dims.cols : 80,
+                    rows: dims ? dims.rows : 24
+                }));
+            }
+
+            // Forward terminal input to WebSocket
+            window._terminalInstance.onData(function(data) {
+                if (window._terminalWs && window._terminalWs.readyState === WebSocket.OPEN) {
+                    window._terminalWs.send(data);
+                }
+            });
+
+            // Handle window resize
+            window._terminalResizeHandler = function() {
+                if (window._terminalInstance && window.FitAddon) {
+                    var fitAddon = new window.FitAddon.FitAddon();
+                    window._terminalInstance.loadAddon(fitAddon);
+                    fitAddon.fit();
+                    var dims = window._terminalInstance.proposeGeometry();
+                    if (window._terminalWs && window._terminalWs.readyState === WebSocket.OPEN) {
+                        window._terminalWs.send(JSON.stringify({
+                            type: 'resize',
+                            cols: dims ? dims.cols : 80,
+                            rows: dims ? dims.rows : 24
+                        }));
+                    }
+                }
+            };
+            window.addEventListener('resize', window._terminalResizeHandler);
+        };
+
+        window._terminalWs.onmessage = function(e) {
+            if (window._terminalInstance) {
+                window._terminalInstance.write(e.data);
+            }
+        };
+
+        window._terminalWs.onerror = function(err) {
+            console.error('Terminal WebSocket error:', err);
+            if (window._terminalInstance) {
+                window._terminalInstance.write('\r\n\u001b[31mConnection error\u001b[0m\r\n');
+            }
+        };
+
+        window._terminalWs.onclose = function() {
+            console.log('Terminal WebSocket closed');
+            var connectBtn = document.getElementById('terminal-connect-btn');
+            var disconnectBtn = document.getElementById('terminal-disconnect-btn');
+            if (connectBtn) connectBtn.classList.remove('hidden');
+            if (disconnectBtn) disconnectBtn.classList.add('hidden');
+            if (window._terminalResizeHandler) {
+                window.removeEventListener('resize', window._terminalResizeHandler);
+            }
+        };
+
+        // Show terminal container
+        var termContainer = document.getElementById('xterm-container');
+        if (termContainer) termContainer.classList.remove('hidden');
+    });
+};
+
+window.disconnectTerminal = function() {
+    if (window._terminalWs) {
+        window._terminalWs.close();
+        window._terminalWs = null;
+    }
+    if (window._terminalResizeHandler) {
+        window.removeEventListener('resize', window._terminalResizeHandler);
+    }
+    var connectBtn = document.getElementById('terminal-connect-btn');
+    var disconnectBtn = document.getElementById('terminal-disconnect-btn');
+    if (connectBtn) connectBtn.classList.remove('hidden');
+    if (disconnectBtn) disconnectBtn.classList.add('hidden');
+};
+
+// Handle shell selector changes (setup after DOM is ready)
+var setupShellSelector = function() {
+    var shellSelect = document.getElementById('terminal-shell-select');
+    if (shellSelect) {
+        shellSelect.addEventListener('change', function() {
+            var customRow = document.getElementById('terminal-custom-cmd-row');
+            if (this.value === 'custom' && customRow) {
+                customRow.classList.remove('hidden');
+            } else if (customRow) {
+                customRow.classList.add('hidden');
+            }
+        });
+    }
+};
+
 // ── Resizable Panel Handles ──────────────────────────────
 function initResizableHandles() {
     var SIDEBAR_MIN = 180, SIDEBAR_MAX = 500;
@@ -1026,6 +1243,7 @@ window.switchTab('dashboard');
 initStatsChart();
 initMonitoringChart();
 initHealthHistoryChart();
+setupShellSelector();
 connectSSE();
 initResizableHandles();
 
