@@ -539,7 +539,7 @@ async def settings_list_users(
     session = await _get_session(request)
     async with get_db_connection() as db:
         async with db.execute(
-            "SELECT id, username, role FROM users ORDER BY username"
+            "SELECT id, username, role, is_admin FROM users ORDER BY username"
         ) as cursor:
             users = await cursor.fetchall()
     return templates.TemplateResponse(request, "partials/settings_users.html", {
@@ -554,6 +554,7 @@ async def settings_add_user(
     username: str = Form(...),
     password: str = Form(...),
     user_role: str = Form(...),
+    new_is_admin: bool = Form(False),
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
@@ -567,8 +568,8 @@ async def settings_add_user(
     async with get_db_connection() as db:
         try:
             await db.execute(
-                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                (username, password_hash, user_role),
+                "INSERT INTO users (username, password_hash, role, is_admin) VALUES (?, ?, ?, ?)",
+                (username, password_hash, user_role, int(new_is_admin)),
             )
             await db.commit()
         except Exception:
@@ -608,6 +609,36 @@ async def settings_update_user_role(
         await db.execute(
             "UPDATE users SET role = ? WHERE id = ?",
             (user_role, user_id),
+        )
+        await db.commit()
+
+    return await settings_list_users(request, role, is_admin=True)
+
+
+@router.put("/api/settings/users/{user_id}/admin", response_class=HTMLResponse)
+async def settings_toggle_admin(
+    request: Request,
+    user_id: int,
+    is_admin_target: bool = Form(...),
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    session = await _get_session(request)
+    async with get_db_connection() as db:
+        async with db.execute("SELECT username FROM users WHERE id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+        if row and row[0] == session["username"]:
+            return HTMLResponse(
+                "<p class='text-danger'>Cannot change your own admin status.</p>",
+                status_code=400,
+            )
+
+        await db.execute(
+            "UPDATE users SET is_admin = ? WHERE id = ?",
+            (int(is_admin_target), user_id),
         )
         await db.commit()
 

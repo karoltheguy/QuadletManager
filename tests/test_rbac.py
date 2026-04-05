@@ -541,3 +541,107 @@ async def test_save_valid_container_proceeds(mock_systemctl, mock_reload, mock_e
     body = response.body.decode()
     assert "Saved" in body
     mock_execute.assert_called()
+
+
+# =============================================================================
+# Test admin promotion/demotion
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@patch('api.routes.settings_list_users', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_admin_can_promote_user(mock_db, mock_list_users):
+    from fastapi.responses import HTMLResponse
+    from api.routes import settings_toggle_admin
+
+    mock_list_users.return_value = HTMLResponse("<table></table>")
+
+    _select = _AioDualMock(fetchone_result=("other_user",))
+    _update = _AioDualMock()
+
+    conn_mock = MagicMock()
+    conn_mock.execute = MagicMock(side_effect=[_select, _update])
+    conn_mock.commit = AsyncMock()
+    mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
+    mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    request = MagicMock()
+    request.cookies.get.return_value = None
+    with patch('api.routes._get_session', new_callable=AsyncMock, return_value={"username": "admin", "role": "editor", "is_admin": True}):
+        response = await settings_toggle_admin(
+            request=request,
+            user_id=2,
+            is_admin_target=True,
+            role="editor",
+            is_admin=True,
+        )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_admin_cannot_demote_self(mock_db):
+    from api.routes import settings_toggle_admin
+
+    _select = _AioDualMock(fetchone_result=("admin",))
+
+    conn_mock = MagicMock()
+    conn_mock.execute = MagicMock(return_value=_select)
+    mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
+    mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    request = MagicMock()
+    with patch('api.routes._get_session', new_callable=AsyncMock, return_value={"username": "admin", "role": "editor", "is_admin": True}):
+        response = await settings_toggle_admin(
+            request=request,
+            user_id=1,
+            is_admin_target=False,
+            role="editor",
+            is_admin=True,
+        )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_non_admin_cannot_toggle_admin(mock_db):
+    from api.routes import settings_toggle_admin
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_toggle_admin(
+            request=MagicMock(),
+            user_id=2,
+            is_admin_target=True,
+            role="editor",
+            is_admin=False,
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@patch('api.routes.settings_list_users', new_callable=AsyncMock)
+@patch('api.routes.get_db_connection')
+async def test_admin_can_create_admin_user(mock_db, mock_list_users):
+    from fastapi.responses import HTMLResponse
+    from api.routes import settings_add_user
+
+    mock_list_users.return_value = HTMLResponse("<table></table>")
+
+    conn_mock = AsyncMock()
+    conn_mock.execute = AsyncMock()
+    conn_mock.commit = AsyncMock()
+    mock_db.return_value.__aenter__.return_value = conn_mock
+
+    request = MagicMock()
+    with patch('api.routes._get_session', new_callable=AsyncMock, return_value={"username": "admin", "role": "editor", "is_admin": True}):
+        response = await settings_add_user(
+            request=request,
+            username="newadmin",
+            password="secret",
+            user_role="editor",
+            new_is_admin=True,
+            role="editor",
+            is_admin=True,
+        )
+    assert response.status_code == 200

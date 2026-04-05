@@ -4,6 +4,7 @@
     <tr>
       <th>Username</th>
       <th>Role</th>
+      <th>Admin</th>
       <th></th>
     </tr>
   </thead>
@@ -24,6 +25,19 @@
             <option value="viewer" {% if u[2] == 'viewer' %}selected{% endif %}>viewer</option>
             <option value="editor" {% if u[2] == 'editor' %}selected{% endif %}>editor</option>
           </select>
+        {% endif %}
+      </td>
+      <td>
+        {% if u[1] == current_username %}
+          <span class="badge badge-role">{% if u[3] %}yes{% else %}no{% endif %}</span>
+        {% else %}
+          <input type="checkbox"
+                 {% if u[3] %}checked{% endif %}
+                 hx-put="/api/settings/users/{{ u[0] }}/admin"
+                 hx-target="#users-list"
+                 hx-swap="innerHTML"
+                 hx-vals='{"is_admin_target": {% if u[3] %}false{% else %}true{% endif %}}'
+                 title="Toggle admin privileges">
         {% endif %}
       </td>
       <td>
