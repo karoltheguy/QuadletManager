@@ -121,6 +121,20 @@ body {
     overflow-y: auto;
     background-color: var(--bg-surface);
     padding: 1rem;
+    transition: width 0.25s ease, flex 0.25s ease;
+}
+
+.inspector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+/* Expanded inspector — hides sidebar + resize handle on Dashboard */
+body.view-dashboard.inspector-expanded #navigator,
+body.view-dashboard.inspector-expanded #resize-handle-left {
+    display: none !important;
 }
 
 .settings-pane {

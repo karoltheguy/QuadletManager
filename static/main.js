@@ -664,6 +664,10 @@ let _statsWaitTimeout = null;
 
 window.switchTab = function(tabId) {
   document.body.className = 'view-' + tabId;
+  // Restore inspector-expanded class on dashboard tab if persisted
+  if (tabId === 'dashboard' && localStorage.getItem('qm-inspector-expanded') === 'true') {
+    document.body.classList.add('inspector-expanded');
+  }
   document.querySelectorAll('.nav-item').forEach(function(btn) {
     if (btn.innerText.toLowerCase() === tabId) {
       btn.classList.add('active');
@@ -680,6 +684,12 @@ window.switchTab = function(tabId) {
     monitoringChart.resize();
     loadHealthHistory(window._healthHistoryMinutes || 15);
   }
+};
+
+// ── Inspector Expand / Collapse Toggle ───────────────────
+window.toggleInspectorExpand = function() {
+  var expanded = document.body.classList.toggle('inspector-expanded');
+  localStorage.setItem('qm-inspector-expanded', expanded ? 'true' : 'false');
 };
 
 // ── Monitoring Server Selector ────────────────────────────
