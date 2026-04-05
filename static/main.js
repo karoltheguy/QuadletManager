@@ -134,6 +134,71 @@ const lastStatsPerServer = {};
 // Key: serverId (int), Value: Set<string> of lowercase container name stems.
 const runningContainersBySid = {};
 
+// Currently selected container stem in the inspector (lowercase).
+window._selectedContainerStem = null;
+window._selectedContainerServerId = null;
+
+window.selectContainerStem = function(stem, serverId) {
+    window._selectedContainerStem = (stem || '').toLowerCase();
+    window._selectedContainerServerId = parseInt(serverId, 10);
+    updateInspectorStatsCard();
+};
+
+function updateInspectorStatsCard() {
+    var card = document.getElementById('container-stats-card');
+    if (!card) return;
+
+    var stem = window._selectedContainerStem;
+    var serverId = window._selectedContainerServerId;
+    if (!stem || !serverId) {
+        card.classList.add('hidden');
+        return;
+    }
+
+    var serverStats = lastStatsPerServer[serverId];
+    var running = runningContainersBySid[serverId] || new Set();
+
+    // Find matching container in stats data
+    var matched = null;
+    if (serverStats) {
+        (serverStats.containers || []).forEach(function(c) {
+            var cName = (c.name || '').toLowerCase();
+            if (cName.indexOf(stem) !== -1 || stem.indexOf(cName) !== -1) {
+                matched = c;
+            }
+        });
+    }
+
+    // Check if container is running (even if stats haven't arrived yet)
+    var isRunning = false;
+    running.forEach(function(name) {
+        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+            isRunning = true;
+        }
+    });
+
+    card.classList.remove('hidden');
+
+    if (matched) {
+        card.innerHTML =
+            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + matched.name + '</div>' +
+            '<div class="stats-card-grid">' +
+            '<div class="stats-card-item"><span class="stats-card-label">CPU</span><span class="stats-card-value">' + matched.cpu + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">Memory</span><span class="stats-card-value">' + matched.mem + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">Net I/O</span><span class="stats-card-value">' + matched.net_io + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">PIDs</span><span class="stats-card-value">' + matched.pids + '</span></div>' +
+            '</div>';
+    } else if (!isRunning) {
+        card.innerHTML =
+            '<div class="stats-card-title">' + stem + '</div>' +
+            '<div class="stats-card-not-running">Container not running</div>';
+    } else {
+        card.innerHTML =
+            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + stem + '</div>' +
+            '<div class="stats-card-not-running">Waiting for stats...</div>';
+    }
+}
+
 
 // Called from quadlet_tree.html when the user clicks a file button.
 window.setActiveServer = function(serverId) {
@@ -576,6 +641,11 @@ function connectSSE() {
       // Update status dots for this server regardless of which server
       // is "active" in the inspector – every server's tree is visible.
       applyStatusDots(data.server_id);
+
+      // Update inspector stats card if this server's container is selected.
+      if (data.server_id === window._selectedContainerServerId) {
+        updateInspectorStatsCard();
+      }
 
       // Auto-select the first server that reports in if nothing is selected yet.
       if (window.activeServerId === null) {

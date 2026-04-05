@@ -657,3 +657,54 @@ ul { list-style: none; }
     border-color: var(--brand-primary);
     color: var(--brand-primary);
 }
+
+/* ── Container Stats Card (Inspector) ──────────────────── */
+.container-stats-card {
+    background-color: #020617;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.8rem;
+}
+
+.container-stats-card .stats-card-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.container-stats-card .stats-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.container-stats-card .stats-card-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.container-stats-card .stats-card-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.container-stats-card .stats-card-value {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.container-stats-card .stats-card-not-running {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.8rem;
+}
