@@ -142,6 +142,7 @@ window.selectContainerStem = function(stem, serverId) {
     window._selectedContainerStem = (stem || '').toLowerCase();
     window._selectedContainerServerId = parseInt(serverId, 10);
     updateInspectorStatsCard();
+    updateInspectorActivityLog();
 };
 
 function updateInspectorStatsCard() {
@@ -197,6 +198,73 @@ function updateInspectorStatsCard() {
             '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + stem + '</div>' +
             '<div class="stats-card-not-running">Waiting for stats...</div>';
     }
+}
+
+function updateInspectorActivityLog() {
+    var activityLog = document.getElementById('container-activity-log');
+    if (!activityLog) return;
+
+    var stem = window._selectedContainerStem;
+    var serverId = window._selectedContainerServerId;
+    if (!stem || !serverId) {
+        activityLog.classList.add('hidden');
+        return;
+    }
+
+    activityLog.classList.remove('hidden');
+
+    // Fetch activity events from the API
+    fetch('/api/activity/' + serverId + '?container=' + encodeURIComponent(stem) + '&limit=10')
+        .then(function(response) {
+            if (!response.ok) throw new Error('Failed to fetch activity');
+            return response.json();
+        })
+        .then(function(data) {
+            var listEl = activityLog.querySelector('.activity-list');
+            if (!data.events || data.events.length === 0) {
+                listEl.innerHTML = '<div class="text-muted italic p-2">No events recorded</div>';
+                return;
+            }
+
+            var html = '';
+            data.events.forEach(function(event) {
+                var icon = '';
+                switch (event.event_type) {
+                    case 'start': icon = '▶'; break;
+                    case 'stop': icon = '⏹'; break;
+                    case 'restart': icon = '🔄'; break;
+                    case 'failure': icon = '⚠'; break;
+                    default: icon = '•';
+                }
+
+                var relTime = getRelativeTime(event.occurred_at);
+                var triggeredBy = event.triggered_by ? ' by ' + event.triggered_by : '';
+
+                html += '<div class="activity-item">' +
+                    '<span class="activity-icon">' + icon + '</span>' +
+                    '<span class="activity-type">' + event.event_type + '</span>' +
+                    '<span class="activity-time">' + relTime + '</span>' +
+                    '<span class="activity-user">' + triggeredBy + '</span>' +
+                    '</div>';
+            });
+
+            listEl.innerHTML = html;
+        })
+        .catch(function(err) {
+            console.error('Error fetching activity:', err);
+            var listEl = activityLog.querySelector('.activity-list');
+            listEl.innerHTML = '<div class="text-muted italic p-2">Failed to load activity</div>';
+        });
+}
+
+function getRelativeTime(timestamp) {
+    var now = Math.floor(Date.now() / 1000);
+    var diff = now - timestamp;
+
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
 }
 
 

@@ -87,7 +87,25 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_health_history_server_time
             ON container_health_history(server_id, recorded_at)
         """)
-        
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS container_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id INTEGER NOT NULL,
+                container_name TEXT NOT NULL,
+                event_type TEXT NOT NULL CHECK(event_type IN ('start', 'stop', 'restart', 'failure')),
+                triggered_by TEXT,
+                details TEXT,
+                occurred_at INTEGER NOT NULL,
+                FOREIGN KEY(server_id) REFERENCES servers(id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_container_events_server_container
+            ON container_events(server_id, container_name, occurred_at)
+        """)
+
         # Seed basic templates if they do not exist
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (1, 'Basic Container', 'container', '[Container]\\nImage=docker.io/library/nginx:latest\\nNetwork=host\\n')")
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (2, 'Basic Volume', 'volume', '[Volume]\\nLabel=app=myapp\\n')")

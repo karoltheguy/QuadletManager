@@ -63,13 +63,16 @@ async def test_viewer_cannot_create():
 @pytest.mark.asyncio
 async def test_viewer_cannot_systemctl_post():
     from api.routes import api_systemctl_post
+    from unittest.mock import MagicMock
 
     role = "viewer"
 
     # viewer can check status (action="status")
     with patch('api.routes.systemctl_action', new_callable=AsyncMock) as mock_action:
         mock_action.return_value = "fake status"
+        mock_request = MagicMock()
         response = await api_systemctl_post(
+            request=mock_request,
             server_id=1,
             action="status",
             unit="fake.service",
@@ -79,7 +82,9 @@ async def test_viewer_cannot_systemctl_post():
         assert response.status_code == 200
 
     # viewer cannot start
+    mock_request = MagicMock()
     response_forbid = await api_systemctl_post(
+        request=mock_request,
         server_id=1,
         action="start",
         unit="fake.service",
@@ -465,19 +470,25 @@ async def test_viewer_cannot_update_server(mock_db):
 @patch('api.routes.systemctl_action', new_callable=AsyncMock)
 async def test_editor_can_systemctl_post(mock_action):
     from api.routes import api_systemctl_post
+    from unittest.mock import MagicMock
 
     role = "editor"
     mock_action.return_value = "fake result"
+    mock_request = MagicMock()
 
-    response = await api_systemctl_post(
-        server_id=1,
-        action="start",
-        unit="fake.service",
-        scope="user",
-        role=role
-    )
-    assert response.status_code == 200
-    assert "fake result" in response.body.decode()
+    with patch('api.routes._get_session', new_callable=AsyncMock) as mock_session:
+        mock_session.return_value = {"username": "editor_user"}
+        with patch('services.container_events.record_container_event', new_callable=AsyncMock):
+            response = await api_systemctl_post(
+                request=mock_request,
+                server_id=1,
+                action="start",
+                unit="fake.service",
+                scope="user",
+                role=role
+            )
+            assert response.status_code == 200
+            assert "fake result" in response.body.decode()
 
 
 # =============================================================================

@@ -303,13 +303,28 @@ async def api_systemctl_status(server_id: int, unit: str, scope: str):
         return HTMLResponse(str(e))
 
 @router.post("/api/systemctl/{server_id}", response_class=HTMLResponse)
-async def api_systemctl_post(server_id: int, action: str, unit: str, scope: str, role: str = Depends(get_current_user_role)):
+async def api_systemctl_post(
+    request: Request,
+    server_id: int,
+    action: str,
+    unit: str,
+    scope: str,
+    role: str = Depends(get_current_user_role)
+):
     if role != "editor" and action != "status":
         return HTMLResponse("Permission denied", status_code=403)
-        
+
     try:
         await systemctl_action(server_id, action, unit, scope)
         output = await systemctl_action(server_id, "status", unit, scope)
+
+        # Record event for start/stop/restart actions
+        if action in ("start", "stop", "restart"):
+            from services.container_events import record_container_event
+            session = await _get_session(request)
+            username = session["username"]
+            await record_container_event(server_id, unit, action, triggered_by=username)
+
         return HTMLResponse(output)
     except Exception as e:
         return HTMLResponse(f"Action failed: {str(e)}")
@@ -317,6 +332,17 @@ async def api_systemctl_post(server_id: int, action: str, unit: str, scope: str,
 @router.get("/api/events")
 async def sse_events(request: Request):
     return StreamingResponse(publisher.event_generator(request), media_type="text/event-stream")
+
+@router.get("/api/activity/{server_id}")
+async def get_activity(server_id: int, container: str, limit: int = 10, role: str = Depends(get_current_user_role)):
+    """Fetch container activity events."""
+    from services.container_events import get_container_activity
+
+    try:
+        events = await get_container_activity(server_id, container, limit=limit)
+        return {"events": events}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch activity: {str(e)}")
 
 @router.get("/api/modal/new", response_class=HTMLResponse)
 async def new_file_modal(request: Request, role: str = Depends(get_current_user_role)):
