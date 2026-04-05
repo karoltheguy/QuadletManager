@@ -899,6 +899,77 @@ _statsWaitTimeout = setTimeout(function() {
 }, 15000);
 });
 
+// ── File Deletion ─────────────────────────────────────────
+let _ctxMenu = null;
+
+window.showFileContextMenu = function(event, serverId, path, scope) {
+    event.preventDefault();
+
+    if (_ctxMenu) _ctxMenu.remove();
+
+    _ctxMenu = document.createElement('div');
+    _ctxMenu.className = 'context-menu';
+    _ctxMenu.style.cssText = 'position:fixed;left:' + event.clientX + 'px;top:' + event.clientY + 'px';
+
+    var btn = document.createElement('button');
+    btn.className = 'context-menu-item context-menu-danger';
+    btn.textContent = 'Delete';
+    btn.onclick = function() {
+        _ctxMenu.remove();
+        _ctxMenu = null;
+        window.confirmDeleteFile(serverId, path, scope);
+    };
+    _ctxMenu.appendChild(btn);
+    document.body.appendChild(_ctxMenu);
+
+    setTimeout(function() {
+        document.addEventListener('click', function closeMenu() {
+            if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
+            document.removeEventListener('click', closeMenu);
+        }, { once: true });
+    }, 0);
+};
+
+window.confirmDeleteFile = function(serverId, path, scope) {
+    var existing = document.getElementById('delete-confirm-modal');
+    if (existing) existing.remove();
+
+    var fileName = path.split('/').pop();
+    var safeFileName = fileName.replace(/[<>&"]/g, function(c) {
+        return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];
+    });
+
+    var modal = document.createElement('div');
+    modal.id = 'delete-confirm-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML =
+        '<div class="modal-content">' +
+        '<h2 class="panel-title mb-4">Delete File</h2>' +
+        '<p class="text-sm mb-6">Delete <strong>' + safeFileName + '</strong>? This cannot be undone.</p>' +
+        '<div class="flex justify-end space-x-2">' +
+        '<button class="btn btn-secondary" onclick="document.getElementById(\'delete-confirm-modal\').remove()">Cancel</button>' +
+        '<button class="btn btn-danger" onclick="window.executeDeleteFile(' + serverId + ', ' + JSON.stringify(path) + ', ' + JSON.stringify(scope) + ')">Delete</button>' +
+        '</div></div>';
+    document.body.appendChild(modal);
+};
+
+window.executeDeleteFile = async function(serverId, path, scope) {
+    document.getElementById('delete-confirm-modal')?.remove();
+
+    var url = '/api/files?server_id=' + encodeURIComponent(serverId) +
+              '&path=' + encodeURIComponent(path) +
+              '&scope=' + encodeURIComponent(scope);
+    var response = await fetch(url, { method: 'DELETE' });
+    var html = await response.text();
+
+    var toast = document.getElementById('status-toast');
+    if (toast) toast.innerHTML = html;
+
+    if (response.headers.get('HX-Trigger') === 'reload-servers') {
+        document.body.dispatchEvent(new Event('reload-servers'));
+    }
+};
+
 // ── Real-time Logs WebSocket ─────────────────────────────
 let currentLogSocket = null;
 

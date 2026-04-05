@@ -700,6 +700,47 @@ async def api_delete_key(
     return await api_list_keys(request, is_admin=True)
 
 
+@router.delete("/api/files", response_class=HTMLResponse)
+async def delete_file(
+    request: Request,
+    server_id: int,
+    path: str,
+    scope: str,
+    role: str = Depends(get_current_user_role)
+):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Viewer role cannot delete files.")
+
+    use_sudo = (scope == "global")
+    cmd = f"sudo rm -f {shlex.quote(path)}" if use_sudo else f"rm -f {shlex.quote(path)}"
+
+    try:
+        await pool.execute_command(server_id, cmd, use_sudo=False)
+
+        async with get_db_connection() as db:
+            await db.execute(
+                "DELETE FROM quadlets WHERE server_id = ? AND file_path = ?",
+                (server_id, path)
+            )
+            await db.commit()
+
+        file_name = path.split("/")[-1]
+        response = templates.TemplateResponse(request, "partials/toast.html", {
+            "color": "green",
+            "message": f"Deleted {file_name}!",
+            "status_output": None
+        })
+        response.headers["HX-Trigger"] = "reload-servers"
+        return response
+    except Exception as e:
+        logger.error(f"Delete failed: {e}")
+        return templates.TemplateResponse(request, "partials/toast.html", {
+            "color": "red",
+            "message": f"Failed to delete: {str(e)}",
+            "status_output": None
+        })
+
+
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
 async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
     await stream_logs_over_websocket(websocket, server_id, unit_name, scope)

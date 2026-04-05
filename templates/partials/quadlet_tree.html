@@ -8,6 +8,7 @@
         <li>
             <button class="quadlet-tree-btn text-accent block w-full text-sm"
                     onclick="window.setActiveServer({{ server_id }})"
+                    oncontextmenu="window.showFileContextMenu(event, {{ server_id }}, {{ file_info['path']|tojson }}, '{{ scope }}')"
                     hx-get="/api/file/{{ server_id }}?path={{ file_info['path'] }}&scope={{ scope }}&name={{ file_info['name'] }}" hx-target="#editor-pane" hx-swap="outerHTML">
                 <span class="status-dot dot-stopped"
                       data-server-id="{{ server_id }}"
