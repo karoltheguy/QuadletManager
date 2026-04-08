@@ -1,8 +1,9 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import WebSocket, WebSocketDisconnect
 from api.sockets import ConnectionManager, stream_logs_over_websocket, exec_terminal_over_websocket
+from api import routes as api_routes
 from services.ssh_manager import pool
 
 @pytest.fixture
@@ -280,3 +281,106 @@ async def test_stream_logs_valid_unit_name_passes(mock_websocket, monkeypatch):
 
     mock_pool.get_connection.assert_called_once_with(1)
     mock_conn.create_process.assert_called_once()
+
+
+# ── Authentication tests for WebSocket route handlers ──────────────────────
+
+@pytest.fixture
+def unauth_ws():
+    ws = AsyncMock(spec=WebSocket)
+    ws.cookies = {}
+    return ws
+
+
+@pytest.fixture
+def authed_ws():
+    ws = AsyncMock(spec=WebSocket)
+    valid_cookie = api_routes._create_session_cookie("alice", "editor", is_admin=False)
+    ws.cookies = {api_routes.COOKIE_NAME: valid_cookie}
+    return ws
+
+
+@pytest.mark.asyncio
+async def test_ws_logs_rejects_unauthenticated(unauth_ws, monkeypatch):
+    """Unauthenticated /ws/logs connections must be closed before streaming starts."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
+    called = {"hit": False}
+
+    async def fake_stream(*args, **kwargs):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "stream_logs_over_websocket", fake_stream)
+
+    await api_routes.websocket_logs(unauth_ws, server_id=1, unit_name="my.service")
+
+    unauth_ws.close.assert_awaited_once()
+    assert unauth_ws.close.call_args.kwargs.get("code") == 4401 or unauth_ws.close.call_args.args == (4401,)
+    assert called["hit"] is False
+
+
+@pytest.mark.asyncio
+async def test_ws_exec_rejects_unauthenticated(unauth_ws, monkeypatch):
+    """Unauthenticated /ws/exec connections must be closed before streaming starts."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
+    called = {"hit": False}
+
+    async def fake_exec(*args, **kwargs):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "exec_terminal_over_websocket", fake_exec)
+
+    await api_routes.websocket_exec(unauth_ws, server_id=1, container_name="myapp")
+
+    unauth_ws.close.assert_awaited_once()
+    assert called["hit"] is False
+
+
+@pytest.mark.asyncio
+async def test_ws_logs_accepts_valid_session(authed_ws, monkeypatch):
+    """A valid signed session cookie must allow the log stream handler to run."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
+    called = {"hit": False}
+
+    async def fake_stream(ws, server_id, unit_name, scope):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "stream_logs_over_websocket", fake_stream)
+
+    await api_routes.websocket_logs(authed_ws, server_id=1, unit_name="my.service")
+
+    authed_ws.close.assert_not_called()
+    assert called["hit"] is True
+
+
+@pytest.mark.asyncio
+async def test_ws_exec_accepts_valid_session(authed_ws, monkeypatch):
+    """A valid signed session cookie must allow the exec terminal handler to run."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
+    called = {"hit": False}
+
+    async def fake_exec(ws, server_id, container_name, scope, cmd):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "exec_terminal_over_websocket", fake_exec)
+
+    await api_routes.websocket_exec(authed_ws, server_id=1, container_name="myapp")
+
+    authed_ws.close.assert_not_called()
+    assert called["hit"] is True
+
+
+@pytest.mark.asyncio
+async def test_ws_logs_dev_auto_login_bypasses_auth(unauth_ws, monkeypatch):
+    """When dev_auto_login is enabled, missing cookies must not block the stream."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", True)
+    called = {"hit": False}
+
+    async def fake_stream(*args, **kwargs):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "stream_logs_over_websocket", fake_stream)
+
+    await api_routes.websocket_logs(unauth_ws, server_id=1, unit_name="my.service")
+
+    unauth_ws.close.assert_not_called()
+    assert called["hit"] is True

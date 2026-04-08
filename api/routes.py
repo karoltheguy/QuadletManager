@@ -812,11 +812,34 @@ async def delete_file(
         })
 
 
+async def _authenticate_websocket(websocket: WebSocket) -> dict | None:
+    """Validate the session cookie sent on a WebSocket upgrade.
+    Returns the session dict on success, or None if unauthenticated.
+    Honors dev_auto_login the same way the HTTP dependency does.
+    """
+    if global_config.dev_auto_login:
+        return {"username": "admin", "role": "editor", "is_admin": True}
+    cookie = websocket.cookies.get(COOKIE_NAME)
+    if not cookie:
+        return None
+    return _read_session_cookie(cookie)
+
+
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
 async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
+    session = await _authenticate_websocket(websocket)
+    if session is None:
+        logger.warning("Rejected unauthenticated /ws/logs connection")
+        await websocket.close(code=4401)
+        return
     await stream_logs_over_websocket(websocket, server_id, unit_name, scope)
 
 
 @router.websocket("/ws/exec/{server_id}/{container_name}")
 async def websocket_exec(websocket: WebSocket, server_id: int, container_name: str, scope: str = "user", cmd: str = "bash"):
+    session = await _authenticate_websocket(websocket)
+    if session is None:
+        logger.warning("Rejected unauthenticated /ws/exec connection")
+        await websocket.close(code=4401)
+        return
     await exec_terminal_over_websocket(websocket, server_id, container_name, scope, cmd)
