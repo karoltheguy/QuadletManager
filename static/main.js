@@ -359,86 +359,8 @@ function applyStatusDots(serverId) {
 }
 
 
-function initStatsChart() {
-  const ctx = document.getElementById('stats-chart');
-  if (!ctx) return;
-
-  statsChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: 'CPU %',
-          data: [],
-          backgroundColor: 'rgba(99, 102, 241, 0.6)',
-          borderColor: 'rgba(99, 102, 241, 1)',
-          borderWidth: 1,
-          borderRadius: 3
-        },
-        {
-          label: 'Memory %',
-          data: [],
-          backgroundColor: 'rgba(236, 72, 153, 0.6)',
-          borderColor: 'rgba(236, 72, 153, 1)',
-          borderWidth: 1,
-          borderRadius: 3
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false, // Disable for frequent (5s) updates
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: {
-            color: '#9ca3af',
-            font: { size: 10 },
-            callback: function(value) { return value + '%'; }
-          },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' }
-        },
-        x: {
-          ticks: {
-            color: '#9ca3af',
-            font: { size: 10 },
-            maxRotation: 45,
-            minRotation: 0
-          },
-          grid: { display: false }
-        }
-      },
-      plugins: {
-        legend: {
-          labels: {
-            color: '#d1d5db',
-            font: { size: 11 },
-            boxWidth: 12,
-            padding: 8
-          }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(17, 24, 39, 0.9)',
-          titleColor: '#f3f4f6',
-          bodyColor: '#d1d5db',
-          borderColor: 'rgba(75, 85, 99, 0.5)',
-          borderWidth: 1,
-          cornerRadius: 6,
-          padding: 8
-        }
-      }
-    }
-  });
-}
-
-function initMonitoringChart() {
-  const ctx = document.getElementById('monitoring-chart');
-  if (!ctx) return;
-
-  monitoringChart = new Chart(ctx, {
+function buildBarChartConfig() {
+  return {
     type: 'bar',
     data: {
       labels: [],
@@ -490,9 +412,9 @@ function initMonitoringChart() {
         legend: {
           labels: {
             color: '#d1d5db',
-            font: { size: 12 },
-            boxWidth: 14,
-            padding: 10
+            font: { size: 11 },
+            boxWidth: 12,
+            padding: 8
           }
         },
         tooltip: {
@@ -502,11 +424,23 @@ function initMonitoringChart() {
           borderColor: 'rgba(75, 85, 99, 0.5)',
           borderWidth: 1,
           cornerRadius: 6,
-          padding: 10
+          padding: 8
         }
       }
     }
-  });
+  };
+}
+
+function initStatsChart() {
+  const ctx = document.getElementById('stats-chart');
+  if (!ctx) return;
+  statsChart = new Chart(ctx, buildBarChartConfig());
+}
+
+function initMonitoringChart() {
+  const ctx = document.getElementById('monitoring-chart');
+  if (!ctx) return;
+  monitoringChart = new Chart(ctx, buildBarChartConfig());
 }
 
 function initHealthHistoryChart() {
@@ -638,20 +572,11 @@ function parsePercent(val) {
     return parseFloat(val) || 0;
 }
 
-function updateStats(data) {
-    const containers = data.containers || [];
-
-    // ── Update Chart ──
-    if (statsChart) {
-        statsChart.data.labels = containers.map(function(c) { return c.name; });
-        statsChart.data.datasets[0].data = containers.map(function(c) { return parsePercent(c.cpu); });
-        statsChart.data.datasets[1].data = containers.map(function(c) { return parsePercent(c.mem); });
-        statsChart.update();
-    }
-
-    // ── Update Stats Table ──
-    var tableEl = document.getElementById('stats-table');
+function renderContainerStatsTable(tableElId, data) {
+    var tableEl = document.getElementById(tableElId);
     if (!tableEl) return;
+
+    const containers = data.containers || [];
 
     if (containers.length === 0) {
         tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
@@ -681,6 +606,20 @@ function updateStats(data) {
     html += '</tbody></table>';
     html += '<div class="p-4 text-muted text-right text-xs">' + escapeHtml(data.server_name || '') + '</div>';
     tableEl.innerHTML = html;
+}
+
+function updateStats(data) {
+    const containers = data.containers || [];
+
+    // ── Update Chart ──
+    if (statsChart) {
+        statsChart.data.labels = containers.map(function(c) { return c.name; });
+        statsChart.data.datasets[0].data = containers.map(function(c) { return parsePercent(c.cpu); });
+        statsChart.data.datasets[1].data = containers.map(function(c) { return parsePercent(c.mem); });
+        statsChart.update();
+    }
+
+    renderContainerStatsTable('stats-table', data);
 }
 
 
@@ -877,7 +816,7 @@ window.selectMonitoringServer = function(serverId) {
 
 function updateMonitoringView(data) {
   const containers = data.containers || [];
-  
+
   // Update Monitoring Chart
   if (monitoringChart) {
     monitoringChart.data.labels = containers.map(function(c) { return c.name; });
@@ -885,39 +824,8 @@ function updateMonitoringView(data) {
     monitoringChart.data.datasets[1].data = containers.map(function(c) { return parsePercent(c.mem); });
     monitoringChart.update();
   }
-  
-  // Update Monitoring Stats Table
-  var tableEl = document.getElementById('monitoring-stats-table');
-  if (!tableEl) return;
-  
-  if (containers.length === 0) {
-    tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
-      escapeHtml(data.server_name || 'server') + '</div>';
-    return;
-  }
 
-  var html = '<table class="w-full">';
-  html += '<thead><tr class="text-muted border-b">';
-  html += '<th class="text-left p-4">Container</th>';
-  html += '<th class="p-4 text-right">CPU</th>';
-  html += '<th class="p-4 text-right">MEM</th>';
-  html += '<th class="p-4 text-right">NET I/O</th>';
-  html += '<th class="p-4 text-right">PIDs</th>';
-  html += '</tr></thead><tbody>';
-
-  containers.forEach(function(c) {
-    html += '<tr class="border-b">';
-    html += '<td class="text-left p-4 text-accent font-semibold">' + escapeHtml(c.name) + '</td>';
-    html += '<td class="p-4 text-right">' + escapeHtml(c.cpu) + '</td>';
-    html += '<td class="p-4 text-right">' + escapeHtml(c.mem) + '</td>';
-    html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.net_io) + '</td>';
-    html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.pids) + '</td>';
-    html += '</tr>';
-  });
-
-  html += '</tbody></table>';
-  html += '<div class="p-4 text-muted text-right text-xs">' + escapeHtml(data.server_name || '') + '</div>';
-  tableEl.innerHTML = html;
+  renderContainerStatsTable('monitoring-stats-table', data);
 }
 
 function populateServerSelector() {
