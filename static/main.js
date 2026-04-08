@@ -1063,8 +1063,11 @@ window.connectTerminal = function() {
                 }));
             }
 
-            // Forward terminal input to WebSocket
-            window._terminalInstance.onData(function(data) {
+            // Forward terminal input to WebSocket (dispose previous handler first)
+            if (window._terminalDataHandler) {
+                window._terminalDataHandler.dispose();
+            }
+            window._terminalDataHandler = window._terminalInstance.onData(function(data) {
                 if (window._terminalWs && window._terminalWs.readyState === WebSocket.OPEN) {
                     window._terminalWs.send(data);
                 }
