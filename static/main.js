@@ -17,6 +17,13 @@ if ('Notification' in window && Notification.permission !== 'granted' && Notific
 const manualStops = new Set(); // tracks serverId:stem that we intentionally stopped
 const pendingStarts = {}; // tracks stems waiting for active status
 
+// HTML-escape utility for safe innerHTML insertion of API/user-controlled data.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(value).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
 function sendNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, { body: body });
@@ -195,20 +202,20 @@ function updateInspectorStatsCard() {
 
     if (matched) {
         card.innerHTML =
-            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + matched.name + '</div>' +
+            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + escapeHtml(matched.name) + '</div>' +
             '<div class="stats-card-grid">' +
-            '<div class="stats-card-item"><span class="stats-card-label">CPU</span><span class="stats-card-value">' + matched.cpu + '</span></div>' +
-            '<div class="stats-card-item"><span class="stats-card-label">Memory</span><span class="stats-card-value">' + matched.mem + '</span></div>' +
-            '<div class="stats-card-item"><span class="stats-card-label">Net I/O</span><span class="stats-card-value">' + matched.net_io + '</span></div>' +
-            '<div class="stats-card-item"><span class="stats-card-label">PIDs</span><span class="stats-card-value">' + matched.pids + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">CPU</span><span class="stats-card-value">' + escapeHtml(matched.cpu) + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">Memory</span><span class="stats-card-value">' + escapeHtml(matched.mem) + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">Net I/O</span><span class="stats-card-value">' + escapeHtml(matched.net_io) + '</span></div>' +
+            '<div class="stats-card-item"><span class="stats-card-label">PIDs</span><span class="stats-card-value">' + escapeHtml(matched.pids) + '</span></div>' +
             '</div>';
     } else if (!isRunning) {
         card.innerHTML =
-            '<div class="stats-card-title">' + stem + '</div>' +
+            '<div class="stats-card-title">' + escapeHtml(stem) + '</div>' +
             '<div class="stats-card-not-running">Container not running</div>';
     } else {
         card.innerHTML =
-            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + stem + '</div>' +
+            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + escapeHtml(stem) + '</div>' +
             '<div class="stats-card-not-running">Waiting for stats...</div>';
     }
 }
@@ -255,9 +262,9 @@ function updateInspectorActivityLog() {
 
                 html += '<div class="activity-item">' +
                     '<span class="activity-icon">' + icon + '</span>' +
-                    '<span class="activity-type">' + event.event_type + '</span>' +
-                    '<span class="activity-time">' + relTime + '</span>' +
-                    '<span class="activity-user">' + triggeredBy + '</span>' +
+                    '<span class="activity-type">' + escapeHtml(event.event_type) + '</span>' +
+                    '<span class="activity-time">' + escapeHtml(relTime) + '</span>' +
+                    '<span class="activity-user">' + escapeHtml(triggeredBy) + '</span>' +
                     '</div>';
             });
 
@@ -648,7 +655,7 @@ function updateStats(data) {
 
     if (containers.length === 0) {
         tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
-            (data.server_name || 'server') + '</div>';
+            escapeHtml(data.server_name || 'server') + '</div>';
         return;
     }
 
@@ -663,16 +670,16 @@ function updateStats(data) {
 
     containers.forEach(function(c) {
         html += '<tr class="border-b">';
-        html += '<td class="text-left p-4 text-accent font-semibold">' + c.name + '</td>';
-        html += '<td class="p-4 text-right">' + c.cpu + '</td>';
-        html += '<td class="p-4 text-right">' + c.mem + '</td>';
-        html += '<td class="p-4 text-right text-muted">' + c.net_io + '</td>';
-        html += '<td class="p-4 text-right text-muted">' + c.pids + '</td>';
+        html += '<td class="text-left p-4 text-accent font-semibold">' + escapeHtml(c.name) + '</td>';
+        html += '<td class="p-4 text-right">' + escapeHtml(c.cpu) + '</td>';
+        html += '<td class="p-4 text-right">' + escapeHtml(c.mem) + '</td>';
+        html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.net_io) + '</td>';
+        html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.pids) + '</td>';
         html += '</tr>';
     });
 
     html += '</tbody></table>';
-    html += '<div class="p-4 text-muted text-right text-xs">' + (data.server_name || '') + '</div>';
+    html += '<div class="p-4 text-muted text-right text-xs">' + escapeHtml(data.server_name || '') + '</div>';
     tableEl.innerHTML = html;
 }
 
@@ -885,10 +892,10 @@ function updateMonitoringView(data) {
   
   if (containers.length === 0) {
     tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
-      (data.server_name || 'server') + '</div>';
+      escapeHtml(data.server_name || 'server') + '</div>';
     return;
   }
-  
+
   var html = '<table class="w-full">';
   html += '<thead><tr class="text-muted border-b">';
   html += '<th class="text-left p-4">Container</th>';
@@ -897,19 +904,19 @@ function updateMonitoringView(data) {
   html += '<th class="p-4 text-right">NET I/O</th>';
   html += '<th class="p-4 text-right">PIDs</th>';
   html += '</tr></thead><tbody>';
-  
+
   containers.forEach(function(c) {
     html += '<tr class="border-b">';
-    html += '<td class="text-left p-4 text-accent font-semibold">' + c.name + '</td>';
-    html += '<td class="p-4 text-right">' + c.cpu + '</td>';
-    html += '<td class="p-4 text-right">' + c.mem + '</td>';
-    html += '<td class="p-4 text-right text-muted">' + c.net_io + '</td>';
-    html += '<td class="p-4 text-right text-muted">' + c.pids + '</td>';
+    html += '<td class="text-left p-4 text-accent font-semibold">' + escapeHtml(c.name) + '</td>';
+    html += '<td class="p-4 text-right">' + escapeHtml(c.cpu) + '</td>';
+    html += '<td class="p-4 text-right">' + escapeHtml(c.mem) + '</td>';
+    html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.net_io) + '</td>';
+    html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.pids) + '</td>';
     html += '</tr>';
   });
-  
+
   html += '</tbody></table>';
-  html += '<div class="p-4 text-muted text-right text-xs">' + (data.server_name || '') + '</div>';
+  html += '<div class="p-4 text-muted text-right text-xs">' + escapeHtml(data.server_name || '') + '</div>';
   tableEl.innerHTML = html;
 }
 
