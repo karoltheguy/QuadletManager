@@ -1032,6 +1032,12 @@ window.connectTerminal = function() {
     }
 
     loadFitAddon(function() {
+        // Create FitAddon once and reuse it
+        if (window.FitAddon && !window._terminalFitAddon) {
+            window._terminalFitAddon = new window.FitAddon.FitAddon();
+            window._terminalInstance.loadAddon(window._terminalFitAddon);
+        }
+
         // Connect to WebSocket
         var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         var wsUrl = protocol + '//' + window.location.host + '/ws/exec/' + serverId + '/' + encodeURIComponent(containerName) + '?scope=user&cmd=' + encodeURIComponent(cmd);
@@ -1047,11 +1053,9 @@ window.connectTerminal = function() {
             if (disconnectBtn) disconnectBtn.classList.remove('hidden');
 
             // Fit terminal to container
-            if (window.FitAddon) {
-                var fitAddon = new window.FitAddon.FitAddon();
-                window._terminalInstance.loadAddon(fitAddon);
-                fitAddon.fit();
-                var dims = window._terminalInstance.proposeGeometry();
+            if (window._terminalFitAddon) {
+                window._terminalFitAddon.fit();
+                var dims = window._terminalFitAddon.proposeDimensions();
                 window._terminalWs.send(JSON.stringify({
                     type: 'resize',
                     cols: dims ? dims.cols : 80,
@@ -1068,11 +1072,9 @@ window.connectTerminal = function() {
 
             // Handle window resize
             window._terminalResizeHandler = function() {
-                if (window._terminalInstance && window.FitAddon) {
-                    var fitAddon = new window.FitAddon.FitAddon();
-                    window._terminalInstance.loadAddon(fitAddon);
-                    fitAddon.fit();
-                    var dims = window._terminalInstance.proposeGeometry();
+                if (window._terminalInstance && window._terminalFitAddon) {
+                    window._terminalFitAddon.fit();
+                    var dims = window._terminalFitAddon.proposeDimensions();
                     if (window._terminalWs && window._terminalWs.readyState === WebSocket.OPEN) {
                         window._terminalWs.send(JSON.stringify({
                             type: 'resize',
