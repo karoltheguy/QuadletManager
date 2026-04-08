@@ -16,6 +16,7 @@ from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
 from services.sync_engine import parse_mtime
 from core.events_manager import publisher
+from services.container_events import record_container_event, get_container_activity
 import logging
 from core.config_loader import global_config
 
@@ -320,7 +321,6 @@ async def api_systemctl_post(
 
         # Record event for start/stop/restart actions
         if action in ("start", "stop", "restart"):
-            from services.container_events import record_container_event
             session = await _get_session(request)
             username = session["username"]
             await record_container_event(server_id, unit, action, triggered_by=username)
@@ -336,8 +336,6 @@ async def sse_events(request: Request):
 @router.get("/api/activity/{server_id}")
 async def get_activity(server_id: int, container: str, limit: int = 10, role: str = Depends(get_current_user_role)):
     """Fetch container activity events."""
-    from services.container_events import get_container_activity
-
     try:
         limit = min(limit, 100)
         events = await get_container_activity(server_id, container, limit=limit)
