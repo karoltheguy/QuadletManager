@@ -1,9 +1,14 @@
 """Container events recording and retrieval."""
+import asyncio
+import os
 import time
 from core.database import get_db_connection
 import logging
 
 logger = logging.getLogger("quadlet-manager.container_events")
+
+EVENTS_RETENTION_DAYS = int(os.environ.get("QUADLET_EVENTS_RETENTION_DAYS", "30"))
+CLEANUP_INTERVAL_SEC = 86400  # run once per day
 
 
 async def record_container_event(
@@ -74,3 +79,32 @@ async def get_container_activity(
         }
         for row in rows
     ]
+
+
+async def cleanup_old_events(retention_days: int = EVENTS_RETENTION_DAYS) -> int:
+    """Delete container events older than retention_days. Returns the number of deleted rows."""
+    cutoff = int(time.time()) - (retention_days * 86400)
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            "DELETE FROM container_events WHERE occurred_at < ?", (cutoff,)
+        )
+        deleted = cursor.rowcount
+        await db.commit()
+    if deleted:
+        logger.info(f"Pruned {deleted} container event(s) older than {retention_days} days.")
+    return deleted
+
+
+async def container_events_cleanup_loop():
+    logger.info(f"Starting container events cleanup task (retention={EVENTS_RETENTION_DAYS}d, interval={CLEANUP_INTERVAL_SEC}s).")
+    try:
+        while True:
+            await asyncio.sleep(CLEANUP_INTERVAL_SEC)
+            try:
+                await cleanup_old_events()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error(f"Container events cleanup error: {e}")
+    except asyncio.CancelledError:
+        logger.info("Container events cleanup stopped.")

@@ -128,6 +128,87 @@ async def test_activity_event_includes_timestamp(test_db):
 
 
 @pytest.mark.asyncio
+async def test_cleanup_old_events_removes_old_records(test_db):
+    """Test that cleanup_old_events deletes records older than the retention period."""
+    from services.container_events import record_container_event, cleanup_old_events
+
+    server_id = 1
+    container_name = "old-container"
+    retention_days = 30
+    old_timestamp = int(time.time()) - (retention_days * 86400) - 3600  # 1 hour past cutoff
+
+    # Insert an old event directly with a past timestamp
+    async with get_db_connection() as db:
+        await db.execute(
+            "INSERT INTO container_events (server_id, container_name, event_type, occurred_at) VALUES (?, ?, ?, ?)",
+            (server_id, container_name, "stop", old_timestamp)
+        )
+        await db.commit()
+
+    await cleanup_old_events(retention_days=retention_days)
+
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM container_events WHERE container_name = ?",
+            (container_name,)
+        ) as cursor:
+            count = (await cursor.fetchone())[0]
+
+    assert count == 0, f"Expected old events to be deleted, but found {count}"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_old_events_preserves_recent_records(test_db):
+    """Test that cleanup_old_events does not delete recent records."""
+    from services.container_events import record_container_event, cleanup_old_events
+
+    server_id = 1
+    container_name = "recent-container"
+
+    await record_container_event(server_id, container_name, "start", "admin", "Recent event")
+
+    await cleanup_old_events(retention_days=30)
+
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM container_events WHERE container_name = ?",
+            (container_name,)
+        ) as cursor:
+            count = (await cursor.fetchone())[0]
+
+    assert count == 1, f"Expected recent event to be preserved, but found {count}"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_old_events_mixed(test_db):
+    """Test that cleanup deletes only old events and keeps recent ones."""
+    from services.container_events import record_container_event, cleanup_old_events
+
+    server_id = 1
+    retention_days = 30
+    old_timestamp = int(time.time()) - (retention_days * 86400) - 3600
+
+    # Insert one old and one recent event
+    async with get_db_connection() as db:
+        await db.execute(
+            "INSERT INTO container_events (server_id, container_name, event_type, occurred_at) VALUES (?, ?, ?, ?)",
+            (server_id, "old-box", "failure", old_timestamp)
+        )
+        await db.commit()
+
+    await record_container_event(server_id, "recent-box", "start", "admin", "")
+
+    await cleanup_old_events(retention_days=retention_days)
+
+    async with get_db_connection() as db:
+        async with db.execute("SELECT container_name FROM container_events") as cursor:
+            remaining = [row[0] for row in await cursor.fetchall()]
+
+    assert "old-box" not in remaining
+    assert "recent-box" in remaining
+
+
+@pytest.mark.asyncio
 async def test_get_activity_route_caps_limit():
     """Test that the /api/activity route caps an unbounded client-supplied limit at 100."""
     from unittest.mock import AsyncMock, patch

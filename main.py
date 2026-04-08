@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from core.database import init_db
 from services.sync_engine import polling_engine_loop
 from services.stats_engine import stats_engine_loop
+from services.container_events import container_events_cleanup_loop
 from services.ssh_manager import pool
 from api.routes import router as web_router
 
@@ -51,6 +52,9 @@ async def startup_event():
     
     # 3. Start the Resource Stats Engine as a background asyncio task
     _background_tasks.append(asyncio.create_task(stats_engine_loop()))
+
+    # 4. Start the Container Events cleanup task
+    _background_tasks.append(asyncio.create_task(container_events_cleanup_loop()))
 
 @app.on_event("shutdown")
 async def shutdown_event():
