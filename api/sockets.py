@@ -1,10 +1,18 @@
 import asyncio
+import json
 import logging
+import re
+import shlex
 from typing import List
 from fastapi import WebSocket, WebSocketDisconnect
 from services.ssh_manager import pool
 
 logger = logging.getLogger("quadlet-manager.sockets")
+
+# Allowlist for systemd unit names (supports template instances like foo@bar.service)
+_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9_@\-\.:\\]+$")
+# Allowlist for podman container names/ids
+_CONTAINER_NAME_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
 
 class ConnectionManager:
     def __init__(self):
@@ -29,12 +37,21 @@ manager = ConnectionManager()
 
 async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
     await manager.connect(websocket)
+    if not _UNIT_NAME_RE.match(unit_name or ""):
+        logger.warning(f"Rejected invalid unit_name: {unit_name!r}")
+        try:
+            await websocket.send_text("error: invalid unit name")
+        except Exception:
+            pass
+        manager.disconnect(websocket)
+        return
+    safe_unit = shlex.quote(unit_name)
     # Start journalctl process on remote server via ssh
     conn = await pool.get_connection(server_id)
     if scope == "global":
-        cmd = f"sudo journalctl -u {unit_name} -f -n 100"
+        cmd = f"sudo journalctl -u {safe_unit} -f -n 100"
     else:
-        cmd = f"journalctl --user -u {unit_name} -f -n 100"
+        cmd = f"journalctl --user -u {safe_unit} -f -n 100"
 
     logger.info(f"Starting log stream for {unit_name} on server {server_id}")
 
@@ -79,13 +96,23 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
     await manager.connect(websocket)
     logger.info(f"Starting terminal session for {container_name} on server {server_id}")
 
+    if not _CONTAINER_NAME_RE.match(container_name or ""):
+        logger.warning(f"Rejected invalid container_name: {container_name!r}")
+        try:
+            await websocket.send_text("error: invalid container name")
+        except Exception:
+            pass
+        manager.disconnect(websocket)
+        return
+
     conn = await pool.get_connection(server_id)
     process = None
     read_task = None
 
     try:
-        # Start podman exec with PTY
-        exec_cmd = f"podman exec -it {container_name} {cmd}"
+        # Start podman exec with PTY (cmd is quoted to neutralize shell metacharacters)
+        safe_cmd = shlex.quote(cmd)
+        exec_cmd = f"podman exec -it {container_name} {safe_cmd}"
         if scope == "global":
             exec_cmd = f"sudo {exec_cmd}"
 
@@ -121,7 +148,6 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
                 # Parse control messages (e.g., resize)
                 if data.startswith('{'):
                     try:
-                        import json
                         msg = json.loads(data)
                         if msg.get('type') == 'resize':
                             cols = msg.get('cols', 80)
