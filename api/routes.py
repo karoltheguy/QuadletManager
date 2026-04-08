@@ -339,6 +339,7 @@ async def get_activity(server_id: int, container: str, limit: int = 10, role: st
     from services.container_events import get_container_activity
 
     try:
+        limit = min(limit, 100)
         events = await get_container_activity(server_id, container, limit=limit)
         return {"events": events}
     except Exception as e:

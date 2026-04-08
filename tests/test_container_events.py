@@ -125,3 +125,23 @@ async def test_activity_event_includes_timestamp(test_db):
     assert len(events) == 1
     assert "occurred_at" in events[0]
     assert before <= events[0]["occurred_at"] <= after
+
+
+@pytest.mark.asyncio
+async def test_get_activity_route_caps_limit():
+    """Test that the /api/activity route caps an unbounded client-supplied limit at 100."""
+    from unittest.mock import AsyncMock, patch
+
+    captured_limit = {}
+
+    async def fake_get_container_activity(server_id, container, limit=10):
+        captured_limit["value"] = limit
+        return []
+
+    with patch("services.container_events.get_container_activity", side_effect=fake_get_container_activity):
+        from api.routes import get_activity
+        result = await get_activity(server_id=1, container="nginx", limit=999999, role="viewer")
+
+    assert captured_limit["value"] <= 100, (
+        f"Expected limit to be capped at 100, but got {captured_limit['value']}"
+    )
