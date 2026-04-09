@@ -106,6 +106,13 @@ async def init_db():
             ON container_events(server_id, container_name, occurred_at)
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+
         # Seed basic templates if they do not exist
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (1, 'Basic Container', 'container', '[Container]\\nImage=docker.io/library/nginx:latest\\nNetwork=host\\n')")
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (2, 'Basic Volume', 'volume', '[Volume]\\nLabel=app=myapp\\n')")

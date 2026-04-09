@@ -1,6 +1,7 @@
 import asyncio
 import asyncssh
 import logging
+from cryptography.exceptions import InvalidTag
 from core.database import get_db_connection
 from core.crypto import decrypt_private_key
 
@@ -42,7 +43,14 @@ class SSHConnectionPool:
                 ip_address, ssh_user, encrypted_pk = row
                 
                 # Decrypt the key in memory
-                private_key_str = decrypt_private_key(encrypted_pk)
+                try:
+                    private_key_str = decrypt_private_key(encrypted_pk)
+                except (InvalidTag, ValueError) as exc:
+                    raise Exception(
+                        f"Failed to decrypt SSH key for server {server_id}. "
+                        "The master key may have changed since this server was configured. "
+                        "Set QUADLET_MASTER_KEY to a stable value and re-add the server if needed."
+                    ) from exc
                 
                 # Load key for asyncssh
                 key = asyncssh.import_private_key(private_key_str)

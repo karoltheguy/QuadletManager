@@ -1,6 +1,9 @@
 import os
+import logging
 import secrets
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+logger = logging.getLogger("quadlet-manager.crypto")
 
 # Master key must be securely provided via environment variables.
 # For AES-256 it should be 32 bytes (256 bits).
@@ -38,6 +41,46 @@ def encrypt_private_key(private_key: str) -> bytes:
     
     # Prepend the nonce to the ciphertext for storage
     return nonce + ciphertext
+
+async def ensure_master_key() -> None:
+    """Ensure a stable master key is available before any SSH operations run.
+
+    If QUADLET_MASTER_KEY or config master_key is already set, this is a no-op.
+    Otherwise a dev key is loaded from (or persisted to) the `settings` table so
+    the same key survives application restarts.  Call this once at startup after
+    init_db().
+    """
+    from core.config_loader import global_config
+    from core.database import get_db_connection
+
+    if os.getenv("QUADLET_MASTER_KEY"):
+        return
+    if getattr(global_config, "master_key", ""):
+        return
+
+    async with get_db_connection() as db:
+        async with db.execute("SELECT value FROM settings WHERE key = 'dev_master_key'") as cursor:
+            row = await cursor.fetchone()
+
+        if row:
+            os.environ["QUADLET_MASTER_KEY"] = row[0]
+            logger.warning(
+                "QUADLET_MASTER_KEY not set; loaded persisted dev key from database. "
+                "Set QUADLET_MASTER_KEY to a stable 64-char hex value for production."
+            )
+        else:
+            new_key = AESGCM.generate_key(bit_length=256).hex()
+            await db.execute(
+                "INSERT INTO settings (key, value) VALUES ('dev_master_key', ?)",
+                (new_key,),
+            )
+            await db.commit()
+            os.environ["QUADLET_MASTER_KEY"] = new_key
+            logger.warning(
+                "QUADLET_MASTER_KEY not set; generated and persisted a dev key to the database. "
+                "This is NOT secure for production. Set QUADLET_MASTER_KEY to a stable 64-char hex value."
+            )
+
 
 def decrypt_private_key(encrypted_data: bytes) -> str:
     """Decrypts an SSH private key using AES-256-GCM."""

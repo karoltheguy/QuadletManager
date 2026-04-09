@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.database import init_db
+from core.crypto import ensure_master_key
 from services.sync_engine import polling_engine_loop
 from services.stats_engine import stats_engine_loop
 from services.container_events import container_events_cleanup_loop
@@ -46,14 +47,17 @@ async def startup_event():
     
     # 1. Initialize SQLite schema
     await init_db()
-    
-    # 2. Start the Polling Engine as a background asyncio task
+
+    # 2. Ensure a stable encryption key exists before any SSH operations run
+    await ensure_master_key()
+
+    # 3. Start the Polling Engine as a background asyncio task
     _background_tasks.append(asyncio.create_task(polling_engine_loop()))
-    
-    # 3. Start the Resource Stats Engine as a background asyncio task
+
+    # 4. Start the Resource Stats Engine as a background asyncio task
     _background_tasks.append(asyncio.create_task(stats_engine_loop()))
 
-    # 4. Start the Container Events cleanup task
+    # 5. Start the Container Events cleanup task
     _background_tasks.append(asyncio.create_task(container_events_cleanup_loop()))
 
 @app.on_event("shutdown")
