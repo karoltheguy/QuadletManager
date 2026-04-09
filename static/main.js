@@ -1,3 +1,47 @@
+// ── Theme Toggle ─────────────────────────────────────────
+// No saved pref → follows OS via CSS @media (prefers-color-scheme).
+// First click reads the currently-resolved theme and flips to the
+// opposite, then persists to localStorage so the override sticks.
+function toggleTheme() {
+    var root = document.documentElement;
+    var current = root.getAttribute('data-theme');
+    if (!current) {
+        current = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    var next = current === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('qm-theme', next); } catch (e) {}
+}
+
+// Mark the clicked quadlet tree button as selected (inset state).
+// Called inline from partials/quadlet_tree.html onclick.
+function setSelectedQuadletBtn(el) {
+    document.querySelectorAll('.quadlet-tree-btn.is-selected')
+        .forEach(function (b) { b.classList.remove('is-selected'); });
+    if (el) el.classList.add('is-selected');
+}
+
+// Re-apply the .is-selected class after htmx swaps the quadlet tree.
+// Source of truth is window._selectedContainerStem / _selectedContainerServerId,
+// set by selectContainerStem() — the editor pane is the real state, we're
+// just re-syncing the sidebar visual to match.
+function reapplyQuadletSelection() {
+    var stem = window._selectedContainerStem;
+    var sid  = window._selectedContainerServerId;
+    if (!stem || !sid) return;
+    var btn = document.querySelector(
+        '.quadlet-tree-btn[data-stem="' + stem + '"][data-server-id="' + sid + '"]'
+    );
+    if (btn) btn.classList.add('is-selected');
+}
+document.body.addEventListener('htmx:afterSwap', function (e) {
+    // Fire on any swap that could have replaced a tree button. Cheap — a
+    // single querySelector with no match is negligible.
+    if (e.target && e.target.querySelector && e.target.querySelector('.quadlet-tree-btn')) {
+        reapplyQuadletSelection();
+    }
+});
+
 // ── Monaco Editor Configuration ──────────────────────────
 require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
 
