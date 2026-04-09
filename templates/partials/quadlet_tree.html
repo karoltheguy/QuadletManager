@@ -6,8 +6,10 @@
     {% else %}
         {% for file_info in data[scope] %}
         <li>
-            <button class="quadlet-tree-btn text-accent block w-full text-sm"
-                    onclick="window.setActiveServer({{ server_id }}); window.selectContainerStem('{{ file_info['name'].rsplit('.', 1)[0] }}', {{ server_id }})"
+            <button class="quadlet-tree-btn"
+                    data-server-id="{{ server_id }}"
+                    data-stem="{{ file_info['name'].rsplit('.', 1)[0]|lower }}"
+                    onclick="window.setSelectedQuadletBtn(this); window.setActiveServer({{ server_id }}); window.selectContainerStem('{{ file_info['name'].rsplit('.', 1)[0] }}', {{ server_id }})"
                     oncontextmenu="window.showFileContextMenu(event, {{ server_id }}, {{ file_info['path']|tojson }}, '{{ scope }}')"
                     hx-get="/api/file/{{ server_id }}?path={{ file_info['path'] }}&scope={{ scope }}&name={{ file_info['name'] }}" hx-target="#editor-pane" hx-swap="outerHTML">
                 <span class="status-dot dot-stopped"

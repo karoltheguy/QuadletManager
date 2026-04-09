@@ -1,42 +1,135 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
-    --bg-base: #0f172a;        /* Main background */
-    --bg-surface: #1e293b;     /* Panels / Sidebar */
-    --bg-element: #334155;     /* Inputs / secondary backgrounds */
-    --bg-element-hover: #475569;
-    --border-color: #334155;   /* Dividers */
+/* ── Default (dark) tokens ─────────────────────────────────
+   The light/dark switch happens via [data-theme] on <html>.
+   Dark is the fallback so the app still renders if JS fails. */
+:root,
+:root[data-theme="dark"] {
+    --bg-base: #1c1f24;        /* Main canvas (warm charcoal, not slate) */
+    --bg-surface: #22262d;     /* Raised panels */
+    --bg-element: #2a2e36;     /* Inputs / secondary */
+    --bg-element-hover: #333842;
+    --border-color: #2e333b;
 
-    --text-primary: #f8fafc;
-    --text-muted: #94a3b8;
-    --text-accent: #818cf8;
+    --text-primary: #e8ecf0;
+    --text-muted: #8b9199;
+    --text-accent: #2dd4bf;
 
-    --brand-primary: #6366f1;  /* Buttons */
-    --brand-hover: #4f46e5;
-    
+    --brand-primary: #14b8a6;  /* Teal — desaturated, reads as uptime/health */
+    --brand-hover: #0d9488;
+
     --success: #10b981;
-    --danger: #ef4444;
+    --danger:  #ef4444;
     --warning: #f59e0b;
     --success-hover: #059669;
-    --danger-hover: #dc2626;
+    --danger-hover:  #dc2626;
     --warning-hover: #d97706;
+
+    /* Neumorphism shadow pair — dual light source (top-left lit, bottom-right shadowed).
+       The 1px inset highlight on top simulates physical edge refraction. */
+    --nm-shadow-dark:  rgba(0, 0, 0, 0.55);
+    --nm-shadow-light: rgba(255, 255, 255, 0.04);
+    --shadow-raised:
+        8px 8px 20px var(--nm-shadow-dark),
+        -6px -6px 16px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-raised-sm:
+        4px 4px 10px var(--nm-shadow-dark),
+        -3px -3px 8px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-inset:
+        inset 4px 4px 10px var(--nm-shadow-dark),
+        inset -3px -3px 8px var(--nm-shadow-light);
+
+    --radius-lg: 1.25rem;
+    --radius-md: 0.75rem;
 
     /* Resizable panel widths (overridden by JS / localStorage) */
     --sidebar-width: 300px;
     --inspector-width: 320px;
 }
 
+:root[data-theme="light"] {
+    --bg-base: #e8ecf0;        /* Classic neumorphism canvas — never pure white */
+    --bg-surface: #eef1f5;
+    --bg-element: #e0e4ea;
+    --bg-element-hover: #d6dae2;
+    --border-color: #d3d8e0;
+
+    --text-primary: #1c1f24;
+    --text-muted: #6b7280;
+    --text-accent: #0d9488;
+
+    --brand-primary: #0d9488;
+    --brand-hover: #0f766e;
+
+    --success: #059669;
+    --danger:  #dc2626;
+    --warning: #d97706;
+    --success-hover: #047857;
+    --danger-hover:  #b91c1c;
+    --warning-hover: #b45309;
+
+    --nm-shadow-dark:  rgba(163, 177, 198, 0.55);
+    --nm-shadow-light: rgba(255, 255, 255, 0.9);
+    --shadow-raised:
+        8px 8px 20px var(--nm-shadow-dark),
+        -8px -8px 20px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --shadow-raised-sm:
+        4px 4px 10px var(--nm-shadow-dark),
+        -4px -4px 10px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --shadow-inset:
+        inset 4px 4px 10px var(--nm-shadow-dark),
+        inset -4px -4px 10px var(--nm-shadow-light);
+}
+
+/* Follow OS preference when no explicit theme is set */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+        --bg-base: #e8ecf0;
+        --bg-surface: #eef1f5;
+        --bg-element: #e0e4ea;
+        --bg-element-hover: #d6dae2;
+        --border-color: #d3d8e0;
+        --text-primary: #1c1f24;
+        --text-muted: #6b7280;
+        --text-accent: #0d9488;
+        --brand-primary: #0d9488;
+        --brand-hover: #0f766e;
+        --success: #059669;
+        --danger:  #dc2626;
+        --warning: #d97706;
+        --nm-shadow-dark:  rgba(163, 177, 198, 0.55);
+        --nm-shadow-light: rgba(255, 255, 255, 0.9);
+        --shadow-raised:
+            8px 8px 20px var(--nm-shadow-dark),
+            -8px -8px 20px var(--nm-shadow-light),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        --shadow-raised-sm:
+            4px 4px 10px var(--nm-shadow-dark),
+            -4px -4px 10px var(--nm-shadow-light),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        --shadow-inset:
+            inset 4px 4px 10px var(--nm-shadow-dark),
+            inset -4px -4px 10px var(--nm-shadow-light);
+    }
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bg-base);
     color: var(--text-primary);
     display: flex;
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
+.font-mono, code, pre, kbd, samp { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* Top Nav */
 .top-nav {
@@ -909,3 +1002,361 @@ ul { list-style: none; }
 .xterm-screen { background-color: #000; }
 
 .xterm-cursor-block { background-color: #4ade80; color: #000; }
+
+/* ══════════════════════════════════════════════════════════
+   SELECTIVE NEUMORPHISM — applies to all views
+   ──────────────────────────────────────────────────────────
+   Chrome surfaces (nav, sidebar, inspector, settings sidenav,
+   buttons, inputs) get the raised/inset neumorphic treatment.
+   Data surfaces (status box, stats table, activity log,
+   charts, Monaco, xterm) stay flat with an inset hairline —
+   per the "anti-card-overuse" rule for dense data.
+   ══════════════════════════════════════════════════════════ */
+
+body {
+    background-color: var(--bg-base);
+    padding: 1.25rem;
+    gap: 1.25rem;
+}
+
+.top-nav {
+    background-color: var(--bg-surface);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    height: 56px;
+    padding: 0 1rem;
+    margin-bottom: 1.25rem;
+    flex-shrink: 0;
+}
+
+.nav-brand {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.nav-item {
+    border: none;
+    border-radius: 999px;
+    margin: 0 0.2rem;
+    padding: 0.45rem 1.1rem;
+    height: auto;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    transition: color 0.2s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+.nav-item:hover {
+    color: var(--text-primary);
+    background: transparent;
+}
+.nav-item.active {
+    color: var(--brand-primary);
+    box-shadow: var(--shadow-inset);
+    border-bottom: none;
+}
+
+/* Theme toggle button — fits in the nav bar */
+.theme-toggle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-raised-sm);
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-right: 0.75rem;
+    transition: box-shadow 0.2s ease, color 0.2s ease, transform 0.1s ease;
+}
+.theme-toggle:hover { color: var(--brand-primary); }
+.theme-toggle:active {
+    box-shadow: var(--shadow-inset);
+    transform: translateY(0);
+}
+.theme-toggle svg { width: 18px; height: 18px; }
+.theme-toggle .icon-sun  { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-sun,
+:root:not([data-theme]) .theme-toggle .icon-sun { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon,
+:root:not([data-theme]) .theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .theme-toggle .icon-sun  { display: none; }
+    :root:not([data-theme]) .theme-toggle .icon-moon { display: block; }
+}
+
+/* App container becomes a gap-ed row of raised panels */
+.app-container {
+    gap: 1.25rem;
+    overflow: visible;
+}
+
+/* ── Raised panel chrome — applies across every view ── */
+#navigator,
+#inspector,
+.monitoring-pane,
+.settings-pane,
+.main-content {
+    background-color: var(--bg-surface);
+    border: none !important;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    padding: 1.5rem;
+}
+
+/* Header bars lose their own background/border and blend into the panel */
+.header-bar,
+#inspector .inspector-header,
+.settings-pane .header-bar,
+.monitoring-pane .header-bar {
+    background: transparent !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 0 0 0.9rem 0 !important;
+    margin-bottom: 1rem;
+}
+
+.panel-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* Resize handles disappear into the gap */
+.resize-handle {
+    background: transparent;
+    width: 4px;
+}
+.resize-handle:hover,
+.resize-handle.dragging {
+    background: var(--brand-primary);
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+/* ── Buttons: raised pills with tactile inset on :active ── */
+.btn {
+    border-radius: 999px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-raised-sm);
+    transition: box-shadow 0.18s ease, color 0.18s ease, transform 0.08s ease;
+}
+.btn:hover { color: var(--brand-primary); }
+.btn:active {
+    box-shadow: var(--shadow-inset);
+    transform: translateY(0);
+}
+.btn-sm {
+    padding: 0.35rem 0.8rem;
+    font-size: 0.75rem;
+}
+.btn-primary {
+    background-color: var(--bg-surface);
+    color: var(--brand-primary);
+}
+.btn-primary:hover {
+    background-color: var(--bg-surface);
+    color: var(--brand-hover);
+}
+.btn-success  { color: var(--success); background: var(--bg-surface); }
+.btn-danger   { color: var(--danger);  background: var(--bg-surface); }
+.btn-warning  { color: var(--warning); background: var(--bg-surface); }
+.btn-secondary {
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    border: none;
+}
+
+/* ── Form inputs: inset wells ── */
+.form-control,
+.terminal-shell-select {
+    background-color: var(--bg-base);
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
+    padding: 0.6rem 0.9rem;
+    transition: box-shadow 0.2s ease;
+}
+.form-control:focus,
+.terminal-shell-select:focus {
+    outline: none;
+    box-shadow: var(--shadow-inset), 0 0 0 2px rgba(20, 184, 166, 0.25);
+}
+
+/* ── Data surfaces stay FLAT — anti-card-overuse rule for dense data.
+   Hairline + inset so they feel recessed into the raised panel. ── */
+#systemd-status,
+.status-box,
+.container-stats-card,
+.container-activity-log,
+.container-terminal-section,
+.stats-container,
+.stats-table-wrapper,
+.health-history-section,
+#editor-container {
+    background-color: var(--bg-base) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-inset);
+}
+
+/* Health-history section had its own padding — harmonize with the others */
+.health-history-section { padding: 1rem 1.25rem 1.25rem; }
+
+/* Monitoring pane: inherits the raised-panel look; override its old flat bg */
+.monitoring-pane {
+    background-color: var(--bg-surface);
+    display: flex;
+    flex-direction: column;
+}
+.monitoring-content {
+    padding: 0;
+    gap: 1.25rem;
+}
+
+/* Editor pane (Monaco host) — raised panel containing an inset code well */
+#editor-pane { padding: 1.5rem; }
+#editor-container {
+    flex: 1;
+    padding: 0.75rem;
+    min-height: 0;
+}
+
+/* ── Settings pane: raised wrapper with an inner sidenav + content ── */
+.settings-pane { padding: 1.5rem; }
+.settings-layout {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background-color: var(--bg-base);
+    box-shadow: var(--shadow-inset);
+}
+.settings-sidenav {
+    background-color: transparent;
+    border-right: 1px solid var(--border-color);
+    padding: 1rem 0.5rem;
+}
+.settings-sidenav-item {
+    border-radius: 999px;
+    border-left: none;
+    margin: 0.15rem 0.25rem;
+    padding: 0.55rem 0.9rem;
+    transition: box-shadow 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+.settings-sidenav-item:hover {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-raised-sm);
+}
+.settings-sidenav-item.active,
+.settings-sidenav-item.active:hover {
+    background-color: var(--bg-base);
+    color: var(--brand-primary);
+    box-shadow: var(--shadow-inset);
+    border-left: none;
+}
+.settings-main { padding: 1.5rem; }
+
+/* Settings cards: raised panels instead of bordered boxes */
+.settings-section {
+    background-color: var(--bg-surface);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised-sm);
+    padding: 1.5rem 1.75rem;
+}
+
+/* Settings table: flat with hairlines, no card chrome */
+.settings-table th,
+.settings-table td {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.badge-role {
+    background-color: var(--bg-base);
+    box-shadow: var(--shadow-inset);
+    color: var(--text-primary);
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+/* ── Quadlet tree buttons ──────────────────────────────────
+   Three-state depth mapping:
+     idle   → flat, muted text
+     hover  → raised pill, primary text
+     active → inset well, teal text (currently open in editor)
+   The status dot gets a 2px ring when the button is inset,
+   so it reads as sitting on the well rather than in it.      */
+.quadlet-tree-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.55rem 0.9rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+.quadlet-tree-btn:hover {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-raised-sm);
+}
+.quadlet-tree-btn.is-selected,
+.quadlet-tree-btn.is-selected:hover {
+    background-color: var(--bg-base);
+    color: var(--brand-primary);
+    box-shadow: var(--shadow-inset);
+}
+.quadlet-tree-btn.is-selected .status-dot {
+    box-shadow: 0 0 0 2px var(--bg-base);
+}
+.quadlet-tree-btn:active {
+    box-shadow: var(--shadow-inset);
+}
+
+/* Scope label ("GLOBAL SCOPE" / "USER SCOPE") */
+#navigator .font-semibold.uppercase.text-xs {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    padding: 0 0.9rem 0.4rem;
+    margin-top: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Server name header row (group title) */
+#navigator .text-lg {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    padding: 0 0.3rem;
+}
+
+/* Modal: neumorphic raised surface */
+.modal-content {
+    background-color: var(--bg-surface);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+}
+
+/* Light-theme status dot tweaks — the default glow is too hot on light bg */
+:root[data-theme="light"] .status-dot.dot-running {
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
