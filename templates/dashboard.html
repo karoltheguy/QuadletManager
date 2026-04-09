@@ -73,127 +73,161 @@
     <div class="header-bar">
       <h2 class="panel-title">Settings</h2>
     </div>
-    <div class="settings-content">
+    <div class="settings-layout">
 
-      <div class="settings-section">
-        <h3 class="section-title mb-4">Server Management</h3>
-        <div id="servers-list" hx-get="/api/settings/servers" hx-trigger="load">
-          <p class="text-muted">Loading servers...</p>
+      <!-- Inner navigation sidebar -->
+      <nav class="settings-sidenav">
+        <span class="settings-sidenav-label">Configuration</span>
+        <button class="settings-sidenav-item active" data-section="servers" onclick="showSettingsSection('servers')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/><circle cx="18" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>
+          Servers
+        </button>
+        <button class="settings-sidenav-item" data-section="ssh-keys" onclick="showSettingsSection('ssh-keys')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          SSH Keys
+        </button>
+        {% if is_admin %}
+        <button class="settings-sidenav-item" data-section="users" onclick="showSettingsSection('users')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </button>
+        {% endif %}
+      </nav>
+
+      <!-- Main content area — groups shown/hidden by showSettingsSection() -->
+      <div class="settings-main">
+
+        <!-- SERVERS -->
+        <div class="settings-group" data-group="servers">
+          <div class="settings-section">
+            <h3 class="section-title mb-4">Server Management</h3>
+            <div id="servers-list" hx-get="/api/settings/servers" hx-trigger="load">
+              <p class="text-muted">Loading servers...</p>
+            </div>
+          </div>
+
+          {% if is_admin %}
+          <div class="settings-section">
+            <h3 class="section-title mb-4">Add Server</h3>
+            <form class="add-server-form"
+                  hx-post="/api/settings/servers"
+                  hx-target="#servers-list"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="this.reset()">
+              <div class="form-row">
+                <label class="form-label">Name</label>
+                <input type="text" name="name" class="form-control" required placeholder="my-server">
+              </div>
+              <div class="form-row">
+                <label class="form-label">IP Address</label>
+                <input type="text" name="ip_address" class="form-control" required placeholder="192.168.1.100">
+              </div>
+              <div class="form-row">
+                <label class="form-label">SSH User</label>
+                <input type="text" name="ssh_user" class="form-control" required placeholder="ubuntu">
+              </div>
+              <div class="form-row">
+                <label class="form-label">SSH Key Name</label>
+                <input type="text" name="key_name" class="form-control" required placeholder="my-key">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Private Key</label>
+                <textarea name="private_key" class="form-control" rows="6" required
+                          placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+              </div>
+              <div class="form-row">
+                <label class="form-label">Scope Filter</label>
+                <select name="scope_filter" class="form-control">
+                  <option value="both">Both (user + global)</option>
+                  <option value="user">User only (~/.config/containers/systemd)</option>
+                  <option value="global">Global only (/etc/containers/systemd)</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary mt-2">Add Server</button>
+            </form>
+          </div>
+          {% endif %}
         </div>
-      </div>
 
-      {% if is_admin %}
-      <div class="settings-section">
-        <h3 class="section-title mb-4">Add Server</h3>
-        <form class="add-server-form"
-              hx-post="/api/settings/servers"
-              hx-target="#servers-list"
-              hx-swap="innerHTML"
-              hx-on::after-request="this.reset()">
-          <div class="form-row">
-            <label class="form-label">Name</label>
-            <input type="text" name="name" class="form-control" required placeholder="my-server">
+        <!-- SSH KEYS -->
+        <div class="settings-group" data-group="ssh-keys" style="display:none">
+          <div class="settings-section">
+            <h3 class="section-title mb-4">SSH Key Management</h3>
+            <div id="keys-list" hx-get="/api/keys" hx-trigger="load">
+              <p class="text-muted">Loading keys...</p>
+            </div>
           </div>
-          <div class="form-row">
-            <label class="form-label">IP Address</label>
-            <input type="text" name="ip_address" class="form-control" required placeholder="192.168.1.100">
-          </div>
-          <div class="form-row">
-            <label class="form-label">SSH User</label>
-            <input type="text" name="ssh_user" class="form-control" required placeholder="ubuntu">
-          </div>
-          <div class="form-row">
-            <label class="form-label">SSH Key Name</label>
-            <input type="text" name="key_name" class="form-control" required placeholder="my-key">
-          </div>
-          <div class="form-row">
-            <label class="form-label">Private Key</label>
-            <textarea name="private_key" class="form-control" rows="6" required
-                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
-          </div>
-          <div class="form-row">
-            <label class="form-label">Scope Filter</label>
-            <select name="scope_filter" class="form-control">
-              <option value="both">Both (user + global)</option>
-              <option value="user">User only (~/.config/containers/systemd)</option>
-              <option value="global">Global only (/etc/containers/systemd)</option>
-            </select>
-          </div>
-          <button type="submit" class="btn btn-primary mt-2">Add Server</button>
-        </form>
-      </div>
 
-      <div class="settings-section">
-        <h3 class="section-title mb-4">SSH Key Management</h3>
-        <div id="keys-list" hx-get="/api/keys" hx-trigger="load">
-          <p class="text-muted">Loading keys...</p>
+          <div class="settings-section">
+            <h3 class="section-title mb-4">Add SSH Key</h3>
+            <form class="add-server-form"
+                  hx-post="/api/keys"
+                  hx-target="#keys-list"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="this.reset()"
+                  enctype="multipart/form-data">
+              <div class="form-row">
+                <label class="form-label">Key Name</label>
+                <input type="text" name="key_name" class="form-control" required placeholder="deploy-key">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Private Key (paste)</label>
+                <textarea name="private_key" class="form-control" rows="6"
+                          placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+              </div>
+              <div class="form-row">
+                <label class="form-label">Or upload key file</label>
+                <input type="file" name="key_file" class="form-control">
+              </div>
+              <button type="submit" class="btn btn-primary mt-2">Add Key</button>
+            </form>
+          </div>
         </div>
-      </div>
 
-      <div class="settings-section">
-        <h3 class="section-title mb-4">Add SSH Key</h3>
-        <form class="add-server-form"
-              hx-post="/api/keys"
-              hx-target="#keys-list"
-              hx-swap="innerHTML"
-              hx-on::after-request="this.reset()"
-              enctype="multipart/form-data">
-          <div class="form-row">
-            <label class="form-label">Key Name</label>
-            <input type="text" name="key_name" class="form-control" required placeholder="deploy-key">
+        <!-- USERS (admin only) -->
+        {% if is_admin %}
+        <div class="settings-group" data-group="users" style="display:none">
+          <div class="settings-section">
+            <h3 class="section-title mb-4">User Management</h3>
+            <div id="users-list" hx-get="/api/settings/users" hx-trigger="load">
+              <p class="text-muted">Loading users...</p>
+            </div>
           </div>
-          <div class="form-row">
-            <label class="form-label">Private Key (paste)</label>
-            <textarea name="private_key" class="form-control" rows="6"
-                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
-          </div>
-          <div class="form-row">
-            <label class="form-label">Or upload key file</label>
-            <input type="file" name="key_file" class="form-control">
-          </div>
-          <button type="submit" class="btn btn-primary mt-2">Add Key</button>
-        </form>
-      </div>
 
-      <div class="settings-section">
-        <h3 class="section-title mb-4">User Management</h3>
-        <div id="users-list" hx-get="/api/settings/users" hx-trigger="load">
-          <p class="text-muted">Loading users...</p>
+          <div class="settings-section">
+            <h3 class="section-title mb-4">Add User</h3>
+            <form class="add-server-form"
+                  hx-post="/api/settings/users"
+                  hx-target="#users-list"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="this.reset()">
+              <div class="form-row">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" required placeholder="jane">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required placeholder="Enter password">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Role</label>
+                <select name="user_role" class="form-control" required>
+                  <option value="viewer">viewer</option>
+                  <option value="editor">editor</option>
+                </select>
+              </div>
+              <div class="form-row" style="align-items:center; gap:0.5rem;">
+                <label class="form-label" style="margin-bottom:0;">Admin</label>
+                <input type="checkbox" name="new_is_admin" value="true">
+              </div>
+              <button type="submit" class="btn btn-primary mt-2">Add User</button>
+            </form>
+          </div>
         </div>
-      </div>
+        {% endif %}
 
-      <div class="settings-section">
-        <h3 class="section-title mb-4">Add User</h3>
-        <form class="add-server-form"
-              hx-post="/api/settings/users"
-              hx-target="#users-list"
-              hx-swap="innerHTML"
-              hx-on::after-request="this.reset()">
-          <div class="form-row">
-            <label class="form-label">Username</label>
-            <input type="text" name="username" class="form-control" required placeholder="jane">
-          </div>
-          <div class="form-row">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-control" required placeholder="Enter password">
-          </div>
-          <div class="form-row">
-            <label class="form-label">Role</label>
-            <select name="user_role" class="form-control" required>
-              <option value="viewer">viewer</option>
-              <option value="editor">editor</option>
-            </select>
-          </div>
-          <div class="form-row" style="align-items:center; gap:0.5rem;">
-            <label class="form-label" style="margin-bottom:0;">Admin</label>
-            <input type="checkbox" name="new_is_admin" value="true">
-          </div>
-          <button type="submit" class="btn btn-primary mt-2">Add User</button>
-        </form>
-      </div>
-      {% endif %}
-
-    </div>
+      </div><!-- /.settings-main -->
+    </div><!-- /.settings-layout -->
   </div>
         
         <div id="editor-pane" class="main-content">

@@ -783,6 +783,16 @@ window.switchTab = function(tabId) {
   }
 };
 
+// ── Settings Section Switcher ─────────────────────────────
+window.showSettingsSection = function(name) {
+  document.querySelectorAll('.settings-group').forEach(function(g) {
+    g.style.display = g.dataset.group === name ? 'grid' : 'none';
+  });
+  document.querySelectorAll('.settings-sidenav-item').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.section === name);
+  });
+};
+
 // ── Inspector Expand / Collapse Toggle ───────────────────
 window.toggleInspectorExpand = function() {
   var expanded = document.body.classList.toggle('inspector-expanded');

@@ -1,7 +1,8 @@
 """
-Tests for Settings tab layout fixes (Issue #27):
+Tests for Settings tab layout (Issue #27):
 - Title must have proper left padding (not cut off)
-- Content must use a multi-column grid on wide viewports
+- Settings use inner sidebar navigation with section groups
+- Active section uses a multi-column grid on wide viewports
 """
 import pytest
 
@@ -51,23 +52,43 @@ def test_settings_title_is_fully_visible(page: Page):
     )
 
 
-def test_settings_content_uses_grid_layout(page: Page):
-    """settings-content must use CSS grid (not flexbox) for the multi-column layout."""
+def test_settings_sidenav_is_visible(page: Page):
+    """Settings page must render an inner sidebar navigation."""
     _goto_settings(page)
-    display = page.locator(".settings-content").evaluate(
+    expect(page.locator(".settings-sidenav")).to_be_visible()
+    expect(page.locator(".settings-sidenav-item")).to_have_count_greater_than(0)
+
+
+def test_settings_sidenav_switches_sections(page: Page):
+    """Clicking a sidenav item shows that group and hides others."""
+    _goto_settings(page)
+    # Servers group should be visible by default
+    expect(page.locator(".settings-group[data-group='servers']")).to_be_visible()
+    expect(page.locator(".settings-group[data-group='ssh-keys']")).to_be_hidden()
+
+    # Click SSH Keys nav item
+    page.click(".settings-sidenav-item[data-section='ssh-keys']")
+    expect(page.locator(".settings-group[data-group='ssh-keys']")).to_be_visible()
+    expect(page.locator(".settings-group[data-group='servers']")).to_be_hidden()
+
+
+def test_settings_active_group_uses_grid_layout(page: Page):
+    """The active settings group must use CSS grid for multi-column layout."""
+    _goto_settings(page)
+    display = page.locator(".settings-group[data-group='servers']").evaluate(
         "el => window.getComputedStyle(el).display"
     )
     assert display == "grid", (
-        f"settings-content should use display:grid, got '{display}'"
+        f"Active settings-group should use display:grid, got '{display}'"
     )
 
 
-def test_settings_content_multi_column_on_wide_viewport(page: Page):
-    """On a wide viewport, settings sections should fill multiple columns."""
+def test_settings_group_multi_column_on_wide_viewport(page: Page):
+    """On a wide viewport, sections within the active group should fill multiple columns."""
     page.set_viewport_size({"width": 1400, "height": 900})
     _goto_settings(page)
 
-    sections = page.locator(".settings-section")
+    sections = page.locator(".settings-group[data-group='servers'] .settings-section")
     count = sections.count()
     if count < 2:
         pytest.skip("Not enough settings sections visible to test multi-column layout")
@@ -76,20 +97,19 @@ def test_settings_content_multi_column_on_wide_viewport(page: Page):
     second_box = sections.nth(1).bounding_box()
 
     assert first_box is not None and second_box is not None
-    # In a multi-column grid the second section should be beside (same row) the first,
-    # meaning their top Y positions are approximately equal.
+    # In a multi-column grid the second section should be beside the first
     assert abs(first_box["y"] - second_box["y"]) < 10, (
         f"On a 1400px viewport, sections should be side-by-side. "
         f"Section 1 y={first_box['y']}, Section 2 y={second_box['y']}"
     )
 
 
-def test_settings_content_single_column_on_narrow_viewport(page: Page):
-    """On a narrow viewport, settings sections should collapse to a single column."""
+def test_settings_group_single_column_on_narrow_viewport(page: Page):
+    """On a narrow viewport, sections within the active group should collapse to one column."""
     page.set_viewport_size({"width": 600, "height": 900})
     _goto_settings(page)
 
-    sections = page.locator(".settings-section")
+    sections = page.locator(".settings-group[data-group='servers'] .settings-section")
     count = sections.count()
     if count < 2:
         pytest.skip("Not enough settings sections visible to test single-column layout")
@@ -98,7 +118,7 @@ def test_settings_content_single_column_on_narrow_viewport(page: Page):
     second_box = sections.nth(1).bounding_box()
 
     assert first_box is not None and second_box is not None
-    # In a single column layout, the second section should be below the first.
+    # In a single column layout, the second section should be below the first
     assert second_box["y"] > first_box["y"], (
         f"On a 600px viewport, sections should stack vertically. "
         f"Section 1 y={first_box['y']}, Section 2 y={second_box['y']}"
