@@ -1,3 +1,15 @@
+// ── Profile Menu ─────────────────────────────────────────
+function toggleProfileMenu(event) {
+    event.stopPropagation();
+    var menu = document.getElementById('profile-menu');
+    menu.hidden = !menu.hidden;
+}
+
+document.addEventListener('click', function() {
+    var menu = document.getElementById('profile-menu');
+    if (menu) menu.hidden = true;
+});
+
 // ── Theme Toggle ─────────────────────────────────────────
 // No saved pref → follows OS via CSS @media (prefers-color-scheme).
 // First click reads the currently-resolved theme and flips to the

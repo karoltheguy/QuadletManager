@@ -100,6 +100,12 @@ async def get_current_user_is_admin(request: Request) -> bool:
     return bool(session.get("is_admin", False))
 
 
+async def get_current_username(request: Request) -> str:
+    """Extract the username from the session cookie."""
+    session = await _get_session(request)
+    return session["username"]
+
+
 async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> None:
     """FastAPI dependency that raises 403 if the current user is not an admin."""
     if not is_admin:
@@ -165,10 +171,12 @@ async def dashboard_view(
     request: Request,
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
+    username: str = Depends(get_current_username),
 ):
     return templates.TemplateResponse(request, "dashboard.html", {
         "user_role": role,
         "is_admin": is_admin,
+        "username": username,
     })
 
 @router.get("/api/servers", response_class=HTMLResponse)
