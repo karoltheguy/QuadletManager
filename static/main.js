@@ -1367,6 +1367,7 @@ window.confirmDeleteFile = function(serverId, path, scope) {
         '<button class="btn btn-danger" onclick="window.executeDeleteFile(' + serverId + ', ' + JSON.stringify(path) + ', ' + JSON.stringify(scope) + ')">Delete</button>' +
         '</div></div>';
     document.body.appendChild(modal);
+  window.setupModalDismissal('delete-confirm-modal');
 };
 
 window.executeDeleteFile = async function(serverId, path, scope) {
@@ -1431,8 +1432,52 @@ window.toggleLogs = function(serverId, unitName, scope) {
         }
     };
     
-    currentLogSocket.onerror = function(err) {
-        console.error('WebSocket Error:', err);
-        statusDiv.innerHTML += '\n--- Error connecting to Log Stream ---\n';
-    };
+currentLogSocket.onerror = function(err) {
+    console.error('WebSocket Error:', err);
+    statusDiv.innerHTML += '\n--- Error connecting to Log Stream ---\n';
+  };
 };
+
+// ── Modal Dismissal Handlers ───────────────────────────────
+window.setupModalDismissal = function(modalId) {
+  var modal = document.getElementById(modalId);
+  if (!modal) return;
+
+  // Close on ESC key
+  var escHandler = function(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      modal.remove();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+
+  // Close on backdrop click (outside modal-content)
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      modal.remove();
+      document.removeEventListener('keydown', escHandler);
+    }
+  });
+};
+
+// Auto-setup for modals added via HTMX
+document.body.addEventListener('htmx:afterSwap', function(e) {
+  var modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
+  modals.forEach(function(modal) {
+    modal.setAttribute('data-dismissal-setup', 'true');
+    var escHandler = function(e) {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        modal.remove();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        modal.remove();
+        document.removeEventListener('keydown', escHandler);
+      }
+    });
+  });
+});
