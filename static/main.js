@@ -11,6 +11,7 @@ function toggleTheme() {
     var next = current === 'light' ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('qm-theme', next); } catch (e) {}
+    applyChartTheme();
 }
 
 // Mark the clicked quadlet tree button as selected (inset state).
@@ -162,15 +163,70 @@ let monitoringChart = null;
 let healthHistoryChart = null;
 
 const HISTORY_COLORS = [
-    'rgba(99, 102, 241, 1)',
-    'rgba(16, 185, 129, 1)',
-    'rgba(236, 72, 153, 1)',
-    'rgba(245, 158, 11, 1)',
-    'rgba(6, 182, 212, 1)',
-    'rgba(239, 68, 68, 1)',
-    'rgba(139, 92, 246, 1)',
-    'rgba(251, 146, 60, 1)',
+    'rgba(20, 184, 166, 1)',   // teal  — matches brand-primary
+    'rgba(16, 185, 129, 1)',   // emerald
+    'rgba(244, 63, 94, 1)',    // rose
+    'rgba(245, 158, 11, 1)',   // amber
+    'rgba(6, 182, 212, 1)',    // cyan
+    'rgba(239, 68, 68, 1)',    // red
+    'rgba(168, 85, 247, 1)',   // violet
+    'rgba(251, 146, 60, 1)',   // orange
 ];
+
+function hexToRgba(hex, alpha) {
+    var r = parseInt(hex.slice(1, 3), 16);
+    var g = parseInt(hex.slice(3, 5), 16);
+    var b = parseInt(hex.slice(5, 7), 16);
+    return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+}
+
+function getChartTheme() {
+    var s = getComputedStyle(document.documentElement);
+    var get = function(v) { return s.getPropertyValue(v).trim(); };
+    var brand = get('--brand-primary');
+    var border = get('--border-color');
+    return {
+        accent:       brand,
+        accentBg:     hexToRgba(brand, 0.6),
+        secondary:    '#f43f5e',
+        secondaryBg:  'rgba(244, 63, 94, 0.6)',
+        tickColor:    get('--text-muted'),
+        gridColor:    hexToRgba(border, 0.4),
+        legendColor:  get('--text-primary'),
+        tooltipBg:    get('--bg-base'),
+        tooltipTitle: get('--text-primary'),
+        tooltipBody:  get('--text-muted'),
+        tooltipBorder: hexToRgba(border, 0.6),
+    };
+}
+
+function patchChartOptions(opts, t) {
+    opts.scales.y.ticks.color          = t.tickColor;
+    opts.scales.y.grid.color           = t.gridColor;
+    opts.scales.x.ticks.color          = t.tickColor;
+    opts.plugins.legend.labels.color   = t.legendColor;
+    opts.plugins.tooltip.backgroundColor = t.tooltipBg;
+    opts.plugins.tooltip.titleColor    = t.tooltipTitle;
+    opts.plugins.tooltip.bodyColor     = t.tooltipBody;
+    opts.plugins.tooltip.borderColor   = t.tooltipBorder;
+}
+
+function applyChartTheme() {
+    var t = getChartTheme();
+    [statsChart, monitoringChart].forEach(function(chart) {
+        if (!chart) return;
+        chart.data.datasets[0].backgroundColor = t.accentBg;
+        chart.data.datasets[0].borderColor      = t.accent;
+        chart.data.datasets[1].backgroundColor  = t.secondaryBg;
+        chart.data.datasets[1].borderColor      = t.secondary;
+        patchChartOptions(chart.options, t);
+        chart.update('none');
+    });
+    if (healthHistoryChart) {
+        patchChartOptions(healthHistoryChart.options, t);
+        healthHistoryChart.update('none');
+    }
+}
 
 // Track which server the user is currently working in.
 // The stats chart only renders updates for this server.
@@ -404,6 +460,7 @@ function applyStatusDots(serverId) {
 
 
 function buildBarChartConfig() {
+  var t = getChartTheme();
   return {
     type: 'bar',
     data: {
@@ -412,16 +469,16 @@ function buildBarChartConfig() {
         {
           label: 'CPU %',
           data: [],
-          backgroundColor: 'rgba(99, 102, 241, 0.6)',
-          borderColor: 'rgba(99, 102, 241, 1)',
+          backgroundColor: t.accentBg,
+          borderColor: t.accent,
           borderWidth: 1,
           borderRadius: 4
         },
         {
           label: 'Memory %',
           data: [],
-          backgroundColor: 'rgba(236, 72, 153, 0.6)',
-          borderColor: 'rgba(236, 72, 153, 1)',
+          backgroundColor: t.secondaryBg,
+          borderColor: t.secondary,
           borderWidth: 1,
           borderRadius: 4
         }
@@ -436,15 +493,15 @@ function buildBarChartConfig() {
           beginAtZero: true,
           max: 100,
           ticks: {
-            color: '#9ca3af',
+            color: t.tickColor,
             font: { size: 11 },
             callback: function(value) { return value + '%'; }
           },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' }
+          grid: { color: t.gridColor }
         },
         x: {
           ticks: {
-            color: '#9ca3af',
+            color: t.tickColor,
             font: { size: 11 },
             maxRotation: 45,
             minRotation: 0
@@ -455,17 +512,17 @@ function buildBarChartConfig() {
       plugins: {
         legend: {
           labels: {
-            color: '#d1d5db',
+            color: t.legendColor,
             font: { size: 11 },
             boxWidth: 12,
             padding: 8
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(17, 24, 39, 0.9)',
-          titleColor: '#f3f4f6',
-          bodyColor: '#d1d5db',
-          borderColor: 'rgba(75, 85, 99, 0.5)',
+          backgroundColor: t.tooltipBg,
+          titleColor: t.tooltipTitle,
+          bodyColor: t.tooltipBody,
+          borderColor: t.tooltipBorder,
           borderWidth: 1,
           cornerRadius: 6,
           padding: 8
@@ -491,6 +548,7 @@ function initHealthHistoryChart() {
   const ctx = document.getElementById('health-history-chart');
   if (!ctx) return;
 
+  var t = getChartTheme();
   healthHistoryChart = new Chart(ctx, {
     type: 'line',
     data: { labels: [], datasets: [] },
@@ -504,16 +562,16 @@ function initHealthHistoryChart() {
           beginAtZero: true,
           max: 1,
           ticks: {
-            color: '#9ca3af',
+            color: t.tickColor,
             font: { size: 10 },
             stepSize: 1,
             callback: function(v) { return v === 1 ? 'Running' : 'Stopped'; }
           },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' }
+          grid: { color: t.gridColor }
         },
         x: {
           ticks: {
-            color: '#9ca3af',
+            color: t.tickColor,
             font: { size: 10 },
             maxTicksLimit: 8,
             maxRotation: 0,
@@ -523,13 +581,13 @@ function initHealthHistoryChart() {
       },
       plugins: {
         legend: {
-          labels: { color: '#d1d5db', font: { size: 11 }, boxWidth: 12, padding: 8 }
+          labels: { color: t.legendColor, font: { size: 11 }, boxWidth: 12, padding: 8 }
         },
         tooltip: {
-          backgroundColor: 'rgba(17, 24, 39, 0.9)',
-          titleColor: '#f3f4f6',
-          bodyColor: '#d1d5db',
-          borderColor: 'rgba(75, 85, 99, 0.5)',
+          backgroundColor: t.tooltipBg,
+          titleColor: t.tooltipTitle,
+          bodyColor: t.tooltipBody,
+          borderColor: t.tooltipBorder,
           borderWidth: 1,
           cornerRadius: 6,
           padding: 8,
