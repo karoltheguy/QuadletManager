@@ -308,9 +308,13 @@ body.view-dashboard.inspector-expanded #resize-handle-left {
 
 .settings-group {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 1.5rem;
     align-content: start;
+}
+
+.settings-section.full-width {
+    grid-column: 1 / -1;
 }
 
 .settings-section {
@@ -318,6 +322,8 @@ body.view-dashboard.inspector-expanded #resize-handle-left {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.5rem;
+    min-width: 0;             /* allow section to shrink below content size */
+    overflow-x: auto;         /* scroll when table is wider than section */
 }
 
 .settings-table {
