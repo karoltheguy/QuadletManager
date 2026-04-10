@@ -621,7 +621,7 @@ ul { list-style: none; }
     cursor: pointer;
     color: var(--text-primary);
 }
-.context-menu-item:hover { background-color: var(--bg-hover); }
+.context-menu-item:hover { background-color: var(--bg-element); }
 .context-menu-danger { color: var(--danger) !important; }
 .context-menu-danger:hover { background-color: rgba(220, 38, 38, 0.15) !important; }
 
@@ -812,13 +812,11 @@ ul { list-style: none; }
 
 .health-range-btn {
     font-size: 0.75rem;
-    padding: 0.2rem 0.6rem;
-    opacity: 0.6;
+    color: var(--text-muted);
 }
 
 .health-range-btn.active {
-    opacity: 1;
-    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-inset);
     color: var(--brand-primary);
 }
 
@@ -910,7 +908,7 @@ ul { list-style: none; }
 
 .container-activity-log .activity-icon {
     font-weight: 600;
-    color: var(--primary-color);
+    color: var(--brand-primary);
     min-width: 1rem;
     text-align: center;
 }
