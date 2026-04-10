@@ -252,7 +252,7 @@ body.view-dashboard.inspector-expanded #resize-handle-left {
 }
 
 .settings-sidenav {
-    width: 190px;
+    width: var(--settings-sidenav-width, 220px);
     flex-shrink: 0;
     border-right: 1px solid var(--border-color);
     padding: 1rem 0;

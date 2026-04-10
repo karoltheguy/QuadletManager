@@ -1115,6 +1115,7 @@ var setupShellSelector = function() {
 function initResizableHandles() {
     var SIDEBAR_MIN = 180, SIDEBAR_MAX = 500;
     var INSPECTOR_MIN = 220, INSPECTOR_MAX = 600;
+    var SETTINGS_SIDENAV_MIN = 160, SETTINGS_SIDENAV_MAX = 480;
 
     function makeDraggable(handleEl, cssVar, storageKey, minPx, maxPx, getInitialPx) {
         if (!handleEl) return;
@@ -1167,6 +1168,18 @@ function initResizableHandles() {
         }
     );
 
+    // Settings sidenav handle: controls settings sidebar width
+    makeDraggable(
+        document.getElementById('settings-sidenav-resize-handle'),
+        '--settings-sidenav-width',
+        'qm-settings-sidenav-width',
+        SETTINGS_SIDENAV_MIN, SETTINGS_SIDENAV_MAX,
+        function() {
+            var sn = document.querySelector('.settings-sidenav');
+            return sn ? sn.getBoundingClientRect().width : 220;
+        }
+    );
+
     // Right handle: controls inspector width (drag left = bigger inspector)
     var rightHandle = document.getElementById('resize-handle-right');
     if (rightHandle) {
@@ -1208,9 +1221,14 @@ function initResizableHandles() {
 document.addEventListener('DOMContentLoaded', function() {
 // Restore persisted panel widths before first paint
 (function restorePanelWidths() {
-  var saved = { sidebar: localStorage.getItem('qm-sidebar-width'), inspector: localStorage.getItem('qm-inspector-width') };
+  var saved = {
+    sidebar: localStorage.getItem('qm-sidebar-width'),
+    inspector: localStorage.getItem('qm-inspector-width'),
+    settingsSidenav: localStorage.getItem('qm-settings-sidenav-width'),
+  };
   if (saved.sidebar) document.documentElement.style.setProperty('--sidebar-width', saved.sidebar);
   if (saved.inspector) document.documentElement.style.setProperty('--inspector-width', saved.inspector);
+  if (saved.settingsSidenav) document.documentElement.style.setProperty('--settings-sidenav-width', saved.settingsSidenav);
 })();
 
 window.switchTab('dashboard');
