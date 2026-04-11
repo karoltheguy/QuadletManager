@@ -610,25 +610,30 @@ ul { list-style: none; }
 /* Context Menu */
 .context-menu {
     background-color: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 0.375rem;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-    min-width: 140px;
-    padding: 0.25rem 0;
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-raised);
+    min-width: 160px;
+    padding: 0.35rem;
     z-index: 200;
 }
 .context-menu-item {
     display: block;
     width: 100%;
     text-align: left;
-    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
     font-size: 0.8rem;
     background: none;
     border: none;
     cursor: pointer;
     color: var(--text-primary);
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
-.context-menu-item:hover { background-color: var(--bg-element); }
+.context-menu-item:hover {
+    background-color: var(--bg-base);
+    box-shadow: var(--shadow-inset);
+}
 .context-menu-danger { color: var(--danger) !important; }
 .context-menu-danger:hover { background-color: rgba(220, 38, 38, 0.15) !important; }
 
