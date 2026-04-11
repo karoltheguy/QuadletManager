@@ -219,7 +219,7 @@ async def test_get_activity_route_caps_limit():
         captured_limit["value"] = limit
         return []
 
-    with patch("services.container_events.get_container_activity", side_effect=fake_get_container_activity):
+    with patch("api.routes.get_container_activity", side_effect=fake_get_container_activity):
         from api.routes import get_activity
         result = await get_activity(server_id=1, container="nginx", limit=999999, role="viewer")
 

@@ -1335,19 +1335,61 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
 
     if (_ctxMenu) _ctxMenu.remove();
 
+    var fileName = path.split('/').pop();
+    var stem = fileName.replace(/\.[^.]+$/, '');
+    var unitName = stem + '.service';
+
     _ctxMenu = document.createElement('div');
     _ctxMenu.className = 'context-menu';
     _ctxMenu.style.cssText = 'position:fixed;left:' + event.clientX + 'px;top:' + event.clientY + 'px';
 
-    var btn = document.createElement('button');
-    btn.className = 'context-menu-item context-menu-danger';
-    btn.textContent = 'Delete';
-    btn.onclick = function() {
+    var editBtn = document.createElement('button');
+    editBtn.className = 'context-menu-item';
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = function() {
+        _ctxMenu.remove();
+        _ctxMenu = null;
+        var treeBtn = document.querySelector('.quadlet-tree-btn[data-server-id="' + serverId + '"][data-path="' + path + '"]');
+        window.setSelectedQuadletBtn(treeBtn || null);
+        window.setActiveServer(serverId);
+        window.selectContainerStem(stem, serverId);
+        htmx.ajax('GET', '/api/file/' + serverId + '?path=' + encodeURIComponent(path) + '&scope=' + encodeURIComponent(scope) + '&name=' + encodeURIComponent(fileName), {
+            target: '#editor-pane',
+            swap: 'outerHTML'
+        });
+        window.switchTab('editor');
+    };
+    _ctxMenu.appendChild(editBtn);
+
+    var startBtn = document.createElement('button');
+    startBtn.className = 'context-menu-item';
+    startBtn.textContent = 'Start';
+    startBtn.onclick = function() {
+        _ctxMenu.remove();
+        _ctxMenu = null;
+        htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=start&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
+    };
+    _ctxMenu.appendChild(startBtn);
+
+    var stopBtn = document.createElement('button');
+    stopBtn.className = 'context-menu-item';
+    stopBtn.textContent = 'Stop';
+    stopBtn.onclick = function() {
+        _ctxMenu.remove();
+        _ctxMenu = null;
+        htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=stop&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
+    };
+    _ctxMenu.appendChild(stopBtn);
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'context-menu-item context-menu-danger';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.onclick = function() {
         _ctxMenu.remove();
         _ctxMenu = null;
         window.confirmDeleteFile(serverId, path, scope);
     };
-    _ctxMenu.appendChild(btn);
+    _ctxMenu.appendChild(deleteBtn);
     document.body.appendChild(_ctxMenu);
 
     setTimeout(function() {
