@@ -1,13 +1,16 @@
 <div id="editor-pane" class="main-content">
     <div class="header-bar">
         <h2 class="panel-title">Editor: {{ name }}</h2>
-        <div id="editor-actions">
-            {% if user_role == 'editor' %}
-            <button id="save-btn" class="btn btn-primary btn-md"
-                    onclick="document.getElementById('hidden-content').value = window.editor.getValue(); document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));">
-                Save Quadlet
-            </button>
-            {% endif %}
+        <div class="header-actions">
+            <div id="editor-actions">
+                {% if user_role == 'editor' %}
+                <button id="save-btn" class="btn btn-primary btn-md"
+                        onclick="document.getElementById('hidden-content').value = window.editor.getValue(); document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));">
+                    Save Quadlet
+                </button>
+                {% endif %}
+            </div>
+            <button id="inspector-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleInspectorExpand()" title="Collapse inspector" aria-label="Collapse inspector"></button>
         </div>
     </div>
     <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
@@ -31,6 +34,8 @@
         {% endif %}
         <button id="toggle-logs-btn" class="btn btn-primary"
                 onclick="window.toggleLogs({{ server_id }}, '{{ unit_name }}', '{{ scope }}')">Tail Logs</button>
+        <button class="btn btn-secondary"
+                onclick="window.openBottomPanel('terminal')">Terminal</button>
     </div>
     
     <div id="systemd-status" hx-swap-oob="true" hx-get="{{ status_url }}" hx-trigger="load" class="status-box">

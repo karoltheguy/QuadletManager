@@ -46,7 +46,7 @@
 
     /* Resizable panel widths (overridden by JS / localStorage) */
     --sidebar-width: 300px;
-    --inspector-width: 320px;
+    --inspector-width: 360px;
 }
 
 :root[data-theme="light"] {
@@ -179,8 +179,18 @@ body {
 /* Base structural classes */
 .app-container {
     display: flex;
+    flex-direction: column;
     width: 100%;
     flex: 1;
+    overflow: hidden;
+}
+
+/* Horizontal row of panels — sits inside the column app-container above the bottom panel */
+.workspace-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -207,7 +217,7 @@ body {
 .inspector-panel {
     width: var(--inspector-width);
     min-width: 220px;
-    max-width: 600px;
+    max-width: 900px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -222,6 +232,57 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+}
+
+.inspector-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.inspector-empty-state svg {
+    width: 2rem;
+    height: 2rem;
+    opacity: 0.35;
+}
+
+.inspector-empty-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.inspector-empty-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 22ch;
+    line-height: 1.5;
+}
+
+.inspector-widget-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+/* Inner content wrapper — provides max-width constraint so content never
+   stretches edge-to-edge when the inspector is resized very wide. */
+.inspector-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Expanded (focus-editor) mode — hides inspector panel on Containers tab */
@@ -540,6 +601,22 @@ body.view-monitor #monitoring-pane { display: flex !important; }
     border-bottom: 1px solid var(--border-color);
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Inspector toggle button — icon driven by body class so it's always correct
+   even after HTMX replaces the editor pane. */
+#inspector-expand-btn::after {
+    content: '\25B6'; /* ▶ — collapse inspector (push right) */
+    font-size: 0.65rem;
+}
+body.view-containers.inspector-expanded #inspector-expand-btn::after {
+    content: '\25C0'; /* ◀ — restore inspector (pull from right) */
+}
+
 .panel-title {
     font-size: 1.25rem;
     font-weight: 700;
@@ -740,7 +817,7 @@ ul { list-style: none; }
 }
 
 .stats-container {
-    background-color: #020617;
+    background-color: var(--bg-base);
     border-radius: 0.5rem;
     padding: 0.75rem;
     border: 1px solid var(--border-color);
@@ -748,7 +825,7 @@ ul { list-style: none; }
 
 .stats-table-wrapper {
     margin-top: 0.75rem;
-    background-color: #020617;
+    background-color: var(--bg-base);
     border-radius: 0.5rem;
     border: 1px solid var(--border-color);
     font-family: monospace;
@@ -870,11 +947,10 @@ ul { list-style: none; }
 
 /* ── Container Stats Card (Inspector) ──────────────────── */
 .container-stats-card {
-    background-color: #020617;
+    background-color: var(--bg-base);
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     padding: 0.75rem;
-    margin-bottom: 1rem;
     font-size: 0.8rem;
 }
 
@@ -889,14 +965,22 @@ ul { list-style: none; }
 
 .container-stats-card .stats-card-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
 }
 
 .container-stats-card .stats-card-item {
     display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.container-stats-card .stats-card-item:last-child {
+    border-bottom: none;
 }
 
 .container-stats-card .stats-card-label {
@@ -908,9 +992,11 @@ ul { list-style: none; }
 
 .container-stats-card .stats-card-value {
     font-family: monospace;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-primary);
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
 }
 
 .container-stats-card .stats-card-not-running {
@@ -920,11 +1006,10 @@ ul { list-style: none; }
 }
 
 .container-activity-log {
-    background-color: #020617;
+    background-color: var(--bg-base);
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     padding: 0.75rem;
-    margin-bottom: 1rem;
     font-size: 0.8rem;
 }
 
@@ -979,7 +1064,7 @@ ul { list-style: none; }
 
 /* ── Terminal UI Styling ────────────────────────────────── */
 .container-terminal-section {
-    background-color: #020617;
+    background-color: var(--bg-base);
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     padding: 0.75rem;
@@ -1211,10 +1296,15 @@ body {
     box-shadow: var(--shadow-inset);
 }
 
-/* App container becomes a gap-ed row of raised panels */
-.app-container {
+/* Workspace row holds the gap-ed raised panels; app-container is now a column wrapper */
+.workspace-row {
     gap: 1.25rem;
     overflow: visible;
+    padding: 0 1.25rem; /* horizontal breathing room matching the gap */
+}
+
+.app-container {
+    padding-top: 1.25rem; /* top breathing room */
 }
 
 /* ── Raised panel chrome — applies across every view ── */
@@ -1661,4 +1751,123 @@ body {
   font-size: 0.875rem;
   max-width: 32ch;
   text-wrap: balance;
+}
+
+/* ── Bottom Panel ────────────────────────────────────────────
+   Sits below the workspace-row in the app-container flex column.
+   Provides a full-width area for terminal and log streaming.   */
+#bottom-panel {
+    flex-shrink: 0;
+    height: var(--bottom-panel-height, 300px);
+    min-height: 100px;
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 0 1.25rem 1.25rem;
+}
+
+#bottom-panel.hidden { display: none; }
+
+/* Hide bottom panel on all non-containers views */
+body.view-overview #bottom-panel,
+body.view-monitor #bottom-panel,
+body.view-settings #bottom-panel { display: none !important; }
+
+.bottom-panel-handle {
+    height: 5px;
+    cursor: row-resize;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: transparent;
+    transition: background-color 0.15s ease;
+}
+.bottom-panel-handle:hover,
+.bottom-panel-handle.dragging {
+    background-color: var(--brand-primary);
+}
+
+.bottom-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.bottom-panel-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.bottom-tab {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.bottom-tab:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-element);
+}
+.bottom-tab.is-active {
+    color: var(--brand-primary);
+    background-color: var(--bg-element);
+    box-shadow: var(--shadow-inset);
+}
+
+.bottom-panel-body {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.bottom-pane {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    overflow: hidden;
+}
+.bottom-pane.hidden { display: none; }
+
+/* Terminal controls row inside bottom panel */
+.bottom-pane .terminal-controls {
+    flex-shrink: 0;
+}
+
+/* xterm in bottom panel fills remaining vertical space */
+.bottom-pane #xterm-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+}
+
+/* Log stream in bottom panel */
+.log-stream {
+    flex: 1;
+    min-height: 0;
+    background-color: var(--bg-base);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    padding: 0.75rem 1rem;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    color: var(--text-primary);
 }

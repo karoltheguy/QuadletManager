@@ -43,6 +43,7 @@
   </div>
     </nav>
     <div class="app-container">
+    <div class="workspace-row">
 
   <div id="overview-pane" class="overview-pane">
     <div class="header-bar">
@@ -279,8 +280,11 @@
         <div id="editor-pane" class="main-content">
             <div class="header-bar">
                 <h2 class="panel-title">Editor</h2>
-                <!-- Buttons injected dynamically when a file is opened -->
-                <div id="editor-actions"></div>
+                <div class="header-actions">
+                    <!-- Buttons injected dynamically when a file is opened -->
+                    <div id="editor-actions"></div>
+                    <button id="inspector-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleInspectorExpand()" title="Collapse inspector" aria-label="Collapse inspector"></button>
+                </div>
             </div>
             <!-- The form that HTMX submits -->
             <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
@@ -300,48 +304,73 @@
   <div id="inspector" class="inspector-panel">
     <div class="inspector-header">
       <h2 class="panel-title">Inspector</h2>
-      <button id="inspector-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleInspectorExpand()" title="Expand / collapse inspector">&#x26F6;</button>
     </div>
-    <div id="status-toast" class="mb-4"></div>
+    <div class="inspector-inner">
+      <div id="status-toast" class="mb-4"></div>
 
-    <div id="container-stats-card" class="container-stats-card hidden"></div>
-
-    <div id="container-terminal-section" class="container-terminal-section hidden">
-      <div class="terminal-controls">
-        <div class="terminal-controls-row">
-          <label for="terminal-shell-select" class="terminal-label">Shell:</label>
-          <select id="terminal-shell-select" class="form-control terminal-shell-select">
-            <option value="bash">bash</option>
-            <option value="sh">sh</option>
-            <option value="custom">Custom command...</option>
-          </select>
-        </div>
-        <div id="terminal-custom-cmd-row" class="terminal-controls-row hidden">
-          <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
-        </div>
-        <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
-        <button id="terminal-disconnect-btn" class="btn btn-secondary btn-sm hidden" onclick="disconnectTerminal()">Disconnect</button>
+      <div id="inspector-empty-state" class="inspector-empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        <p class="inspector-empty-title">No container selected</p>
+        <p class="inspector-empty-hint">Select a server from the sidebar, then choose a container to inspect.</p>
       </div>
-      <div id="xterm-container" class="xterm-container hidden"></div>
-    </div>
 
-    <div id="container-activity-log" class="container-activity-log hidden">
-      <h3 class="section-title">Activity</h3>
-      <div class="activity-list">
-        <!-- Activity events will be loaded here -->
+      <div class="inspector-widget-grid">
+        <div id="container-stats-card" class="container-stats-card hidden"></div>
+        <div id="container-activity-log" class="container-activity-log hidden">
+          <h3 class="section-title">Activity</h3>
+          <div class="activity-list">
+            <!-- Activity events will be loaded here -->
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="space-x-2 mb-2" id="systemctl-actions">
-      <!-- Action buttons loaded dynamically -->
-    </div>
+      <div class="space-x-2 mb-2" id="systemctl-actions">
+        <!-- Action buttons loaded dynamically -->
+      </div>
 
-    <div id="systemd-status" class="status-box">
-      Systemd status will appear here...
+      <div id="systemd-status" class="status-box"></div>
     </div>
   </div>
-    </div>
-    
+
+    </div><!-- /.workspace-row -->
+
+    <!-- ── Bottom Panel: Terminal + Logs ─────────────────── -->
+    <div id="bottom-panel" class="bottom-panel hidden">
+      <div id="bottom-panel-resize-handle" class="bottom-panel-handle" aria-hidden="true"></div>
+      <div class="bottom-panel-header">
+        <div class="bottom-panel-tabs">
+          <button class="bottom-tab is-active" data-pane="terminal" onclick="switchBottomTab('terminal')">Terminal</button>
+          <button class="bottom-tab" data-pane="logs" onclick="switchBottomTab('logs')">Logs</button>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="closeBottomPanel()" aria-label="Close panel" title="Close panel">&#x2715;</button>
+      </div>
+      <div class="bottom-panel-body">
+        <div id="bottom-terminal-pane" class="bottom-pane">
+          <div class="terminal-controls">
+            <div class="terminal-controls-row">
+              <label for="terminal-shell-select" class="terminal-label">Shell:</label>
+              <select id="terminal-shell-select" class="form-control terminal-shell-select">
+                <option value="bash">bash</option>
+                <option value="sh">sh</option>
+                <option value="custom">Custom command...</option>
+              </select>
+            </div>
+            <div id="terminal-custom-cmd-row" class="terminal-controls-row hidden">
+              <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
+            </div>
+            <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
+            <button id="terminal-disconnect-btn" class="btn btn-secondary btn-sm hidden" onclick="disconnectTerminal()">Disconnect</button>
+          </div>
+          <div id="xterm-container" class="xterm-container hidden"></div>
+        </div>
+        <div id="bottom-logs-pane" class="bottom-pane hidden">
+          <div id="log-stream" class="log-stream">Waiting for log output...</div>
+        </div>
+      </div>
+    </div><!-- /#bottom-panel -->
+
+    </div><!-- /.app-container -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
     <script src="/static/main.js"></script>
 </body>

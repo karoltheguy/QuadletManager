@@ -53,6 +53,8 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
     if (e.target && e.target.querySelector && e.target.querySelector('.quadlet-tree-btn')) {
         reapplyQuadletSelection();
     }
+    // Sync expand button tooltip after editor pane swaps
+    syncInspectorToggleBtn();
 });
 
 // ── Monaco Editor Configuration ──────────────────────────
@@ -260,6 +262,8 @@ window._selectedContainerServerId = null;
 window.selectContainerStem = function(stem, serverId) {
     window._selectedContainerStem = (stem || '').toLowerCase();
     window._selectedContainerServerId = parseInt(serverId, 10);
+    var emptyEl = document.getElementById('inspector-empty-state');
+    if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
     updateInspectorStatsCard();
     updateInspectorActivityLog();
 };
@@ -300,17 +304,10 @@ function updateInspectorStatsCard() {
 
     card.classList.remove('hidden');
 
-    // Show/hide terminal section based on running state
-    var terminalSection = document.getElementById('container-terminal-section');
-    if (isRunning && terminalSection) {
-        terminalSection.classList.remove('hidden');
-        // Enable connect button
-        var connectBtn = document.getElementById('terminal-connect-btn');
-        if (connectBtn) connectBtn.disabled = false;
-    } else if (terminalSection) {
-        terminalSection.classList.add('hidden');
-        disconnectTerminal();
-    }
+    // Enable/disable terminal connect button based on running state
+    var connectBtn = document.getElementById('terminal-connect-btn');
+    if (connectBtn) connectBtn.disabled = !isRunning;
+    if (!isRunning) disconnectTerminal();
 
     if (matched) {
         card.innerHTML =
@@ -879,6 +876,7 @@ window.switchTab = function(tabId) {
   if (tabId === 'containers' && localStorage.getItem('qm-inspector-expanded') === 'true') {
     document.body.classList.add('inspector-expanded');
   }
+  syncInspectorToggleBtn();
   document.querySelectorAll('.nav-item').forEach(function(btn) {
     if (btn.innerText.toLowerCase() === tabId) {
       btn.classList.add('active');
@@ -908,9 +906,20 @@ window.showSettingsSection = function(name) {
 };
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
+function syncInspectorToggleBtn() {
+  var btn = document.getElementById('inspector-expand-btn');
+  if (!btn) return;
+  var expanded = document.body.classList.contains('inspector-expanded');
+  btn.title = expanded ? 'Restore inspector' : 'Collapse inspector';
+  btn.setAttribute('aria-label', btn.title);
+}
+
 window.toggleInspectorExpand = function() {
   var expanded = document.body.classList.toggle('inspector-expanded');
   localStorage.setItem('qm-inspector-expanded', expanded ? 'true' : 'false');
+  syncInspectorToggleBtn();
+  // Monaco must re-layout after the inspector width changes
+  if (window.editor) window.editor.layout();
 };
 
 // ── Monitoring Server Selector ────────────────────────────
@@ -1008,16 +1017,38 @@ function loadFitAddon(callback) {
     document.head.appendChild(script);
 }
 
-function showTerminalSection() {
-    var section = document.getElementById('container-terminal-section');
-    if (section) section.classList.remove('hidden');
-}
-
 function hideTerminalSection() {
-    var section = document.getElementById('container-terminal-section');
-    if (section) section.classList.add('hidden');
     disconnectTerminal();
 }
+
+// ── Bottom Panel Management ───────────────────────────────
+window.openBottomPanel = function(tab) {
+    var panel = document.getElementById('bottom-panel');
+    if (panel) panel.classList.remove('hidden');
+    if (tab) switchBottomTab(tab);
+    // Fit terminal if it's already connected
+    if (window._terminalFitAddon) window._terminalFitAddon.fit();
+};
+
+window.closeBottomPanel = function() {
+    var panel = document.getElementById('bottom-panel');
+    if (panel) panel.classList.add('hidden');
+    disconnectTerminal();
+    stopLogs();
+};
+
+window.switchBottomTab = function(pane) {
+    document.querySelectorAll('.bottom-tab').forEach(function(btn) {
+        btn.classList.toggle('is-active', btn.dataset.pane === pane);
+    });
+    document.querySelectorAll('.bottom-pane').forEach(function(p) {
+        p.classList.toggle('hidden', p.id !== 'bottom-' + pane + '-pane');
+    });
+    // Refit terminal when switching to it
+    if (pane === 'terminal' && window._terminalFitAddon) {
+        setTimeout(function() { window._terminalFitAddon.fit(); }, 50);
+    }
+};
 
 window.connectTerminal = function() {
     var stem = window._selectedContainerStem;
@@ -1060,6 +1091,9 @@ window.connectTerminal = function() {
             return;
         }
     }
+
+    // Open bottom panel to terminal tab
+    openBottomPanel('terminal');
 
     // Close existing connection
     if (window._terminalWs) {
@@ -1196,8 +1230,9 @@ var setupShellSelector = function() {
 // ── Resizable Panel Handles ──────────────────────────────
 function initResizableHandles() {
     var SIDEBAR_MIN = 180, SIDEBAR_MAX = 500;
-    var INSPECTOR_MIN = 220, INSPECTOR_MAX = 600;
+    var INSPECTOR_MIN = 220, INSPECTOR_MAX = 900;
     var SETTINGS_SIDENAV_MIN = 160, SETTINGS_SIDENAV_MAX = 480;
+    var BOTTOM_PANEL_MIN = 100, BOTTOM_PANEL_MAX = Math.floor(window.innerHeight * 0.75);
 
     function makeDraggable(handleEl, cssVar, storageKey, minPx, maxPx, getInitialPx) {
         if (!handleEl) return;
@@ -1297,6 +1332,41 @@ function initResizableHandles() {
             document.addEventListener('mouseup', onUp);
         });
     }
+
+    // Bottom panel handle: drag up = taller panel
+    var bottomHandle = document.getElementById('bottom-panel-resize-handle');
+    if (bottomHandle) {
+        bottomHandle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            var startY = e.clientY;
+            var panel = document.getElementById('bottom-panel');
+            var startH = panel ? panel.getBoundingClientRect().height : 300;
+
+            bottomHandle.classList.add('dragging');
+            document.body.classList.add('is-resizing');
+
+            function onMove(e) {
+                var delta = startY - e.clientY; // dragging up increases height
+                var newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
+                document.documentElement.style.setProperty('--bottom-panel-height', newH + 'px');
+                if (window._terminalFitAddon) window._terminalFitAddon.fit();
+            }
+
+            function onUp() {
+                bottomHandle.classList.remove('dragging');
+                document.body.classList.remove('is-resizing');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                var finalH = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--bottom-panel-height').trim();
+                localStorage.setItem('qm-bottom-panel-height', finalH);
+                if (window._terminalFitAddon) window._terminalFitAddon.fit();
+            }
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
 }
 
 
@@ -1307,10 +1377,12 @@ document.addEventListener('DOMContentLoaded', function() {
     sidebar: localStorage.getItem('qm-sidebar-width'),
     inspector: localStorage.getItem('qm-inspector-width'),
     settingsSidenav: localStorage.getItem('qm-settings-sidenav-width'),
+    bottomPanel: localStorage.getItem('qm-bottom-panel-height'),
   };
   if (saved.sidebar) document.documentElement.style.setProperty('--sidebar-width', saved.sidebar);
   if (saved.inspector) document.documentElement.style.setProperty('--inspector-width', saved.inspector);
   if (saved.settingsSidenav) document.documentElement.style.setProperty('--settings-sidenav-width', saved.settingsSidenav);
+  if (saved.bottomPanel) document.documentElement.style.setProperty('--bottom-panel-height', saved.bottomPanel);
 })();
 
 window.switchTab('overview');
@@ -1457,24 +1529,19 @@ window.executeDeleteFile = async function(serverId, path, scope) {
 let currentLogSocket = null;
 
 window.toggleLogs = function(serverId, unitName, scope) {
-    let statusDiv = document.getElementById('systemd-status');
+    let logDiv = document.getElementById('log-stream');
     let btn = document.getElementById('toggle-logs-btn');
 
     if (currentLogSocket) {
-        // Stop current tail
-        currentLogSocket.send("STOP");
-        currentLogSocket.close();
-        currentLogSocket = null;
-        
-        if (btn) btn.innerText = 'Tail Logs';
-        if (btn) btn.classList.replace('btn-warning', 'btn-primary');
-        
-        statusDiv.innerHTML += '\n--- Stopped log stream. Re-fetch status to view current. ---\n';
+        stopLogs();
         return;
     }
 
-    statusDiv.innerHTML = 'Connecting to log stream...\n';
-    
+    // Open bottom panel to logs tab
+    openBottomPanel('logs');
+
+    if (logDiv) logDiv.textContent = 'Connecting to log stream...\n';
+
     if (btn) btn.innerText = 'Stop Logs';
     if (btn) btn.classList.replace('btn-primary', 'btn-warning');
 
@@ -1482,27 +1549,41 @@ window.toggleLogs = function(serverId, unitName, scope) {
     currentLogSocket = new WebSocket(wsUrl);
 
     currentLogSocket.onmessage = function(event) {
-        // Append text (escaping HTML safely if needed, but innerText might be safer except it removes formatting)
-        // Journalctl logs are relatively safe but let's just create a text node or use innerHTML with simple escape if we cared. 
-        // For now simple append.
-        statusDiv.appendChild(document.createTextNode(event.data));
-        statusDiv.scrollTop = statusDiv.scrollHeight;
+        if (logDiv) {
+            logDiv.appendChild(document.createTextNode(event.data));
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
     };
 
-    currentLogSocket.onclose = function(e) {
+    currentLogSocket.onclose = function() {
         if (currentLogSocket) {
-            statusDiv.innerHTML += '\n--- Log Stream Disconnected ---\n';
+            if (logDiv) logDiv.textContent += '\n--- Log stream disconnected ---\n';
             currentLogSocket = null;
             if (btn) btn.innerText = 'Tail Logs';
             if (btn) btn.classList.replace('btn-warning', 'btn-primary');
         }
     };
-    
-currentLogSocket.onerror = function(err) {
-    console.error('WebSocket Error:', err);
-    statusDiv.innerHTML += '\n--- Error connecting to Log Stream ---\n';
-  };
+
+    currentLogSocket.onerror = function(err) {
+        console.error('WebSocket Error:', err);
+        if (logDiv) logDiv.textContent += '\n--- Error connecting to log stream ---\n';
+    };
 };
+
+function stopLogs() {
+    if (currentLogSocket) {
+        currentLogSocket.send('STOP');
+        currentLogSocket.close();
+        currentLogSocket = null;
+    }
+    var btn = document.getElementById('toggle-logs-btn');
+    if (btn) {
+        btn.innerText = 'Tail Logs';
+        btn.classList.replace('btn-warning', 'btn-primary');
+    }
+    var logDiv = document.getElementById('log-stream');
+    if (logDiv) logDiv.textContent += '\n--- Stopped ---\n';
+}
 
 // ── Modal Dismissal Handlers ───────────────────────────────
 window.setupModalDismissal = function(modalId) {
