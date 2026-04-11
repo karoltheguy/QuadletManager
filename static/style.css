@@ -737,17 +737,19 @@ ul { list-style: none; }
 
 /* Toast */
 .toast-msg {
-    padding: 0.5rem;
-    border-radius: 0.375rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-md);
+    background-color: var(--bg-base);
+    box-shadow: var(--shadow-inset);
     font-size: 0.875rem;
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 1rem;
-    color: white;
+    color: var(--text-primary);
 }
-.toast-success { background-color: var(--success); }
-.toast-danger { background-color: var(--danger); }
-.toast-warning { background-color: var(--warning); }
-.toast-info { background-color: var(--brand-primary); }
+.toast-success { color: var(--success); }
+.toast-danger  { color: var(--danger); }
+.toast-warning { color: var(--warning); }
+.toast-info    { color: var(--brand-primary); }
 
 /* ── Quadlet Tree Buttons ────────────────────────────────── */
 .quadlet-tree-btn {
