@@ -153,13 +153,11 @@
                 <input type="text" name="ssh_user" class="form-control" required placeholder="ubuntu">
               </div>
               <div class="form-row">
-                <label class="form-label">SSH Key Name</label>
-                <input type="text" name="key_name" class="form-control" required placeholder="my-key">
-              </div>
-              <div class="form-row">
-                <label class="form-label">Private Key</label>
-                <textarea name="private_key" class="form-control" rows="6" required
-                          placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+                <label class="form-label">SSH Key</label>
+                <select name="ssh_key_id" class="form-control" required
+                        hx-get="/api/keys/options" hx-trigger="load, key-added from:body">
+                  <option value="">Loading keys...</option>
+                </select>
               </div>
               <div class="form-row">
                 <label class="form-label">Scope Filter</label>

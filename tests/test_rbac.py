@@ -186,20 +186,19 @@ class _AioDualMock:
 
 
 @pytest.mark.asyncio
-@patch('api.routes.encrypt_private_key', return_value=b'encrypted')
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
-async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers, mock_encrypt):
+async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers):
     from fastapi.responses import HTMLResponse
     from api.routes import settings_add_server
 
     mock_list_servers.return_value = HTMLResponse("<table></table>")
 
+    _key_check = _AioDualMock(fetchone_result=(1,))  # key exists
     _insert = _AioDualMock()
-    _select = _AioDualMock(fetchone_result=(1,))
 
     conn_mock = MagicMock()
-    conn_mock.execute = MagicMock(side_effect=[_insert, _select, _insert])
+    conn_mock.execute = MagicMock(side_effect=[_key_check, _insert])
     conn_mock.commit = AsyncMock()
     mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
     mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -209,8 +208,7 @@ async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers,
         name="test-server",
         ip_address="192.168.1.1",
         ssh_user="ubuntu",
-        key_name="my-key",
-        private_key="-----BEGIN OPENSSH PRIVATE KEY-----",
+        ssh_key_id=1,
         scope_filter="both",
         role="editor",
         is_admin=True,
@@ -251,10 +249,9 @@ async def test_delete_server_triggers_navigator_refresh(mock_db, mock_list_serve
 
 
 @pytest.mark.asyncio
-@patch('api.routes.encrypt_private_key', return_value=b'encrypted')
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
-async def test_viewer_cannot_add_server(mock_db, mock_list_servers, mock_encrypt):
+async def test_viewer_cannot_add_server(mock_db, mock_list_servers):
     from api.routes import settings_add_server
 
     with pytest.raises(HTTPException) as exc_info:
@@ -263,8 +260,7 @@ async def test_viewer_cannot_add_server(mock_db, mock_list_servers, mock_encrypt
             name="test-server",
             ip_address="192.168.1.1",
             ssh_user="ubuntu",
-            key_name="my-key",
-            private_key="key",
+            ssh_key_id=1,
             role="viewer",
             is_admin=False,
         )
@@ -294,10 +290,9 @@ async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool
 
 
 @pytest.mark.asyncio
-@patch('api.routes.encrypt_private_key', return_value=b'encrypted')
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
-async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers, mock_encrypt):
+async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers):
     from api.routes import settings_add_server
 
     with pytest.raises(HTTPException) as exc_info:
@@ -306,8 +301,7 @@ async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers, mo
             name="test-server",
             ip_address="1.2.3.4",
             ssh_user="ubuntu",
-            key_name="key",
-            private_key="pem",
+            ssh_key_id=1,
             role="editor",
             is_admin=False,
         )

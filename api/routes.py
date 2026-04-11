@@ -466,8 +466,7 @@ async def settings_add_server(
     name: str = Form(...),
     ip_address: str = Form(...),
     ssh_user: str = Form(...),
-    key_name: str = Form(...),
-    private_key: str = Form(...),
+    ssh_key_id: int = Form(...),
     scope_filter: str = Form("both"),
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
@@ -477,18 +476,14 @@ async def settings_add_server(
     if scope_filter not in VALID_SCOPE_FILTERS:
         raise HTTPException(status_code=422, detail="scope_filter must be 'user', 'global', or 'both'.")
 
-    encrypted = encrypt_private_key(private_key)
     async with get_db_connection() as db:
-        await db.execute(
-            "INSERT OR IGNORE INTO ssh_keys (key_name, encrypted_private_key) VALUES (?, ?)",
-            (key_name, encrypted),
-        )
-        await db.commit()
-        async with db.execute("SELECT id FROM ssh_keys WHERE key_name = ?", (key_name,)) as cursor:
+        async with db.execute("SELECT id FROM ssh_keys WHERE id = ?", (ssh_key_id,)) as cursor:
             key_row = await cursor.fetchone()
+        if not key_row:
+            raise HTTPException(status_code=400, detail="Selected SSH key does not exist.")
         await db.execute(
             "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter) VALUES (?, ?, ?, ?, ?)",
-            (name, ip_address, ssh_user, key_row[0], scope_filter),
+            (name, ip_address, ssh_user, ssh_key_id, scope_filter),
         )
         await db.commit()
 
@@ -706,6 +701,20 @@ async def settings_delete_user(
 
 
 # ── SSH Key Management ────────────────────────────────────
+@router.get("/api/keys/options", response_class=HTMLResponse)
+async def api_keys_options(request: Request):
+    """Return <option> elements for SSH key dropdown."""
+    async with get_db_connection() as db:
+        async with db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
+            keys = await cursor.fetchall()
+    if not keys:
+        return HTMLResponse('<option value="">No keys available</option>')
+    options = '<option value="">Select a key...</option>'
+    for k in keys:
+        options += f'<option value="{k[0]}">{k[1]}</option>'
+    return HTMLResponse(options)
+
+
 @router.get("/api/keys", response_class=HTMLResponse)
 async def api_list_keys(
     request: Request,
@@ -750,7 +759,9 @@ async def api_add_key(
         )
         await db.commit()
 
-    return await api_list_keys(request, is_admin=True)
+    response = await api_list_keys(request, is_admin=True)
+    response.headers["HX-Trigger"] = "key-added"
+    return response
 
 
 @router.delete("/api/keys/{key_id}", response_class=HTMLResponse)
