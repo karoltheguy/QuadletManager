@@ -1301,7 +1301,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (saved.settingsSidenav) document.documentElement.style.setProperty('--settings-sidenav-width', saved.settingsSidenav);
 })();
 
-window.switchTab('dashboard');
+window.switchTab('overview');
 initStatsChart();
 initMonitoringChart();
 initHealthHistoryChart();

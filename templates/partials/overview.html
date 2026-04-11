@@ -1,0 +1,57 @@
+{% if not servers %}
+<div class="overview-empty" id="overview-empty">
+  <svg class="overview-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/>
+  </svg>
+  <p class="overview-empty-title">No servers configured</p>
+  <p class="overview-empty-hint">Add a server in <strong>Settings</strong> to start monitoring your fleet.</p>
+</div>
+{% else %}
+<div class="overview-stat-tiles">
+  <div class="overview-stat-tile" data-stat="servers">
+    <span class="overview-stat-value">{{ total_servers }}</span>
+    <span class="overview-stat-label">Servers</span>
+  </div>
+  <div class="overview-stat-tile" data-stat="running">
+    <span class="overview-stat-value overview-stat-running">{{ total_running }}</span>
+    <span class="overview-stat-label">Running</span>
+  </div>
+  <div class="overview-stat-tile" data-stat="stopped">
+    <span class="overview-stat-value overview-stat-stopped">{{ total_stopped }}</span>
+    <span class="overview-stat-label">Stopped</span>
+  </div>
+  <div class="overview-stat-tile" data-stat="unreported">
+    <span class="overview-stat-value overview-stat-muted">{{ total_unreported }}</span>
+    <span class="overview-stat-label">No data</span>
+  </div>
+</div>
+
+<div class="overview-servers">
+  {% for server in servers %}
+  <div class="overview-server-card">
+    <div class="overview-server-header">
+      <h3 class="overview-server-name">{{ server.name }}</h3>
+      <span class="overview-server-counts">
+        <span class="overview-pill overview-pill-running">{{ server.running }} running</span>
+        {% if server.stopped > 0 %}
+        <span class="overview-pill overview-pill-stopped">{{ server.stopped }} stopped</span>
+        {% endif %}
+      </span>
+    </div>
+    {% if server.containers %}
+    <ul class="overview-container-list">
+      {% for c in server.containers %}
+      <li class="overview-container-row">
+        <span class="status-dot dot-{{ c.status }}"></span>
+        <span class="overview-container-name">{{ c.name }}</span>
+        <span class="overview-container-status text-muted">{{ c.status }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="overview-no-containers text-muted">No container data yet — stats accumulate every 5 seconds.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

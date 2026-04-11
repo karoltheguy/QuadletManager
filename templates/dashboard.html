@@ -23,7 +23,7 @@
     <nav class="top-nav">
         <div class="nav-brand pl-4">QM Dashboard</div>
   <div class="nav-links">
-    <button class="nav-item active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="nav-item active" onclick="switchTab('overview')">Overview</button>
     <button class="nav-item" onclick="switchTab('monitoring')">Monitoring</button>
     <button class="nav-item" onclick="switchTab('editor')">Editor</button>
     <button class="nav-item" onclick="switchTab('settings')">Settings</button>
@@ -43,6 +43,19 @@
   </div>
     </nav>
     <div class="app-container">
+
+  <div id="overview-pane" class="overview-pane">
+    <div class="header-bar">
+      <h2 class="panel-title">Overview</h2>
+    </div>
+    <div class="overview-content"
+         hx-get="/api/overview"
+         hx-trigger="load, every 10s"
+         hx-swap="innerHTML">
+      <div class="overview-loading text-muted">Loading fleet status...</div>
+    </div>
+  </div>
+
         <div id="navigator" class="sidebar">
             <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
                 <h2 class="panel-title">Servers</h2>

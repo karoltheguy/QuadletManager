@@ -189,6 +189,59 @@ async def api_servers(request: Request):
         "servers": servers
     })
 
+@router.get("/api/overview", response_class=HTMLResponse)
+async def api_overview(request: Request):
+    """Return the fleet-level overview partial for HTMX polling."""
+    async with get_db_connection() as db:
+        async with db.execute("SELECT id, name FROM servers") as cursor:
+            server_rows = await cursor.fetchall()
+
+        servers = []
+        for server_id, server_name in server_rows:
+            async with db.execute(
+                """
+                SELECT h.container_name, h.is_running
+                FROM container_health_history h
+                INNER JOIN (
+                    SELECT container_name, MAX(recorded_at) AS max_ts
+                    FROM container_health_history
+                    WHERE server_id = ?
+                    GROUP BY container_name
+                ) latest ON h.container_name = latest.container_name
+                        AND h.recorded_at = latest.max_ts
+                        AND h.server_id = ?
+                """,
+                (server_id, server_id),
+            ) as cursor:
+                container_rows = await cursor.fetchall()
+
+            containers = [
+                {"name": name, "status": "running" if is_running else "stopped"}
+                for name, is_running in container_rows
+            ]
+            running = sum(1 for c in containers if c["status"] == "running")
+            stopped = sum(1 for c in containers if c["status"] == "stopped")
+            servers.append({
+                "name": server_name,
+                "containers": containers,
+                "running": running,
+                "stopped": stopped,
+            })
+
+    total_servers = len(servers)
+    total_running = sum(s["running"] for s in servers)
+    total_stopped = sum(s["stopped"] for s in servers)
+    total_unreported = sum(1 for s in servers if not s["containers"])
+
+    return templates.TemplateResponse(request, "partials/overview.html", {
+        "servers": servers,
+        "total_servers": total_servers,
+        "total_running": total_running,
+        "total_stopped": total_stopped,
+        "total_unreported": total_unreported,
+    })
+
+
 @router.get("/api/quadlets/{server_id}", response_class=HTMLResponse)
 async def fetch_quadlet_tree(request: Request, server_id: int):
     try:
