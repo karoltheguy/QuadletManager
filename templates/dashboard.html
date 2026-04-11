@@ -24,7 +24,7 @@
         <div class="nav-brand pl-4">QM Dashboard</div>
   <div class="nav-links">
     <button class="nav-item active" onclick="switchTab('overview')">Overview</button>
-    <button class="nav-item" onclick="switchTab('monitoring')">Monitoring</button>
+    <button class="nav-item" onclick="switchTab('monitor')">Monitor</button>
     <button class="nav-item" onclick="switchTab('containers')">Containers</button>
     <button class="nav-item" onclick="switchTab('settings')">Settings</button>
     <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle color theme" title="Toggle light / dark">
@@ -73,14 +73,19 @@
         
   <div id="monitoring-pane" class="monitoring-pane">
     <div class="header-bar">
-      <h2 class="panel-title">Monitoring</h2>
+      <h2 class="panel-title">Monitor</h2>
       <div class="server-selector">
         <select id="monitoring-server-select" class="form-control" onchange="selectMonitoringServer(this.value)">
           <option value="">Select a server...</option>
         </select>
       </div>
     </div>
-    <div class="monitoring-content">
+    <div id="monitoring-empty-state" class="monitoring-empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/><circle cx="18" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>
+      <p class="monitoring-empty-title">No server selected</p>
+      <p class="monitoring-empty-hint">Choose a server from the dropdown above to view its charts and stats.</p>
+    </div>
+    <div id="monitoring-content" class="monitoring-content" style="display:none;">
       <div class="stats-container monitoring-chart-container">
         <div style="height: 300px; position: relative; width: 100%;">
           <canvas id="monitoring-chart"></canvas>

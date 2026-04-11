@@ -891,7 +891,7 @@ window.switchTab = function(tabId) {
     window.editor.layout();
   }
   // Trigger resize for monitoring chart
-  if (tabId === 'monitoring' && monitoringChart) {
+  if (tabId === 'monitor' && monitoringChart) {
     monitoringChart.resize();
     loadHealthHistory(window._healthHistoryMinutes || 15);
   }
@@ -915,13 +915,25 @@ window.toggleInspectorExpand = function() {
 
 // ── Monitoring Server Selector ────────────────────────────
 window.selectMonitoringServer = function(serverId) {
-  serverId = parseInt(serverId, 10);
-  if (window.activeServerId === serverId) return;
-  window.activeServerId = serverId;
-  
+  var numId = parseInt(serverId, 10);
+  var emptyEl = document.getElementById('monitoring-empty-state');
+  var contentEl = document.getElementById('monitoring-content');
+
+  if (!numId) {
+    if (emptyEl) emptyEl.style.display = '';
+    if (contentEl) contentEl.style.display = 'none';
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = '';
+
+  if (window.activeServerId === numId) return;
+  window.activeServerId = numId;
+
   // Re-render with cached data for this server
-  if (lastStatsPerServer[serverId]) {
-    updateMonitoringView(lastStatsPerServer[serverId]);
+  if (lastStatsPerServer[numId]) {
+    updateMonitoringView(lastStatsPerServer[numId]);
     loadHealthHistory(window._healthHistoryMinutes || 15);
   } else {
     // No data yet – show waiting message
