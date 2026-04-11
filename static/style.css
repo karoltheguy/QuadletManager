@@ -224,9 +224,9 @@ body {
     margin-bottom: 1rem;
 }
 
-/* Expanded inspector — hides sidebar + resize handle on Dashboard */
-body.view-dashboard.inspector-expanded #navigator,
-body.view-dashboard.inspector-expanded #resize-handle-left {
+/* Expanded (focus-editor) mode — hides inspector panel on Containers tab */
+body.view-containers.inspector-expanded #inspector,
+body.view-containers.inspector-expanded #resize-handle-right {
     display: none !important;
 }
 
@@ -435,24 +435,10 @@ body.view-overview .resize-handle { display: none !important; }
 
 body.view-overview #overview-pane { display: flex !important; }
 
-/* Dashboard (legacy inspector-expand view) */
-body.view-dashboard #editor-pane,
-body.view-dashboard #settings-pane,
-body.view-dashboard #resize-handle-right,
-body.view-dashboard #monitoring-pane,
-body.view-dashboard #overview-pane { display: none !important; }
-
-body.view-dashboard #inspector {
-  flex: 1;
-  width: auto;
-  max-width: none;
-}
-
-body.view-editor #inspector,
-body.view-editor #settings-pane,
-body.view-editor #resize-handle-right,
-body.view-editor #monitoring-pane,
-body.view-editor #overview-pane { display: none !important; }
+/* Containers — unified editor + inspector workspace */
+body.view-containers #settings-pane,
+body.view-containers #monitoring-pane,
+body.view-containers #overview-pane { display: none !important; }
 
 body.view-settings #navigator,
 body.view-settings #editor-pane,

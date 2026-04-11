@@ -875,8 +875,8 @@ let _statsWaitTimeout = null;
 
 window.switchTab = function(tabId) {
   document.body.className = 'view-' + tabId;
-  // Restore inspector-expanded class on dashboard tab if persisted
-  if (tabId === 'dashboard' && localStorage.getItem('qm-inspector-expanded') === 'true') {
+  // Restore inspector-expanded class on containers tab if persisted
+  if (tabId === 'containers' && localStorage.getItem('qm-inspector-expanded') === 'true') {
     document.body.classList.add('inspector-expanded');
   }
   document.querySelectorAll('.nav-item').forEach(function(btn) {
@@ -887,7 +887,7 @@ window.switchTab = function(tabId) {
     }
   });
   // Trigger resize for Monaco
-  if (tabId === 'editor' && window.editor) {
+  if (tabId === 'containers' && window.editor) {
     window.editor.layout();
   }
   // Trigger resize for monitoring chart
@@ -1357,7 +1357,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
             target: '#editor-pane',
             swap: 'outerHTML'
         });
-        window.switchTab('editor');
+        window.switchTab('containers');
     };
     _ctxMenu.appendChild(editBtn);
 
