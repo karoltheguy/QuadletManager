@@ -1076,31 +1076,36 @@ ul { list-style: none; }
 
 .terminal-controls {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.terminal-controls-row {
-    display: flex;
-    gap: 0.5rem;
+    flex-direction: row;
     align-items: center;
+    gap: 0.5rem;
 }
 
 .terminal-label {
     font-size: 0.8rem;
     color: var(--text-muted);
-    min-width: 50px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .terminal-shell-select {
-    flex: 1;
+    width: 140px;
+    flex-shrink: 0;
     padding: 0.4rem;
     background-color: var(--bg-base);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     border-radius: 0.375rem;
     font-size: 0.8rem;
+}
+
+.terminal-custom-cmd-row {
+    flex: 1;
+    min-width: 120px;
+}
+
+.terminal-custom-cmd-row .form-control {
+    width: 100%;
 }
 
 .terminal-shell-select:focus {

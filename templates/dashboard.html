@@ -347,15 +347,13 @@
       <div class="bottom-panel-body">
         <div id="bottom-terminal-pane" class="bottom-pane">
           <div class="terminal-controls">
-            <div class="terminal-controls-row">
-              <label for="terminal-shell-select" class="terminal-label">Shell:</label>
-              <select id="terminal-shell-select" class="form-control terminal-shell-select">
-                <option value="bash">bash</option>
-                <option value="sh">sh</option>
-                <option value="custom">Custom command...</option>
-              </select>
-            </div>
-            <div id="terminal-custom-cmd-row" class="terminal-controls-row hidden">
+            <label for="terminal-shell-select" class="terminal-label">Shell:</label>
+            <select id="terminal-shell-select" class="form-control terminal-shell-select">
+              <option value="bash">bash</option>
+              <option value="sh">sh</option>
+              <option value="custom">Custom command...</option>
+            </select>
+            <div id="terminal-custom-cmd-row" class="terminal-custom-cmd-row hidden">
               <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
             </div>
             <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
