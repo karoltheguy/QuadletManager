@@ -7,7 +7,8 @@ import re
 import shlex
 import time
 
-from core.database import get_db_connection
+import aiosqlite
+from core.database import get_db_connection, DATABASE_PATH
 from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool
@@ -110,6 +111,37 @@ async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> 
     """FastAPI dependency that raises 403 if the current user is not an admin."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
+
+
+async def get_current_user_id(username: str = Depends(get_current_username)) -> int:
+    """Resolve the current session username to a numeric user id (404 if missing)."""
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT id FROM users WHERE username=?", (username,)
+        )).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return row[0]
+
+
+async def _ensure_default_theme(user_id: int) -> None:
+    """Lazily insert a single Default theme row for a user who has none yet."""
+    async with get_db_connection() as db:
+        existing = await (await db.execute(
+            "SELECT id FROM user_themes WHERE user_id=?", (user_id,)
+        )).fetchone()
+        if existing:
+            return
+        now = int(time.time())
+        await db.execute(
+            """INSERT INTO user_themes
+               (user_id, theme_name, mode_preference,
+                light_overrides_json, dark_overrides_json,
+                is_active, created_at, updated_at)
+               VALUES (?, 'Default', 'auto', '{}', '{}', 1, ?, ?)""",
+            (user_id, now, now),
+        )
+        await db.commit()
 
 
 # ── Login / Logout ────────────────────────────────────────

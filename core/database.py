@@ -119,6 +119,28 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_themes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                theme_name TEXT NOT NULL,
+                mode_preference TEXT NOT NULL DEFAULT 'auto'
+                    CHECK(mode_preference IN ('auto', 'light', 'dark')),
+                light_overrides_json TEXT NOT NULL DEFAULT '{}',
+                dark_overrides_json  TEXT NOT NULL DEFAULT '{}',
+                is_active INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(user_id, theme_name)
+            )
+        """)
+
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_user_themes_user_active
+            ON user_themes(user_id, is_active)
+        """)
+
         # Seed basic templates if they do not exist
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (1, 'Basic Container', 'container', '[Container]\\nImage=docker.io/library/nginx:latest\\nNetwork=host\\n')")
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (2, 'Basic Volume', 'volume', '[Volume]\\nLabel=app=myapp\\n')")
