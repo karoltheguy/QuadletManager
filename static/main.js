@@ -884,6 +884,10 @@ window.switchTab = function(tabId) {
       btn.classList.remove('active');
     }
   });
+  // Refresh SSH key dropdown when entering the settings view (Servers is the default section)
+  if (tabId === 'settings') {
+    refreshSshKeyDropdown();
+  }
   // Show/restore bottom panel when entering containers view
   if (tabId === 'containers') {
     var panelOpen = localStorage.getItem('qm-bottom-panel-open');
@@ -902,6 +906,15 @@ window.switchTab = function(tabId) {
   }
 };
 
+// ── SSH Key Dropdown Refresh ──────────────────────────────
+// The hx-trigger="load" on the select fires once at DOMContentLoaded when the
+// settings pane is display:none, making HTMX event-timing unreliable. Refresh
+// explicitly whenever the dropdown becomes visible instead (issue #86).
+function refreshSshKeyDropdown() {
+  var sel = document.querySelector('select[name="ssh_key_id"]');
+  if (sel) htmx.ajax('GET', '/api/keys/options', {target: sel, swap: 'innerHTML'});
+}
+
 // ── Settings Section Switcher ─────────────────────────────
 window.showSettingsSection = function(name) {
   document.querySelectorAll('.settings-group').forEach(function(g) {
@@ -910,6 +923,7 @@ window.showSettingsSection = function(name) {
   document.querySelectorAll('.settings-sidenav-item').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.section === name);
   });
+  if (name === 'servers') refreshSshKeyDropdown();
 };
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
