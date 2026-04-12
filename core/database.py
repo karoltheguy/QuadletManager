@@ -83,6 +83,12 @@ async def init_db():
             )
         """)
 
+        # Migration: add health_status column to existing databases
+        try:
+            await db.execute("ALTER TABLE container_health_history ADD COLUMN health_status TEXT DEFAULT NULL")
+        except Exception:
+            pass  # Column already exists
+
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_health_history_server_time
             ON container_health_history(server_id, recorded_at)

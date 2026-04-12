@@ -1635,11 +1635,12 @@ body {
   color: var(--text-muted);
 }
 
-/* Per-server cards */
+/* Per-server cards — 2-column grid so multiple servers sit side by side */
 .overview-servers {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+  align-items: start;
 }
 
 .overview-server-card {
@@ -1685,6 +1686,31 @@ body {
 .overview-pill-stopped {
   background-color: rgba(139, 145, 153, 0.12);
   color: var(--text-muted);
+}
+
+/* Healthcheck status badge inside a container row */
+.overview-health-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.overview-health-healthy {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+}
+
+.overview-health-unhealthy {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: var(--danger, #ef4444);
+}
+
+.overview-health-starting {
+  background-color: rgba(251, 191, 36, 0.12);
+  color: var(--warning, #f59e0b);
 }
 
 /* Container list inside a server card */

@@ -126,8 +126,9 @@ def test_all_keys_present_in_output():
 @patch("services.stats_engine.pool")
 async def test_rootless_commands_include_env_prefix(mock_pool):
     """Rootless (user) scope must prefix commands with XDG_RUNTIME_DIR."""
+    ps_json = json.dumps([{"Names": "app", "HealthStatus": ""}])
     stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
-    mock_pool.execute_command = AsyncMock(side_effect=["app", stats_json])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
@@ -149,8 +150,9 @@ async def test_rootless_commands_include_env_prefix(mock_pool):
 @patch("services.stats_engine.pool")
 async def test_rootful_commands_use_sudo(mock_pool):
     """Global (rootful) scope must use sudo, not the env prefix."""
+    ps_json = json.dumps([{"Names": "system-app", "HealthStatus": ""}])
     stats_json = json.dumps([{"Name": "system-app", "CPUPerc": "5%", "MemPerc": "10%"}])
-    mock_pool.execute_command = AsyncMock(side_effect=["system-app", stats_json])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=True)
 
@@ -168,8 +170,8 @@ async def test_rootful_commands_use_sudo(mock_pool):
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
 async def test_no_running_containers_returns_empty(mock_pool):
-    """If podman ps returns nothing, we get an empty list (no crash)."""
-    mock_pool.execute_command = AsyncMock(return_value=" \n")
+    """If podman ps returns an empty JSON array, we get an empty list (no crash)."""
+    mock_pool.execute_command = AsyncMock(return_value="[]")
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
@@ -193,11 +195,86 @@ async def test_ssh_error_returns_empty_list(mock_pool):
 @patch("services.stats_engine.pool")
 async def test_invalid_json_returns_empty_list(mock_pool):
     """If podman stats returns garbage, we return an empty list."""
-    mock_pool.execute_command = AsyncMock(side_effect=["app", "not json"])
+    ps_json = json.dumps([{"Names": "app", "HealthStatus": ""}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, "not json"])
 
     result = await _fetch_scope_stats(server_id=1, rootful=True)
 
     assert result == []
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_fetch_scope_stats_uses_json_ps_format(mock_pool):
+    """podman ps must use --format json so health status can be parsed."""
+    stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
+    ps_json = json.dumps([{"Names": "app", "HealthStatus": "healthy"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    await _fetch_scope_stats(server_id=1, rootful=False)
+
+    ps_call = mock_pool.execute_command.call_args_list[0]
+    assert "--format json" in ps_call[0][1]
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_health_status_included_in_result(mock_pool):
+    """Containers with a healthcheck must have their health status in the result dict."""
+    ps_json = json.dumps([{"Names": "nginx", "HealthStatus": "healthy"}])
+    stats_json = json.dumps([{"name": "nginx", "cpu_percent": "5%", "mem_percent": "10%"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+    assert len(result) == 1
+    assert result[0]["health"] == "healthy"
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_health_status_defaults_to_empty_when_absent(mock_pool):
+    """Containers without a healthcheck definition have health == '' (not an error)."""
+    ps_json = json.dumps([{"Names": "redis", "HealthStatus": ""}])
+    stats_json = json.dumps([{"name": "redis", "cpu_percent": "1%", "mem_percent": "2%"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+    assert result[0]["health"] == ""
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_health_status_names_as_list(mock_pool):
+    """Names returned as a JSON array (older Podman) must still be parsed correctly."""
+    ps_json = json.dumps([{"Names": ["app"], "HealthStatus": "unhealthy"}])
+    stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+    assert result[0]["name"] == "app"
+    assert result[0]["health"] == "unhealthy"
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.get_db_connection")
+async def test_record_health_history_includes_health_status(mock_get_db):
+    """Health status must be stored as the 7th element in each INSERT record."""
+    mock_get_db_fn, mock_db = _make_health_db_mock()
+    mock_get_db.return_value = mock_get_db_fn.return_value
+
+    import services.stats_engine as se
+    se._prev_running_by_sid.pop(55, None)
+
+    containers = [{"name": "nginx", "cpu": "5%", "mem": "10%", "health": "healthy"}]
+    await _record_health_history(55, containers)
+
+    records = mock_db.executemany.call_args[0][1]
+    assert len(records) == 1
+    # index 6 is health_status
+    assert records[0][6] == "healthy"
 
 
 # =============================================================================

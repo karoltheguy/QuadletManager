@@ -100,15 +100,95 @@ async def test_overview_empty_state_when_no_servers(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+async def test_overview_shows_health_badge_for_healthy_container(mock_get_db):
+    """Running containers with a non-empty health_status must show a health badge."""
+    from api.routes import api_overview
+
+    servers_rows = [(1, "prod-server")]
+    # 3-tuple: name, is_running, health_status
+    history_rows = [("nginx", 1, "healthy")]
+
+    call_count = 0
+
+    def _make_cursor(rows):
+        cursor = AsyncMock()
+        cursor.fetchall = AsyncMock(return_value=rows)
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=cursor)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    mock_db = AsyncMock()
+
+    def _execute_side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _make_cursor(servers_rows if call_count == 1 else history_rows)
+
+    mock_db.execute = MagicMock(side_effect=_execute_side_effect)
+    mock_db_cm = AsyncMock()
+    mock_db_cm.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db_cm.__aexit__ = AsyncMock(return_value=False)
+    mock_get_db.return_value = mock_db_cm
+
+    mock_request = MagicMock()
+    response = await api_overview(mock_request)
+    body = response.body.decode()
+
+    assert "overview-health-badge" in body
+    assert "healthy" in body
+
+
+@pytest.mark.asyncio
+@patch("api.routes.get_db_connection")
+async def test_overview_no_health_badge_when_status_empty(mock_get_db):
+    """Running containers with no healthcheck (empty status) must not show a badge."""
+    from api.routes import api_overview
+
+    servers_rows = [(1, "prod-server")]
+    history_rows = [("redis", 1, "")]
+
+    call_count = 0
+
+    def _make_cursor(rows):
+        cursor = AsyncMock()
+        cursor.fetchall = AsyncMock(return_value=rows)
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=cursor)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    mock_db = AsyncMock()
+
+    def _execute_side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _make_cursor(servers_rows if call_count == 1 else history_rows)
+
+    mock_db.execute = MagicMock(side_effect=_execute_side_effect)
+    mock_db_cm = AsyncMock()
+    mock_db_cm.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db_cm.__aexit__ = AsyncMock(return_value=False)
+    mock_get_db.return_value = mock_db_cm
+
+    mock_request = MagicMock()
+    response = await api_overview(mock_request)
+    body = response.body.decode()
+
+    assert "overview-health-badge" not in body
+
+
+@pytest.mark.asyncio
+@patch("api.routes.get_db_connection")
 async def test_overview_aggregates_running_and_stopped_counts(mock_get_db):
     """With one server and mixed container statuses, counts must appear in the HTML."""
     from api.routes import api_overview
 
     servers_rows = [(1, "prod-server")]
-    # Latest snapshot per container: name + is_running (2 cols, matching the SQL SELECT)
+    # Latest snapshot per container: name + is_running + health_status (3 cols)
     history_rows = [
-        ("nginx", 1),
-        ("redis", 0),
+        ("nginx", 1, "healthy"),
+        ("redis", 0, None),
     ]
 
     call_count = 0
@@ -152,7 +232,7 @@ async def test_overview_total_counts_in_stat_tiles(mock_get_db):
     from api.routes import api_overview
 
     servers_rows = [(1, "prod-server"), (2, "staging-server")]
-    history_rows_s1 = [("nginx", 1), ("redis", 0)]
+    history_rows_s1 = [("nginx", 1, "healthy"), ("redis", 0, None)]
 
     call_count = 0
 

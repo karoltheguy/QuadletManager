@@ -200,7 +200,7 @@ async def api_overview(request: Request):
         for server_id, server_name in server_rows:
             async with db.execute(
                 """
-                SELECT h.container_name, h.is_running
+                SELECT h.container_name, h.is_running, h.health_status
                 FROM container_health_history h
                 INNER JOIN (
                     SELECT container_name, MAX(recorded_at) AS max_ts
@@ -216,8 +216,12 @@ async def api_overview(request: Request):
                 container_rows = await cursor.fetchall()
 
             containers = [
-                {"name": name, "status": "running" if is_running else "stopped"}
-                for name, is_running in container_rows
+                {
+                    "name": name,
+                    "status": "running" if is_running else "stopped",
+                    "health": health_status or "",
+                }
+                for name, is_running, health_status in container_rows
             ]
             running = sum(1 for c in containers if c["status"] == "running")
             stopped = sum(1 for c in containers if c["status"] == "stopped")

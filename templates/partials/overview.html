@@ -44,6 +44,9 @@
       <li class="overview-container-row">
         <span class="status-dot dot-{{ c.status }}"></span>
         <span class="overview-container-name">{{ c.name }}</span>
+        {% if c.status == 'running' and c.health %}
+        <span class="overview-health-badge overview-health-{{ c.health }}">{{ c.health }}</span>
+        {% endif %}
         <span class="overview-container-status text-muted">{{ c.status }}</span>
       </li>
       {% endfor %}

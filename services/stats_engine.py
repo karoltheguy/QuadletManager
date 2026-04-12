@@ -40,9 +40,9 @@ async def _record_health_history(server_id: int, containers: list[dict]) -> None
 
     records = []
     for c in containers:
-        records.append((server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now))
+        records.append((server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now, c.get('health', '') or None))
     for name in stopped_names:
-        records.append((server_id, name, 0, 0.0, 0.0, now))
+        records.append((server_id, name, 0, 0.0, 0.0, now, None))
 
     _prev_running_by_sid[server_id] = current_names
 
@@ -52,8 +52,8 @@ async def _record_health_history(server_id: int, containers: list[dict]) -> None
     async with get_db_connection() as db:
         await db.executemany(
             "INSERT INTO container_health_history "
-            "(server_id, container_name, is_running, cpu_pct, mem_pct, recorded_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "(server_id, container_name, is_running, cpu_pct, mem_pct, recorded_at, health_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             records,
         )
         await db.execute(
@@ -83,23 +83,52 @@ def normalize_container_stats(raw: dict) -> dict:
     }
 
 
+def _extract_name(names_field) -> str:
+    """Normalise the Names field from podman ps --format json.
+
+    Podman 3.x returns a list, Podman 4.x may return a plain string.
+    """
+    if isinstance(names_field, list):
+        return names_field[0] if names_field else ""
+    return str(names_field) if names_field else ""
+
+
 async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
     """Fetch container stats for one scope (rootful or rootless).
+
+    Uses podman ps --format json to get running names AND healthcheck status
+    in a single SSH call, then fetches resource stats separately.
 
     Returns a list of normalised container dicts, or an empty list on error.
     """
     if rootful:
-        ps_cmd = 'sudo podman ps --format "{{.Names}}"'
+        ps_cmd = "sudo podman ps --format json"
         stats_prefix = "sudo podman stats"
     else:
-        ps_cmd = f'{ROOTLESS_ENV_PREFIX} podman ps --format "{{{{.Names}}}}"'
+        ps_cmd = f"{ROOTLESS_ENV_PREFIX} podman ps --format json"
         stats_prefix = f"{ROOTLESS_ENV_PREFIX} podman stats"
 
     try:
-        running_str = await pool.execute_command(
+        ps_json_str = await pool.execute_command(
             server_id, ps_cmd, timeout=PODMAN_PS_TIMEOUT,
         )
-        running_names = running_str.strip().split() if running_str.strip() else []
+        ps_data = json.loads(ps_json_str) if ps_json_str.strip() else []
+        if not ps_data:
+            return []
+
+        # Build a map of name → health_status for merging after stats call
+        health_map: dict[str, str] = {}
+        running_names: list[str] = []
+        for c in ps_data:
+            name = _extract_name(c.get("Names", ""))
+            if not name:
+                continue
+            running_names.append(name)
+            raw_health = c.get("HealthStatus") or c.get("Health") or ""
+            if isinstance(raw_health, dict):
+                raw_health = raw_health.get("Status", "")
+            health_map[name] = str(raw_health).lower()
+
         if not running_names:
             return []
 
@@ -113,7 +142,12 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
             return []
 
         stats_data = json.loads(stats_json_str)
-        return [normalize_container_stats(c) for c in stats_data]
+        result = []
+        for raw in stats_data:
+            container = normalize_container_stats(raw)
+            container["health"] = health_map.get(container["name"], "")
+            result.append(container)
+        return result
 
     except Exception as e:
         scope_label = "global" if rootful else "user"
