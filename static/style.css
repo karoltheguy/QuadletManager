@@ -1766,7 +1766,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    margin: 0 1.25rem 1.25rem;
+    margin: 1.25rem;
 }
 
 #bottom-panel.hidden { display: none; }
