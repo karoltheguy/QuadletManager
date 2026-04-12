@@ -884,6 +884,13 @@ window.switchTab = function(tabId) {
       btn.classList.remove('active');
     }
   });
+  // Show/restore bottom panel when entering containers view
+  if (tabId === 'containers') {
+    var panelOpen = localStorage.getItem('qm-bottom-panel-open');
+    if (panelOpen !== '0') {
+      openBottomPanel();
+    }
+  }
   // Trigger resize for Monaco
   if (tabId === 'containers' && window.editor) {
     window.editor.layout();
@@ -1024,17 +1031,27 @@ function hideTerminalSection() {
 // ── Bottom Panel Management ───────────────────────────────
 window.openBottomPanel = function(tab) {
     var panel = document.getElementById('bottom-panel');
-    if (panel) panel.classList.remove('hidden');
+    if (!panel) return;
+    panel.classList.remove('is-collapsed');
+    var body = panel.querySelector('.bottom-panel-body');
+    var handle = document.getElementById('bottom-panel-resize-handle');
+    if (body) body.classList.remove('hidden');
+    if (handle) handle.classList.remove('hidden');
+    localStorage.setItem('qm-bottom-panel-open', '1');
     if (tab) switchBottomTab(tab);
-    // Fit terminal if it's already connected
     if (window._terminalFitAddon) window._terminalFitAddon.fit();
 };
 
-window.closeBottomPanel = function() {
+window.toggleBottomPanel = function() {
     var panel = document.getElementById('bottom-panel');
-    if (panel) panel.classList.add('hidden');
-    disconnectTerminal();
-    stopLogs();
+    if (!panel) return;
+    var isCollapsed = panel.classList.toggle('is-collapsed');
+    var body = panel.querySelector('.bottom-panel-body');
+    var handle = document.getElementById('bottom-panel-resize-handle');
+    if (body) body.classList.toggle('hidden', isCollapsed);
+    if (handle) handle.classList.toggle('hidden', isCollapsed);
+    localStorage.setItem('qm-bottom-panel-open', isCollapsed ? '0' : '1');
+    if (!isCollapsed && window._terminalFitAddon) window._terminalFitAddon.fit();
 };
 
 window.switchBottomTab = function(pane) {

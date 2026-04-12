@@ -1776,6 +1776,18 @@ body {
 
 #bottom-panel.hidden { display: none; }
 
+#bottom-panel.is-collapsed {
+    height: auto;
+}
+
+#bottom-panel-minimize-btn svg {
+    transition: transform 0.2s ease;
+}
+
+#bottom-panel.is-collapsed #bottom-panel-minimize-btn svg {
+    transform: rotate(180deg);
+}
+
 /* Hide bottom panel on all non-containers views */
 body.view-overview #bottom-panel,
 body.view-monitor #bottom-panel,
