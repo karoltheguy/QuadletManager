@@ -173,8 +173,8 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
 
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;
-let monitoringChart = null;
-let healthHistoryChart = null;
+let cpuHistoryChart = null;
+let memHistoryChart = null;
 
 const HISTORY_COLORS = [
     'rgba(20, 184, 166, 1)',   // teal  — matches brand-primary
@@ -254,6 +254,14 @@ const lastStatsPerServer = {};
 // Per-server map of currently running container name stems.
 // Key: serverId (int), Value: Set<string> of lowercase container name stems.
 const runningContainersBySid = {};
+
+// Superset of all container names ever seen per server (includes stopped).
+// Used by the Monitor summary strip to compute a stopped count.
+const allSeenContainersBySid = {};
+
+// Active container name filter for the Monitor view (lowercase substring).
+// Empty string means show all containers.
+let monitorContainerFilter = '';
 
 // Currently selected container stem in the inspector (lowercase).
 window._selectedContainerStem = null;
@@ -547,34 +555,23 @@ function initStatsChart() {
   statsChart = new Chart(ctx, buildBarChartConfig());
 }
 
-function initMonitoringChart() {
-  const ctx = document.getElementById('monitoring-chart');
-  if (!ctx) return;
-  monitoringChart = new Chart(ctx, buildBarChartConfig());
-}
-
-function initHealthHistoryChart() {
-  const ctx = document.getElementById('health-history-chart');
-  if (!ctx) return;
-
+function _buildTimeSeriesConfig(yLabel) {
   var t = getChartTheme();
-  healthHistoryChart = new Chart(ctx, {
+  return {
     type: 'line',
     data: { labels: [], datasets: [] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
-      stepped: true,
       scales: {
         y: {
           beginAtZero: true,
-          max: 1,
+          suggestedMax: 5,
           ticks: {
             color: t.tickColor,
             font: { size: 10 },
-            stepSize: 1,
-            callback: function(v) { return v === 1 ? 'Running' : 'Stopped'; }
+            callback: function(v) { return v + '%'; }
           },
           grid: { color: t.gridColor }
         },
@@ -583,7 +580,7 @@ function initHealthHistoryChart() {
             color: t.tickColor,
             font: { size: 10 },
             maxTicksLimit: 8,
-            maxRotation: 0,
+            maxRotation: 0
           },
           grid: { display: false }
         }
@@ -601,22 +598,31 @@ function initHealthHistoryChart() {
           cornerRadius: 6,
           padding: 8,
           callbacks: {
-            label: function(ctx) {
-              return ctx.dataset.label + ': ' + (ctx.parsed.y === 1 ? 'Running' : 'Stopped');
-            }
+            label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%'; }
           }
         }
       }
     }
-  });
+  };
 }
 
-window._healthHistoryMinutes = 15;
+function initCpuChart() {
+  var ctx = document.getElementById('cpu-history-chart');
+  if (!ctx) return;
+  cpuHistoryChart = new Chart(ctx, _buildTimeSeriesConfig('CPU %'));
+}
 
-window.loadHealthHistory = function(minutes, btnEl) {
-  window._healthHistoryMinutes = minutes;
+function initMemChart() {
+  var ctx = document.getElementById('mem-history-chart');
+  if (!ctx) return;
+  memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig('Memory %'));
+}
 
-  // Update active button style
+window._monitorChartMinutes = 15;
+
+window.loadMonitorCharts = function(minutes, btnEl) {
+  window._monitorChartMinutes = minutes;
+
   if (btnEl) {
     document.querySelectorAll('.health-range-btn').forEach(function(b) { b.classList.remove('active'); });
     btnEl.classList.add('active');
@@ -628,18 +634,15 @@ window.loadHealthHistory = function(minutes, btnEl) {
   fetch('/api/health/history/' + serverId + '?minutes=' + minutes)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var emptyEl = document.getElementById('health-history-empty');
-      var wrapEl = document.getElementById('health-history-chart-wrap');
+      var emptyEl = document.getElementById('monitor-charts-empty');
 
       if (!data || data.length === 0) {
         if (emptyEl) emptyEl.style.display = '';
-        if (wrapEl) wrapEl.style.display = 'none';
         return;
       }
       if (emptyEl) emptyEl.style.display = 'none';
-      if (wrapEl) wrapEl.style.display = '';
 
-      if (!healthHistoryChart) return;
+      if (!cpuHistoryChart || !memHistoryChart) return;
 
       // Build unified sorted timestamp labels from all containers
       var tsSet = new Set();
@@ -653,27 +656,47 @@ window.loadHealthHistory = function(minutes, btnEl) {
                d.getSeconds().toString().padStart(2, '0');
       });
 
-      var datasets = data.map(function(c, i) {
+      var cpuDatasets = data.map(function(c, i) {
         var byTs = {};
-        c.history.forEach(function(p) { byTs[p.ts] = p.is_running; });
+        c.history.forEach(function(p) { byTs[p.ts] = p.cpu !== null ? p.cpu : null; });
+        var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
         return {
           label: c.container_name,
           data: tsSorted.map(function(ts) { return byTs[ts] !== undefined ? byTs[ts] : null; }),
-          borderColor: HISTORY_COLORS[i % HISTORY_COLORS.length],
-          backgroundColor: HISTORY_COLORS[i % HISTORY_COLORS.length].replace('1)', '0.15)'),
-          borderWidth: 2,
+          borderColor: color,
+          backgroundColor: color.replace('1)', '0.08)'),
+          borderWidth: 1.5,
           pointRadius: 0,
-          stepped: true,
-          fill: true,
+          fill: false,
           spanGaps: false,
         };
       });
 
-      healthHistoryChart.data.labels = labels;
-      healthHistoryChart.data.datasets = datasets;
-      healthHistoryChart.update();
+      var memDatasets = data.map(function(c, i) {
+        var byTs = {};
+        c.history.forEach(function(p) { byTs[p.ts] = p.mem !== null ? p.mem : null; });
+        var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
+        return {
+          label: c.container_name,
+          data: tsSorted.map(function(ts) { return byTs[ts] !== undefined ? byTs[ts] : null; }),
+          borderColor: color,
+          backgroundColor: color.replace('1)', '0.08)'),
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          spanGaps: false,
+        };
+      });
+
+      cpuHistoryChart.data.labels = labels;
+      cpuHistoryChart.data.datasets = cpuDatasets;
+      cpuHistoryChart.update();
+
+      memHistoryChart.data.labels = labels;
+      memHistoryChart.data.datasets = memDatasets;
+      memHistoryChart.update();
     })
-    .catch(function(err) { console.error('Health history fetch error:', err); });
+    .catch(function(err) { console.error('Monitor chart fetch error:', err); });
 };
 
 function parsePercent(val) {
@@ -698,19 +721,29 @@ function renderContainerStatsTable(tableElId, data) {
     var html = '<table class="w-full">';
     html += '<thead><tr class="text-muted border-b">';
     html += '<th class="text-left p-4">Container</th>';
+    html += '<th class="p-4 text-left">Status</th>';
     html += '<th class="p-4 text-right">CPU</th>';
     html += '<th class="p-4 text-right">MEM</th>';
     html += '<th class="p-4 text-right">NET I/O</th>';
-    html += '<th class="p-4 text-right">PIDs</th>';
     html += '</tr></thead><tbody>';
 
     containers.forEach(function(c) {
+        var cpuVal = parsePercent(c.cpu);
+        var memVal = parsePercent(c.mem);
+        var cpuClass = cpuVal >= 80 ? 'cell-danger' : cpuVal >= 60 ? 'cell-warn' : '';
+        var memClass = memVal >= 80 ? 'cell-danger' : memVal >= 60 ? 'cell-warn' : '';
+
+        var health = c.health || '';
+        var badgeClass = health === '' ? 'running' : health === 'healthy' ? 'healthy' : 'unhealthy';
+        var badgeLabel = health === '' ? 'running' : health;
+        var badge = '<span class="stat-badge ' + badgeClass + '">' + escapeHtml(badgeLabel) + '</span>';
+
         html += '<tr class="border-b">';
         html += '<td class="text-left p-4 text-accent font-semibold">' + escapeHtml(c.name) + '</td>';
-        html += '<td class="p-4 text-right">' + escapeHtml(c.cpu) + '</td>';
-        html += '<td class="p-4 text-right">' + escapeHtml(c.mem) + '</td>';
-        html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.net_io) + '</td>';
-        html += '<td class="p-4 text-right text-muted">' + escapeHtml(c.pids) + '</td>';
+        html += '<td class="p-4 text-left">' + badge + '</td>';
+        html += '<td class="p-4 text-right ' + cpuClass + '">' + escapeHtml(c.cpu) + '</td>';
+        html += '<td class="p-4 text-right ' + memClass + '">' + escapeHtml(c.mem) + '</td>';
+        html += '<td class="p-4 text-right net-io-cell">' + escapeHtml(c.net_io) + '</td>';
         html += '</tr>';
     });
 
@@ -757,7 +790,12 @@ function connectSSE() {
         runningSet.add((c.name || '').toLowerCase());
       });
       runningContainersBySid[data.server_id] = runningSet;
-      
+
+      // Accumulate all ever-seen containers for this server (used by summary strip).
+      var allSeen = allSeenContainersBySid[data.server_id] || new Set();
+      runningSet.forEach(function(name) { allSeen.add(name); });
+      allSeenContainersBySid[data.server_id] = allSeen;
+
       // Detect spontaneously stopped containers
       oldSet.forEach(function(oldName) {
           if (!runningSet.has(oldName)) {
@@ -899,10 +937,11 @@ window.switchTab = function(tabId) {
   if (tabId === 'containers' && window.editor) {
     window.editor.layout();
   }
-  // Trigger resize for monitoring chart
-  if (tabId === 'monitor' && monitoringChart) {
-    monitoringChart.resize();
-    loadHealthHistory(window._healthHistoryMinutes || 15);
+  // Trigger resize for monitoring charts
+  if (tabId === 'monitor') {
+    if (cpuHistoryChart) cpuHistoryChart.resize();
+    if (memHistoryChart) memHistoryChart.resize();
+    loadMonitorCharts(window._monitorChartMinutes || 15);
   }
 };
 
@@ -958,13 +997,19 @@ window.selectMonitoringServer = function(serverId) {
   if (emptyEl) emptyEl.style.display = 'none';
   if (contentEl) contentEl.style.display = '';
 
+  // Reset filter when switching servers.
+  window._monitoringServerId = numId;
+  monitorContainerFilter = '';
+  var filterInput = document.getElementById('monitor-container-filter');
+  if (filterInput) filterInput.value = '';
+
   if (window.activeServerId === numId) return;
   window.activeServerId = numId;
 
   // Re-render with cached data for this server
   if (lastStatsPerServer[numId]) {
     updateMonitoringView(lastStatsPerServer[numId]);
-    loadHealthHistory(window._healthHistoryMinutes || 15);
+    loadMonitorCharts(window._monitorChartMinutes || 15);
   } else {
     // No data yet – show waiting message
     var tableEl = document.getElementById('monitoring-stats-table');
@@ -981,17 +1026,104 @@ window.selectMonitoringServer = function(serverId) {
 };
 
 function updateMonitoringView(data) {
-  const containers = data.containers || [];
+  // Apply active filter — summary strip always shows unfiltered totals.
+  var allContainers = data.containers || [];
+  var containers = monitorContainerFilter
+    ? allContainers.filter(function(c) {
+        return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1;
+      })
+    : allContainers;
 
-  // Update Monitoring Chart
-  if (monitoringChart) {
-    monitoringChart.data.labels = containers.map(function(c) { return c.name; });
-    monitoringChart.data.datasets[0].data = containers.map(function(c) { return parsePercent(c.cpu); });
-    monitoringChart.data.datasets[1].data = containers.map(function(c) { return parsePercent(c.mem); });
-    monitoringChart.update();
+  var filteredData = Object.assign({}, data, { containers: containers });
+
+  // Append the latest SSE data point to the live time-series charts.
+  if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
+    var now = new Date();
+    var timeLabel = now.getHours().toString().padStart(2, '0') + ':' +
+                    now.getMinutes().toString().padStart(2, '0') + ':' +
+                    now.getSeconds().toString().padStart(2, '0');
+    var windowSec = (window._monitorChartMinutes || 15) * 60;
+
+    function appendToChart(chart, valueKey) {
+      if (!chart) return;
+      // Build a map of current dataset labels for quick lookup
+      var datasetByName = {};
+      chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
+
+      allContainers.forEach(function(c, i) {
+        var val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
+        if (datasetByName[c.name]) {
+          datasetByName[c.name].data.push(val);
+        } else {
+          // New container not yet in chart — add a new dataset
+          var color = HISTORY_COLORS[chart.data.datasets.length % HISTORY_COLORS.length];
+          chart.data.datasets.push({
+            label: c.name,
+            data: [val],
+            borderColor: color,
+            backgroundColor: color.replace('1)', '0.08)'),
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            spanGaps: false,
+          });
+        }
+      });
+
+      // Append the shared time label and trim old data outside the window
+      chart.data.labels.push(timeLabel);
+      var cutoff = Date.now() / 1000 - windowSec;
+      // Trim from the front while the window is exceeded
+      while (chart.data.labels.length > windowSec / 5 + 10) {
+        chart.data.labels.shift();
+        chart.data.datasets.forEach(function(ds) { ds.data.shift(); });
+      }
+
+      chart.update('none');
+    }
+
+    appendToChart(cpuHistoryChart, 'cpu');
+    appendToChart(memHistoryChart, 'mem');
   }
 
-  renderContainerStatsTable('monitoring-stats-table', data);
+  renderContainerStatsTable('monitoring-stats-table', filteredData);
+  updateSummaryStrip(data);  // always use unfiltered data for the summary strip
+}
+
+function applyContainerFilter(value) {
+  monitorContainerFilter = (value || '').toLowerCase().trim();
+  var serverId = window._monitoringServerId;
+  if (serverId && lastStatsPerServer[serverId]) {
+    updateMonitoringView(lastStatsPerServer[serverId]);
+  }
+}
+
+function updateSummaryStrip(data) {
+  var containers = data.containers || [];
+  var serverId = data.server_id;
+  var allSeen = allSeenContainersBySid[serverId] || new Set();
+
+  var running = containers.length;
+  var total = Math.max(allSeen.size, running);
+  var stopped = total - running;
+  var unhealthy = containers.filter(function(c) {
+    return c.health && c.health !== 'healthy';
+  }).length;
+
+  var elTotal     = document.getElementById('mstat-total');
+  var elRunning   = document.getElementById('mstat-running');
+  var elStopped   = document.getElementById('mstat-stopped');
+  var elUnhealthy = document.getElementById('mstat-unhealthy');
+  var elBar       = document.getElementById('monitor-stat-bar');
+
+  if (elTotal)     elTotal.textContent     = total;
+  if (elRunning)   elRunning.textContent   = running;
+  if (elStopped)   elStopped.textContent   = stopped;
+  if (elUnhealthy) {
+    elUnhealthy.textContent = unhealthy;
+    elUnhealthy.classList.toggle('danger', unhealthy > 0);
+  }
+  if (elBar) elBar.style.display = '';
 }
 
 function populateServerSelector() {
@@ -1418,8 +1550,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.switchTab('overview');
 initStatsChart();
-initMonitoringChart();
-initHealthHistoryChart();
+initCpuChart();
+initMemChart();
 setupShellSelector();
 connectSSE();
 initResizableHandles();

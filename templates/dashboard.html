@@ -81,6 +81,7 @@
         <select id="monitoring-server-select" class="form-control" onchange="selectMonitoringServer(this.value)">
           <option value="">Select a server...</option>
         </select>
+        <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
       </div>
     </div>
     <div id="monitoring-empty-state" class="monitoring-empty-state">
@@ -88,28 +89,47 @@
       <p class="monitoring-empty-title">No server selected</p>
       <p class="monitoring-empty-hint">Choose a server from the dropdown above to view its charts and stats.</p>
     </div>
-    <div id="monitoring-content" class="monitoring-content" style="display:none;">
-      <div class="stats-container monitoring-chart-container">
-        <div style="height: 300px; position: relative; width: 100%;">
-          <canvas id="monitoring-chart"></canvas>
-        </div>
+    <div id="monitor-stat-bar" class="monitor-stat-bar" style="display:none;">
+      <div class="monitor-stat-block">
+        <span class="monitor-stat-num" id="mstat-total">—</span>
+        <span class="monitor-stat-lbl">Total</span>
       </div>
-      <div id="monitoring-stats-table" class="stats-table-wrapper monitoring-table">
+      <div class="monitor-stat-block">
+        <span class="monitor-stat-num" id="mstat-running">—</span>
+        <span class="monitor-stat-lbl">Running</span>
+      </div>
+      <div class="monitor-stat-block">
+        <span class="monitor-stat-num" id="mstat-stopped">—</span>
+        <span class="monitor-stat-lbl">Stopped</span>
+      </div>
+      <div class="monitor-stat-block">
+        <span class="monitor-stat-num" id="mstat-unhealthy">—</span>
+        <span class="monitor-stat-lbl">Unhealthy</span>
+      </div>
+    </div>
+    <div id="monitoring-content" class="monitoring-content" style="display:none;">
+      <div id="monitoring-stats-table" class="stats-table-wrapper">
         <div class="p-4 text-muted italic">Waiting for stats data...</div>
       </div>
-      <div class="health-history-section">
-        <div class="health-history-header">
-          <h3 class="section-title">Health History</h3>
+      <div class="monitor-chart-section">
+        <div class="monitor-chart-header">
+          <span class="monitor-chart-label">CPU %</span>
           <div class="health-history-controls">
-            <button class="btn btn-sm btn-secondary health-range-btn active" onclick="loadHealthHistory(15, this)">15m</button>
-            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadHealthHistory(30, this)">30m</button>
-            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadHealthHistory(60, this)">1h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn active" onclick="loadMonitorCharts(15, this)">15m</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(60, this)">1h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(360, this)">6h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(1440, this)">24h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(10080, this)">7d</button>
           </div>
         </div>
-        <div id="health-history-chart-wrap" style="height: 220px; position: relative; width: 100%;">
-          <canvas id="health-history-chart"></canvas>
+        <div style="height: 220px; position: relative; width: 100%;">
+          <canvas id="cpu-history-chart"></canvas>
         </div>
-        <div id="health-history-empty" class="p-4 text-muted italic" style="display:none;">No history data yet — data accumulates every 5 seconds.</div>
+        <div class="monitor-chart-label" style="margin-top: 1.25rem;">Memory %</div>
+        <div style="height: 220px; position: relative; width: 100%;">
+          <canvas id="mem-history-chart"></canvas>
+        </div>
+        <div id="monitor-charts-empty" class="p-4 text-muted italic" style="display:none;">No history data yet — data accumulates every 5 seconds.</div>
       </div>
     </div>
   </div>

@@ -101,3 +101,29 @@ async def test_health_history_respects_minutes_param(mock_get_db):
     expected_min = before - 30 * 60
     expected_max = after - 30 * 60
     assert expected_min <= cutoff <= expected_max
+
+
+@pytest.mark.asyncio
+@patch("api.routes.get_db_connection")
+async def test_health_history_includes_cpu_and_mem(mock_get_db):
+    """Each history point must include cpu and mem for time-series charts (#88)."""
+    from api.routes import api_health_history
+
+    now = int(time.time())
+    rows = [
+        ("nginx", 1, 5.2, 12.4, now - 10),
+        ("nginx", 1, 4.8, 11.9, now - 5),
+    ]
+    mock_get_db.return_value = _make_db_mock_with_rows(rows).return_value
+
+    response = await api_health_history(server_id=1, minutes=60)
+    import json
+    result = json.loads(response.body)
+
+    assert len(result) == 1
+    points = result[0]["history"]
+    assert len(points) == 2
+    assert "cpu" in points[0], "History point must include 'cpu' for CPU time-series chart"
+    assert "mem" in points[0], "History point must include 'mem' for memory time-series chart"
+    assert points[0]["cpu"] == 5.2
+    assert points[0]["mem"] == 12.4

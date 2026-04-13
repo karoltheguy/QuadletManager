@@ -37,16 +37,16 @@ def test_init_stats_chart_uses_factory():
     )
 
 
-def test_init_monitoring_chart_uses_factory():
-    """initMonitoringChart must delegate to buildBarChartConfig, not inline the config."""
+def test_monitor_time_series_charts_use_factory():
+    """initCpuChart and initMemChart must delegate to _buildTimeSeriesConfig (#88)."""
     src = _src()
-    m = re.search(r'function\s+initMonitoringChart\s*\(\)(.*?)(?=\nfunction\s|\Z)', src, re.DOTALL)
-    assert m, "initMonitoringChart not found"
-    body = m.group(1)
-    assert 'buildBarChartConfig' in body, "initMonitoringChart must call buildBarChartConfig"
-    assert "backgroundColor: 'rgba(99, 102, 241" not in body, (
-        "initMonitoringChart still contains inline dataset config — extract into buildBarChartConfig"
-    )
+    cpu_m = re.search(r'function\s+initCpuChart\s*\(\)(.*?)(?=\nfunction\s|\Z)', src, re.DOTALL)
+    assert cpu_m, "initCpuChart not found — time-series charts should replace the old bar chart"
+    assert '_buildTimeSeriesConfig' in cpu_m.group(1), "initCpuChart must call _buildTimeSeriesConfig"
+
+    mem_m = re.search(r'function\s+initMemChart\s*\(\)(.*?)(?=\nfunction\s|\Z)', src, re.DOTALL)
+    assert mem_m, "initMemChart not found"
+    assert '_buildTimeSeriesConfig' in mem_m.group(1), "initMemChart must call _buildTimeSeriesConfig"
 
 
 # ── Table renderer ───────────────────────────────────────────────────────────
@@ -82,5 +82,5 @@ def test_update_monitoring_view_uses_shared_table_renderer():
         "updateMonitoringView must call renderContainerStatsTable"
     )
     assert '<table class=' not in body, (
-        "updateMonitoringView still contains inline table HTML — extract into renderContainerStatsTable"
+        "updateMonitoringView must not contain inline table HTML"
     )
