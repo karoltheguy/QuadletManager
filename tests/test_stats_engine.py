@@ -273,8 +273,7 @@ async def test_record_health_history_includes_health_status(mock_get_db):
 
     records = mock_db.executemany.call_args[0][1]
     assert len(records) == 1
-    # index 7 is health_status (index 6 is resolution_sec, added for rollup support)
-    assert records[0][7] == "healthy"
+    assert records[0].health_status == "healthy"
 
 
 # =============================================================================
@@ -486,12 +485,12 @@ async def test_record_health_history_inserts_running_containers(mock_get_db):
     mock_db.executemany.assert_called_once()
     records = mock_db.executemany.call_args[0][1]
     assert len(records) == 2
-    names = [r[1] for r in records]
+    names = [r.container_name for r in records]
     assert "nginx" in names
     assert "redis" in names
     # All records should be is_running=1
     for r in records:
-        assert r[2] == 1
+        assert r.is_running == 1
 
 
 @pytest.mark.asyncio
@@ -509,7 +508,7 @@ async def test_record_health_history_writes_stopped_for_disappeared(mock_get_db)
     await _record_health_history(99, [{"name": "nginx", "cpu": "2%", "mem": "5%"}])
 
     records = mock_db.executemany.call_args[0][1]
-    by_name = {r[1]: r[2] for r in records}
+    by_name = {r.container_name: r.is_running for r in records}
     assert by_name["nginx"] == 1
     assert by_name["redis"] == 0
 

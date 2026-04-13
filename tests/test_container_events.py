@@ -3,6 +3,7 @@ import pytest
 import time
 import os
 import tempfile
+import aiosqlite
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.database import get_db_connection, init_db
@@ -52,6 +53,7 @@ async def test_record_container_event(test_db):
 
     # Verify event was recorded
     async with get_db_connection() as db:
+        db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT server_id, container_name, event_type, triggered_by, details FROM container_events WHERE container_name = ?",
             (container_name,)
@@ -59,11 +61,11 @@ async def test_record_container_event(test_db):
             row = await cursor.fetchone()
 
     assert row is not None
-    assert row[0] == server_id
-    assert row[1] == container_name
-    assert row[2] == event_type
-    assert row[3] == triggered_by
-    assert row[4] == details
+    assert row["server_id"] == server_id
+    assert row["container_name"] == container_name
+    assert row["event_type"] == event_type
+    assert row["triggered_by"] == triggered_by
+    assert row["details"] == details
 
 
 @pytest.mark.asyncio
@@ -201,8 +203,9 @@ async def test_cleanup_old_events_mixed(test_db):
     await cleanup_old_events(retention_days=retention_days)
 
     async with get_db_connection() as db:
+        db.row_factory = aiosqlite.Row
         async with db.execute("SELECT container_name FROM container_events") as cursor:
-            remaining = [row[0] for row in await cursor.fetchall()]
+            remaining = [row["container_name"] for row in await cursor.fetchall()]
 
     assert "old-box" not in remaining
     assert "recent-box" in remaining

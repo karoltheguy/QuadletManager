@@ -2,9 +2,17 @@ import asyncio
 import json
 import logging
 import time
+from collections import namedtuple
 from core.database import get_db_connection
 from services.ssh_manager import pool
 from core.events_manager import publisher
+
+# Mirrors the INSERT column order for container_health_history.
+# Using a namedtuple here lets tests assert by field name rather than magic index.
+HealthRecord = namedtuple(
+    "HealthRecord",
+    ["server_id", "container_name", "is_running", "cpu_pct", "mem_pct", "recorded_at", "resolution_sec", "health_status"],
+)
 
 logger = logging.getLogger("quadlet-manager.stats")
 
@@ -41,9 +49,9 @@ async def _record_health_history(server_id: int, containers: list[dict]) -> None
 
     records = []
     for c in containers:
-        records.append((server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now, 5, c.get('health', '') or None))
+        records.append(HealthRecord(server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now, 5, c.get('health', '') or None))
     for name in stopped_names:
-        records.append((server_id, name, 0, 0.0, 0.0, now, 5, None))
+        records.append(HealthRecord(server_id, name, 0, 0.0, 0.0, now, 5, None))
 
     _prev_running_by_sid[server_id] = current_names
 
