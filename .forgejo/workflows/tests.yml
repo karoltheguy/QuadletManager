@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest-slim
     container:
       image: python:3.12-slim
-      network: host
+      options: --network host
 
     steps:
       - name: Install system dependencies
