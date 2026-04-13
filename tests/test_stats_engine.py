@@ -273,8 +273,8 @@ async def test_record_health_history_includes_health_status(mock_get_db):
 
     records = mock_db.executemany.call_args[0][1]
     assert len(records) == 1
-    # index 6 is health_status
-    assert records[0][6] == "healthy"
+    # index 7 is health_status (index 6 is resolution_sec, added for rollup support)
+    assert records[0][7] == "healthy"
 
 
 # =============================================================================

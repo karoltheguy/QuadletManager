@@ -618,7 +618,7 @@ function initMemChart() {
   memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig('Memory %'));
 }
 
-window._monitorChartMinutes = 15;
+window._monitorChartMinutes = 60;
 
 window.loadMonitorCharts = function(minutes, btnEl) {
   window._monitorChartMinutes = minutes;
@@ -649,11 +649,20 @@ window.loadMonitorCharts = function(minutes, btnEl) {
       data.forEach(function(c) { c.history.forEach(function(p) { tsSet.add(p.ts); }); });
       var tsSorted = Array.from(tsSet).sort(function(a, b) { return a - b; });
 
+      var _rangeMinutes = window._monitorChartMinutes;
+      var _dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       var labels = tsSorted.map(function(ts) {
         var d = new Date(ts * 1000);
-        return d.getHours().toString().padStart(2, '0') + ':' +
-               d.getMinutes().toString().padStart(2, '0') + ':' +
-               d.getSeconds().toString().padStart(2, '0');
+        var hh = d.getHours().toString().padStart(2, '0');
+        var mm = d.getMinutes().toString().padStart(2, '0');
+        var ss = d.getSeconds().toString().padStart(2, '0');
+        if (_rangeMinutes <= 60) {
+          return hh + ':' + mm + ':' + ss;
+        } else if (_rangeMinutes <= 1440) {
+          return hh + ':' + mm;
+        } else {
+          return _dayNames[d.getDay()] + ' ' + hh + ':' + mm;
+        }
       });
 
       var cpuDatasets = data.map(function(c, i) {

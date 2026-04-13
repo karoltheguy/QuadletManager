@@ -79,6 +79,8 @@ async def init_db():
                 cpu_pct REAL DEFAULT 0,
                 mem_pct REAL DEFAULT 0,
                 recorded_at INTEGER NOT NULL,
+                resolution_sec INTEGER NOT NULL DEFAULT 5,
+                health_status TEXT DEFAULT NULL,
                 FOREIGN KEY(server_id) REFERENCES servers(id)
             )
         """)
@@ -86,6 +88,12 @@ async def init_db():
         # Migration: add health_status column to existing databases
         try:
             await db.execute("ALTER TABLE container_health_history ADD COLUMN health_status TEXT DEFAULT NULL")
+        except Exception:
+            pass  # Column already exists
+
+        # Migration: add resolution_sec column to existing databases
+        try:
+            await db.execute("ALTER TABLE container_health_history ADD COLUMN resolution_sec INTEGER NOT NULL DEFAULT 5")
         except Exception:
             pass  # Column already exists
 

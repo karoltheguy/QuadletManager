@@ -78,9 +78,9 @@ def test_edit_action_uses_outerhtml_swap():
 
 def test_edit_action_switches_to_editor_tab():
     js = _read_js()
-    # switchTab('editor') must appear in context of the edit handler
-    assert "switchTab('editor')" in js, \
-        "Edit action must call switchTab('editor')"
+    # The editor lives inside the containers tab; edit action must switch to it
+    assert "switchTab('containers')" in js, \
+        "Edit action must call switchTab('containers') to reveal the editor pane"
 
 
 def test_edit_action_calls_api_file_endpoint():

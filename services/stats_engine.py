@@ -9,7 +9,9 @@ from core.events_manager import publisher
 logger = logging.getLogger("quadlet-manager.stats")
 
 STATS_INTERVAL_SEC = 5
-HEALTH_HISTORY_RETENTION_SEC = 3600  # Keep 1 hour of history
+ROLLUP_INTERVAL_SEC = 300  # Run rollup every 5 minutes
+
+_last_rollup_time: float = 0
 
 # Track previously-running containers per server so we can write is_running=0
 # records when a container disappears.
@@ -29,10 +31,9 @@ def _parse_pct(val) -> float:
 
 
 async def _record_health_history(server_id: int, containers: list[dict]) -> None:
-    """Persist a health snapshot and prune records older than 1 hour."""
+    """Persist a health snapshot. Pruning is handled by rollup_health_history()."""
     global _prev_running_by_sid
     now = int(time.time())
-    cutoff = now - HEALTH_HISTORY_RETENTION_SEC
 
     current_names = {c['name'] for c in containers}
     prev_names = _prev_running_by_sid.get(server_id, set())
@@ -40,9 +41,9 @@ async def _record_health_history(server_id: int, containers: list[dict]) -> None
 
     records = []
     for c in containers:
-        records.append((server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now, c.get('health', '') or None))
+        records.append((server_id, c['name'], 1, _parse_pct(c.get('cpu', 0)), _parse_pct(c.get('mem', 0)), now, 5, c.get('health', '') or None))
     for name in stopped_names:
-        records.append((server_id, name, 0, 0.0, 0.0, now, None))
+        records.append((server_id, name, 0, 0.0, 0.0, now, 5, None))
 
     _prev_running_by_sid[server_id] = current_names
 
@@ -52,15 +53,97 @@ async def _record_health_history(server_id: int, containers: list[dict]) -> None
     async with get_db_connection() as db:
         await db.executemany(
             "INSERT INTO container_health_history "
-            "(server_id, container_name, is_running, cpu_pct, mem_pct, recorded_at, health_status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "(server_id, container_name, is_running, cpu_pct, mem_pct, recorded_at, resolution_sec, health_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             records,
         )
-        await db.execute(
-            "DELETE FROM container_health_history WHERE server_id = ? AND recorded_at < ?",
-            (server_id, cutoff),
-        )
         await db.commit()
+
+
+async def rollup_health_history() -> None:
+    """Downsample aged history rows to keep DB size bounded across all servers.
+
+    Tier transitions (all in one transaction):
+      raw 5s  → 1-min average  once rows are older than 1 hour
+      1-min   → 5-min average  once rows are older than 24 hours
+      5-min+  → deleted        once rows are older than 7 days
+    """
+    now = int(time.time())
+    hour_cutoff = now - 3600
+    day_cutoff = now - 86400
+    week_cutoff = now - 604800
+
+    async with get_db_connection() as db:
+        # Step 1a: Insert 1-minute averages for raw rows older than 1 hour
+        await db.execute("""
+            INSERT INTO container_health_history
+              (server_id, container_name, is_running, cpu_pct, mem_pct,
+               recorded_at, resolution_sec, health_status)
+            SELECT server_id, container_name,
+              CAST(ROUND(AVG(is_running)) AS INTEGER),
+              AVG(cpu_pct), AVG(mem_pct),
+              (recorded_at / 60) * 60,
+              60,
+              (SELECT h2.health_status
+               FROM container_health_history h2
+               WHERE h2.server_id = h.server_id
+                 AND h2.container_name = h.container_name
+                 AND h2.recorded_at / 60 = h.recorded_at / 60
+                 AND h2.resolution_sec = 5
+               ORDER BY h2.recorded_at DESC LIMIT 1)
+            FROM container_health_history h
+            WHERE recorded_at < ?
+              AND resolution_sec = 5
+            GROUP BY server_id, container_name, recorded_at / 60
+            HAVING COUNT(*) > 1
+        """, (hour_cutoff,))
+
+        # Step 1b: Delete the raw rows that have now been rolled up (or are lone strays)
+        await db.execute("""
+            DELETE FROM container_health_history
+            WHERE recorded_at < ? AND resolution_sec = 5
+        """, (hour_cutoff,))
+
+        # Step 2a: Insert 5-minute averages for 1-min rows older than 24 hours
+        await db.execute("""
+            INSERT INTO container_health_history
+              (server_id, container_name, is_running, cpu_pct, mem_pct,
+               recorded_at, resolution_sec, health_status)
+            SELECT server_id, container_name,
+              CAST(ROUND(AVG(is_running)) AS INTEGER),
+              AVG(cpu_pct), AVG(mem_pct),
+              (recorded_at / 300) * 300,
+              300,
+              (SELECT h2.health_status
+               FROM container_health_history h2
+               WHERE h2.server_id = h.server_id
+                 AND h2.container_name = h.container_name
+                 AND h2.recorded_at / 300 = h.recorded_at / 300
+                 AND h2.resolution_sec = 60
+               ORDER BY h2.recorded_at DESC LIMIT 1)
+            FROM container_health_history h
+            WHERE recorded_at < ?
+              AND resolution_sec = 60
+            GROUP BY server_id, container_name, recorded_at / 300
+            HAVING COUNT(*) > 1
+        """, (day_cutoff,))
+
+        # Step 2b: Delete the 1-min rows that have now been rolled up (or are lone strays)
+        await db.execute("""
+            DELETE FROM container_health_history
+            WHERE recorded_at < ? AND resolution_sec = 60
+        """, (day_cutoff,))
+
+        # Step 3: Prune everything older than 7 days
+        await db.execute("""
+            DELETE FROM container_health_history WHERE recorded_at < ?
+        """, (week_cutoff,))
+
+        await db.commit()
+
+    logger.debug("Health history rollup complete.")
+
+
 PODMAN_PS_TIMEOUT = 5   # seconds – `podman ps` is near-instant; fail fast if Podman is frozen
 STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
 
@@ -197,12 +280,17 @@ async def fetch_server_stats():
 
 
 async def stats_engine_loop():
+    global _last_rollup_time
     logger.info("Starting Resource Stats polling background task.")
     try:
         while True:
             await asyncio.sleep(STATS_INTERVAL_SEC)
             try:
                 await fetch_server_stats()
+                now = time.time()
+                if now - _last_rollup_time >= ROLLUP_INTERVAL_SEC:
+                    await rollup_health_history()
+                    _last_rollup_time = now
             except asyncio.CancelledError:
                 raise  # Re-raise to exit the loop
             except Exception as e:
