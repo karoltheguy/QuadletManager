@@ -1209,6 +1209,20 @@ window.toggleBottomPanel = function() {
     if (!isCollapsed && window._terminalFitAddon) window._terminalFitAddon.fit();
 };
 
+window.toggleBottomPanelExpand = function() {
+    var panel = document.getElementById('bottom-panel');
+    if (!panel) return;
+    var expanded = panel.classList.toggle('is-expanded');
+    document.body.classList.toggle('bottom-panel-expanded', expanded);
+    localStorage.setItem('qm-bottom-panel-expanded', expanded ? '1' : '0');
+    var btn = document.getElementById('bottom-panel-expand-btn');
+    if (btn) {
+        btn.title = expanded ? 'Align with editor' : 'Expand panel to full width';
+        btn.setAttribute('aria-label', btn.title);
+    }
+    if (window._terminalFitAddon) window._terminalFitAddon.fit();
+};
+
 window.switchBottomTab = function(pane) {
     document.querySelectorAll('.bottom-tab').forEach(function(btn) {
         btn.classList.toggle('is-active', btn.dataset.pane === pane);
@@ -1555,6 +1569,11 @@ document.addEventListener('DOMContentLoaded', function() {
   if (saved.inspector) document.documentElement.style.setProperty('--inspector-width', saved.inspector);
   if (saved.settingsSidenav) document.documentElement.style.setProperty('--settings-sidenav-width', saved.settingsSidenav);
   if (saved.bottomPanel) document.documentElement.style.setProperty('--bottom-panel-height', saved.bottomPanel);
+  if (localStorage.getItem('qm-bottom-panel-expanded') === '1') {
+    var panel = document.getElementById('bottom-panel');
+    if (panel) panel.classList.add('is-expanded');
+    document.body.classList.add('bottom-panel-expanded');
+  }
 })();
 
 window.switchTab('overview');

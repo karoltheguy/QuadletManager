@@ -45,6 +45,23 @@
         </div>
     </nav>
     <div class="app-container">
+
+        <!-- Navigator + resize handle: direct children of app-container so CSS grid
+             can span #navigator across both the workspace row and the bottom panel row. -->
+        <div id="navigator" class="sidebar">
+            <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
+                <h2 class="panel-title">Servers</h2>
+                {% if user_role == 'editor' %}
+                <button class="btn btn-primary btn-sm"
+                        hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
+                    + New
+                </button>
+                {% endif %}
+            </div>
+            <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body" class="mt-4">Loading servers...</div>
+        </div>
+        <div id="resize-handle-left" class="resize-handle" aria-hidden="true"></div>
+
     <div class="workspace-row">
 
   <div id="overview-pane" class="overview-pane">
@@ -59,21 +76,6 @@
     </div>
   </div>
 
-        <div id="navigator" class="sidebar">
-            <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
-                <h2 class="panel-title">Servers</h2>
-                {% if user_role == 'editor' %}
-                <button class="btn btn-primary btn-sm"
-                        hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
-                    + New
-                </button>
-                {% endif %}
-            </div>
-            <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body" class="mt-4">Loading servers...</div>
-        </div>
-        
-        <div id="resize-handle-left" class="resize-handle" aria-hidden="true"></div>
-        
   <div id="monitoring-pane" class="monitoring-pane">
     <div class="header-bar">
       <h2 class="panel-title">Monitor</h2>
@@ -359,6 +361,7 @@
     <div id="bottom-panel" class="bottom-panel">
       <div id="bottom-panel-resize-handle" class="bottom-panel-handle" aria-hidden="true"></div>
       <div class="bottom-panel-header">
+        <button id="bottom-panel-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanelExpand()" aria-label="Expand panel to full width" title="Expand panel to full width"></button>
         <div class="bottom-panel-tabs">
           <button class="bottom-tab is-active" data-pane="terminal" onclick="switchBottomTab('terminal')">Terminal</button>
           <button class="bottom-tab" data-pane="logs" onclick="switchBottomTab('logs')">Logs</button>
