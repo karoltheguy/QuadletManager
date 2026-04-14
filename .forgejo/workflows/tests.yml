@@ -42,3 +42,5 @@ jobs:
           files: |
             test-results/**/*.xml
           compare_to_earlier_commit: false
+          check_run: false
+          job_summary: true
