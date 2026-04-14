@@ -13,6 +13,16 @@ jobs:
       image: ghcr.io/catthehacker/ubuntu:act-latest
 
     steps:
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: (!cancelled())
+        with:
+          files: |
+            test-results/**/*.xml
+            test-results/**/*.trx
+            test-results/**/*.json
+            
       - name: Checkout
         uses: actions/checkout@v4
 
