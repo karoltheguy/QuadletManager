@@ -1,5 +1,10 @@
 [run]
-source = tests/
-omit = 
+source =
+    api
+    core
+    services
+    main.py
+omit =
     .venv/*
+    venv/*
     */__pycache__/*
