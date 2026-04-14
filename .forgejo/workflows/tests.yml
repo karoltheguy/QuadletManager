@@ -14,15 +14,6 @@ jobs:
 
     steps:
 
-      - name: Publish Test Results
-        uses: https://github.com/EnricoMi/publish-unit-test-result-action@v2
-        if: (!cancelled())
-        with:
-          files: |
-            test-results/**/*.xml
-            test-results/**/*.trx
-            test-results/**/*.json
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -40,5 +31,13 @@ jobs:
           QUADLET_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
         run: |
           pytest tests/ -v \
+            --junit-xml=test-results/junit.xml \
             --ignore=tests/test_stats_e2e.py \
             --ignore=tests/test_monitoring_ui.py
+
+      - name: Publish Test Results
+        uses: https://github.com/EnricoMi/publish-unit-test-result-action@v2
+        if: (!cancelled())
+        with:
+          files: |
+            test-results/**/*.xml
