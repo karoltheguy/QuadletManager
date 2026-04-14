@@ -10,7 +10,7 @@ from core.database import get_db_connection, init_db
 
 
 @pytest.fixture
-def test_db(monkeypatch):
+async def test_db(monkeypatch):
     """Create and initialize a test database with container_events table."""
     # Create a temporary database file
     fd, db_path = tempfile.mkstemp(suffix=".db")
@@ -20,17 +20,13 @@ def test_db(monkeypatch):
     monkeypatch.setenv("QUADLET_DB_PATH", db_path)
 
     # Initialize the database with all tables
-    import asyncio
-    asyncio.run(init_db())
+    await init_db()
 
     # Clear container_events before yielding
-    async def clear_events():
-        from core.database import get_db_connection
-        async with get_db_connection() as db:
-            await db.execute("DELETE FROM container_events")
-            await db.commit()
-
-    asyncio.run(clear_events())
+    from core.database import get_db_connection
+    async with get_db_connection() as db:
+        await db.execute("DELETE FROM container_events")
+        await db.commit()
 
     yield db_path
 
