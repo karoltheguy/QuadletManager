@@ -41,3 +41,4 @@ jobs:
         with:
           files: |
             test-results/**/*.xml
+          compare_to_earlier_commit: false
