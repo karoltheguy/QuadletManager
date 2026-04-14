@@ -26,6 +26,17 @@ jobs:
         run: |
           pip install --no-cache-dir -r requirements.txt -r requirements-test.txt
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      
+      - name: Install Playwright Browsers
+        run: playwright install --with-deps
+
       - name: Run tests
         env:
           QUADLET_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
