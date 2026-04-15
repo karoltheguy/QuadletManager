@@ -20,14 +20,13 @@ def test_editor_load(page: Page):
         page.goto("http://localhost:8000/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
-        
+
+    # Navigator and editor pane are inside the Containers tab (hidden on default Overview tab)
+    page.click("button.nav-item:has-text('Containers')")
+
     expect(page.locator("h2:text('Servers')")).to_be_visible()
-    
-    # Switch to Editor tab to make Editor and Save buttons visible
-    page.click("button.nav-item:has-text('Editor')")
-    
     expect(page.locator("h2:text('Editor')")).to_be_visible()
-    
+
     # Test Settings tab
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("h2:text('Settings')")).to_be_visible()

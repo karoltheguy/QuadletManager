@@ -29,7 +29,8 @@ def _goto(page: Page):
         page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
-    # Ensure we're on the dashboard tab
+    # Inspector is only visible on the Containers tab (hidden on default Overview tab)
+    page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector("#inspector", state="visible")
 
 
@@ -44,62 +45,52 @@ def test_expand_button_exists_in_inspector(page: Page):
 
 
 # ── Expand Behavior ─────────────────────────────────────────────────────────
+# "Expanding" hides the inspector panel (body gains class `inspector-expanded`),
+# giving the editor full width. The sidebar (#navigator) is unaffected.
 
-def test_clicking_expand_hides_sidebar(page: Page):
-    """When expanded, the sidebar should be hidden."""
+def test_clicking_expand_hides_inspector(page: Page):
+    """When expanded, the inspector panel itself should be hidden."""
+    _goto(page)
+    inspector = page.locator("#inspector")
+    expect(inspector).to_be_visible()
+
+    page.click("#inspector-expand-btn")
+
+    expect(inspector).not_to_be_visible()
+
+
+def test_clicking_expand_hides_right_resize_handle(page: Page):
+    """When expanded, the right resize handle should be hidden."""
+    _goto(page)
+    page.click("#inspector-expand-btn")
+
+    handle = page.locator("#resize-handle-right")
+    expect(handle).not_to_be_visible()
+
+
+def test_clicking_expand_keeps_sidebar_visible(page: Page):
+    """Expanding the inspector must not affect the sidebar (#navigator)."""
     _goto(page)
     sidebar = page.locator("#navigator")
     expect(sidebar).to_be_visible()
 
     page.click("#inspector-expand-btn")
 
-    expect(sidebar).not_to_be_visible()
-
-
-def test_clicking_expand_hides_resize_handle(page: Page):
-    """When expanded, the left resize handle should be hidden."""
-    _goto(page)
-    handle = page.locator("#resize-handle-left")
-    expect(handle).to_be_visible()
-
-    page.click("#inspector-expand-btn")
-
-    expect(handle).not_to_be_visible()
-
-
-def test_inspector_fills_full_width_when_expanded(page: Page):
-    """When expanded, the inspector should fill the full app-container width."""
-    _goto(page)
-    inspector = page.locator("#inspector")
-    container = page.locator(".app-container")
-
-    initial_width = inspector.bounding_box()["width"]
-    page.click("#inspector-expand-btn")
-
-    expanded_width = inspector.bounding_box()["width"]
-    container_width = container.bounding_box()["width"]
-
-    assert expanded_width > initial_width, (
-        f"Inspector should be wider when expanded: {initial_width} → {expanded_width}"
-    )
-    # Allow a small tolerance for borders
-    assert abs(expanded_width - container_width) < 5, (
-        f"Inspector should fill container: inspector={expanded_width}, container={container_width}"
-    )
+    expect(sidebar).to_be_visible()
 
 
 # ── Collapse Behavior ───────────────────────────────────────────────────────
 
-def test_clicking_again_restores_sidebar(page: Page):
-    """Clicking the button a second time should restore the sidebar."""
+def test_clicking_again_restores_inspector(page: Page):
+    """Clicking the button a second time should restore the inspector panel."""
     _goto(page)
-    sidebar = page.locator("#navigator")
+    inspector = page.locator("#inspector")
 
     page.click("#inspector-expand-btn")
-    expect(sidebar).not_to_be_visible()
+    expect(inspector).not_to_be_visible()
 
     page.click("#inspector-expand-btn")
-    expect(sidebar).to_be_visible()
+    expect(inspector).to_be_visible()
 
 
 def test_inspector_restores_original_width(page: Page):
@@ -120,21 +111,22 @@ def test_inspector_restores_original_width(page: Page):
 # ── localStorage Persistence ────────────────────────────────────────────────
 
 def test_expanded_state_persists_across_reload(page: Page):
-    """Expanded state must survive a full page reload."""
+    """Expanded state (inspector hidden) must survive a full page reload."""
     _goto(page)
 
     page.click("#inspector-expand-btn")
-    sidebar = page.locator("#navigator")
-    expect(sidebar).not_to_be_visible()
+    inspector = page.locator("#inspector")
+    expect(inspector).not_to_be_visible()
 
+    # After reload, switch to Containers tab again (page reloads to Overview)
     page.reload()
-    page.wait_for_selector("#inspector", state="visible")
+    page.click("button.nav-item:has-text('Containers')")
 
-    expect(sidebar).not_to_be_visible()
+    expect(inspector).not_to_be_visible()
 
 
 def test_collapsed_state_persists_across_reload(page: Page):
-    """Collapsing after expanding should persist the collapsed state."""
+    """Collapsing after expanding should persist — inspector must be visible after reload."""
     _goto(page)
 
     # Expand then collapse
@@ -142,10 +134,11 @@ def test_collapsed_state_persists_across_reload(page: Page):
     page.click("#inspector-expand-btn")
 
     page.reload()
+    page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector("#inspector", state="visible")
 
-    sidebar = page.locator("#navigator")
-    expect(sidebar).to_be_visible()
+    inspector = page.locator("#inspector")
+    expect(inspector).to_be_visible()
 
 
 # ── Tab Switching ───────────────────────────────────────────────────────────
@@ -156,8 +149,8 @@ def test_expand_only_affects_dashboard_tab(page: Page):
 
     page.click("#inspector-expand-btn")
 
-    # Switch to editor tab
-    page.click("text=Editor")
-    # Sidebar should be visible on editor tab (editor view shows sidebar)
+    # Switch to a different tab to verify expand state doesn't bleed across tabs
+    page.click("button.nav-item:has-text('Overview')")
+    # Navigator is hidden on Overview tab regardless of inspector expand state
     sidebar = page.locator("#navigator")
-    expect(sidebar).to_be_visible()
+    expect(sidebar).not_to_be_visible()

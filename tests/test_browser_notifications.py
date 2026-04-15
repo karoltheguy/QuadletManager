@@ -33,6 +33,8 @@ def _goto_and_mock_notifications(page: Page):
     except Exception:
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
         
+    # Navigator is only visible on the Containers tab (hidden on default Overview tab)
+    page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector("#navigator ul", timeout=8000)
     
     # Mock Notification API

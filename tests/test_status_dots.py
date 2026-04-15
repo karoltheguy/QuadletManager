@@ -39,6 +39,8 @@ def _goto(page: Page):
         page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    # Navigator is only visible on the Containers tab (hidden on default Overview tab)
+    page.click("button.nav-item:has-text('Containers')")
 
 
 # ---------------------------------------------------------------------------

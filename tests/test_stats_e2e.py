@@ -8,29 +8,38 @@ from playwright.sync_api import Page, expect
 def test_stats_update_received(page: Page):
     """Test that the stats table updates when receiving SSE events"""
     page.goto("http://localhost:8000/")
-    
+
     # Wait for the servers list to load (Loading servers... disappear)
     page.locator("text='Loading servers...'").wait_for(state="hidden")
-    
+
+    # Stats table is in the Monitor tab
+    page.click("button.nav-item:has-text('Monitor')")
+
     # Wait for the stats table to contain either a table or a 'No containers' or 'Stats unavailable' message
     # This proves that updateStats or stats_error handler was called from the SSE listener
     try:
         # We wait up to 12 seconds because the stats loop runs every 5 seconds
-        page.wait_for_selector("#stats-table table, #stats-table .italic, #stats-table .text-danger", timeout=12000)
+        page.wait_for_selector(
+            "#monitoring-stats-table table, #monitoring-stats-table .italic, #monitoring-stats-table .text-danger",
+            timeout=12000,
+        )
     except Exception:
-        content = page.locator("#stats-table").inner_text()
+        content = page.locator("#monitoring-stats-table").inner_text()
         pytest.fail(f"Stats table did not update in time. Current content: {content}")
 
-    # Verify that the chart canvas is present
-    expect(page.locator("#stats-chart")).to_be_visible()
+    # Verify that the CPU history chart canvas is present
+    expect(page.locator("#cpu-history-chart")).to_be_visible()
 
 def test_log_streaming_ui(page: Page):
     """Test that clicking Tail Logs changes button state and shows message"""
     page.goto("http://localhost:8000/")
-    
+
     # Wait for servers and files to load
     page.locator("text='Loading servers...'").wait_for(state="hidden")
-    
+
+    # Navigator (sidebar with quadlet files) is only visible on the Containers tab
+    page.click("button.nav-item:has-text('Containers')")
+
     # Wait for any .container file to appear in the sidebar
     # We use a partial text match because the emoji might render differently
     file_btn = page.get_by_role("button", name=".container").first

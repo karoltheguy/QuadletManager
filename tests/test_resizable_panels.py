@@ -29,6 +29,8 @@ def _goto(page: Page):
         page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    # Navigator and resize handles are only visible on the Containers tab
+    page.click("button.nav-item:has-text('Containers')")
 
 
 # ── Existence Tests ──────────────────────────────────────────────────────────
@@ -209,6 +211,7 @@ def test_sidebar_width_persists_across_reload(page: Page):
     )
 
 
+@pytest.mark.skip(reason="#stats-chart removed from inspector; charts are now in the Monitor tab")
 def test_drag_left_handle_resizes_stats_chart(page: Page):
     """Dragging the left handle to the right should narrow the inspector and change chart width."""
     _goto(page)

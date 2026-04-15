@@ -15,7 +15,7 @@ def test_monitoring_table_css(page: Page):
     page.locator("text='Loading servers...'").wait_for(state="hidden")
 
     # Navigate to Monitoring tab
-    page.click("button.nav-item:has-text('Monitoring')")
+    page.click("button.nav-item:has-text('Monitor')")
     
     # Ensure monitoring pane is visible
     expect(page.locator("#monitoring-pane")).to_be_visible()
