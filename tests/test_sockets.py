@@ -370,6 +370,74 @@ async def test_ws_exec_accepts_valid_session(authed_ws, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_exec_terminal_notifies_on_process_exit(mock_websocket, monkeypatch):
+    """When the remote process exits unexpectedly, the client receives a
+    notification message and the websocket is closed cleanly."""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.kill = MagicMock()
+    mock_process.stdin = MagicMock()
+
+    # Stdout exhausts immediately — simulates process exiting right after launch
+    async def empty_stdout():
+        return
+        yield  # make it an async generator
+
+    mock_process.stdout = empty_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    # receive_text times out on the first call (yields to event loop so
+    # read_output can run and set process_done), then disconnects to end test
+    mock_websocket.receive_text.side_effect = [asyncio.TimeoutError(), WebSocketDisconnect()]
+
+    await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash")
+
+    # A notification message containing "exited" must have been sent
+    all_sent = [call[0][0] for call in mock_websocket.send_text.call_args_list]
+    assert any("exited" in msg.lower() or "process" in msg.lower() for msg in all_sent), (
+        f"Expected a process-exit notification but got: {all_sent}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_exec_terminal_no_spurious_notification_on_client_disconnect(mock_websocket, monkeypatch):
+    """When the client disconnects normally (not process exit), no process-exit
+    notification should be sent."""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.kill = MagicMock()
+    mock_process.stdin = MagicMock()
+
+    # Stdout blocks indefinitely — process is still "running"
+    disconnect_event = asyncio.Event()
+
+    async def blocking_stdout():
+        await disconnect_event.wait()
+        return
+        yield
+
+    mock_process.stdout = blocking_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    # Client disconnects on first receive
+    mock_websocket.receive_text.side_effect = WebSocketDisconnect()
+
+    await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash")
+
+    # No process-exit notification should have been sent
+    all_sent = [call[0][0] for call in mock_websocket.send_text.call_args_list]
+    assert not any("exited" in msg.lower() for msg in all_sent), (
+        f"Unexpected process-exit notification sent on client disconnect: {all_sent}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_ws_logs_dev_auto_login_bypasses_auth(unauth_ws, monkeypatch):
     """When dev_auto_login is enabled, missing cookies must not block the stream."""
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", True)

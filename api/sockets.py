@@ -108,6 +108,7 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
     conn = await pool.get_connection(server_id)
     process = None
     read_task = None
+    process_done = asyncio.Event()
 
     try:
         # Start podman exec with PTY (cmd is quoted to neutralize shell metacharacters)
@@ -134,13 +135,24 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
                         break
             except Exception as e:
                 logger.error(f"Error reading stdout: {e}")
+            finally:
+                process_done.set()
 
         read_task = asyncio.create_task(read_output())
 
         # Main loop: receive input from client and send to stdin
         while True:
+            # Check if the remote process has exited; notify and close if so
+            if process_done.is_set():
+                logger.info(f"Process exited for terminal {container_name}, notifying client")
+                try:
+                    await websocket.send_text('\r\n\x1b[33m[process exited]\x1b[0m\r\n')
+                except Exception:
+                    pass
+                break
+
             try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=300.0)
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
 
                 if not data:
                     continue
@@ -170,7 +182,8 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
                         break
 
             except asyncio.TimeoutError:
-                logger.debug("Terminal receive timeout (expected periodically)")
+                await asyncio.sleep(0)  # Yield so read_output can update process_done
+                continue  # Re-check process_done at top of loop
             except WebSocketDisconnect:
                 logger.info(f"WebSocket disconnected for terminal {container_name}")
                 break
