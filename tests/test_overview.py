@@ -12,15 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-try:
-    from playwright.sync_api import Page, expect
-    HAS_PLAYWRIGHT = True
-except ImportError:
-    HAS_PLAYWRIGHT = False
-    import typing
-    Page = typing.Any
-
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -267,59 +258,3 @@ async def test_overview_total_counts_in_stat_tiles(mock_get_db):
     assert "prod-server" in body
     assert "staging-server" in body
 
-
-# =============================================================================
-# Playwright E2E tests — require backend on localhost:8000
-# =============================================================================
-
-pytestmark_playwright = pytest.mark.skipif(
-    not HAS_PLAYWRIGHT,
-    reason="Playwright not installed"
-)
-
-
-@pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
-def test_overview_tab_exists_in_nav(page: Page):
-    """An 'Overview' nav button must be present."""
-    try:
-        page.goto("http://localhost:8000/")
-    except Exception:
-        pytest.skip("Backend not running on localhost:8000")
-
-    expect(page.locator("button.nav-item:has-text('Overview')")).to_be_visible()
-
-
-@pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
-def test_overview_pane_is_default_tab(page: Page):
-    """#overview-pane must be visible on initial page load (default tab)."""
-    try:
-        page.goto("http://localhost:8000/")
-    except Exception:
-        pytest.skip("Backend not running on localhost:8000")
-
-    expect(page.locator("#overview-pane")).to_be_visible()
-
-
-@pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
-def test_overview_stat_tiles_present(page: Page):
-    """Overview must render stat tiles with data-stat attributes."""
-    try:
-        page.goto("http://localhost:8000/")
-    except Exception:
-        pytest.skip("Backend not running on localhost:8000")
-
-    page.click("button.nav-item:has-text('Overview')")
-    expect(page.locator("[data-stat='servers']")).to_be_visible()
-    expect(page.locator("[data-stat='running']")).to_be_visible()
-    expect(page.locator("[data-stat='stopped']")).to_be_visible()
-
-
-@pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
-def test_dashboard_tab_removed_from_nav(page: Page):
-    """The old 'Dashboard' nav tab must no longer exist."""
-    try:
-        page.goto("http://localhost:8000/")
-    except Exception:
-        pytest.skip("Backend not running on localhost:8000")
-
-    expect(page.locator("button.nav-item:has-text('Dashboard')")).to_have_count(0)

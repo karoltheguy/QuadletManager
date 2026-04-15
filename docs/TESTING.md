@@ -1,0 +1,189 @@
+# Testing Guide
+
+## Overview
+
+QuadletManager has two categories of tests:
+
+| Category | Location | Requires | Run time |
+|---|---|---|---|
+| **Unit / async** | `tests/*.py` | Nothing (fully mocked) | ~2s |
+| **Browser (E2E)** | `tests/e2e/*.py` | Running backend + Chromium | ~60s+ |
+
+The two categories are intentionally separated into different directories so they can be run independently.
+
+---
+
+## Installation
+
+```bash
+pip install -r requirements-test.txt
+```
+
+For E2E tests, also install the Playwright browser binaries (one-time):
+
+```bash
+playwright install chromium
+```
+
+---
+
+## Running Tests
+
+All tests require `PYTHONPATH=.` so that project packages (`core/`, `api/`, `services/`) are importable from the project root.
+
+### Unit and async tests only (recommended for development)
+
+```bash
+PYTHONPATH=. pytest tests/ --ignore=tests/e2e/
+```
+
+These tests run entirely in-process with mocked dependencies. No backend, database, or browser is needed.
+
+### Full suite (unit + browser)
+
+```bash
+PYTHONPATH=. pytest tests/
+```
+
+E2E tests require:
+- The backend running on `http://localhost:8000` (`python main.py`)
+- Chromium installed via `playwright install chromium`
+
+E2E tests that cannot reach the backend will skip automatically rather than fail.
+
+### Browser (E2E) tests only
+
+```bash
+PYTHONPATH=. pytest tests/e2e/
+```
+
+### Single file
+
+```bash
+PYTHONPATH=. pytest tests/test_container_events.py
+```
+
+### With coverage
+
+```bash
+PYTHONPATH=. pytest tests/ --ignore=tests/e2e/ --cov=. --cov-report=term-missing
+```
+
+---
+
+## Test Structure
+
+```
+tests/
+├── conftest.py (none — no shared fixtures needed at this level)
+│
+├── test_admin_panel_ui.py       # Route + template rendering
+├── test_container_events.py     # Event logging and retrieval
+├── test_crypto.py               # Encryption / master key lifecycle
+├── test_file_deletion.py        # Quadlet file delete API
+├── test_health_history.py       # Container health history recording
+├── test_new_quadlet_modal.py    # Modal rendering
+├── test_overview.py             # /api/overview endpoint (unit tests)
+├── test_rbac.py                 # Role-based access control
+├── test_scope_filter.py         # Scope filter logic
+├── test_server_key_dropdown.py  # SSH key dropdown API (unit tests)
+├── test_sockets.py              # WebSocket log streaming and terminal
+├── test_ssh_key_api.py          # SSH key CRUD
+├── test_stats_engine.py         # Stats normalisation and recording
+├── test_stats_monitoring_dedup.py
+├── test_sync_engine.py          # File-change poller logic
+├── test_template_seeding.py     # Template DB seeding
+├── test_theme_customization.py  # Theme schema and defaults
+│
+└── e2e/                         # Playwright browser tests
+    ├── conftest.py              # Package-scoped Playwright fixtures (see below)
+    ├── test_browser_notifications.py
+    ├── test_e2e.py              # General UI smoke tests
+    ├── test_expandable_inspector.py
+    ├── test_inspector_stats_card.py
+    ├── test_monitoring_ui.py
+    ├── test_overview_e2e.py     # Overview tab (browser tests)
+    ├── test_resizable_panels.py
+    ├── test_server_key_dropdown_e2e.py
+    ├── test_settings_layout.py
+    ├── test_stats_e2e.py
+    └── test_status_dots.py
+```
+
+---
+
+## Configuration
+
+### `pytest.ini`
+
+```ini
+[pytest]
+asyncio_mode = auto
+asyncio_default_fixture_loop_scope = function
+```
+
+`asyncio_mode = auto` means all `async def` test functions and fixtures are handled by pytest-asyncio automatically — no `@pytest.mark.asyncio` decorator is required (existing ones are harmless).
+
+### `tests/e2e/conftest.py` — why it exists
+
+pytest-playwright's `playwright`, `browser`, and related fixtures are `session`-scoped by default. Playwright's sync API calls `asyncio._set_running_loop(loop)` internally on every call and does not reset it when a test ends. This leaves the asyncio running-loop marker set, causing pytest-asyncio to raise `RuntimeError: Runner.run() cannot be called from a running event loop` when it tries to set up async tests that run after any Playwright test.
+
+The fix (recommended in [playwright-pytest#289](https://github.com/microsoft/playwright-pytest/issues/289)) is to re-declare the Playwright fixture chain at `package` scope inside `tests/e2e/`. With `scope="package"`, pytest tears down Playwright's event loop after all browser tests finish, before any async unit tests run. The teardown calls `pw.stop()` which internally calls `loop.run_until_complete(...)`, which properly resets the asyncio running-loop state to `None`.
+
+The fixtures re-declared at `package` scope are:
+- `_pw_artifacts_folder`
+- `playwright`
+- `browser_context_args`
+- `browser_type`
+- `launch_browser`
+- `browser`
+
+---
+
+## Writing Tests
+
+### Async unit test
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+
+@patch("services.my_service.get_db_connection")
+async def test_something(mock_db):
+    mock_db.return_value.__aenter__ = AsyncMock(return_value=...)
+    ...
+```
+
+No `@pytest.mark.asyncio` needed — `asyncio_mode = auto` handles it.
+
+### Async fixture with database
+
+```python
+import pytest
+from core.database import init_db, get_db_connection
+
+@pytest.fixture
+async def test_db(monkeypatch, tmp_path):
+    db_path = str(tmp_path / "test.db")
+    monkeypatch.setenv("QUADLET_DB_PATH", db_path)
+    await init_db()
+    yield db_path
+```
+
+Use `await` directly — never `asyncio.run()` inside a fixture or test. `asyncio.run()` creates a new event loop and will raise `RuntimeError` if called from within an already-running loop (which pytest-asyncio sets up for every async test).
+
+### Adding a new E2E test
+
+Create a file in `tests/e2e/`. Use the `page: Page` fixture from pytest-playwright. Always guard with a `try/except` and `pytest.skip()` so the test skips gracefully when the backend is not running:
+
+```python
+from playwright.sync_api import Page, expect
+
+def test_my_feature(page: Page):
+    try:
+        page.goto("http://localhost:8000/")
+    except Exception:
+        pytest.skip("Backend not running on localhost:8000")
+
+    expect(page.locator("#my-element")).to_be_visible()
+```
