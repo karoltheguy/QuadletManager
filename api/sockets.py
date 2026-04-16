@@ -179,10 +179,13 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
                     except (json.JSONDecodeError, ValueError):
                         pass  # Not a control message, treat as input
 
-                # Send input to stdin
+                # Send input to stdin.
+                # asyncssh uses encoding='utf-8' by default, so SSHWriter
+                # expects a str — not bytes. Passing data.encode() would
+                # raise AttributeError and drop the connection.
                 if process.stdin:
                     try:
-                        process.stdin.write(data.encode())
+                        process.stdin.write(data)
                     except Exception as e:
                         logger.error(f"Failed to write to stdin: {e}")
                         break

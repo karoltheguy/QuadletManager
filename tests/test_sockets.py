@@ -125,8 +125,10 @@ async def test_exec_terminal_forward_input(mock_websocket, monkeypatch):
 
     await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash")
 
-    # Verify input was written to stdin
-    mock_stdin.write.assert_called_once()
+    # Verify input was written to stdin as a string (not bytes).
+    # asyncssh text mode (encoding='utf-8') expects str; passing bytes raises
+    # AttributeError and drops the connection.
+    mock_stdin.write.assert_called_once_with("ls\n")
 
 
 @pytest.mark.asyncio
