@@ -208,6 +208,42 @@ async def test_cleanup_old_events_mixed(test_db):
 
 
 @pytest.mark.asyncio
+async def test_systemctl_action_records_stem_not_full_unit_name():
+    """Events must be stored by stem so the JS activity query (which uses stem) finds them."""
+    from unittest.mock import AsyncMock, patch, MagicMock
+
+    recorded = {}
+
+    async def fake_record(server_id, container_name, event_type, triggered_by=None, details=None):
+        recorded["container_name"] = container_name
+
+    async def fake_systemctl(server_id, action, unit, scope):
+        return "active"
+
+    async def fake_get_session(request):
+        return {"username": "admin"}
+
+    mock_request = MagicMock()
+
+    with patch("api.routes.systemctl_action", side_effect=fake_systemctl), \
+         patch("api.routes.record_container_event", side_effect=fake_record), \
+         patch("api.routes._get_session", side_effect=fake_get_session):
+        from api.routes import api_systemctl_post
+        await api_systemctl_post(
+            request=mock_request,
+            server_id=1,
+            action="start",
+            unit="kestra.container",
+            scope="user",
+            role="editor",
+        )
+
+    assert recorded.get("container_name") == "kestra", (
+        f"Expected stem 'kestra' to be stored, got {recorded.get('container_name')!r}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_get_activity_route_caps_limit():
     """Test that the /api/activity route caps an unbounded client-supplied limit at 100."""
     from unittest.mock import AsyncMock, patch

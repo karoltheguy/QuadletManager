@@ -420,7 +420,8 @@ async def api_systemctl_post(
         if action in ("start", "stop", "restart"):
             session = await _get_session(request)
             username = session["username"]
-            await record_container_event(server_id, unit, action, triggered_by=username)
+            stem = unit.rsplit(".", 1)[0] if "." in unit else unit
+            await record_container_event(server_id, stem, action, triggered_by=username)
 
         return HTMLResponse(output)
     except Exception as e:
