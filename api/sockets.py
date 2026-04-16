@@ -124,10 +124,16 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
             term_type='xterm-256color'
         )
 
-        # Background task to read stdout and send to client
+        # Background task to read stdout and send to client.
+        # Use read() instead of "async for" (readline) — PTY prompts have no
+        # trailing newline, so readline() blocks until the user types something,
+        # producing a blank terminal screen (issue #100).
         async def read_output():
             try:
-                async for chunk in process.stdout:
+                while True:
+                    chunk = await process.stdout.read(4096)
+                    if not chunk:
+                        break
                     try:
                         await websocket.send_text(chunk)
                     except Exception as e:
