@@ -53,6 +53,9 @@ def test_polling_alert_banner(page: Page):
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
+    # #status-toast lives inside #inspector which is only visible on Containers tab
+    page.click("button.nav-item:has-text('Containers')")
+
     expect(page.locator("#status-toast")).to_contain_text(
         "File modified externally!", timeout=10_000
     )

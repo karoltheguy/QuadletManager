@@ -97,25 +97,42 @@ def test_status_dots_present_after_tree_loads(page: Page):
 
 def test_status_dots_start_as_stopped(page: Page):
     """
-    Before any stats_update arrives, all dots must carry the dot-stopped class
-    (as set by the Jinja2 template default).
+    When all running containers are cleared, navigator dots must carry dot-stopped.
+    (The Jinja2 template renders them as dot-stopped by default; this also
+    verifies that an empty stats_update correctly resets any live-server state.)
+    Only navigator dots (with data-server-id) are tested — overview dots use
+    server-side rendered classes and are not managed by applyStatusDots().
     """
     _goto(page)
     page.wait_for_selector("#navigator ul", timeout=8000)
 
-    dots = page.locator(".status-dot")
+    # Only check navigator dots — overview dots lack data-server-id
+    dots = page.locator(".status-dot[data-server-id]")
     count = dots.count()
     if count == 0:
         pytest.skip("No quadlet files found — skipping initial state test.")
+
+    # Reset all dots to stopped regardless of live SSE state
+    all_server_ids = page.evaluate("""
+        Array.from(
+            new Set(
+                Array.from(document.querySelectorAll('.status-dot[data-server-id]'))
+                     .map(d => d.dataset.serverId)
+                     .filter(id => id !== undefined && id !== '')
+            )
+        ).map(Number).filter(n => !isNaN(n))
+    """)
+    for sid in all_server_ids:
+        _inject_stats_update(page, sid, [])
 
     for i in range(count):
         dot = dots.nth(i)
         classes = dot.get_attribute("class") or ""
         assert "dot-stopped" in classes, (
-            f"Dot {i} should start as dot-stopped, got classes: '{classes}'"
+            f"Dot {i} should be dot-stopped after empty update, got classes: '{classes}'"
         )
         assert "dot-running" not in classes, (
-            f"Dot {i} should NOT have dot-running before stats arrive, got: '{classes}'"
+            f"Dot {i} should NOT have dot-running after empty update, got: '{classes}'"
         )
 
 
@@ -250,7 +267,8 @@ def test_dot_title_attribute_reflects_state(page: Page):
     _goto(page)
     page.wait_for_selector("#navigator ul", timeout=8000)
 
-    dots = page.locator(".status-dot")
+    # Only navigator dots have data-server-id and are managed by applyStatusDots
+    dots = page.locator(".status-dot[data-server-id]")
     count = dots.count()
     if count == 0:
         pytest.skip("No quadlet files found — skipping title attribute test.")

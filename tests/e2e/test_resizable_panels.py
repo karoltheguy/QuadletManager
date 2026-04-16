@@ -204,6 +204,11 @@ def test_sidebar_width_persists_across_reload(page: Page):
 
     page.reload()
 
+    # After reload the page returns to Overview tab; navigate back to Containers
+    # so #navigator is visible before reading its width
+    page.click("button.nav-item:has-text('Containers')")
+    page.wait_for_selector("#navigator", state="visible")
+
     width_after_reload = sidebar.bounding_box()["width"]
     assert abs(width_after_reload - width_after_drag) < 2, (
         f"Sidebar width not persisted: dragged={width_after_drag}, "

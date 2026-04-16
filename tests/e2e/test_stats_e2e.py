@@ -7,7 +7,10 @@ from playwright.sync_api import Page, expect
 
 def test_stats_update_received(page: Page):
     """Test that the stats table updates when receiving SSE events"""
-    page.goto("http://localhost:8000/")
+    try:
+        page.goto("http://localhost:8000/")
+    except Exception:
+        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
 
     # Wait for the servers list to load (Loading servers... disappear)
     page.locator("text='Loading servers...'").wait_for(state="hidden")
@@ -15,10 +18,20 @@ def test_stats_update_received(page: Page):
     # Stats table is in the Monitor tab
     page.click("button.nav-item:has-text('Monitor')")
 
-    # Wait for the stats table to contain either a table or a 'No containers' or 'Stats unavailable' message
-    # This proves that updateStats or stats_error handler was called from the SSE listener
+    # Wait for the server dropdown to be populated (SSE stats arrive within ~5 seconds)
     try:
-        # We wait up to 12 seconds because the stats loop runs every 5 seconds
+        page.wait_for_function(
+            "document.querySelector('#monitoring-server-select option:not([value=\"\"])') !== null",
+            timeout=12000,
+        )
+    except Exception:
+        pytest.skip("No servers available in monitoring dropdown — skipping stats test.")
+
+    # Select the first available server so #monitoring-content becomes visible
+    page.select_option("#monitoring-server-select", index=1)
+
+    # Wait for the stats table to contain either a table or a status message
+    try:
         page.wait_for_selector(
             "#monitoring-stats-table table, #monitoring-stats-table .italic, #monitoring-stats-table .text-danger",
             timeout=12000,
@@ -31,8 +44,11 @@ def test_stats_update_received(page: Page):
     expect(page.locator("#cpu-history-chart")).to_be_visible()
 
 def test_log_streaming_ui(page: Page):
-    """Test that clicking Tail Logs changes button state and shows message"""
-    page.goto("http://localhost:8000/")
+    """Test that clicking Tail Logs changes button state and activates log streaming"""
+    try:
+        page.goto("http://localhost:8000/")
+    except Exception:
+        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
 
     # Wait for servers and files to load
     page.locator("text='Loading servers...'").wait_for(state="hidden")
@@ -44,24 +60,31 @@ def test_log_streaming_ui(page: Page):
     # We use a partial text match because the emoji might render differently
     file_btn = page.get_by_role("button", name=".container").first
     file_btn.click()
-    
+
     # Wait for Tail Logs button to appear in the inspector
     page.wait_for_selector("#toggle-logs-btn", timeout=10000)
-    
+
     btn = page.locator("#toggle-logs-btn")
     expect(btn).to_have_text("Tail Logs")
-    
-    # Click Tail Logs
+
+    # Click Tail Logs — this also opens the bottom log panel
     btn.click()
-    
-    # Button text should change
+
+    # Button text should change to "Stop Logs"
     expect(btn).to_have_text("Stop Logs")
-    
-    # Status div should show connecting message
-    status_div = page.locator("#systemd-status")
-    expect(status_div).to_contain_text("Connecting to log stream...")
-    
+
+    # Log output is written to #log-stream (inside the bottom panel)
+    # Wait for it to contain something beyond "Waiting for log output..."
+    log_div = page.locator("#log-stream")
+    page.wait_for_function(
+        "document.querySelector('#log-stream') && "
+        "document.querySelector('#log-stream').textContent.trim() !== '' && "
+        "document.querySelector('#log-stream').textContent !== 'Waiting for log output...'",
+        timeout=5000,
+    )
+
     # Click Stop Logs
     btn.click()
     expect(btn).to_have_text("Tail Logs")
-    expect(status_div).to_contain_text("Stopped log stream")
+    # stopLogs() appends "--- Stopped ---" to #log-stream
+    expect(log_div).to_contain_text("--- Stopped ---")

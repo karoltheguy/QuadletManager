@@ -253,7 +253,8 @@ const lastStatsPerServer = {};
 
 // Per-server map of currently running container name stems.
 // Key: serverId (int), Value: Set<string> of lowercase container name stems.
-const runningContainersBySid = {};
+// Declared as var (not const) so page.evaluate() in tests can access it via window.
+var runningContainersBySid = {};
 
 // Superset of all container names ever seen per server (includes stopped).
 // Used by the Monitor summary strip to compute a stopped count.
