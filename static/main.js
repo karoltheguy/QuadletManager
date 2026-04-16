@@ -1001,6 +1001,9 @@ window.selectMonitoringServer = function(serverId) {
   if (!numId) {
     if (emptyEl) emptyEl.style.display = '';
     if (contentEl) contentEl.style.display = 'none';
+    var barEl = document.getElementById('monitor-stat-bar');
+    if (barEl) barEl.style.display = 'none';
+    window._monitoringServerId = null;
     return;
   }
 
@@ -1036,6 +1039,9 @@ window.selectMonitoringServer = function(serverId) {
 };
 
 function updateMonitoringView(data) {
+  // Only render when this data is for the server currently selected in the dropdown.
+  if (data.server_id !== window._monitoringServerId) return;
+
   // Apply active filter — summary strip always shows unfiltered totals.
   var allContainers = data.containers || [];
   var containers = monitorContainerFilter

@@ -4,6 +4,40 @@ from playwright.sync_api import Page, expect
 # To run this, the backend must be running on localhost:8000
 # DEV_AUTO_LOGIN=1 venv/bin/uvicorn main:app --port 8000
 
+def test_glance_bar_hidden_when_no_server_selected(page: Page):
+    """Stat bar must stay hidden when no server is selected in the Monitor tab.
+
+    Regression guard for issue #96: stats arriving via WebSocket for any
+    server were unconditionally making the stat bar visible, even while the
+    empty-state placeholder was showing — causing it to drift to the bottom.
+    """
+    try:
+        page.goto("http://localhost:8000/")
+    except Exception:
+        pytest.skip("Backend is not running locally on 8000 for E2E tests.")
+
+    page.locator("text='Loading servers...'").wait_for(state="hidden")
+
+    # Navigate to Monitor tab — no server selected in the dropdown yet.
+    page.click("button.nav-item:has-text('Monitor')")
+    expect(page.locator("#monitoring-pane")).to_be_visible()
+
+    # Ensure the dropdown still shows the placeholder (no server selected).
+    select_value = page.locator("#monitoring-server-select").input_value()
+    if select_value != "":
+        pytest.skip("A server was auto-selected; can't test the no-server state.")
+
+    # Give WebSocket stats a moment to arrive (they fire every ~5 s).
+    page.wait_for_timeout(6000)
+
+    # The stat bar must remain hidden while no server is selected.
+    stat_bar = page.locator("#monitor-stat-bar")
+    expect(stat_bar).to_be_hidden()
+
+    # And the empty-state placeholder must be visible.
+    expect(page.locator("#monitoring-empty-state")).to_be_visible()
+
+
 def test_monitoring_table_css(page: Page):
     """Test that the monitoring table has the correct CSS applied for alignment and padding"""
     try:
