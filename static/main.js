@@ -919,30 +919,35 @@ let _statsReceived = false;
 let _statsWaitTimeout = null;
 
 window.switchTab = function(tabId) {
-  document.body.className = 'view-' + tabId;
-  // Restore inspector-expanded class on containers tab if persisted
-  if (tabId === 'containers' && localStorage.getItem('qm-inspector-expanded') === 'true') {
-    document.body.classList.add('inspector-expanded');
-  }
-  syncInspectorToggleBtn();
-  document.querySelectorAll('.nav-item').forEach(function(btn) {
-    if (btn.innerText.toLowerCase() === tabId) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-  // Refresh SSH key dropdown when entering the settings view (Servers is the default section)
-  if (tabId === 'settings') {
-    refreshSshKeyDropdown();
-  }
-  // Show/restore bottom panel when entering containers view
-  if (tabId === 'containers') {
-    var panelOpen = localStorage.getItem('qm-bottom-panel-open');
-    if (panelOpen !== '0') {
-      openBottomPanel();
-    }
-  }
+document.body.className = 'view-' + tabId;
+// Restore inspector-expanded class on containers tab if persisted
+if (tabId === 'containers' && localStorage.getItem('qm-inspector-expanded') === 'true') {
+document.body.classList.add('inspector-expanded');
+}
+syncInspectorToggleBtn();
+document.querySelectorAll('.nav-item').forEach(function(btn) {
+if (btn.innerText.toLowerCase() === tabId) {
+btn.classList.add('active');
+} else {
+btn.classList.remove('active');
+}
+});
+// Refresh SSH key dropdown when entering the settings view (Servers is the default section)
+if (tabId === 'settings') {
+refreshSshKeyDropdown();
+}
+// Show/restore bottom panel when entering containers view
+if (tabId === 'containers') {
+var panelOpen = localStorage.getItem('qm-bottom-panel-open');
+if (panelOpen !== '0') {
+openBottomPanel();
+}
+// Restore bottom-panel-expanded body class if panel is expanded (Issue #98)
+var panel = document.getElementById('bottom-panel');
+if (panel && panel.classList.contains('is-expanded')) {
+document.body.classList.add('bottom-panel-expanded');
+}
+}
   // Trigger resize for Monaco
   if (tabId === 'containers' && window.editor) {
     window.editor.layout();
