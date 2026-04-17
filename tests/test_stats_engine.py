@@ -5,6 +5,8 @@ to resolve event loop conflict (Issue #19).
 """
 import json
 import pytest
+import aiosqlite
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from services.stats_engine import (
@@ -527,3 +529,111 @@ async def test_record_health_history_skips_db_when_no_change(mock_get_db):
     await _record_health_history(77, [])
 
     mock_db.executemany.assert_not_called()
+
+
+# =============================================================================
+# Integration test: real SQLite to catch INSERT column/placeholder mismatch
+# =============================================================================
+
+_HEALTH_TABLE_DDL = """
+    CREATE TABLE container_health_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server_id INTEGER NOT NULL,
+        container_name TEXT NOT NULL,
+        is_running INTEGER NOT NULL DEFAULT 1,
+        cpu_pct REAL DEFAULT 0,
+        mem_pct REAL DEFAULT 0,
+        recorded_at INTEGER NOT NULL,
+        resolution_sec INTEGER NOT NULL DEFAULT 5,
+        health_status TEXT DEFAULT NULL
+    )
+"""
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_health_extracted_from_status_string_when_health_fields_absent(mock_pool):
+    """When HealthStatus and Health are both absent/empty, parse the health state
+    from the Status field (e.g. 'Up 3 hours (healthy)').
+
+    Some Podman versions omit HealthStatus from `podman ps --format json` while
+    still encoding health inside the human-readable Status string.
+    """
+    ps_json = json.dumps([{
+        "Names": "homepage",
+        "HealthStatus": "",
+        "Status": "Up 3 hours (healthy)"
+    }])
+    stats_json = json.dumps([{"Name": "homepage", "CPUPerc": "0.01%", "MemPerc": "0.01%"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+    assert len(result) == 1
+    assert result[0]["health"] == "healthy", (
+        "Expected health='healthy' parsed from Status string; got "
+        f"{result[0]['health']!r}"
+    )
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_health_extracted_from_status_string_unhealthy(mock_pool):
+    """Unhealthy state parsed from Status string when HealthStatus is absent."""
+    ps_json = json.dumps([{
+        "Names": "app",
+        "Status": "Up 10 minutes (unhealthy)"
+    }])
+    stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "1%"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=True)
+
+    assert result[0]["health"] == "unhealthy"
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+async def test_no_health_when_status_string_has_no_parenthetical(mock_pool):
+    """Container with no healthcheck: Status has no (healthy) suffix, health stays empty."""
+    ps_json = json.dumps([{
+        "Names": "redis",
+        "Status": "Up 2 days"
+    }])
+    stats_json = json.dumps([{"name": "redis", "cpu_percent": "0%", "mem_percent": "0%"}])
+    mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+    assert result[0]["health"] == ""
+
+
+@pytest.mark.asyncio
+async def test_record_health_history_persists_health_status_to_real_db():
+    """Health status must actually reach the DB — not be silently dropped by a
+    column/placeholder count mismatch in the INSERT query.
+
+    This uses a real in-memory SQLite connection so the SQL is actually executed
+    and any binding-count error surfaces instead of being swallowed by a mock.
+    """
+    async with aiosqlite.connect(":memory:") as real_db:
+        await real_db.execute(_HEALTH_TABLE_DDL)
+        await real_db.commit()
+
+        @asynccontextmanager
+        async def _real_db_cm():
+            yield real_db
+
+        import services.stats_engine as se
+        se._prev_running_by_sid.pop(1, None)
+
+        with patch("services.stats_engine.get_db_connection", return_value=_real_db_cm()):
+            await _record_health_history(1, [{"name": "homepage", "cpu": "1%", "mem": "2%", "health": "healthy"}])
+
+        async with real_db.execute(
+            "SELECT health_status FROM container_health_history WHERE container_name = 'homepage'"
+        ) as cursor:
+            row = await cursor.fetchone()
+
+    assert row is not None, "No row was inserted for 'homepage'"
+    assert row[0] == "healthy", f"Expected 'healthy' in DB, got {row[0]!r}"

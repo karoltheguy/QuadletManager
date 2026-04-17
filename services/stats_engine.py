@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from collections import namedtuple
 from core.database import get_db_connection
@@ -218,6 +219,14 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
             raw_health = c.get("HealthStatus") or c.get("Health") or ""
             if isinstance(raw_health, dict):
                 raw_health = raw_health.get("Status", "")
+            if not raw_health:
+                # Fallback: some Podman versions omit HealthStatus/Health but
+                # embed the state in the human-readable Status string, e.g.
+                # "Up 3 hours (healthy)" or "Up 10 minutes (unhealthy)".
+                m = re.search(r'\((healthy|unhealthy|starting)\)',
+                               c.get("Status", ""), re.IGNORECASE)
+                if m:
+                    raw_health = m.group(1)
             health_map[name] = str(raw_health).lower()
 
         if not running_names:
