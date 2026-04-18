@@ -1254,6 +1254,8 @@ window.switchBottomTab = function(pane) {
     document.querySelectorAll('.bottom-pane').forEach(function(p) {
         p.classList.toggle('hidden', p.id !== 'bottom-' + pane + '-pane');
     });
+    var controls = document.querySelector('.terminal-controls');
+    if (controls) controls.classList.toggle('hidden', pane !== 'terminal');
     if (pane === 'terminal') {
         var key = window._activeTerminalTabKey;
         if (key) {

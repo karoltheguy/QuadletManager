@@ -2081,8 +2081,8 @@ body.view-settings #bottom-panel { display: none !important; }
 }
 .bottom-pane.hidden { display: none; }
 
-/* Terminal controls row inside bottom panel */
-.bottom-pane .terminal-controls {
+/* Terminal controls row inline in bottom panel header */
+.bottom-panel-header .terminal-controls {
     flex-shrink: 0;
 }
 

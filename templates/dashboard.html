@@ -371,13 +371,7 @@
           <button class="bottom-tab is-active" data-pane="terminal" onclick="switchBottomTab('terminal')">Terminal</button>
           <button class="bottom-tab" data-pane="logs" onclick="switchBottomTab('logs')">Logs</button>
         </div>
-        <button id="bottom-panel-minimize-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanel()" aria-label="Minimize panel" title="Minimize panel">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-      </div>
-      <div class="bottom-panel-body">
-        <div id="bottom-terminal-pane" class="bottom-pane">
-          <div class="terminal-controls">
+        <div class="terminal-controls">
             <label for="terminal-shell-select" class="terminal-label">Shell:</label>
             <select id="terminal-shell-select" class="form-control terminal-shell-select">
               <option value="bash">bash</option>
@@ -388,8 +382,13 @@
               <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
             </div>
             <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
-            <!-- Disconnect button removed; each tab has its own × close button -->
-          </div>
+        </div>
+        <button id="bottom-panel-minimize-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanel()" aria-label="Minimize panel" title="Minimize panel">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="bottom-panel-body">
+        <div id="bottom-terminal-pane" class="bottom-pane">
           <div id="terminal-conn-tabs" class="terminal-conn-tabs"></div>
           <div id="terminal-tabs-body" class="terminal-tabs-body">
             <div id="terminal-empty-hint" class="terminal-empty-state">
