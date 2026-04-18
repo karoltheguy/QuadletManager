@@ -48,6 +48,13 @@ async def init_db():
             await db.execute("ALTER TABLE servers ADD COLUMN scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both'))")
         except Exception:
             pass  # Column already exists
+
+        # Migration: add position column for user-defined server ordering
+        try:
+            await db.execute("ALTER TABLE servers ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
+            await db.execute("UPDATE servers SET position = id")
+        except Exception:
+            pass  # Column already exists
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS quadlets (

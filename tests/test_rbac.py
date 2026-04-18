@@ -194,11 +194,12 @@ async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers)
 
     mock_list_servers.return_value = HTMLResponse("<table></table>")
 
-    _key_check = _AioDualMock(fetchone_result=(1,))  # key exists
+    _key_check = _AioDualMock(fetchone_result=(1,))   # key exists
+    _max_pos = _AioDualMock(fetchone_result=(1,))     # next position
     _insert = _AioDualMock()
 
     conn_mock = MagicMock()
-    conn_mock.execute = MagicMock(side_effect=[_key_check, _insert])
+    conn_mock.execute = MagicMock(side_effect=[_key_check, _max_pos, _insert])
     conn_mock.commit = AsyncMock()
     mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
     mock_db.return_value.__aexit__ = AsyncMock(return_value=False)

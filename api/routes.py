@@ -214,9 +214,9 @@ async def dashboard_view(
 @router.get("/api/servers", response_class=HTMLResponse)
 async def api_servers(request: Request):
     async with get_db_connection() as db:
-        async with db.execute("SELECT id, name FROM servers") as cursor:
+        async with db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
             servers = await cursor.fetchall()
-            
+
     return templates.TemplateResponse(request, "partials/servers_list.html", {
         "servers": servers
     })
@@ -573,7 +573,7 @@ async def settings_list_servers(
         async with db.execute(
             "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name, s.scope_filter "
             "FROM servers s LEFT JOIN ssh_keys k ON s.ssh_key_id = k.id "
-            "ORDER BY s.name"
+            "ORDER BY s.position"
         ) as cursor:
             servers = await cursor.fetchall()
     return templates.TemplateResponse(request, "partials/settings_servers.html", {
@@ -606,9 +606,11 @@ async def settings_add_server(
             key_row = await cursor.fetchone()
         if not key_row:
             raise HTTPException(status_code=400, detail="Selected SSH key does not exist.")
+        async with db.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM servers") as cur:
+            next_pos = (await cur.fetchone())[0]
         await db.execute(
-            "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter) VALUES (?, ?, ?, ?, ?)",
-            (name, ip_address, ssh_user, ssh_key_id, scope_filter),
+            "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter, position) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, ip_address, ssh_user, ssh_key_id, scope_filter, next_pos),
         )
         await db.commit()
 
@@ -673,6 +675,37 @@ async def settings_delete_server(
             if count_row[0] == 0:
                 await db.execute("DELETE FROM ssh_keys WHERE id = ?", (row[0],))
                 await db.commit()
+
+    response = await settings_list_servers(request, role, is_admin=True)
+    response.headers["HX-Trigger"] = "reload-servers"
+    return response
+
+
+@router.patch("/api/settings/servers/reorder", response_class=HTMLResponse)
+async def settings_reorder_servers(
+    request: Request,
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    body = await request.json()
+    order = body.get("order", [])
+    if not isinstance(order, list) or not all(isinstance(i, int) for i in order):
+        raise HTTPException(status_code=422, detail="'order' must be a list of integer server IDs.")
+
+    async with get_db_connection() as db:
+        async with db.execute("SELECT id FROM servers") as cursor:
+            existing_ids = {row[0] for row in await cursor.fetchall()}
+
+    if set(order) != existing_ids or len(order) != len(existing_ids):
+        raise HTTPException(status_code=422, detail="'order' must contain every server ID exactly once.")
+
+    async with get_db_connection() as db:
+        for position, server_id in enumerate(order):
+            await db.execute("UPDATE servers SET position = ? WHERE id = ?", (position, server_id))
+        await db.commit()
 
     response = await settings_list_servers(request, role, is_admin=True)
     response.headers["HX-Trigger"] = "reload-servers"
