@@ -202,3 +202,38 @@ def test_non_admin_does_not_see_remove_button_in_servers_list():
     """Non-admin must NOT see the Remove button."""
     html = _render_settings_servers(is_admin=False)
     assert 'Remove' not in html
+
+
+# =============================================================================
+# servers-list HTMX error handling and refresh trigger (issue #103)
+# =============================================================================
+
+
+def test_servers_list_div_has_refresh_servers_trigger():
+    """#servers-list must listen for refresh-servers to support reorder-driven reloads."""
+    html = _render_dashboard(is_admin=True)
+    assert 'refresh-servers' in html
+
+
+def test_servers_list_div_has_response_error_handler():
+    """#servers-list must have an htmx:responseError handler to surface load failures."""
+    html = _render_dashboard(is_admin=True)
+    assert 'response-error' in html
+
+
+def test_servers_list_div_has_send_error_handler():
+    """#servers-list must have an htmx:sendError handler to surface network failures."""
+    html = _render_dashboard(is_admin=True)
+    assert 'send-error' in html
+
+
+def test_reorder_handler_dispatches_refresh_servers_event():
+    """The drag-and-drop reorder handler must dispatch refresh-servers, not call htmx.process(target)."""
+    html = _render_settings_servers(is_admin=True)
+    assert 'refresh-servers' in html
+
+
+def test_reorder_handler_does_not_call_htmx_process_on_outer_target():
+    """The reorder handler must not call htmx.process(target) on #servers-list (re-fires load trigger)."""
+    html = _render_settings_servers(is_admin=True)
+    assert 'htmx.process(target)' not in html

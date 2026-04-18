@@ -142,18 +142,10 @@ function toggleServerEdit(id) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order }),
       }).then(res => {
-        if (!res.ok) console.error('Reorder failed', res.status);
-        // Trigger sidebar refresh on success
-        if (res.ok) {
-          res.text().then(html => {
-            const target = document.getElementById('servers-list');
-            if (target) {
-              target.innerHTML = html;
-              htmx.process(target);
-            }
-          });
-          document.body.dispatchEvent(new CustomEvent('reload-servers'));
-        }
+        if (!res.ok) { console.error('Reorder failed', res.status); return; }
+        const list = document.getElementById('servers-list');
+        if (list) list.dispatchEvent(new CustomEvent('refresh-servers'));
+        document.body.dispatchEvent(new CustomEvent('reload-servers'));
       });
     });
   }

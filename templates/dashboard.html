@@ -171,7 +171,11 @@
         <div class="settings-group" data-group="servers">
           <div class="settings-section full-width">
             <h3 class="section-title mb-4">Server Management</h3>
-            <div id="servers-list" hx-get="/api/settings/servers" hx-trigger="load">
+            <div id="servers-list"
+                 hx-get="/api/settings/servers"
+                 hx-trigger="load, refresh-servers"
+                 hx-on::response-error="this.innerHTML='<p class=&quot;text-danger&quot;>Failed to load servers. <button class=&quot;btn btn-sm btn-secondary&quot; onclick=&quot;htmx.trigger(document.getElementById(\'servers-list\'),\'refresh-servers\')&quot;>Retry</button></p>'"
+                 hx-on::send-error="this.innerHTML='<p class=&quot;text-danger&quot;>Network error loading servers. <button class=&quot;btn btn-sm btn-secondary&quot; onclick=&quot;htmx.trigger(document.getElementById(\'servers-list\'),\'refresh-servers\')&quot;>Retry</button></p>'">
               <p class="text-muted">Loading servers...</p>
             </div>
           </div>
