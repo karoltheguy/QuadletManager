@@ -2109,3 +2109,128 @@ body.view-settings #bottom-panel { display: none !important; }
     white-space: pre-wrap;
     color: var(--text-primary);
 }
+
+/* ── Multi-tab terminal connection tabs ─────────────────── */
+
+.terminal-conn-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    padding: 0.3rem 0 0.1rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+/* Hide the tab strip when empty — JS toggles .has-tabs on #terminal-conn-tabs */
+.terminal-conn-tabs:not(.has-tabs) {
+    display: none;
+}
+
+.terminal-conn-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.8rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--bg-element);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    white-space: nowrap;
+    max-width: 220px;
+}
+
+.terminal-conn-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-raised-sm);
+}
+
+.terminal-conn-tab.is-active {
+    color: var(--brand-primary);
+    background: var(--bg-base);
+    box-shadow: var(--shadow-inset);
+}
+
+/* Dim disconnected tabs (WS closed naturally, e.g. container stopped) */
+.terminal-conn-tab.is-disconnected {
+    opacity: 0.6;
+}
+
+.terminal-conn-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.terminal-conn-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.45;
+    padding: 0;
+    flex-shrink: 0;
+    transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.terminal-conn-tab-close:hover {
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.18);
+    color: var(--danger);
+}
+
+/* Container that holds all per-tab xterm divs */
+.terminal-tabs-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Each per-tab xterm wrapper */
+.terminal-tab-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-tab-pane.hidden {
+    display: none;
+}
+
+/* xterm inside a tab pane fills all available space */
+.terminal-tab-pane .xterm-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+}
+
+/* Empty state shown when no terminals are open */
+.terminal-empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.83rem;
+    font-style: italic;
+    padding: 1rem;
+}
+

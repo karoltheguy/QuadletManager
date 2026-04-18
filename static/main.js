@@ -316,7 +316,7 @@ function updateInspectorStatsCard() {
     // Enable/disable terminal connect button based on running state
     var connectBtn = document.getElementById('terminal-connect-btn');
     if (connectBtn) connectBtn.disabled = !isRunning;
-    if (!isRunning) disconnectTerminal();
+    // Tabs are user-managed; do not auto-close an existing session when the container stops.
 
     if (matched) {
         card.innerHTML =
@@ -1168,10 +1168,9 @@ function populateServerSelector() {
 }
 
 // ── Terminal Session Management ──────────────────────────
-window._terminalInstance = null;
-window._terminalWs = null;
-window._terminalSession = null;
-window._fitAddonLoaded = false;
+window._terminalTabs = new Map();   // tabKey → { term, ws, fitAddon, tabEl, paneEl }
+window._activeTerminalTabKey = null;
+window._fitAddonLoaded = false;     // unchanged — script only loads once
 
 function loadFitAddon(callback) {
     if (window._fitAddonLoaded) {
@@ -1192,7 +1191,20 @@ function loadFitAddon(callback) {
 }
 
 function hideTerminalSection() {
-    disconnectTerminal();
+    // Terminals are user-managed; auto-closing on deselect removed.
+}
+
+function showTerminalMessage(msg) {
+    var hint = document.getElementById('terminal-empty-hint');
+    if (hint) {
+        hint.textContent = msg;
+        hint.style.display = '';
+        setTimeout(function() {
+            if (hint.textContent === msg) {
+                hint.textContent = 'Select a running container and click Connect';
+            }
+        }, 3000);
+    }
 }
 
 // ── Bottom Panel Management ───────────────────────────────
@@ -1206,7 +1218,11 @@ window.openBottomPanel = function(tab) {
     if (handle) handle.classList.remove('hidden');
     localStorage.setItem('qm-bottom-panel-open', '1');
     if (tab) switchBottomTab(tab);
-    if (window._terminalFitAddon) window._terminalFitAddon.fit();
+    var key = window._activeTerminalTabKey;
+    if (key) {
+        var session = window._terminalTabs.get(key);
+        if (session && session.fitAddon) session.fitAddon.fit();
+    }
 };
 
 window.toggleBottomPanel = function() {
@@ -1218,7 +1234,13 @@ window.toggleBottomPanel = function() {
     if (body) body.classList.toggle('hidden', isCollapsed);
     if (handle) handle.classList.toggle('hidden', isCollapsed);
     localStorage.setItem('qm-bottom-panel-open', isCollapsed ? '0' : '1');
-    if (!isCollapsed && window._terminalFitAddon) window._terminalFitAddon.fit();
+    if (!isCollapsed) {
+        var key = window._activeTerminalTabKey;
+        if (key) {
+            var session = window._terminalTabs.get(key);
+            if (session && session.fitAddon) session.fitAddon.fit();
+        }
+    }
 };
 
 window.toggleBottomPanelExpand = function() {
@@ -1232,7 +1254,11 @@ window.toggleBottomPanelExpand = function() {
         btn.title = expanded ? 'Align with editor' : 'Expand panel to full width';
         btn.setAttribute('aria-label', btn.title);
     }
-    if (window._terminalFitAddon) window._terminalFitAddon.fit();
+    var key = window._activeTerminalTabKey;
+    if (key) {
+        var session = window._terminalTabs.get(key);
+        if (session && session.fitAddon) session.fitAddon.fit();
+    }
 };
 
 window.switchBottomTab = function(pane) {
@@ -1242,9 +1268,14 @@ window.switchBottomTab = function(pane) {
     document.querySelectorAll('.bottom-pane').forEach(function(p) {
         p.classList.toggle('hidden', p.id !== 'bottom-' + pane + '-pane');
     });
-    // Refit terminal when switching to it
-    if (pane === 'terminal' && window._terminalFitAddon) {
-        setTimeout(function() { window._terminalFitAddon.fit(); }, 50);
+    if (pane === 'terminal') {
+        var key = window._activeTerminalTabKey;
+        if (key) {
+            var session = window._terminalTabs.get(key);
+            if (session && session.fitAddon) {
+                setTimeout(function() { session.fitAddon.fit(); }, 50);
+            }
+        }
     }
 };
 
@@ -1252,7 +1283,7 @@ window.connectTerminal = function() {
     var stem = window._selectedContainerStem;
     var serverId = window._selectedContainerServerId;
     if (!stem || !serverId) {
-        console.error('No container selected');
+        showTerminalMessage('Select a container from the sidebar first.');
         return;
     }
 
@@ -1260,154 +1291,189 @@ window.connectTerminal = function() {
     var isRunning = false;
     var actualContainerName = null;
 
-    // Find the actual container name that matches the stem
     running.forEach(function(name) {
         if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
             isRunning = true;
-            actualContainerName = name;  // Use the actual container name
+            actualContainerName = name;
         }
     });
 
     if (!isRunning) {
-        alert('Container must be running to open a terminal');
+        showTerminalMessage('Container must be running to open a terminal.');
         return;
     }
 
-    // Use the actual container name, fallback to stem if not found
     var containerName = actualContainerName || stem;
+    var tabKey = serverId + ':' + containerName;
 
-    // Get shell selection
+    // Already open → just switch to it
+    if (window._terminalTabs.has(tabKey)) {
+        openBottomPanel('terminal');
+        switchTerminalTab(tabKey);
+        return;
+    }
+
     var shellSelect = document.getElementById('terminal-shell-select');
     var shell = shellSelect ? shellSelect.value : 'bash';
     var cmd = shell;
 
     if (shell === 'custom') {
         var customInput = document.getElementById('terminal-custom-cmd-input');
-        cmd = customInput ? customInput.value.trim() : 'bash';
+        cmd = (customInput ? customInput.value.trim() : '') || 'bash';
         if (!cmd) {
-            alert('Please enter a command');
+            showTerminalMessage('Enter a command first.');
             return;
         }
     }
 
-    // Open bottom panel to terminal tab
     openBottomPanel('terminal');
 
-    // Close existing connection
-    if (window._terminalWs) {
-        window._terminalWs.close();
-        window._terminalWs = null;
-    }
-
-    // Initialize xterm if needed
-    if (!window._terminalInstance) {
-        var container = document.getElementById('xterm-container');
-        if (!container) return;
-        window._terminalInstance = new Terminal({ rows: 24, cols: 80 });
-        window._terminalInstance.open(container);
-    }
-
     loadFitAddon(function() {
-        // Create FitAddon once and reuse it
-        if (window.FitAddon && !window._terminalFitAddon) {
-            window._terminalFitAddon = new window.FitAddon.FitAddon();
-            window._terminalInstance.loadAddon(window._terminalFitAddon);
-        }
-
-        // Connect to WebSocket
-        var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        var wsUrl = protocol + '//' + window.location.host + '/ws/exec/' + serverId + '/' + encodeURIComponent(containerName) + '?scope=user&cmd=' + encodeURIComponent(cmd);
-
-        window._terminalWs = new WebSocket(wsUrl);
-        window._terminalSession = { serverId: serverId, container: containerName, cmd: cmd };
-
-        window._terminalWs.onopen = function() {
-            console.log('Terminal WebSocket connected');
-            var connectBtn = document.getElementById('terminal-connect-btn');
-            var disconnectBtn = document.getElementById('terminal-disconnect-btn');
-            if (connectBtn) connectBtn.classList.add('hidden');
-            if (disconnectBtn) disconnectBtn.classList.remove('hidden');
-
-            // Fit terminal to container
-            if (window._terminalFitAddon) {
-                window._terminalFitAddon.fit();
-                var dims = window._terminalFitAddon.proposeDimensions();
-                window._terminalWs.send(JSON.stringify({
-                    type: 'resize',
-                    cols: dims ? dims.cols : 80,
-                    rows: dims ? dims.rows : 24
-                }));
-            }
-
-            // Forward terminal input to WebSocket (dispose previous handler first)
-            if (window._terminalDataHandler) {
-                window._terminalDataHandler.dispose();
-            }
-            window._terminalDataHandler = window._terminalInstance.onData(function(data) {
-                if (window._terminalWs && window._terminalWs.readyState === WebSocket.OPEN) {
-                    window._terminalWs.send(data);
-                }
-            });
-
-            // Handle window resize
-            window._terminalResizeHandler = function() {
-                if (window._terminalInstance && window._terminalFitAddon) {
-                    window._terminalFitAddon.fit();
-                    var dims = window._terminalFitAddon.proposeDimensions();
-                    if (window._terminalWs && window._terminalWs.readyState === WebSocket.OPEN) {
-                        window._terminalWs.send(JSON.stringify({
-                            type: 'resize',
-                            cols: dims ? dims.cols : 80,
-                            rows: dims ? dims.rows : 24
-                        }));
-                    }
-                }
-            };
-            window.addEventListener('resize', window._terminalResizeHandler);
-        };
-
-        window._terminalWs.onmessage = function(e) {
-            if (window._terminalInstance) {
-                window._terminalInstance.write(e.data);
-            }
-        };
-
-        window._terminalWs.onerror = function(err) {
-            console.error('Terminal WebSocket error:', err);
-            if (window._terminalInstance) {
-                window._terminalInstance.write('\r\n\u001b[31mConnection error\u001b[0m\r\n');
-            }
-        };
-
-        window._terminalWs.onclose = function() {
-            console.log('Terminal WebSocket closed');
-            var connectBtn = document.getElementById('terminal-connect-btn');
-            var disconnectBtn = document.getElementById('terminal-disconnect-btn');
-            if (connectBtn) connectBtn.classList.remove('hidden');
-            if (disconnectBtn) disconnectBtn.classList.add('hidden');
-            if (window._terminalResizeHandler) {
-                window.removeEventListener('resize', window._terminalResizeHandler);
-            }
-        };
-
-        // Show terminal container
-        var termContainer = document.getElementById('xterm-container');
-        if (termContainer) termContainer.classList.remove('hidden');
+        createTerminalTab(tabKey, serverId, containerName, cmd);
     });
 };
 
+function createTerminalTab(tabKey, serverId, containerName, cmd) {
+    var serverName = (lastStatsPerServer[serverId] && lastStatsPerServer[serverId].server_name)
+        || ('srv-' + serverId);
+    var label = serverName + ':' + containerName;
+
+    // ── Tab button ──────────────────────────────────────
+    var tabEl = document.createElement('button');
+    tabEl.className = 'terminal-conn-tab';
+    tabEl.dataset.key = tabKey;
+    tabEl.setAttribute('title', label);
+
+    var labelSpan = document.createElement('span');
+    labelSpan.className = 'terminal-conn-tab-label';
+    labelSpan.textContent = label;
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'terminal-conn-tab-close';
+    closeBtn.setAttribute('aria-label', 'Close ' + label);
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        closeTerminalTab(tabKey);
+    });
+
+    tabEl.appendChild(labelSpan);
+    tabEl.appendChild(closeBtn);
+    tabEl.addEventListener('click', function() { switchTerminalTab(tabKey); });
+
+    var tabsEl = document.getElementById('terminal-conn-tabs');
+    if (tabsEl) {
+        tabsEl.appendChild(tabEl);
+        tabsEl.classList.add('has-tabs');
+    }
+
+    // ── xterm pane div ──────────────────────────────────
+    var paneEl = document.createElement('div');
+    paneEl.className = 'terminal-tab-pane hidden';
+    paneEl.dataset.key = tabKey;
+
+    var xtermDiv = document.createElement('div');
+    xtermDiv.className = 'xterm-container';
+    paneEl.appendChild(xtermDiv);
+
+    var bodyEl = document.getElementById('terminal-tabs-body');
+    if (bodyEl) bodyEl.appendChild(paneEl);
+
+    // Hide empty hint
+    var hint = document.getElementById('terminal-empty-hint');
+    if (hint) hint.style.display = 'none';
+
+    // ── xterm instance ──────────────────────────────────
+    var term = new Terminal({ rows: 24, cols: 80, cursorBlink: true });
+    term.open(xtermDiv);
+
+    var fitAddon = new window.FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+
+    // ── WebSocket ───────────────────────────────────────
+    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var wsUrl = protocol + '//' + window.location.host
+        + '/ws/exec/' + serverId + '/' + encodeURIComponent(containerName)
+        + '?scope=user&cmd=' + encodeURIComponent(cmd);
+    var ws = new WebSocket(wsUrl);
+
+    ws.onopen = function() {
+        fitAddon.fit();
+        var dims = fitAddon.proposeDimensions();
+        ws.send(JSON.stringify({
+            type: 'resize',
+            cols: dims ? dims.cols : 80,
+            rows: dims ? dims.rows : 24
+        }));
+        term.onData(function(data) {
+            if (ws.readyState === WebSocket.OPEN) ws.send(data);
+        });
+    };
+
+    ws.onmessage = function(e) { term.write(e.data); };
+
+    ws.onerror = function() {
+        term.write('\r\n\u001b[31mConnection error\u001b[0m\r\n');
+    };
+
+    ws.onclose = function() {
+        term.write('\r\n\u001b[2m[session closed]\u001b[0m\r\n');
+        tabEl.classList.add('is-disconnected');
+    };
+
+    window._terminalTabs.set(tabKey, { term: term, ws: ws, fitAddon: fitAddon, tabEl: tabEl, paneEl: paneEl });
+
+    switchTerminalTab(tabKey);
+}
+
+window.switchTerminalTab = function(key) {
+    window._activeTerminalTabKey = key;
+
+    document.querySelectorAll('.terminal-conn-tab').forEach(function(el) {
+        el.classList.toggle('is-active', el.dataset.key === key);
+    });
+    document.querySelectorAll('.terminal-tab-pane').forEach(function(el) {
+        el.classList.toggle('hidden', el.dataset.key !== key);
+    });
+
+    var session = window._terminalTabs.get(key);
+    if (session && session.fitAddon) {
+        setTimeout(function() { session.fitAddon.fit(); }, 50);
+    }
+};
+
+window.closeTerminalTab = function(key) {
+    var session = window._terminalTabs.get(key);
+    if (!session) return;
+
+    if (session.ws && session.ws.readyState !== WebSocket.CLOSED) {
+        session.ws.close();
+    }
+    try { session.term.dispose(); } catch (e) { /* xterm may throw if initialized on a hidden element */ }
+
+    if (session.tabEl && session.tabEl.parentNode) {
+        session.tabEl.parentNode.removeChild(session.tabEl);
+    }
+    if (session.paneEl && session.paneEl.parentNode) {
+        session.paneEl.parentNode.removeChild(session.paneEl);
+    }
+
+    window._terminalTabs.delete(key);
+
+    if (window._terminalTabs.size === 0) {
+        var tabsEl = document.getElementById('terminal-conn-tabs');
+        if (tabsEl) tabsEl.classList.remove('has-tabs');
+        var hint = document.getElementById('terminal-empty-hint');
+        if (hint) hint.style.display = '';
+        window._activeTerminalTabKey = null;
+    } else if (window._activeTerminalTabKey === key) {
+        switchTerminalTab(window._terminalTabs.keys().next().value);
+    }
+};
+
 window.disconnectTerminal = function() {
-    if (window._terminalWs) {
-        window._terminalWs.close();
-        window._terminalWs = null;
-    }
-    if (window._terminalResizeHandler) {
-        window.removeEventListener('resize', window._terminalResizeHandler);
-    }
-    var connectBtn = document.getElementById('terminal-connect-btn');
-    var disconnectBtn = document.getElementById('terminal-disconnect-btn');
-    if (connectBtn) connectBtn.classList.remove('hidden');
-    if (disconnectBtn) disconnectBtn.classList.add('hidden');
+    var key = window._activeTerminalTabKey;
+    if (key) closeTerminalTab(key);
 };
 
 // Handle shell selector changes (setup after DOM is ready)
@@ -1424,6 +1490,23 @@ var setupShellSelector = function() {
         });
     }
 };
+
+// ── Global window resize handler for the active terminal tab ────────────────
+window.addEventListener('resize', function() {
+    var key = window._activeTerminalTabKey;
+    if (!key) return;
+    var session = window._terminalTabs.get(key);
+    if (!session || !session.fitAddon) return;
+    session.fitAddon.fit();
+    if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+        var dims = session.fitAddon.proposeDimensions();
+        session.ws.send(JSON.stringify({
+            type: 'resize',
+            cols: dims ? dims.cols : 80,
+            rows: dims ? dims.rows : 24
+        }));
+    }
+});
 
 // ── Resizable Panel Handles ──────────────────────────────
 function initResizableHandles() {
@@ -1547,7 +1630,8 @@ function initResizableHandles() {
                 var delta = startY - e.clientY; // dragging up increases height
                 var newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
                 document.documentElement.style.setProperty('--bottom-panel-height', newH + 'px');
-                if (window._terminalFitAddon) window._terminalFitAddon.fit();
+                var _rk = window._activeTerminalTabKey;
+                if (_rk) { var _rs = window._terminalTabs.get(_rk); if (_rs && _rs.fitAddon) _rs.fitAddon.fit(); }
             }
 
             function onUp() {
@@ -1558,7 +1642,8 @@ function initResizableHandles() {
                 var finalH = getComputedStyle(document.documentElement)
                     .getPropertyValue('--bottom-panel-height').trim();
                 localStorage.setItem('qm-bottom-panel-height', finalH);
-                if (window._terminalFitAddon) window._terminalFitAddon.fit();
+                var _uk = window._activeTerminalTabKey;
+                if (_uk) { var _us = window._terminalTabs.get(_uk); if (_us && _us.fitAddon) _us.fitAddon.fit(); }
             }
 
             document.addEventListener('mousemove', onMove);

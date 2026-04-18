@@ -387,9 +387,14 @@
               <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
             </div>
             <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
-            <button id="terminal-disconnect-btn" class="btn btn-secondary btn-sm hidden" onclick="disconnectTerminal()">Disconnect</button>
+            <!-- Disconnect button removed; each tab has its own × close button -->
           </div>
-          <div id="xterm-container" class="xterm-container hidden"></div>
+          <div id="terminal-conn-tabs" class="terminal-conn-tabs"></div>
+          <div id="terminal-tabs-body" class="terminal-tabs-body">
+            <div id="terminal-empty-hint" class="terminal-empty-state">
+              Select a running container and click Connect
+            </div>
+          </div>
         </div>
         <div id="bottom-logs-pane" class="bottom-pane hidden">
           <div id="log-stream" class="log-stream">Waiting for log output...</div>

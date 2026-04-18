@@ -1,17 +1,14 @@
-"""E2E tests for terminal Connect/Disconnect button lifecycle.
+"""E2E tests for multi-tab terminal session management (issue #85).
 
 Architecture note — two mocking layers:
   1. window.WebSocket monkeypatch (add_init_script): Intercepts only /ws/exec/
-     connections and replaces them with a controllable mock.  Playwright's
-     route_web_socket() does not intercept localhost WS connections, so we
-     patch the constructor directly.  The mock auto-fires onopen after 10 ms
-     so the existing JS onopen handler runs unchanged.  window._closeTerminalWs()
-     is exposed so tests can simulate a server-side close.
+     connections and replaces them with a controllable mock.  Tracks all
+     created instances by tab key so tests can close individual tabs.
+     window._closeMockWs(key) simulates a server-side close for a specific tab.
 
-  2. FitAddon stub (page.evaluate before click): The CDN for xterm-addon-fit
-     is unreachable in this environment so loadFitAddon's onerror path fires.
-     We inject a lightweight stub so the resize handshake runs and
-     proposeDimensions returns a valid size.
+  2. FitAddon stub (injected via _inject_prerequisites): CDN unreachable in
+     test env; we provide a lightweight stub directly so the resize handshake
+     and fitAddon.fit() calls don't throw.
 
 Only the backend (localhost:8000) needs to be running; no live container needed.
 """
@@ -26,6 +23,9 @@ _WS_MOCK_INIT = """
 (function () {
     var _OrigWS = window.WebSocket;
 
+    // Registry: tabKey → MockExecWS instance
+    window._mockWsRegistry = {};
+
     function MockExecWS(url, protocols) {
         this.url = url;
         this.readyState = 0;          // CONNECTING
@@ -33,8 +33,7 @@ _WS_MOCK_INIT = """
         this.onclose = null;
         this.onmessage = null;
         this.onerror = null;
-        window._mockWsInstance = this;
-        window._mockWsSent = [];
+        window._mockWsRegistry[url] = this;
 
         var self = this;
         setTimeout(function () {
@@ -43,7 +42,8 @@ _WS_MOCK_INIT = """
         }, 10);
     }
     MockExecWS.prototype.send = function (data) {
-        window._mockWsSent.push(data);
+        if (!this._sent) this._sent = [];
+        this._sent.push(data);
     };
     MockExecWS.prototype.close = function (code, reason) {
         this.readyState = 3;          // CLOSED
@@ -67,10 +67,13 @@ _WS_MOCK_INIT = """
         CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3
     });
 
-    // Test helper: simulate server-side close.
-    window._closeTerminalWs = function (code, reason) {
-        var ws = window._mockWsInstance;
-        if (ws) ws.close(code || 1001, reason || '');
+    // Test helper: simulate server-side close for a given WS URL substring.
+    window._closeMockWsByUrlPart = function (urlPart) {
+        Object.keys(window._mockWsRegistry).forEach(function (url) {
+            if (url.indexOf(urlPart) !== -1) {
+                window._mockWsRegistry[url].close(1001, 'test close');
+            }
+        });
     };
 })();
 """
@@ -86,17 +89,27 @@ def _goto_or_skip(page: Page) -> None:
     page.locator("text='Loading servers...'").wait_for(state="hidden")
 
 
-def _inject_prerequisites(page: Page, stem: str = "myapp", server_id: int = 1) -> None:
+def _inject_prerequisites(
+    page: Page,
+    stem: str = "myapp",
+    server_id: int = 1,
+    server_name: str = "testserver",
+) -> None:
     """Set JS globals so connectTerminal() sees a running container, and
-    inject a FitAddon stub so the resize handshake fires correctly."""
+    inject a FitAddon stub so the resize handshake fires without CDN access."""
     page.evaluate(f"""() => {{
-        // Container state
         window._selectedContainerStem = '{stem}';
         window._selectedContainerServerId = {server_id};
         runningContainersBySid[{server_id}] = new Set(['{stem}']);
 
-        // FitAddon stub (CDN unreachable in test env; loadFitAddon's onerror
-        // path fires but we can pre-set the addon so onopen sends a resize).
+        // Populate lastStatsPerServer so the tab label resolves correctly.
+        lastStatsPerServer[{server_id}] = {{
+            server_id: {server_id},
+            server_name: '{server_name}',
+            containers: []
+        }};
+
+        // FitAddon stub — CDN unreachable in test env.
         window._fitAddonLoaded = true;
         if (!window.FitAddon) {{
             window.FitAddon = {{
@@ -107,109 +120,210 @@ def _inject_prerequisites(page: Page, stem: str = "myapp", server_id: int = 1) -
                 }}
             }};
         }}
-        // If the FitAddon instance was already created (e.g. from a prior
-        // connectTerminal call that used the onerror path), replace it.
-        window._terminalFitAddon = new window.FitAddon.FitAddon();
-        if (window._terminalInstance) {{
-            window._terminalInstance.loadAddon(window._terminalFitAddon);
-        }}
     }}""")
 
 
-def _open_terminal_tab(page: Page) -> None:
+def _open_terminal_pane(page: Page) -> None:
     page.click("button.nav-item:has-text('Containers')")
     page.evaluate("openBottomPanel('terminal')")
     expect(page.locator("#bottom-terminal-pane")).to_be_visible()
 
 
+def _click_connect(page: Page) -> None:
+    page.click("#terminal-connect-btn")
+    # Wait for the mock WS onopen (10 ms) + tab render
+    page.wait_for_timeout(100)
+
+
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-def test_terminal_connect_shows_disconnect_button(page: Page):
-    """Happy path: Connect opens a WS and swaps the button to Disconnect.
-
-    The mock WS stays open (no close triggered), so the button must remain
-    in Disconnected state for the life of the assertion window.
-    """
+def test_connect_creates_tab(page: Page):
+    """Clicking Connect creates a terminal-conn-tab in the tab strip."""
     page.add_init_script(_WS_MOCK_INIT)
     _goto_or_skip(page)
     _inject_prerequisites(page)
-    _open_terminal_tab(page)
+    _open_terminal_pane(page)
 
-    page.click("#terminal-connect-btn")
+    _click_connect(page)
 
-    # onopen fires after 10 ms → Connect hidden, Disconnect visible
-    expect(page.locator("#terminal-disconnect-btn")).to_be_visible(timeout=5000)
-    expect(page.locator("#terminal-connect-btn")).to_be_hidden()
-
-    # Verify the WS was actually created for the correct URL
-    ws_url = page.evaluate("() => window._mockWsInstance ? window._mockWsInstance.url : null")
-    assert ws_url and "/ws/exec/" in ws_url, f"Expected /ws/exec/ WS URL, got: {ws_url}"
+    tabs = page.locator(".terminal-conn-tab")
+    expect(tabs).to_have_count(1)
 
 
-def test_terminal_immediate_ws_close_reverts_to_connect(page: Page):
-    """Issue #100 regression: WS closes immediately after open.
+def test_tab_label_uses_server_name_and_container(page: Page):
+    """Tab label is '<server_name>:<container>' format."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+    _inject_prerequisites(page, stem="myapp", server_id=1, server_name="testserver")
+    _open_terminal_pane(page)
 
-    When the server drops the connection right away, onclose must revert the
-    button to Connect so the user can retry.
-    """
+    _click_connect(page)
+
+    label = page.locator(".terminal-conn-tab-label").first
+    expect(label).to_have_text("testserver:myapp")
+
+
+def test_connect_same_container_twice_deduplicates(page: Page):
+    """Clicking Connect twice for the same container does not open a second tab."""
     page.add_init_script(_WS_MOCK_INIT)
     _goto_or_skip(page)
     _inject_prerequisites(page)
-    _open_terminal_tab(page)
+    _open_terminal_pane(page)
 
-    page.click("#terminal-connect-btn")
+    _click_connect(page)
+    _click_connect(page)
 
-    # Wait for the WS to open (mock fires onopen after 10 ms)
-    expect(page.locator("#terminal-disconnect-btn")).to_be_visible(timeout=5000)
-
-    # Simulate the server immediately dropping the connection
-    page.evaluate("window._closeTerminalWs(1001, 'exec failed')")
-
-    # onclose must revert button to Connect
-    expect(page.locator("#terminal-connect-btn")).to_be_visible(timeout=3000)
-    expect(page.locator("#terminal-disconnect-btn")).to_be_hidden()
+    tabs = page.locator(".terminal-conn-tab")
+    expect(tabs).to_have_count(1)
 
 
-def test_terminal_disconnect_button_closes_session(page: Page):
-    """Full round-trip: connect → session active → disconnect → idle."""
+def test_second_container_opens_second_tab(page: Page):
+    """Connecting to a different container creates a second tab."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+
+    # First container
+    _inject_prerequisites(page, stem="alpha", server_id=1, server_name="srv")
+    _open_terminal_pane(page)
+    _click_connect(page)
+
+    # Switch to a different container
+    page.evaluate("""() => {
+        window._selectedContainerStem = 'beta';
+        window._selectedContainerServerId = 1;
+        runningContainersBySid[1].add('beta');
+    }""")
+    _click_connect(page)
+
+    tabs = page.locator(".terminal-conn-tab")
+    expect(tabs).to_have_count(2)
+
+
+def test_new_tab_is_active(page: Page):
+    """The most-recently opened tab carries the is-active class."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+    _inject_prerequisites(page, stem="alpha", server_id=1, server_name="srv")
+    _open_terminal_pane(page)
+    _click_connect(page)
+
+    page.evaluate("""() => {
+        window._selectedContainerStem = 'beta';
+        runningContainersBySid[1].add('beta');
+    }""")
+    _click_connect(page)
+
+    active_tabs = page.locator(".terminal-conn-tab.is-active")
+    expect(active_tabs).to_have_count(1)
+    label = active_tabs.locator(".terminal-conn-tab-label")
+    expect(label).to_have_text("srv:beta")
+
+
+def test_close_button_removes_tab(page: Page):
+    """Clicking × on a tab removes it from the strip and disposes the session."""
     page.add_init_script(_WS_MOCK_INIT)
     _goto_or_skip(page)
     _inject_prerequisites(page)
-    _open_terminal_tab(page)
+    _open_terminal_pane(page)
 
-    page.click("#terminal-connect-btn")
-    expect(page.locator("#terminal-disconnect-btn")).to_be_visible(timeout=5000)
+    _click_connect(page)
+    expect(page.locator(".terminal-conn-tab")).to_have_count(1)
 
-    page.click("#terminal-disconnect-btn")
+    # Click the × button inside the tab
+    page.locator(".terminal-conn-tab-close").click()
+    page.wait_for_timeout(300)
 
-    expect(page.locator("#terminal-connect-btn")).to_be_visible(timeout=3000)
-    expect(page.locator("#terminal-disconnect-btn")).to_be_hidden()
+    expect(page.locator(".terminal-conn-tab")).to_have_count(0, timeout=5000)
 
 
-def test_terminal_connect_sends_resize_message(page: Page):
-    """On connect, the JS sends a resize JSON message to the WS.
-
-    This verifies the FitAddon handshake is wired correctly — the PTY needs
-    initial dimensions to allocate the right number of rows/cols.
-    """
+def test_close_last_tab_shows_empty_hint(page: Page):
+    """After the last tab is closed the empty-state hint reappears."""
     page.add_init_script(_WS_MOCK_INIT)
     _goto_or_skip(page)
     _inject_prerequisites(page)
-    _open_terminal_tab(page)
+    _open_terminal_pane(page)
 
-    page.click("#terminal-connect-btn")
-    expect(page.locator("#terminal-disconnect-btn")).to_be_visible(timeout=5000)
+    _click_connect(page)
+    page.locator(".terminal-conn-tab-close").click()
+    page.wait_for_timeout(300)
 
-    # Give onopen a tick to send the resize message
+    # Hint is shown again (display is not 'none')
+    hint = page.locator("#terminal-empty-hint")
+    display = page.evaluate("() => document.getElementById('terminal-empty-hint').style.display")
+    assert display != 'none', f"Expected hint to be visible, display was: '{display}'"
+
+
+def test_ws_natural_close_dims_tab(page: Page):
+    """When the server closes the WS the tab gains is-disconnected (dims) but stays open."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+    _inject_prerequisites(page, stem="myapp", server_id=1)
+    _open_terminal_pane(page)
+
+    _click_connect(page)
+    expect(page.locator(".terminal-conn-tab")).to_have_count(1)
+
+    # Simulate server-side close
+    page.evaluate("window._closeMockWsByUrlPart('/ws/exec/1/')")
+    page.wait_for_timeout(100)
+
+    # Tab stays but is dimmed
+    expect(page.locator(".terminal-conn-tab")).to_have_count(1)
+    expect(page.locator(".terminal-conn-tab.is-disconnected")).to_have_count(1)
+
+
+def test_connect_sends_resize_message(page: Page):
+    """On connect the JS sends a resize JSON message so the PTY gets initial dimensions."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+    _inject_prerequisites(page)
+    _open_terminal_pane(page)
+
+    _click_connect(page)
     page.wait_for_timeout(200)
 
-    sent = page.evaluate("() => window._mockWsSent || []")
-    resize_msgs = [m for m in sent if _is_resize_message(m)]
-    assert resize_msgs, (
-        f"No resize message sent to WS after connect. Messages sent: {sent}"
-    )
+    # Pull sent messages out of the mock WS instance for this tab
+    sent_raw = page.evaluate("""() => {
+        var reg = window._mockWsRegistry;
+        var msgs = [];
+        Object.keys(reg).forEach(function(url) {
+            if (url.indexOf('/ws/exec/') !== -1 && reg[url]._sent) {
+                msgs = msgs.concat(reg[url]._sent);
+            }
+        });
+        return msgs;
+    }""")
+
+    resize_msgs = [m for m in sent_raw if _is_resize_message(m)]
+    assert resize_msgs, f"No resize message sent. Messages: {sent_raw}"
     dims = json.loads(resize_msgs[0])
     assert dims["cols"] > 0 and dims.get("rows", dims.get("height", 1)) > 0
+
+
+def test_tab_strip_hidden_when_empty(page: Page):
+    """The tab strip (#terminal-conn-tabs) has no .has-tabs class when no sessions exist."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+    _inject_prerequisites(page)
+    _open_terminal_pane(page)
+
+    # Before any connect
+    tabs_el = page.locator("#terminal-conn-tabs")
+    assert "has-tabs" not in (tabs_el.get_attribute("class") or "")
+
+
+def test_tab_strip_visible_after_connect(page: Page):
+    """After connect #terminal-conn-tabs gains .has-tabs (makes it flex-visible)."""
+    page.add_init_script(_WS_MOCK_INIT)
+    _goto_or_skip(page)
+    _inject_prerequisites(page)
+    _open_terminal_pane(page)
+
+    _click_connect(page)
+
+    tabs_el = page.locator("#terminal-conn-tabs")
+    class_attr = tabs_el.get_attribute("class") or ""
+    assert "has-tabs" in class_attr, f"Expected 'has-tabs' in class, got: '{class_attr}'"
 
 
 def _is_resize_message(msg) -> bool:
