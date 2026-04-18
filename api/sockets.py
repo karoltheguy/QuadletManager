@@ -121,7 +121,8 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
         process = await conn.create_process(
             exec_cmd,
             request_pty=True,
-            term_type='xterm-256color'
+            term_type='xterm-256color',
+            encoding=None
         )
 
         # Background task to read stdout and send to client.
@@ -135,7 +136,7 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
                     if not chunk:
                         break
                     try:
-                        await websocket.send_text(chunk)
+                        await websocket.send_bytes(chunk)
                     except Exception as e:
                         logger.debug(f"Failed to send to websocket: {e}")
                         break
@@ -144,61 +145,60 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
             finally:
                 process_done.set()
 
-        read_task = asyncio.create_task(read_output())
-
-        # Main loop: receive input from client and send to stdin
-        while True:
-            # Check if the remote process has exited; notify and close if so
-            if process_done.is_set():
-                logger.info(f"Process exited for terminal {container_name}, notifying client")
-                try:
-                    await websocket.send_text('\r\n\x1b[33m[process exited]\x1b[0m\r\n')
-                except Exception:
-                    pass
-                break
-
+        async def write_input():
             try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
-
-                if not data:
-                    continue
-
-                # Parse control messages (e.g., resize)
-                if data.startswith('{'):
-                    try:
-                        msg = json.loads(data)
-                        if msg.get('type') == 'resize':
-                            cols = msg.get('cols', 80)
-                            rows = msg.get('rows', 24)
-                            try:
-                                process.set_terminal_size(cols, rows)
-                                logger.debug(f"PTY resized to {cols}x{rows}")
-                            except Exception as e:
-                                logger.warning(f"Failed to resize PTY: {e}")
+                while True:
+                    data = await websocket.receive_text()
+                    if not data:
                         continue
-                    except (json.JSONDecodeError, ValueError):
-                        pass  # Not a control message, treat as input
 
-                # Send input to stdin.
-                # asyncssh uses encoding='utf-8' by default, so SSHWriter
-                # expects a str — not bytes. Passing data.encode() would
-                # raise AttributeError and drop the connection.
-                if process.stdin:
-                    try:
-                        process.stdin.write(data)
-                    except Exception as e:
-                        logger.error(f"Failed to write to stdin: {e}")
-                        break
+                    # Parse control messages (e.g., resize)
+                    if data.startswith('{'):
+                        try:
+                            msg = json.loads(data)
+                            if msg.get('type') == 'resize':
+                                cols = msg.get('cols', 80)
+                                rows = msg.get('rows', 24)
+                                try:
+                                    process.change_terminal_size(cols, rows)
+                                    logger.debug(f"PTY resized to {cols}x{rows}")
+                                except Exception as e:
+                                    logger.warning(f"Failed to resize PTY: {e}")
+                            continue
+                        except (json.JSONDecodeError, ValueError):
+                            pass  # Not a control message, treat as input
 
-            except asyncio.TimeoutError:
-                await asyncio.sleep(0)  # Yield so read_output can update process_done
-                continue  # Re-check process_done at top of loop
+                    # Send input to stdin.
+                    if process.stdin:
+                        try:
+                            process.stdin.write(data.encode())
+                        except Exception as e:
+                            logger.error(f"Failed to write to stdin: {e}")
+                            break
             except WebSocketDisconnect:
                 logger.info(f"WebSocket disconnected for terminal {container_name}")
-                break
+            except asyncio.CancelledError:
+                pass
             except Exception as e:
                 logger.error(f"Terminal input error: {e}")
-                break
+
+        read_task = asyncio.create_task(read_output())
+        write_task = asyncio.create_task(write_input())
+
+        done, pending = await asyncio.wait(
+            [read_task, write_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        for task in pending:
+            task.cancel()
+
+        if read_task in done:
+            logger.info(f"Process exited for terminal {container_name}, notifying client")
+            try:
+                await websocket.send_text('\r\n\x1b[33m[process exited]\x1b[0m\r\n')
+            except Exception:
+                pass
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for terminal {container_name}")

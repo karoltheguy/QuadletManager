@@ -83,7 +83,7 @@ async def test_exec_terminal_over_websocket_disconnect(mock_websocket, monkeypat
     mock_process = AsyncMock()
     mock_process.kill = MagicMock()
     mock_process.stdin = MagicMock()
-    mock_process.stdout.read = AsyncMock(side_effect=["container output\n", ""])
+    mock_process.stdout.read = AsyncMock(side_effect=[b"container output\n", b""])
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
 
@@ -114,7 +114,7 @@ async def test_exec_terminal_forward_input(mock_websocket, monkeypatch):
     mock_process.kill = MagicMock()
     mock_stdin = MagicMock()
     mock_process.stdin = mock_stdin
-    mock_process.stdout.read = AsyncMock(side_effect=["$ ", ""])
+    mock_process.stdout.read = AsyncMock(side_effect=[b"$ ", b""])
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
 
@@ -125,10 +125,9 @@ async def test_exec_terminal_forward_input(mock_websocket, monkeypatch):
 
     await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash")
 
-    # Verify input was written to stdin as a string (not bytes).
-    # asyncssh text mode (encoding='utf-8') expects str; passing bytes raises
-    # AttributeError and drops the connection.
-    mock_stdin.write.assert_called_once_with("ls\n")
+    # Verify input was encoded to bytes before writing to stdin.
+    # asyncssh binary mode (encoding=None) requires bytes on stdin.
+    mock_stdin.write.assert_called_once_with(b"ls\n")
 
 
 @pytest.mark.asyncio
@@ -140,9 +139,9 @@ async def test_exec_terminal_resize_event(mock_websocket, monkeypatch):
     mock_conn = AsyncMock()
     mock_process = AsyncMock()
     mock_process.kill = MagicMock()
-    mock_process.set_terminal_size = MagicMock()
+    mock_process.change_terminal_size = MagicMock()
     mock_process.stdin = MagicMock()
-    mock_process.stdout.read = AsyncMock(side_effect=["output", ""])
+    mock_process.stdout.read = AsyncMock(side_effect=[b"output", b""])
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
 
@@ -155,7 +154,7 @@ async def test_exec_terminal_resize_event(mock_websocket, monkeypatch):
     await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash")
 
     # Verify resize was called
-    mock_process.set_terminal_size.assert_called_once_with(120, 40)
+    mock_process.change_terminal_size.assert_called_once_with(120, 40)
 
 
 @pytest.mark.asyncio
@@ -166,7 +165,7 @@ async def test_exec_terminal_with_custom_command(mock_websocket, monkeypatch):
     mock_process = AsyncMock()
     mock_process.kill = MagicMock()
     mock_process.stdin = MagicMock()
-    mock_process.stdout.read = AsyncMock(side_effect=[""])
+    mock_process.stdout.read = AsyncMock(side_effect=[b""])
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
 
@@ -217,7 +216,7 @@ async def test_exec_terminal_cmd_injection_is_quoted(mock_websocket, monkeypatch
     mock_process = AsyncMock()
     mock_process.kill = MagicMock()
     mock_process.stdin = MagicMock()
-    mock_process.stdout.read = AsyncMock(side_effect=[""])
+    mock_process.stdout.read = AsyncMock(side_effect=[b""])
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
     monkeypatch.setattr("api.sockets.pool", mock_pool)
@@ -360,21 +359,38 @@ async def test_exec_terminal_sends_prompt_without_newline(mock_websocket, monkey
     mock_process.kill = MagicMock()
     mock_process.stdin = MagicMock()
 
-    # Simulate: PTY emits the bash prompt (no newline), then EOF
-    mock_process.stdout.read = AsyncMock(side_effect=["root@container:/# ", ""])
+    # Prompt delivered on first read; second read signals write_task then blocks
+    prompt_forwarded = asyncio.Event()
+    stdout_block = asyncio.Event()
+    call_count = [0]
+
+    async def read_side_effect(n):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return b"root@container:/# "
+        prompt_forwarded.set()
+        await stdout_block.wait()
+        return b""
+
+    mock_process.stdout.read = read_side_effect
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
     monkeypatch.setattr("api.sockets.pool", mock_pool)
 
-    # TimeoutError first so asyncio.sleep(0) yields to read_output; then disconnect
-    mock_websocket.receive_text.side_effect = [asyncio.TimeoutError(), WebSocketDisconnect()]
+    # write_task waits until read_output has forwarded the prompt, then disconnects
+    async def recv_side_effect():
+        await prompt_forwarded.wait()
+        raise WebSocketDisconnect()
+
+    mock_websocket.receive_text.side_effect = recv_side_effect
 
     await exec_terminal_over_websocket(
         mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash"
     )
 
-    all_sent = [call[0][0] for call in mock_websocket.send_text.call_args_list]
-    assert any("root@container" in msg for msg in all_sent), (
+    # PTY data is sent as binary frames (encoding=None)
+    all_sent = [call[0][0] for call in mock_websocket.send_bytes.call_args_list]
+    assert any(b"root@container" in chunk for chunk in all_sent), (
         f"Shell prompt (no newline) must be forwarded via read(), got: {all_sent}"
     )
 
@@ -390,18 +406,24 @@ async def test_exec_terminal_notifies_on_process_exit(mock_websocket, monkeypatc
     mock_process.stdin = MagicMock()
 
     # Stdout exhausts immediately — simulates process exiting right after launch
-    mock_process.stdout.read = AsyncMock(side_effect=[""])
+    mock_process.stdout.read = AsyncMock(side_effect=[b""])
     mock_conn.create_process.return_value = mock_process
     mock_pool.get_connection.return_value = mock_conn
     monkeypatch.setattr("api.sockets.pool", mock_pool)
 
-    # receive_text times out on the first call (yields to event loop so
-    # read_output can run and set process_done), then disconnects to end test
-    mock_websocket.receive_text.side_effect = [asyncio.TimeoutError(), WebSocketDisconnect()]
+    # write_task blocks indefinitely so read_task can finish first and trigger
+    # the "process exited" notification
+    write_block = asyncio.Event()
+
+    async def blocking_recv():
+        await write_block.wait()
+        raise WebSocketDisconnect()
+
+    mock_websocket.receive_text.side_effect = blocking_recv
 
     await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="myapp", scope="user", cmd="bash")
 
-    # A notification message containing "exited" must have been sent
+    # Process-exit notification is a text control message (not binary PTY data)
     all_sent = [call[0][0] for call in mock_websocket.send_text.call_args_list]
     assert any("exited" in msg.lower() or "process" in msg.lower() for msg in all_sent), (
         f"Expected a process-exit notification but got: {all_sent}"

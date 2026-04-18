@@ -267,10 +267,12 @@ let monitorContainerFilter = '';
 // Currently selected container stem in the inspector (lowercase).
 window._selectedContainerStem = null;
 window._selectedContainerServerId = null;
+window._selectedContainerScope = null;
 
-window.selectContainerStem = function(stem, serverId) {
+window.selectContainerStem = function(stem, serverId, scope) {
     window._selectedContainerStem = (stem || '').toLowerCase();
     window._selectedContainerServerId = parseInt(serverId, 10);
+    window._selectedContainerScope = scope || 'global';
     var emptyEl = document.getElementById('inspector-empty-state');
     if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
     updateInspectorStatsCard();
@@ -1170,24 +1172,8 @@ function populateServerSelector() {
 // ── Terminal Session Management ──────────────────────────
 window._terminalTabs = new Map();   // tabKey → { term, ws, fitAddon, tabEl, paneEl }
 window._activeTerminalTabKey = null;
-window._fitAddonLoaded = false;     // unchanged — script only loads once
-
 function loadFitAddon(callback) {
-    if (window._fitAddonLoaded) {
-        callback();
-        return;
-    }
-    var script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.umd.min.js';
-    script.onload = function() {
-        window._fitAddonLoaded = true;
-        callback();
-    };
-    script.onerror = function() {
-        console.error('Failed to load FitAddon');
-        callback();
-    };
-    document.head.appendChild(script);
+    callback();
 }
 
 function hideTerminalSection() {
@@ -1282,6 +1268,7 @@ window.switchBottomTab = function(pane) {
 window.connectTerminal = function() {
     var stem = window._selectedContainerStem;
     var serverId = window._selectedContainerServerId;
+    var scope = window._selectedContainerScope || 'global';
     if (!stem || !serverId) {
         showTerminalMessage('Select a container from the sidebar first.');
         return;
@@ -1329,11 +1316,11 @@ window.connectTerminal = function() {
     openBottomPanel('terminal');
 
     loadFitAddon(function() {
-        createTerminalTab(tabKey, serverId, containerName, cmd);
+        createTerminalTab(tabKey, serverId, containerName, cmd, scope);
     });
 };
 
-function createTerminalTab(tabKey, serverId, containerName, cmd) {
+function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     var serverName = (lastStatsPerServer[serverId] && lastStatsPerServer[serverId].server_name)
         || ('srv-' + serverId);
     var label = serverName + ':' + containerName;
@@ -1353,6 +1340,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd) {
     closeBtn.setAttribute('aria-label', 'Close ' + label);
     closeBtn.innerHTML = '&times;';
     closeBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         e.stopPropagation();
         closeTerminalTab(tabKey);
     });
@@ -1383,6 +1371,10 @@ function createTerminalTab(tabKey, serverId, containerName, cmd) {
     var hint = document.getElementById('terminal-empty-hint');
     if (hint) hint.style.display = 'none';
 
+    // Toggle DOM visibility BEFORE creating xterm to avoid 0x0 size calculation
+    window._terminalTabs.set(tabKey, { tabEl: tabEl, paneEl: paneEl });
+    switchTerminalTab(tabKey);
+
     // ── xterm instance ──────────────────────────────────
     var term = new Terminal({ rows: 24, cols: 80, cursorBlink: true });
     term.open(xtermDiv);
@@ -1394,8 +1386,9 @@ function createTerminalTab(tabKey, serverId, containerName, cmd) {
     var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     var wsUrl = protocol + '//' + window.location.host
         + '/ws/exec/' + serverId + '/' + encodeURIComponent(containerName)
-        + '?scope=user&cmd=' + encodeURIComponent(cmd);
+        + '?scope=' + encodeURIComponent(scope) + '&cmd=' + encodeURIComponent(cmd);
     var ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
 
     ws.onopen = function() {
         fitAddon.fit();
@@ -1410,7 +1403,9 @@ function createTerminalTab(tabKey, serverId, containerName, cmd) {
         });
     };
 
-    ws.onmessage = function(e) { term.write(e.data); };
+    ws.onmessage = function(e) {
+        term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data);
+    };
 
     ws.onerror = function() {
         term.write('\r\n\u001b[31mConnection error\u001b[0m\r\n');
@@ -1423,7 +1418,12 @@ function createTerminalTab(tabKey, serverId, containerName, cmd) {
 
     window._terminalTabs.set(tabKey, { term: term, ws: ws, fitAddon: fitAddon, tabEl: tabEl, paneEl: paneEl });
 
-    switchTerminalTab(tabKey);
+    setTimeout(function() {
+        if (ws.readyState === WebSocket.OPEN) {
+            fitAddon.fit();
+        }
+        term.focus();
+    }, 10);
 }
 
 window.switchTerminalTab = function(key) {

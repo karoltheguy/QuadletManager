@@ -1,0 +1,11 @@
+{
+  "name": "quadlet-manager",
+  "private": true,
+  "dependencies": {
+    "xterm": "5.3.0",
+    "xterm-addon-fit": "0.8.0"
+  },
+  "scripts": {
+    "copy-assets": "cp node_modules/xterm/lib/xterm.js static/xterm.min.js && cp node_modules/xterm/css/xterm.css static/xterm.min.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/xterm-addon-fit.umd.min.js"
+  }
+}
