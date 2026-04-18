@@ -108,6 +108,7 @@ HTTP endpoints for:
 - Dashboard rendering
 - File CRUD operations
 - Systemctl actions (start/stop/restart/status)
+- Pod actions for `.pod` quadlets via `podman pod start|stop|restart`
 - Server-Sent Events (SSE) stream
 
 #### [`services/ssh_manager.py`](services/ssh_manager.py)
@@ -467,6 +468,7 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/api/systemctl/status/{server_id}` | Get unit status |
 | POST | `/api/systemctl/{server_id}` | Execute action (start/stop/restart) |
+| POST | `/api/pod-action/{server_id}` | Execute pod action (`podman pod start/stop/restart`) |
 
 ### Monitoring Endpoints
 

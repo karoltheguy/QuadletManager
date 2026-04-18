@@ -1625,6 +1625,8 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     var fileName = path.split('/').pop();
     var stem = fileName.replace(/\.[^.]+$/, '');
     var unitName = stem + '.service';
+    var quadletType = fileName.indexOf('.') !== -1 ? fileName.split('.').pop().toLowerCase() : '';
+    var isPod = quadletType === 'pod';
 
     _ctxMenu = document.createElement('div');
     _ctxMenu.className = 'context-menu';
@@ -1654,6 +1656,10 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     startBtn.onclick = function() {
         _ctxMenu.remove();
         _ctxMenu = null;
+        if (isPod) {
+            htmx.ajax('POST', '/api/pod-action/' + serverId + '?action=start&pod_name=' + encodeURIComponent(stem) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
+            return;
+        }
         htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=start&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
     };
     _ctxMenu.appendChild(startBtn);
@@ -1664,6 +1670,10 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     stopBtn.onclick = function() {
         _ctxMenu.remove();
         _ctxMenu = null;
+        if (isPod) {
+            htmx.ajax('POST', '/api/pod-action/' + serverId + '?action=stop&pod_name=' + encodeURIComponent(stem) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
+            return;
+        }
         htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=stop&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
     };
     _ctxMenu.appendChild(stopBtn);

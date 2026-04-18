@@ -304,6 +304,8 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
         content = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
         base_name = name.rsplit('.', 1)[0]
         unit_name = f"{base_name}.service"
+        quadlet_type = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+        pod_name = base_name if quadlet_type == 'pod' else None
         
         safe_content = content.replace('`', '\\`').replace('$', '\\$').replace('<', '\\u003c')
         status_url = f"/api/systemctl/status/{server_id}?unit={unit_name}&scope={scope}"
@@ -316,7 +318,9 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
             "unit_name": unit_name,
             "safe_content": safe_content,
             "status_url": status_url,
-            "user_role": role
+            "user_role": role,
+            "quadlet_type": quadlet_type,
+            "pod_name": pod_name
         })
     except Exception as e:
         logger.error(f"Error fetching file: {e}")
@@ -426,6 +430,37 @@ async def api_systemctl_post(
         return HTMLResponse(output)
     except Exception as e:
         return HTMLResponse(f"Action failed: {str(e)}")
+
+@router.post("/api/pod-action/{server_id}", response_class=HTMLResponse)
+async def api_pod_action(
+    request: Request,
+    server_id: int,
+    action: str,
+    pod_name: str,
+    scope: str,
+    role: str = Depends(get_current_user_role)
+):
+    if role != "editor":
+        return HTMLResponse("Permission denied", status_code=403)
+
+    if action not in ("start", "stop", "restart"):
+        return HTMLResponse(f"Invalid pod action: {action}", status_code=400)
+
+    use_sudo = (scope == 'global')
+    safe_pod_name = shlex.quote(pod_name)
+    cmd = f"podman pod {action} {safe_pod_name}"
+
+    try:
+        output = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
+
+        if action in ("start", "stop", "restart"):
+            session = await _get_session(request)
+            username = session["username"]
+            await record_container_event(server_id, pod_name, action, triggered_by=username)
+
+        return HTMLResponse(output)
+    except Exception as e:
+        return HTMLResponse(f"Pod action failed: {str(e)}")
 
 @router.get("/api/events")
 async def sse_events(request: Request):
