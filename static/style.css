@@ -1488,8 +1488,24 @@ body.view-containers #bottom-panel {
     margin: 0; /* spacing handled by app-container padding + row-gap */
 }
 
+/* Handle is now a sibling grid item (not inside #bottom-panel which has overflow:hidden).
+   Placed in row 2, col 3, aligned to start then pulled up by half the row-gap plus half
+   its own height so its center lands at the exact midpoint of the 1.25rem gap. */
+body.view-containers #bottom-panel-resize-handle {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: start;
+    margin-top: calc(-1.25rem / 2 - 2.5px);
+    z-index: 2;
+}
+
 /* Expand-left: panel covers the full width including the sidebar area */
 body.view-containers #bottom-panel.is-expanded {
+    grid-column: 1 / 4;
+}
+
+/* Handle follows panel width when expanded */
+body.bottom-panel-expanded #bottom-panel-resize-handle {
     grid-column: 1 / 4;
 }
 
@@ -2009,10 +2025,13 @@ body.bottom-panel-expanded #navigator {
     content: '\25B6'; /* ▶ — restore editor alignment */
 }
 
-/* Hide bottom panel on all non-containers views */
+/* Hide bottom panel and its handle on all non-containers views */
 body.view-overview #bottom-panel,
+body.view-overview #bottom-panel-resize-handle,
 body.view-monitor #bottom-panel,
-body.view-settings #bottom-panel { display: none !important; }
+body.view-monitor #bottom-panel-resize-handle,
+body.view-settings #bottom-panel,
+body.view-settings #bottom-panel-resize-handle { display: none !important; }
 
 .bottom-panel-handle {
     height: 5px;
