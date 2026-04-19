@@ -17,9 +17,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 @pytest.mark.asyncio
+@patch('api.routes._ensure_default_theme', new_callable=AsyncMock)
+@patch('api.routes.load_active_theme', new_callable=AsyncMock,
+       return_value={"mode_pref": "auto", "light": {}, "dark": {}})
 @patch('api.routes.get_current_user_is_admin', return_value=True)
 @patch('api.routes.get_current_user_role', return_value='editor')
-async def test_dashboard_view_passes_is_admin_true(mock_role, mock_admin):
+async def test_dashboard_view_passes_is_admin_true(mock_role, mock_admin, mock_load, mock_ensure):
     """dashboard_view must include is_admin=True for admin sessions."""
     from api.routes import dashboard_view
 
@@ -36,6 +39,8 @@ async def test_dashboard_view_passes_is_admin_true(mock_role, mock_admin):
             request=request,
             role='editor',
             is_admin=True,
+            username='admin',
+            user_id=1,
         )
 
     assert 'is_admin' in captured
@@ -43,7 +48,10 @@ async def test_dashboard_view_passes_is_admin_true(mock_role, mock_admin):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_view_passes_is_admin_false():
+@patch('api.routes._ensure_default_theme', new_callable=AsyncMock)
+@patch('api.routes.load_active_theme', new_callable=AsyncMock,
+       return_value={"mode_pref": "auto", "light": {}, "dark": {}})
+async def test_dashboard_view_passes_is_admin_false(mock_load, mock_ensure):
     """dashboard_view must include is_admin=False for non-admin sessions."""
     from api.routes import dashboard_view
 
@@ -60,6 +68,8 @@ async def test_dashboard_view_passes_is_admin_false():
             request=request,
             role='viewer',
             is_admin=False,
+            username='user',
+            user_id=2,
         )
 
     assert 'is_admin' in captured
@@ -129,7 +139,13 @@ def _render_dashboard(is_admin: bool, user_role: str = 'editor') -> str:
     template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template('dashboard.html')
-    return template.render(user_role=user_role, is_admin=is_admin)
+    return template.render(
+        user_role=user_role,
+        is_admin=is_admin,
+        active_theme_mode_pref="auto",
+        active_theme_light={},
+        active_theme_dark={},
+    )
 
 
 def test_admin_sees_server_management_form():

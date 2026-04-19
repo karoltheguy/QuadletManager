@@ -896,6 +896,18 @@ THEME_COLOR_ALLOWLIST = frozenset({
 _HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
+_DEFAULT_COLORS_DARK = {
+    "bg_base": "#1c1f24", "bg_surface": "#22262d", "text_primary": "#e8ecf0",
+    "text_muted": "#8b9199", "brand_primary": "#14b8a6", "success": "#10b981",
+    "danger": "#ef4444", "border_color": "#2e333b",
+}
+_DEFAULT_COLORS_LIGHT = {
+    "bg_base": "#e8ecf0", "bg_surface": "#eef1f5", "text_primary": "#1c1f24",
+    "text_muted": "#6b7280", "brand_primary": "#0d9488", "success": "#059669",
+    "danger": "#dc2626", "border_color": "#d3d8e0",
+}
+
+
 async def _settings_themes_response(request: Request, user_id: int) -> HTMLResponse:
     async with get_db_connection() as db:
         rows = await (await db.execute(
@@ -903,8 +915,30 @@ async def _settings_themes_response(request: Request, user_id: int) -> HTMLRespo
             "FROM user_themes WHERE user_id=? ORDER BY id",
             (user_id,),
         )).fetchall()
+
+    themes = []
+    active_theme = None
+    for row in rows:
+        tid, name, mode_pref, light_json, dark_json, is_active = row
+        light = json.loads(light_json or "{}")
+        dark = json.loads(dark_json or "{}")
+        t = {
+            "id": tid, "name": name, "mode_preference": mode_pref,
+            "light": light, "dark": dark, "is_active": bool(is_active),
+        }
+        themes.append(t)
+        if is_active:
+            active_theme = t
+
     return templates.TemplateResponse(
-        request, "partials/settings_themes_placeholder.html", {"themes": rows}
+        request, "partials/settings_themes.html", {
+            "themes": themes,
+            "active_theme": active_theme,
+            "default_light": _DEFAULT_COLORS_LIGHT,
+            "default_dark": _DEFAULT_COLORS_DARK,
+            "allowlist": ["bg_base", "bg_surface", "text_primary", "text_muted",
+                          "brand_primary", "success", "danger", "border_color"],
+        }
     )
 
 

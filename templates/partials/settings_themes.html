@@ -1,0 +1,173 @@
+<div id="themes-root">
+
+  <!-- Saved themes -->
+  <div class="theme-list">
+    {% for t in themes %}
+    <div class="theme-card {% if t.is_active %}active{% endif %}">
+      <div class="theme-card-header">
+        <span class="theme-card-name">{{ t.name }}</span>
+        <span class="theme-mode-badge">{{ t.mode_preference | capitalize }}</span>
+        {% if t.is_active %}<span class="theme-active-badge">Active</span>{% endif %}
+      </div>
+      <div class="theme-swatch-strip">
+        {% for k in ["bg_base", "bg_surface", "text_primary", "brand_primary", "success", "danger"] %}
+        <span class="theme-swatch" title="{{ k }}"
+              style="background:{{ t.light.get(k, default_light[k]) }}"></span>
+        {% endfor %}
+      </div>
+      <div class="theme-card-actions">
+        {% if not t.is_active %}
+        <button class="btn btn-sm btn-primary"
+                hx-post="/api/settings/themes/{{ t.id }}/activate"
+                hx-target="#themes-root"
+                hx-swap="outerHTML">Activate</button>
+        <button class="btn btn-sm btn-danger"
+                hx-delete="/api/settings/themes/{{ t.id }}"
+                hx-target="#themes-root"
+                hx-swap="outerHTML"
+                hx-confirm="Delete theme '{{ t.name }}'?">Delete</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Create theme -->
+  <div class="settings-subsection">
+    <h4 class="subsection-title">New Theme</h4>
+    <form class="add-server-form"
+          hx-post="/api/settings/themes"
+          hx-target="#themes-root"
+          hx-swap="outerHTML"
+          hx-on::after-request="this.reset()">
+      <div class="form-row">
+        <label class="form-label">Name</label>
+        <input type="text" name="theme_name" class="form-control" required placeholder="ocean">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Copy from</label>
+        <select name="copy_from" class="form-control">
+          <option value="">Defaults</option>
+          {% for t in themes %}
+          <option value="{{ t.id }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary mt-2">Create Theme</button>
+    </form>
+  </div>
+
+  <!-- Color editor for active theme -->
+  {% if active_theme %}
+  <div class="settings-subsection color-editor" data-editing-mode="light">
+    <h4 class="subsection-title">Edit Colors: {{ active_theme.name }}</h4>
+
+    <div class="form-row mode-pref-row">
+      <label class="form-label">Mode preference</label>
+      <div class="radio-group">
+        {% for mode in ["auto", "light", "dark"] %}
+        <label class="radio-label">
+          <input type="radio" name="mode_preference" value="{{ mode }}"
+                 {% if active_theme.mode_preference == mode %}checked{% endif %}
+                 hx-put="/api/settings/themes/{{ active_theme.id }}"
+                 hx-trigger="change"
+                 hx-target="#themes-root"
+                 hx-swap="outerHTML"
+                 hx-include="this">
+          {{ mode | capitalize }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="segmented-control">
+      <button type="button" class="seg-btn active" onclick="setEditorMode(this.closest('.color-editor'), 'light')">Light mode</button>
+      <button type="button" class="seg-btn" onclick="setEditorMode(this.closest('.color-editor'), 'dark')">Dark mode</button>
+    </div>
+
+    <!-- Light mode form -->
+    <form class="color-editor-form"
+          data-mode="light"
+          hx-put="/api/settings/themes/{{ active_theme.id }}/colors"
+          hx-target="#themes-root"
+          hx-swap="outerHTML"
+          hx-on::after-request="clearThemePreview && clearThemePreview()">
+      <input type="hidden" name="mode" value="light">
+      <div class="color-editor-grid">
+        {% for key in allowlist %}
+        {% set val = active_theme.light.get(key, default_light[key]) %}
+        <div class="color-picker-row">
+          <label class="color-key-label">{{ key | replace("_", " ") }}</label>
+          <input type="color" value="{{ val }}" name="{{ key }}"
+                 data-hex-id="light-{{ loop.index }}">
+          <input type="text" id="light-{{ loop.index }}" class="form-control hex-input"
+                 value="{{ val }}" maxlength="7" placeholder="#rrggbb">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="color-editor-actions">
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="applyThemePreview && applyThemePreview(this.closest('form'))">Preview</button>
+        <button type="submit" class="btn btn-sm btn-primary">Save</button>
+        <button type="button" class="btn btn-sm btn-secondary"
+                hx-post="/api/settings/themes/{{ active_theme.id }}/reset"
+                hx-vals='{"mode":"light"}'
+                hx-target="#themes-root"
+                hx-swap="outerHTML"
+                hx-confirm="Reset light mode to defaults?">Reset</button>
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="clearThemePreview && clearThemePreview()">Cancel preview</button>
+      </div>
+    </form>
+
+    <!-- Dark mode form -->
+    <form class="color-editor-form"
+          data-mode="dark"
+          style="display:none"
+          hx-put="/api/settings/themes/{{ active_theme.id }}/colors"
+          hx-target="#themes-root"
+          hx-swap="outerHTML"
+          hx-on::after-request="clearThemePreview && clearThemePreview()">
+      <input type="hidden" name="mode" value="dark">
+      <div class="color-editor-grid">
+        {% for key in allowlist %}
+        {% set val = active_theme.dark.get(key, default_dark[key]) %}
+        <div class="color-picker-row">
+          <label class="color-key-label">{{ key | replace("_", " ") }}</label>
+          <input type="color" value="{{ val }}" name="{{ key }}"
+                 data-hex-id="dark-{{ loop.index }}">
+          <input type="text" id="dark-{{ loop.index }}" class="form-control hex-input"
+                 value="{{ val }}" maxlength="7" placeholder="#rrggbb">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="color-editor-actions">
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="applyThemePreview && applyThemePreview(this.closest('form'))">Preview</button>
+        <button type="submit" class="btn btn-sm btn-primary">Save</button>
+        <button type="button" class="btn btn-sm btn-secondary"
+                hx-post="/api/settings/themes/{{ active_theme.id }}/reset"
+                hx-vals='{"mode":"dark"}'
+                hx-target="#themes-root"
+                hx-swap="outerHTML"
+                hx-confirm="Reset dark mode to defaults?">Reset</button>
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="clearThemePreview && clearThemePreview()">Cancel preview</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function setEditorMode(editor, mode) {
+  editor.setAttribute('data-editing-mode', mode);
+  editor.querySelectorAll('.color-editor-form').forEach(f => {
+    f.style.display = f.dataset.mode === mode ? '' : 'none';
+  });
+  editor.querySelectorAll('.seg-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(mode));
+  });
+}
+</script>
