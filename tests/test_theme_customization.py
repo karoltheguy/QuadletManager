@@ -1,14 +1,12 @@
 """
-Tests for Theme Customization — Phase 1: Schema + seed (Issue #73).
-
-Covers:
-- user_themes table is created with the correct columns and constraints
-- mode_preference CHECK constraint rejects invalid values
-- _ensure_default_theme() inserts exactly one row on first call and is idempotent
-- get_current_user_id() resolves the correct numeric id for a known user
+Tests for Theme Customization.
+- Issue #73: Schema + seed (user_themes table, _ensure_default_theme, get_current_user_id)
+- Issue #74: CRUD API routes (list, create, update, colors, activate, reset, delete, active.css)
 """
 import os
 import sys
+import json as _json
+import time as _time
 import pytest
 import pytest_asyncio
 import aiosqlite
@@ -168,3 +166,279 @@ async def test_get_current_user_id_missing_user_raises_404(fresh_db):
         await get_current_user_id(username="ghost")
 
     assert exc_info.value.status_code == 404
+
+
+# ── Issue #74: CRUD API route tests ──────────────────────────────────────────
+
+
+def _mock_request():
+    r = MagicMock()
+    r.cookies = {}
+    return r
+
+
+@pytest.mark.asyncio
+async def test_create_theme_unique_name_per_user(fresh_db):
+    """Duplicate theme name for same user → 409."""
+    from fastapi import HTTPException
+    from api.routes import settings_create_theme
+
+    now = int(_time.time())
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'MyTheme', 'auto', '{}', '{}', 0, ?, ?)", (now, now),
+        )
+        await db.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_create_theme(
+            request=_mock_request(), theme_name="MyTheme", copy_from=None, user_id=1,
+        )
+    assert exc_info.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_theme_copy_from_existing(fresh_db):
+    """New theme with copy_from inherits light/dark overrides from source."""
+    from api.routes import settings_create_theme
+
+    now = int(_time.time())
+    light = _json.dumps({"bg_base": "#aabbcc"})
+    dark = _json.dumps({"bg_base": "#112233"})
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'Source', 'auto', ?, ?, 1, ?, ?)", (light, dark, now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='Source' AND user_id=1"
+        )).fetchone()
+        source_id = row[0]
+        await db.commit()
+
+    await settings_create_theme(
+        request=_mock_request(), theme_name="Copied", copy_from=source_id, user_id=1,
+    )
+
+    async with aiosqlite.connect(fresh_db) as db:
+        row = await (await db.execute(
+            "SELECT light_overrides_json, dark_overrides_json FROM user_themes "
+            "WHERE theme_name='Copied' AND user_id=1"
+        )).fetchone()
+
+    assert row is not None
+    assert row[0] == light
+    assert row[1] == dark
+
+
+@pytest.mark.asyncio
+async def test_put_colors_allowlist_drops_unknown_keys(fresh_db):
+    """PUT /colors silently drops keys outside the 8-key allowlist; DB row stays clean."""
+    from api.routes import settings_update_theme_colors
+
+    now = int(_time.time())
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'T1', 'auto', '{}', '{}', 0, ?, ?)", (now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='T1' AND user_id=1"
+        )).fetchone()
+        theme_id = row[0]
+        await db.commit()
+
+    request = _mock_request()
+    request.form = AsyncMock(return_value={
+        "mode": "light",
+        "bg_base": "#aabbcc",
+        "nm_shadow_dark": "bad_key",
+        "shadow_raised": "also_bad",
+    })
+
+    await settings_update_theme_colors(request=request, theme_id=theme_id, user_id=1)
+
+    async with aiosqlite.connect(fresh_db) as db:
+        row = await (await db.execute(
+            "SELECT light_overrides_json FROM user_themes WHERE id=? AND user_id=1", (theme_id,),
+        )).fetchone()
+
+    saved = _json.loads(row[0])
+    assert "bg_base" in saved
+    assert "nm_shadow_dark" not in saved
+    assert "shadow_raised" not in saved
+
+
+@pytest.mark.asyncio
+async def test_put_colors_rejects_invalid_hex(fresh_db):
+    """PUT /colors with invalid hex values → 422."""
+    from fastapi import HTTPException
+    from api.routes import settings_update_theme_colors
+
+    now = int(_time.time())
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'T2', 'auto', '{}', '{}', 0, ?, ?)", (now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='T2' AND user_id=1"
+        )).fetchone()
+        theme_id = row[0]
+        await db.commit()
+
+    for bad_val in ("red", "#12", "javascript:alert(1)"):
+        request = _mock_request()
+        request.form = AsyncMock(return_value={"mode": "light", "bg_base": bad_val})
+        with pytest.raises(HTTPException) as exc_info:
+            await settings_update_theme_colors(request=request, theme_id=theme_id, user_id=1)
+        assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_activate_clears_others(fresh_db):
+    """After POST activate, exactly one is_active=1 row exists for that user."""
+    from api.routes import settings_activate_theme
+
+    now = int(_time.time())
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'Theme A', 'auto', '{}', '{}', 1, ?, ?)", (now, now),
+        )
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'Theme B', 'auto', '{}', '{}', 0, ?, ?)", (now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='Theme B' AND user_id=1"
+        )).fetchone()
+        theme_b_id = row[0]
+        await db.commit()
+
+    await settings_activate_theme(request=_mock_request(), theme_id=theme_b_id, user_id=1)
+
+    async with aiosqlite.connect(fresh_db) as db:
+        rows = await (await db.execute(
+            "SELECT id, is_active FROM user_themes WHERE user_id=1"
+        )).fetchall()
+
+    active_rows = [r for r in rows if r[1] == 1]
+    assert len(active_rows) == 1
+    assert active_rows[0][0] == theme_b_id
+
+
+@pytest.mark.asyncio
+async def test_reset_clears_one_mode_only(fresh_db):
+    """POST /reset?mode=light zeroes light_overrides_json but leaves dark_overrides_json unchanged."""
+    from api.routes import settings_reset_theme
+
+    now = int(_time.time())
+    light = _json.dumps({"bg_base": "#ffffff"})
+    dark = _json.dumps({"bg_base": "#000000"})
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'Colorful', 'auto', ?, ?, 0, ?, ?)", (light, dark, now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='Colorful' AND user_id=1"
+        )).fetchone()
+        theme_id = row[0]
+        await db.commit()
+
+    await settings_reset_theme(request=_mock_request(), theme_id=theme_id, mode="light", user_id=1)
+
+    async with aiosqlite.connect(fresh_db) as db:
+        row = await (await db.execute(
+            "SELECT light_overrides_json, dark_overrides_json FROM user_themes WHERE id=? AND user_id=1",
+            (theme_id,),
+        )).fetchone()
+
+    assert row[0] == "{}"
+    assert row[1] == dark
+
+
+@pytest.mark.asyncio
+async def test_delete_active_blocked(fresh_db):
+    """DELETE on the active theme → 400 with a non-empty error message."""
+    from fastapi import HTTPException
+    from api.routes import settings_delete_theme
+
+    now = int(_time.time())
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'ActiveTheme', 'auto', '{}', '{}', 1, ?, ?)", (now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='ActiveTheme' AND user_id=1"
+        )).fetchone()
+        theme_id = row[0]
+        await db.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_delete_theme(request=_mock_request(), theme_id=theme_id, user_id=1)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_cross_user_isolation(fresh_db):
+    """User B's requests against user A's theme ID return 404 (no existence leak)."""
+    from fastapi import HTTPException
+    from api.routes import settings_delete_theme, settings_activate_theme
+
+    now = int(_time.time())
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'UserATheme', 'auto', '{}', '{}', 0, ?, ?)", (now, now),
+        )
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE theme_name='UserATheme' AND user_id=1"
+        )).fetchone()
+        theme_id = row[0]
+        await db.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_delete_theme(request=_mock_request(), theme_id=theme_id, user_id=2)
+    assert exc_info.value.status_code == 404
+
+    with pytest.raises(HTTPException) as exc_info:
+        await settings_activate_theme(request=_mock_request(), theme_id=theme_id, user_id=2)
+    assert exc_info.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_active_css_shape(fresh_db):
+    """GET active.css returns text/css; contains :root[data-theme="light"] only when light overrides exist."""
+    from api.routes import settings_active_css
+
+    now = int(_time.time())
+    light = _json.dumps({"bg_base": "#aabbcc"})
+    async with aiosqlite.connect(fresh_db) as db:
+        await db.execute(
+            "INSERT INTO user_themes (user_id, theme_name, mode_preference, "
+            "light_overrides_json, dark_overrides_json, is_active, created_at, updated_at) "
+            "VALUES (1, 'CSSTheme', 'auto', ?, '{}', 1, ?, ?)", (light, now, now),
+        )
+        await db.commit()
+
+    response = await settings_active_css(user_id=1)
+
+    assert "text/css" in response.headers.get("content-type", "")
+    body = response.body.decode()
+    assert ':root[data-theme="light"]' in body
+    assert "#aabbcc" in body
+    assert ':root[data-theme="dark"]' not in body

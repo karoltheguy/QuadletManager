@@ -1,0 +1,15 @@
+<div id="themes-root">
+  <p class="text-muted" style="font-size:0.85rem;margin-bottom:1rem;">Theme editor UI coming in a future release.</p>
+  <ul style="list-style:none;padding:0;margin:0;">
+    {% for t in themes %}
+    <li style="padding:0.4rem 0;border-bottom:1px solid var(--border-color);">
+      <strong>{{ t[1] }}</strong>
+      &nbsp;<span class="text-muted">({{ t[2] }})</span>
+      {% if t[5] %}&nbsp;<em>active</em>{% endif %}
+      &nbsp;&mdash;&nbsp;light: {{ t[3] }}&nbsp;/&nbsp;dark: {{ t[4] }}
+    </li>
+    {% else %}
+    <li class="text-muted">No themes yet.</li>
+    {% endfor %}
+  </ul>
+</div>

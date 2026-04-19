@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
-from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
 from typing import Optional
 from fastapi.templating import Jinja2Templates
 import hashlib
+import json
 import re
 import shlex
 import time
@@ -861,6 +862,256 @@ async def settings_delete_user(
         await db.commit()
 
     return await settings_list_users(request, role, is_admin=True)
+
+
+# ── Theme Settings ────────────────────────────────────────
+
+THEME_COLOR_ALLOWLIST = frozenset({
+    "bg_base", "bg_surface", "text_primary", "text_muted",
+    "brand_primary", "success", "danger", "border_color",
+})
+_HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+async def _settings_themes_response(request: Request, user_id: int) -> HTMLResponse:
+    async with get_db_connection() as db:
+        rows = await (await db.execute(
+            "SELECT id, theme_name, mode_preference, light_overrides_json, dark_overrides_json, is_active "
+            "FROM user_themes WHERE user_id=? ORDER BY id",
+            (user_id,),
+        )).fetchall()
+    return templates.TemplateResponse(
+        request, "partials/settings_themes_placeholder.html", {"themes": rows}
+    )
+
+
+@router.get("/api/settings/themes", response_class=HTMLResponse)
+async def settings_list_themes(request: Request, user_id: int = Depends(get_current_user_id)):
+    await _ensure_default_theme(user_id)
+    return await _settings_themes_response(request, user_id)
+
+
+@router.post("/api/settings/themes", response_class=HTMLResponse)
+async def settings_create_theme(
+    request: Request,
+    theme_name: str = Form(...),
+    copy_from: Optional[int] = Form(default=None),
+    user_id: int = Depends(get_current_user_id),
+):
+    light_json = "{}"
+    dark_json = "{}"
+    if copy_from is not None:
+        async with get_db_connection() as db:
+            row = await (await db.execute(
+                "SELECT light_overrides_json, dark_overrides_json FROM user_themes WHERE id=? AND user_id=?",
+                (copy_from, user_id),
+            )).fetchone()
+        if row:
+            light_json, dark_json = row[0], row[1]
+
+    now = int(time.time())
+    try:
+        async with get_db_connection() as db:
+            await db.execute(
+                """INSERT INTO user_themes
+                   (user_id, theme_name, mode_preference, light_overrides_json, dark_overrides_json,
+                    is_active, created_at, updated_at)
+                   VALUES (?, ?, 'auto', ?, ?, 0, ?, ?)""",
+                (user_id, theme_name, light_json, dark_json, now, now),
+            )
+            await db.commit()
+    except aiosqlite.IntegrityError:
+        raise HTTPException(status_code=409, detail=f"Theme name '{theme_name}' already exists.")
+
+    return await _settings_themes_response(request, user_id)
+
+
+@router.put("/api/settings/themes/{theme_id}", response_class=HTMLResponse)
+async def settings_update_theme(
+    request: Request,
+    theme_id: int,
+    theme_name: Optional[str] = Form(default=None),
+    mode_preference: Optional[str] = Form(default=None),
+    user_id: int = Depends(get_current_user_id),
+):
+    if mode_preference is not None and mode_preference not in ("auto", "light", "dark"):
+        raise HTTPException(status_code=422, detail="mode_preference must be 'auto', 'light', or 'dark'.")
+
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+        )).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+
+        updates, params = [], []
+        if theme_name is not None:
+            updates.append("theme_name=?")
+            params.append(theme_name)
+        if mode_preference is not None:
+            updates.append("mode_preference=?")
+            params.append(mode_preference)
+        if updates:
+            updates.append("updated_at=?")
+            params.extend([int(time.time()), theme_id, user_id])
+            try:
+                await db.execute(
+                    f"UPDATE user_themes SET {', '.join(updates)} WHERE id=? AND user_id=?", params
+                )
+                await db.commit()
+            except aiosqlite.IntegrityError:
+                raise HTTPException(status_code=409, detail=f"Theme name '{theme_name}' already exists.")
+
+    return await _settings_themes_response(request, user_id)
+
+
+@router.put("/api/settings/themes/{theme_id}/colors", response_class=HTMLResponse)
+async def settings_update_theme_colors(
+    request: Request,
+    theme_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    form = await request.form()
+    mode = form.get("mode", "light")
+    if mode not in ("light", "dark"):
+        raise HTTPException(status_code=422, detail="mode must be 'light' or 'dark'.")
+
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+        )).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+
+        overrides, invalid = {}, []
+        for key, val in form.items():
+            if key == "mode":
+                continue
+            if key not in THEME_COLOR_ALLOWLIST:
+                continue
+            if not _HEX_COLOR_RE.match(str(val)):
+                invalid.append(key)
+            else:
+                overrides[key] = val
+
+        if invalid:
+            raise HTTPException(status_code=422, detail=f"Invalid hex color for: {', '.join(invalid)}")
+
+        col = "light_overrides_json" if mode == "light" else "dark_overrides_json"
+        await db.execute(
+            f"UPDATE user_themes SET {col}=?, updated_at=? WHERE id=? AND user_id=?",
+            (json.dumps(overrides), int(time.time()), theme_id, user_id),
+        )
+        await db.commit()
+
+    response = await _settings_themes_response(request, user_id)
+    response.headers["HX-Trigger"] = "theme-updated"
+    return response
+
+
+@router.post("/api/settings/themes/{theme_id}/activate", response_class=HTMLResponse)
+async def settings_activate_theme(
+    request: Request,
+    theme_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+        )).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+        await db.execute("UPDATE user_themes SET is_active=0 WHERE user_id=?", (user_id,))
+        await db.execute(
+            "UPDATE user_themes SET is_active=1 WHERE id=? AND user_id=?", (theme_id, user_id)
+        )
+        await db.commit()
+
+    response = await _settings_themes_response(request, user_id)
+    response.headers["HX-Trigger"] = "theme-updated"
+    return response
+
+
+@router.post("/api/settings/themes/{theme_id}/reset", response_class=HTMLResponse)
+async def settings_reset_theme(
+    request: Request,
+    theme_id: int,
+    mode: str = "both",
+    user_id: int = Depends(get_current_user_id),
+):
+    if mode not in ("light", "dark", "both"):
+        raise HTTPException(status_code=422, detail="mode must be 'light', 'dark', or 'both'.")
+
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+        )).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+
+        now = int(time.time())
+        if mode == "light":
+            await db.execute(
+                "UPDATE user_themes SET light_overrides_json='{}', updated_at=? WHERE id=? AND user_id=?",
+                (now, theme_id, user_id),
+            )
+        elif mode == "dark":
+            await db.execute(
+                "UPDATE user_themes SET dark_overrides_json='{}', updated_at=? WHERE id=? AND user_id=?",
+                (now, theme_id, user_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE user_themes SET light_overrides_json='{}', dark_overrides_json='{}', "
+                "updated_at=? WHERE id=? AND user_id=?",
+                (now, theme_id, user_id),
+            )
+        await db.commit()
+
+    return await _settings_themes_response(request, user_id)
+
+
+@router.delete("/api/settings/themes/{theme_id}", response_class=HTMLResponse)
+async def settings_delete_theme(
+    request: Request,
+    theme_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT is_active FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+        )).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+        if row[0]:
+            raise HTTPException(status_code=400, detail="Cannot delete the active theme.")
+        await db.execute("DELETE FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id))
+        await db.commit()
+
+    return await _settings_themes_response(request, user_id)
+
+
+@router.get("/api/settings/themes/active.css")
+async def settings_active_css(user_id: int = Depends(get_current_user_id)):
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT light_overrides_json, dark_overrides_json FROM user_themes "
+            "WHERE user_id=? AND is_active=1",
+            (user_id,),
+        )).fetchone()
+
+    css = ""
+    if row:
+        light = json.loads(row[0] or "{}")
+        dark = json.loads(row[1] or "{}")
+        if light:
+            vars_css = " ".join(f"--{k.replace('_', '-')}: {v};" for k, v in light.items())
+            css += f':root[data-theme="light"] {{ {vars_css} }}\n'
+        if dark:
+            vars_css = " ".join(f"--{k.replace('_', '-')}: {v};" for k, v in dark.items())
+            css += f':root[data-theme="dark"] {{ {vars_css} }}\n'
+
+    return Response(content=css, media_type="text/css")
 
 
 # ── SSH Key Management ────────────────────────────────────
