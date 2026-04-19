@@ -480,3 +480,41 @@ async def test_dashboard_route_emits_light_override_selector_when_set(fresh_db):
 
     theme = await load_active_theme(user_id=1)
     assert theme["light"].get("bg_base") == "#abcdef"
+
+
+# ── Issue #77: Frontend JS (static/main.js) ───────────────────────────────────
+
+import os as _os
+_MAIN_JS = _os.path.join(_os.path.dirname(__file__), '..', 'static', 'main.js')
+
+
+def _read_main_js():
+    with open(_MAIN_JS) as f:
+        return f.read()
+
+
+def test_main_js_defines_apply_theme_preview():
+    """applyThemePreview must be defined in static/main.js."""
+    content = _read_main_js()
+    assert 'function applyThemePreview' in content
+
+
+def test_main_js_defines_clear_theme_preview():
+    """clearThemePreview must be defined in static/main.js."""
+    content = _read_main_js()
+    assert 'function clearThemePreview' in content
+
+
+def test_toggle_theme_uses_qm_theme_override_key():
+    """toggleTheme must persist to 'qm-theme-override' (matches FOUC init script)."""
+    content = _read_main_js()
+    toggle_start = content.find('function toggleTheme')
+    toggle_end = content.find('\n}', toggle_start) + 2
+    toggle_body = content[toggle_start:toggle_end]
+    assert 'qm-theme-override' in toggle_body
+
+
+def test_theme_updated_listener_registered():
+    """main.js must register a 'theme-updated' body event listener."""
+    content = _read_main_js()
+    assert "theme-updated" in content

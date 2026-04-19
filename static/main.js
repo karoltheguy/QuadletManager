@@ -22,9 +22,58 @@ function toggleTheme() {
     }
     var next = current === 'light' ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
-    try { localStorage.setItem('qm-theme', next); } catch (e) {}
+    try { localStorage.setItem('qm-theme-override', next); } catch (e) {}
     applyChartTheme();
 }
+
+// ── Theme Preview ─────────────────────────────────────────
+function applyThemePreview(form) {
+    var mode = form.dataset.mode;
+    var rules = '';
+    form.querySelectorAll('input[type="color"][name]').forEach(function(inp) {
+        rules += '--' + inp.name.replace(/_/g, '-') + ':' + inp.value + ';';
+    });
+    var css = ':root[data-theme="' + mode + '"]{' + rules + '}';
+    var el = document.getElementById('qm-theme-preview');
+    if (!el) {
+        el = document.createElement('style');
+        el.id = 'qm-theme-preview';
+        var anchor = document.getElementById('qm-theme-overrides');
+        if (anchor) anchor.insertAdjacentElement('afterend', el);
+        else document.head.appendChild(el);
+    }
+    el.textContent = css;
+}
+
+function clearThemePreview() {
+    var el = document.getElementById('qm-theme-preview');
+    if (el) el.remove();
+}
+
+// ── Hex ⇄ Color-picker sync (event delegation on #themes-root) ───────────────
+document.addEventListener('change', function(e) {
+    if (e.target.type === 'color' && e.target.dataset.hexId) {
+        var txt = document.getElementById(e.target.dataset.hexId);
+        if (txt) txt.value = e.target.value;
+    }
+});
+document.addEventListener('input', function(e) {
+    if (!e.target.classList.contains('hex-input')) return;
+    var val = e.target.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+        e.target.style.outline = '';
+        var picker = document.querySelector('input[type="color"][data-hex-id="' + e.target.id + '"]');
+        if (picker) picker.value = val;
+    } else {
+        e.target.style.outline = '2px solid red';
+    }
+});
+
+// ── Theme-updated HTMX trigger ────────────────────────────────────────────────
+document.body.addEventListener('theme-updated', function() {
+    clearThemePreview();
+    applyChartTheme();
+});
 
 // Mark the clicked quadlet tree button as selected (inset state).
 // Called inline from partials/quadlet_tree.html onclick.
@@ -980,6 +1029,7 @@ window.showSettingsSection = function(name) {
     btn.classList.toggle('active', btn.dataset.section === name);
   });
   if (name === 'servers') refreshSshKeyDropdown();
+  if (name !== 'themes') clearThemePreview();
 };
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
