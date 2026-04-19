@@ -52,12 +52,6 @@
         <div id="navigator" class="sidebar">
             <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
                 <h2 class="panel-title">Servers</h2>
-                {% if user_role == 'editor' %}
-                <button class="btn btn-primary btn-sm"
-                        hx-get="/api/modal/new" hx-target="body" hx-swap="beforeend">
-                    + New
-                </button>
-                {% endif %}
             </div>
             <div hx-get="/api/servers" hx-trigger="load, reload-servers from:body" class="mt-4">Loading servers...</div>
         </div>

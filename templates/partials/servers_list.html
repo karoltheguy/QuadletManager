@@ -1,7 +1,17 @@
 <ul class="space-y-4 text-sm">
     {% for server in servers %}
     <li>
-        <div class="font-bold text-lg mb-1">{{ server[1] }}</div>
+        <div class="server-row">
+            <div class="font-bold text-lg">{{ server[1] }}</div>
+            {% if user_role == 'editor' %}
+            <button class="server-new-btn"
+                    hx-get="/api/modal/new?server_id={{ server[0] }}"
+                    hx-target="body"
+                    hx-swap="beforeend"
+                    title="New quadlet on {{ server[1] }}"
+                    aria-label="New quadlet on {{ server[1] }}">+</button>
+            {% endif %}
+        </div>
         <div class="pl-4 text-sm" hx-get="/api/quadlets/{{ server[0] }}" hx-trigger="load">
             Scanning quadlets...
         </div>

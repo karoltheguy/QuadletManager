@@ -212,13 +212,14 @@ async def dashboard_view(
     })
 
 @router.get("/api/servers", response_class=HTMLResponse)
-async def api_servers(request: Request):
+async def api_servers(request: Request, role: str = Depends(get_current_user_role)):
     async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
             servers = await cursor.fetchall()
 
     return templates.TemplateResponse(request, "partials/servers_list.html", {
-        "servers": servers
+        "servers": servers,
+        "user_role": role,
     })
 
 @router.get("/api/overview", response_class=HTMLResponse)
@@ -480,16 +481,17 @@ async def get_activity(server_id: int, container: str, limit: int = 10, role: st
         raise HTTPException(status_code=500, detail=f"Failed to fetch activity: {str(e)}")
 
 @router.get("/api/modal/new", response_class=HTMLResponse)
-async def new_file_modal(request: Request, role: str = Depends(get_current_user_role)):
+async def new_file_modal(request: Request, server_id: int | None = None, role: str = Depends(get_current_user_role)):
     if role != "editor":
         return HTMLResponse("<div class='bg-red-600 p-2 rounded'>Permission denied</div>", status_code=403)
-        
+
     async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
             servers = await cursor.fetchall()
-            
+
     return templates.TemplateResponse(request, "partials/modal_new.html", {
-        "servers": servers
+        "servers": servers,
+        "preselected_server_id": server_id,
     })
 
 @router.post("/api/create", response_class=HTMLResponse)

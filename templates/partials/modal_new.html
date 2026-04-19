@@ -6,7 +6,7 @@
                 <label class="form-label">Target Server</label>
                 <select name="server_id" class="form-control">
                     {% for s in servers %}
-                    <option value="{{ s[0] }}">{{ s[1] }}</option>
+                    <option value="{{ s[0] }}" {% if s[0] == preselected_server_id %}selected{% endif %}>{{ s[1] }}</option>
                     {% endfor %}
                 </select>
             </div>

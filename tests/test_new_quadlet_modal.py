@@ -93,3 +93,87 @@ async def test_create_endpoint_returns_reload_trigger(mock_execute, mock_db):
     assert response.headers.get("HX-Trigger") == "reload-servers", (
         "Response must trigger a server-list reload so the new file appears in the tree."
     )
+
+
+def _make_db_mock(servers):
+    mock_cursor = AsyncMock()
+    mock_cursor.fetchall.return_value = servers
+    cursor_ctx = AsyncMock()
+    cursor_ctx.__aenter__.return_value = mock_cursor
+    conn_mock = AsyncMock()
+    conn_mock.execute = MagicMock(return_value=cursor_ctx)
+    db_ctx = AsyncMock()
+    db_ctx.__aenter__.return_value = conn_mock
+    return db_ctx
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_modal_preselects_server_when_server_id_provided(mock_db):
+    """When server_id is passed as a query param, the matching option is pre-selected."""
+    from api.routes import new_file_modal
+
+    mock_db.return_value = _make_db_mock([(1, "alpha"), (2, "beta")])
+
+    request = MagicMock()
+    request.cookies = {}
+
+    response = await new_file_modal(request=request, server_id=2, role="editor")
+    body = response.body.decode()
+
+    assert '<option value="2"' in body
+    assert 'value="2" selected' in body or 'value="2"  selected' in body or 'selected' in body
+    assert 'value="1"' in body
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_modal_no_preselect_when_server_id_omitted(mock_db):
+    """When server_id is not provided, no option is forcibly pre-selected."""
+    from api.routes import new_file_modal
+
+    mock_db.return_value = _make_db_mock([(1, "alpha"), (2, "beta")])
+
+    request = MagicMock()
+    request.cookies = {}
+
+    response = await new_file_modal(request=request, server_id=None, role="editor")
+    body = response.body.decode()
+
+    assert 'selected' not in body
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_servers_list_shows_new_btn_for_editor(mock_db):
+    """Editor role gets a + button on each server row with correct title/aria-label."""
+    from api.routes import api_servers
+
+    mock_db.return_value = _make_db_mock([(3, "my-server")])
+
+    request = MagicMock()
+    request.cookies = {}
+
+    response = await api_servers(request=request, role="editor")
+    body = response.body.decode()
+
+    assert 'server-new-btn' in body
+    assert 'New quadlet on my-server' in body
+    assert 'server_id=3' in body
+
+
+@pytest.mark.asyncio
+@patch('api.routes.get_db_connection')
+async def test_servers_list_hides_new_btn_for_viewer(mock_db):
+    """Viewer role must not see the + button."""
+    from api.routes import api_servers
+
+    mock_db.return_value = _make_db_mock([(3, "my-server")])
+
+    request = MagicMock()
+    request.cookies = {}
+
+    response = await api_servers(request=request, role="viewer")
+    body = response.body.decode()
+
+    assert 'server-new-btn' not in body
