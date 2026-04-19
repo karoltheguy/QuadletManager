@@ -314,6 +314,33 @@ def _make_db_mock(server_rows):
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+async def test_deduplicates_same_name_container_across_scopes(mock_get_db, mock_fetch, mock_publisher, mock_record):
+    """When the same container name appears in both rootless and rootful scopes,
+    fetch_server_stats must deduplicate so _record_health_history receives only one entry."""
+    mock_get_db.side_effect = _make_db_mock([(1, "testbox")])
+
+    nginx_user = {"name": "nginx", "cpu": "1%", "mem": "2%",
+                  "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}
+    nginx_global = {"name": "nginx", "cpu": "1%", "mem": "2%",
+                    "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}
+
+    mock_fetch.side_effect = [[nginx_user], [nginx_global]]
+    mock_publisher.publish = AsyncMock()
+
+    await fetch_server_stats()
+
+    record_call_containers = mock_record.call_args[0][1]
+    names = [c["name"] for c in record_call_containers]
+    assert names.count("nginx") == 1, (
+        f"Expected 'nginx' once in _record_health_history, got {names.count('nginx')} times."
+    )
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
+@patch("services.stats_engine.publisher")
+@patch("services.stats_engine._fetch_scope_stats")
+@patch("services.stats_engine.get_db_connection")
 async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """fetch_server_stats should merge rootless + rootful containers."""
     mock_get_db.side_effect = _make_db_mock([(1, "testbox")])

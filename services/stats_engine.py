@@ -276,7 +276,11 @@ async def fetch_server_stats():
                 tasks.append(_fetch_scope_stats(server_id, rootful=True))
 
             results = await asyncio.gather(*tasks)
-            containers = [c for scope_result in results for c in scope_result]
+            seen: dict[str, dict] = {}
+            for c in (c for scope_result in results for c in scope_result):
+                if c["name"] not in seen:
+                    seen[c["name"]] = c
+            containers = list(seen.values())
 
             await publisher.publish("stats_update", {
                 "server_id": server_id,

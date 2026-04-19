@@ -258,3 +258,53 @@ async def test_overview_total_counts_in_stat_tiles(mock_get_db):
     assert "prod-server" in body
     assert "staging-server" in body
 
+
+@pytest.mark.asyncio
+@patch("api.routes.get_db_connection")
+async def test_overview_deduplicates_duplicate_db_rows(mock_get_db):
+    """When DB returns duplicate rows for the same container name (e.g. from
+    scope-collision writes), each container must appear exactly once in the HTML."""
+    from api.routes import api_overview
+
+    servers_rows = [(1, "prod-server")]
+    # Simulate two identical rows for 'nginx' — same name, same status
+    history_rows = [
+        ("nginx", 1, "healthy"),
+        ("nginx", 1, "healthy"),
+    ]
+
+    call_count = 0
+
+    def _make_cursor(rows):
+        cursor = AsyncMock()
+        cursor.fetchall = AsyncMock(return_value=rows)
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=cursor)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    mock_db = AsyncMock()
+
+    def _execute_side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _make_cursor(servers_rows if call_count == 1 else history_rows)
+
+    mock_db.execute = MagicMock(side_effect=_execute_side_effect)
+    mock_db_cm = AsyncMock()
+    mock_db_cm.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db_cm.__aexit__ = AsyncMock(return_value=False)
+    mock_get_db.return_value = mock_db_cm
+
+    mock_request = MagicMock()
+    response = await api_overview(mock_request)
+    body = response.body.decode()
+
+    # nginx should appear exactly once as a container entry, not twice
+    # The overview template renders each container in a list item with the name
+    container_count = body.count("nginx")
+    assert container_count == 1, (
+        f"Expected 'nginx' to appear exactly once, but found {container_count} occurrences. "
+        "Duplicate DB rows are leaking through to the rendered output."
+    )
+
