@@ -3,13 +3,15 @@
 <head>
     <title>QuadletManager Setup</title>
     <script>
-      // Theme init — runs before paint to avoid flash. Follows OS unless user overrode.
       (function () {
         try {
-          var saved = localStorage.getItem('qm-theme');
-          if (saved === 'light' || saved === 'dark') {
-            document.documentElement.setAttribute('data-theme', saved);
-          }
+          var pref = {{ active_theme_mode_pref | tojson }};
+          var quickOverride = localStorage.getItem('qm-theme-override');
+          var effective = quickOverride || pref || 'auto';
+          var resolved = effective === 'auto'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : effective;
+          document.documentElement.setAttribute('data-theme', resolved);
         } catch (e) {}
       })();
     </script>
@@ -19,6 +21,14 @@
     <script src="/static/xterm-addon-fit.umd.min.js"></script>
     <link rel="stylesheet" href="/static/xterm.min.css">
     <link rel="stylesheet" href="/static/style.css">
+    <style id="qm-theme-overrides">
+      :root[data-theme="light"] {
+        {% for k, v in active_theme_light.items() %}--{{ k|replace('_','-') }}: {{ v }};{% endfor %}
+      }
+      :root[data-theme="dark"] {
+        {% for k, v in active_theme_dark.items() %}--{{ k|replace('_','-') }}: {{ v }};{% endfor %}
+      }
+    </style>
 </head>
 <body>
     <nav class="top-nav">

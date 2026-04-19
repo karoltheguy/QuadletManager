@@ -125,6 +125,23 @@ async def get_current_user_id(username: str = Depends(get_current_username)) -> 
     return row[0]
 
 
+async def load_active_theme(user_id: int) -> dict:
+    """Return mode_pref + parsed light/dark override dicts for the user's active theme."""
+    async with get_db_connection() as db:
+        row = await (await db.execute(
+            "SELECT mode_preference, light_overrides_json, dark_overrides_json "
+            "FROM user_themes WHERE user_id=? AND is_active=1",
+            (user_id,),
+        )).fetchone()
+    if not row:
+        return {"mode_pref": "auto", "light": {}, "dark": {}}
+    return {
+        "mode_pref": row[0],
+        "light": json.loads(row[1] or "{}"),
+        "dark": json.loads(row[2] or "{}"),
+    }
+
+
 async def _ensure_default_theme(user_id: int) -> None:
     """Lazily insert a single Default theme row for a user who has none yet."""
     async with get_db_connection() as db:
@@ -205,11 +222,17 @@ async def dashboard_view(
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
     username: str = Depends(get_current_username),
+    user_id: int = Depends(get_current_user_id),
 ):
+    await _ensure_default_theme(user_id)
+    active_theme = await load_active_theme(user_id)
     return templates.TemplateResponse(request, "dashboard.html", {
         "user_role": role,
         "is_admin": is_admin,
         "username": username,
+        "active_theme_mode_pref": active_theme["mode_pref"],
+        "active_theme_light": active_theme["light"],
+        "active_theme_dark": active_theme["dark"],
     })
 
 @router.get("/api/servers", response_class=HTMLResponse)

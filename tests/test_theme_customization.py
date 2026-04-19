@@ -442,3 +442,41 @@ async def test_active_css_shape(fresh_db):
     assert ':root[data-theme="light"]' in body
     assert "#aabbcc" in body
     assert ':root[data-theme="dark"]' not in body
+
+
+# ── Issue #75: Dashboard route theme context ──────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_dashboard_route_includes_active_theme_context(fresh_db):
+    """GET / must render qm-theme-overrides style block in the page body."""
+    from api.routes import load_active_theme, _ensure_default_theme
+
+    await _ensure_default_theme(user_id=1)
+    theme = await load_active_theme(user_id=1)
+
+    assert "mode_pref" in theme
+    assert "light" in theme
+    assert "dark" in theme
+    assert theme["mode_pref"] in ("auto", "light", "dark")
+    assert isinstance(theme["light"], dict)
+    assert isinstance(theme["dark"], dict)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_route_emits_light_override_selector_when_set(fresh_db):
+    """load_active_theme returns light overrides that were saved for the active theme."""
+    import json as _j
+    from api.routes import load_active_theme, _ensure_default_theme
+
+    await _ensure_default_theme(user_id=1)
+
+    async with aiosqlite.connect(fresh_db) as db:
+        overrides = _j.dumps({"bg_base": "#abcdef"})
+        await db.execute(
+            "UPDATE user_themes SET light_overrides_json=? WHERE user_id=1 AND is_active=1",
+            (overrides,),
+        )
+        await db.commit()
+
+    theme = await load_active_theme(user_id=1)
+    assert theme["light"].get("bg_base") == "#abcdef"
