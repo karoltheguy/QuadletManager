@@ -1,3 +1,30 @@
+// ── Server Collapse ───────────────────────────────────────
+window.toggleServerCollapse = function(serverId) {
+    var li = document.querySelector('li[data-server-id="' + serverId + '"]');
+    if (!li) return;
+    var collapsed = li.classList.toggle('is-collapsed');
+    var btn = li.querySelector('.server-row-toggle');
+    if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+};
+
+document.addEventListener('keydown', function(e) {
+    var toggle = e.target.closest('.server-row-toggle');
+    if (!toggle) return;
+    var li = toggle.closest('li[data-server-id]');
+    if (!li) return;
+    var sid = li.dataset.serverId;
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (!li.classList.contains('is-collapsed')) window.toggleServerCollapse(sid);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (li.classList.contains('is-collapsed')) window.toggleServerCollapse(sid);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        window.toggleServerCollapse(sid);
+    }
+});
+
 // ── Profile Menu ─────────────────────────────────────────
 function toggleProfileMenu(event) {
     event.stopPropagation();
