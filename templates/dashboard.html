@@ -212,7 +212,8 @@
               <div class="form-row">
                 <label class="form-label">SSH Key</label>
                 <select name="ssh_key_id" class="form-control" required
-                        hx-get="/api/keys/options" hx-trigger="load, key-added from:body">
+                        hx-get="/api/keys/options" hx-trigger="load, key-added from:body"
+                        hx-target="this" hx-swap="innerHTML">
                   <option value="">Loading keys...</option>
                 </select>
               </div>

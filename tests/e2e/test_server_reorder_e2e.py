@@ -23,14 +23,28 @@ BASE_URL = "http://localhost:8000"
 
 
 def _goto_servers_settings(page: Page):
+    # Wait for the htmx load of servers content during page load.
+    # This ensures initServerDrag() runs (sets drag listeners) before any test interaction.
+    # A forced refresh-servers would replace #servers-tbody without re-running the inline script.
     try:
-        page.goto(BASE_URL + "/")
+        with page.expect_response(
+            lambda r: r.url.rstrip("/").endswith("/api/settings/servers")
+                      and r.request.method == "GET",
+            timeout=5000,
+        ):
+            page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()
     page.click(".settings-sidenav-item[data-section='servers']")
-    page.wait_for_timeout(400)
+    # Give htmx time to apply the DOM update from the initial page-load response.
+    # hx-trigger="load" fires at DOMContentLoaded while #settings-pane is display:none,
+    # making DOM-update timing unreliable; 10s covers the worst-case async lag.
+    page.wait_for_function(
+        "() => document.querySelector('#servers-tbody tr[data-server-id]') !== null",
+        timeout=10000,
+    )
 
 
 def _get_server_row_ids(page: Page) -> list:
@@ -86,7 +100,8 @@ def test_drag_reorders_rows_in_dom(page: Page):
         pytest.skip("Need at least 2 servers to test reordering.")
 
     first_id, second_id = row_ids[0], row_ids[1]
-    _simulate_drag(page, first_id, second_id)
+    # Drag second_id onto first_id: insertBefore(row_second, row_first) → second becomes first
+    _simulate_drag(page, second_id, first_id)
     page.wait_for_timeout(300)
 
     new_order = _get_server_row_ids(page)
@@ -104,13 +119,12 @@ def test_reorder_persists_after_page_reload(page: Page):
         pytest.skip("Need at least 2 servers to test persistence.")
 
     first_id, second_id = row_ids[0], row_ids[1]
-    _simulate_drag(page, first_id, second_id)
-    page.wait_for_timeout(600)  # wait for fetch to complete
+    with page.expect_response("**/api/settings/servers/reorder"):
+        _simulate_drag(page, second_id, first_id)
 
     page.reload()
     page.click("button.nav-item:has-text('Settings')")
     page.click(".settings-sidenav-item[data-section='servers']")
-    page.wait_for_timeout(400)
 
     persisted_order = _get_server_row_ids(page)
     assert persisted_order[0] == second_id, (
@@ -126,8 +140,10 @@ def test_sidebar_reflects_management_list_order(page: Page):
         pytest.skip("Need at least 2 servers to test sidebar order.")
 
     first_id, second_id = row_ids[0], row_ids[1]
-    _simulate_drag(page, first_id, second_id)
-    page.wait_for_timeout(600)
+    with page.expect_response("**/api/servers") as _sidebar_resp:
+        with page.expect_response("**/api/settings/servers/reorder"):
+            _simulate_drag(page, second_id, first_id)
+        # PATCH done → reload-servers dispatched → htmx fires GET /api/servers
 
     # Sidebar server items, ordered by DOM position
     sidebar_ids = page.evaluate("""
