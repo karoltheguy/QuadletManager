@@ -13,6 +13,10 @@
             : effective;
           document.documentElement.setAttribute('data-theme', resolved);
         } catch (e) {}
+        try {
+          var density = localStorage.getItem('qm-density');
+          if (density === 'compact') document.documentElement.setAttribute('data-density', 'compact');
+        } catch (e) {}
       })();
     </script>
     <script src="https://unpkg.com/htmx.org@1.9.11"></script>
@@ -319,6 +323,24 @@
                  hx-trigger="load"
                  hx-swap="outerHTML">
               <p class="text-muted">Loading themes...</p>
+            </div>
+          </div>
+          <div class="settings-section full-width" id="density-section">
+            <h3 class="section-title mb-4">UI Density</h3>
+            <div class="form-row mode-pref-row">
+              <label class="form-label">Layout spacing</label>
+              <div class="radio-group" id="density-radio-group">
+                <label class="radio-label">
+                  <input type="radio" name="ui_density" value="relaxed"
+                         onchange="toggleDensity('relaxed')"
+                         id="density-relaxed"> Relaxed
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="ui_density" value="compact"
+                         onchange="toggleDensity('compact')"
+                         id="density-compact"> Compact
+                </label>
+              </div>
             </div>
           </div>
         </div>

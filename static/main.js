@@ -26,6 +26,24 @@ function toggleTheme() {
     applyChartTheme();
 }
 
+// ── Density Toggle ───────────────────────────────────────
+window.toggleDensity = function(value) {
+    var root = document.documentElement;
+    if (value === 'compact') {
+        root.setAttribute('data-density', 'compact');
+    } else {
+        root.removeAttribute('data-density');
+    }
+    try { localStorage.setItem('qm-density', value); } catch (e) {}
+};
+
+function initDensityRadio() {
+    var stored = 'relaxed';
+    try { stored = localStorage.getItem('qm-density') || 'relaxed'; } catch (e) {}
+    var radio = document.getElementById('density-' + stored);
+    if (radio) radio.checked = true;
+}
+
 // ── Theme Preview ─────────────────────────────────────────
 function applyThemePreview(form) {
     var mode = form.dataset.mode;
@@ -1030,6 +1048,7 @@ window.showSettingsSection = function(name) {
   });
   if (name === 'servers') refreshSshKeyDropdown();
   if (name !== 'themes') clearThemePreview();
+  if (name === 'themes') initDensityRadio();
 };
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
