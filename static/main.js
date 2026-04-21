@@ -1402,7 +1402,9 @@ window.toggleBottomPanelExpand = function() {
 window.switchBottomTab = function(pane) {
     try { localStorage.setItem('qm-bottom-tab', pane); } catch(e) {}
     document.querySelectorAll('.bottom-tab').forEach(function(btn) {
-        btn.classList.toggle('is-active', btn.dataset.pane === pane);
+        var isActive = btn.dataset.pane === pane;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
     document.querySelectorAll('.bottom-pane').forEach(function(p) {
         p.classList.toggle('hidden', p.id !== 'bottom-' + pane + '-pane');
@@ -1633,6 +1635,16 @@ window.disconnectTerminal = function() {
     if (key) closeTerminalTab(key);
 };
 
+window.sessionAddNew = function() {
+    var activeTab = document.querySelector('.bottom-tab.is-active');
+    var pane = activeTab ? activeTab.dataset.pane : 'terminal';
+    if (pane === 'logs') {
+        tailLogsFromPanel();
+    } else {
+        connectTerminal();
+    }
+};
+
 // Handle shell selector changes (setup after DOM is ready)
 var setupShellSelector = function() {
     var shellSelect = document.getElementById('terminal-shell-select');
@@ -1647,6 +1659,17 @@ var setupShellSelector = function() {
         });
     }
 };
+
+// Ctrl+1 / Ctrl+2 — switch bottom panel tabs when panel is open
+document.addEventListener('keydown', function(e) {
+    if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+    var tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    var panel = document.getElementById('bottom-panel');
+    if (!panel || panel.classList.contains('is-collapsed')) return;
+    if (e.key === '1') { e.preventDefault(); switchBottomTab('terminal'); }
+    else if (e.key === '2') { e.preventDefault(); switchBottomTab('logs'); }
+});
 
 // ── Global window resize handler for the active terminal tab ────────────────
 window.addEventListener('resize', function() {
@@ -2011,7 +2034,7 @@ window.toggleLogs = function(serverId, unitName, scope) {
     if (logDiv) logDiv.textContent = 'Connecting to log stream...\n';
 
     if (btn) btn.innerText = 'Stop Logs';
-    if (btn) btn.classList.replace('btn-primary', 'btn-warning');
+    if (btn) { btn.classList.remove('btn-primary'); btn.classList.add('is-tailing'); }
 
     const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
     currentLogSocket = new WebSocket(wsUrl);
@@ -2028,7 +2051,7 @@ window.toggleLogs = function(serverId, unitName, scope) {
             if (logDiv) logDiv.textContent += '\n--- Log stream disconnected ---\n';
             currentLogSocket = null;
             if (btn) btn.innerText = 'Tail Logs';
-            if (btn) btn.classList.replace('btn-warning', 'btn-primary');
+            if (btn) { btn.classList.remove('is-tailing'); btn.classList.add('btn-primary'); }
         }
     };
 
@@ -2047,7 +2070,8 @@ function stopLogs() {
     var btn = document.getElementById('toggle-logs-btn');
     if (btn) {
         btn.innerText = 'Tail Logs';
-        btn.classList.replace('btn-warning', 'btn-primary');
+        btn.classList.remove('is-tailing');
+        btn.classList.add('btn-primary');
     }
     var logDiv = document.getElementById('log-stream');
     if (logDiv) logDiv.textContent += '\n--- Stopped ---\n';

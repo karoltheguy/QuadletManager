@@ -411,35 +411,47 @@
     <!-- ── Bottom Panel: Terminal + Logs ─────────────────── -->
     <div id="bottom-panel" class="bottom-panel">
       <div class="bottom-panel-header">
-        <button id="bottom-panel-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanelExpand()" aria-label="Expand panel to full width" title="Expand panel to full width"></button>
-        <div class="bottom-panel-tabs-group">
-          <div class="bottom-panel-tabs">
-            <button class="bottom-tab is-active" data-pane="terminal" onclick="switchBottomTab('terminal')">Terminal</button>
-            <button class="bottom-tab" data-pane="logs" onclick="switchBottomTab('logs')">Logs</button>
-          </div>
-          <div class="terminal-controls">
-              <label for="terminal-shell-select" class="terminal-label">Shell:</label>
-              <select id="terminal-shell-select" class="form-control terminal-shell-select">
-                <option value="bash">bash</option>
-                <option value="sh">sh</option>
-                <option value="custom">Custom command...</option>
-              </select>
+        <!-- Row 1: mode tabs + divider + inline controls + right-edge buttons -->
+        <div class="bottom-panel-header-row1">
+          <div class="bottom-panel-tabs-group">
+            <div class="bottom-panel-tabs" role="tablist" aria-label="Panel mode">
+              <button class="bottom-tab is-active" data-pane="terminal" role="tab" aria-selected="true" onclick="switchBottomTab('terminal')">Terminal</button>
+              <button class="bottom-tab" data-pane="logs" role="tab" aria-selected="false" onclick="switchBottomTab('logs')">Logs</button>
+            </div>
+            <div class="bottom-panel-header-divider" aria-hidden="true"></div>
+            <div class="terminal-controls">
+              <div class="shell-pill">
+                <span class="shell-pill-prefix" aria-hidden="true">❯_</span>
+                <select id="terminal-shell-select" class="terminal-shell-select" aria-label="Shell">
+                  <option value="bash">bash</option>
+                  <option value="sh">sh</option>
+                  <option value="custom">custom…</option>
+                </select>
+              </div>
               <div id="terminal-custom-cmd-row" class="terminal-custom-cmd-row hidden">
                 <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
               </div>
               <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
-          </div>
-          <div class="logs-controls hidden">
+            </div>
+            <div class="logs-controls hidden">
               <button id="toggle-logs-btn" class="btn btn-primary btn-sm" onclick="tailLogsFromPanel()">Tail Logs</button>
+            </div>
+          </div>
+          <div class="bottom-panel-header-actions">
+            <button id="bottom-panel-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanelExpand()" aria-label="Expand panel to full width" title="Expand panel to full width"></button>
+            <button id="bottom-panel-minimize-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanel()" aria-label="Minimize panel" title="Minimize panel">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
           </div>
         </div>
-        <button id="bottom-panel-minimize-btn" class="btn btn-sm btn-secondary" onclick="toggleBottomPanel()" aria-label="Minimize panel" title="Minimize panel">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
+        <!-- Row 2: sessions strip (mode-independent) -->
+        <div id="bottom-panel-sessions-strip" class="bottom-panel-sessions-strip">
+          <div id="terminal-conn-tabs" class="terminal-conn-tabs"></div>
+          <button id="session-add-btn" class="session-add-btn" onclick="sessionAddNew()" aria-label="New session" title="New session">+</button>
+        </div>
       </div>
       <div class="bottom-panel-body">
         <div id="bottom-terminal-pane" class="bottom-pane">
-          <div id="terminal-conn-tabs" class="terminal-conn-tabs"></div>
           <div id="terminal-tabs-body" class="terminal-tabs-body">
             <div id="terminal-empty-hint" class="terminal-empty-state">
               Select a running container and click Connect

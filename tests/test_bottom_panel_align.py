@@ -32,7 +32,7 @@ class LayoutParser(HTMLParser):
         # Results
         self.expand_btn_found = False
         self.expand_btn_in_header = False
-        self.expand_btn_before_tabs = False   # expand btn must precede .bottom-panel-tabs
+        self.expand_btn_in_header_actions = False  # expand btn in right-edge .bottom-panel-header-actions
         self.navigator_in_app_container = False   # navigator must be direct child of .app-container
         self.navigator_in_workspace_row = False   # navigator must NOT be inside .workspace-row
 
@@ -40,6 +40,7 @@ class LayoutParser(HTMLParser):
         self._header_depth = None
         self._in_workspace_row = False
         self._workspace_row_depth = None
+        self._in_header_actions = False
         self._header_children_ids = []  # ordered list of ids of direct children of header
 
     def _get_id(self, attrs):
@@ -70,19 +71,26 @@ class LayoutParser(HTMLParser):
             self._header_depth = depth
 
         # Record direct children of bottom-panel-header (depth = header_depth + 1).
-        # Treat .bottom-panel-tabs-group as the tabs container so the test works
-        # regardless of whether tabs are direct children or wrapped in a group div.
+        # Two-row layout: Row 1 is .bottom-panel-header-row1; treat it and
+        # .bottom-panel-tabs-group as the tabs container so the test works
+        # regardless of nesting depth.
         if self._header_depth and depth == self._header_depth + 1:
             effective_classes = classes[:]
-            if "bottom-panel-tabs-group" in classes:
+            if "bottom-panel-tabs-group" in classes or "bottom-panel-header-row1" in classes:
                 effective_classes = effective_classes + ["bottom-panel-tabs"]
             self._header_children_ids.append((el_id, effective_classes))
+
+        # Track .bottom-panel-header-actions (right-edge button group)
+        if "bottom-panel-header-actions" in classes:
+            self._in_header_actions = True
 
         # Expand button
         if el_id == "bottom-panel-expand-btn":
             self.expand_btn_found = True
             if self._in_header:
                 self.expand_btn_in_header = True
+            if self._in_header_actions:
+                self.expand_btn_in_header_actions = True
 
         # Navigator placement
         if el_id == "navigator":
@@ -102,15 +110,10 @@ class LayoutParser(HTMLParser):
             self._in_workspace_row = False
             self._workspace_row_depth = None
 
+        if self._in_header_actions and "bottom-panel-header-actions" in classes:
+            self._in_header_actions = False
+
         if self._header_depth and depth == self._header_depth:
-            # Closing the header: determine if expand btn came before tabs
-            ids_and_classes = self._header_children_ids
-            positions = {name: i for i, (eid, cls) in enumerate(ids_and_classes)
-                         for name in ([eid] if eid else []) + cls}
-            exp_pos = positions.get("bottom-panel-expand-btn")
-            tabs_pos = positions.get("bottom-panel-tabs")
-            if exp_pos is not None and tabs_pos is not None:
-                self.expand_btn_before_tabs = exp_pos < tabs_pos
             self._in_header = False
             self._header_depth = None
 
@@ -143,11 +146,11 @@ def test_expand_button_in_header():
 
 
 def test_expand_button_before_tabs():
-    """Expand button must appear to the LEFT of .bottom-panel-tabs in the header."""
+    """Expand button must be in .bottom-panel-header-actions (right-edge of Row 1)."""
     p = _parse_html()
-    assert p.expand_btn_before_tabs, (
-        "Expected #bottom-panel-expand-btn to be the first child of .bottom-panel-header, "
-        "before .bottom-panel-tabs, so it renders on the left side of the widget."
+    assert p.expand_btn_in_header_actions, (
+        "Expected #bottom-panel-expand-btn to be inside .bottom-panel-header-actions. "
+        "The two-row header redesign (issue #121) moved it to the right-edge actions group."
     )
 
 
