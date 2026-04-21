@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest-slim
     container:
       image: ghcr.io/catthehacker/ubuntu:act-latest
+      volumes:
+        - act-toolcache:/opt/hostedtoolcache
 
     steps:
 
