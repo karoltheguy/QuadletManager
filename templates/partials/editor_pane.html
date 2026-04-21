@@ -41,10 +41,6 @@
                 hx-post="/api/systemctl/{{ server_id }}?action=restart&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Restart</button>
         {% endif %}
         {% endif %}
-        <button id="toggle-logs-btn" class="btn btn-primary"
-                onclick="window.toggleLogs({{ server_id }}, '{{ unit_name }}', '{{ scope }}')">Tail Logs</button>
-        <button class="btn btn-secondary"
-                onclick="window.openBottomPanel('terminal')">Terminal</button>
     </div>
     
     <div id="systemd-status" hx-swap-oob="true" hx-get="{{ status_url }}" hx-trigger="load" class="status-box">

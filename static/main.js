@@ -1371,6 +1371,8 @@ window.switchBottomTab = function(pane) {
     });
     var controls = document.querySelector('.terminal-controls');
     if (controls) controls.classList.toggle('hidden', pane !== 'terminal');
+    var logsControls = document.querySelector('.logs-controls');
+    if (logsControls) logsControls.classList.toggle('hidden', pane !== 'logs');
     if (pane === 'terminal') {
         var key = window._activeTerminalTabKey;
         if (key) {
@@ -1942,6 +1944,18 @@ window.executeDeleteFile = async function(serverId, path, scope) {
 
 // ── Real-time Logs WebSocket ─────────────────────────────
 let currentLogSocket = null;
+
+window.tailLogsFromPanel = function() {
+    var stem = window._selectedContainerStem;
+    var serverId = window._selectedContainerServerId;
+    var scope = window._selectedContainerScope || 'global';
+    if (!stem || !serverId) {
+        var logDiv = document.getElementById('log-stream');
+        if (logDiv) logDiv.textContent = 'Select a container from the sidebar first.';
+        return;
+    }
+    window.toggleLogs(serverId, stem + '.service', scope);
+};
 
 window.toggleLogs = function(serverId, unitName, scope) {
     let logDiv = document.getElementById('log-stream');

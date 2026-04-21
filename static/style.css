@@ -2114,6 +2114,24 @@ body.view-settings #bottom-panel-resize-handle { display: none !important; }
 }
 .bottom-pane.hidden { display: none; }
 
+/* Groups tabs + mode-specific controls so they stay adjacent in the header */
+.bottom-panel-tabs-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logs-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logs-controls .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+
 /* Terminal controls row inline in bottom panel header */
 .bottom-panel-header .terminal-controls {
     flex-shrink: 0;
