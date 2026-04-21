@@ -155,11 +155,27 @@ function reapplyQuadletSelection() {
     );
     if (btn) btn.classList.add('is-selected');
 }
+// Restore the saved quadlet selection after the tree loads via HTMX.
+// Uses a once-flag so subsequent tree re-renders don't clobber user clicks.
+function restoreQuadletSelection() {
+    if (window._quadletRestored) return;
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem('qm-selected-quadlet')); } catch(e) {}
+    if (!saved || !saved.stem || !saved.serverId) return;
+    var btn = document.querySelector(
+        '.quadlet-tree-btn[data-stem="' + saved.stem + '"][data-server-id="' + saved.serverId + '"]'
+    );
+    if (!btn) return;
+    window._quadletRestored = true;
+    btn.click();
+}
+
 document.body.addEventListener('htmx:afterSwap', function (e) {
     // Fire on any swap that could have replaced a tree button. Cheap — a
     // single querySelector with no match is negligible.
     if (e.target && e.target.querySelector && e.target.querySelector('.quadlet-tree-btn')) {
         reapplyQuadletSelection();
+        restoreQuadletSelection();
     }
     // Restore collapse states when the server list is (re)loaded via HTMX.
     if (e.target && e.target.querySelector && e.target.querySelector('li[data-server-id]')) {
@@ -380,11 +396,21 @@ let monitorContainerFilter = '';
 window._selectedContainerStem = null;
 window._selectedContainerServerId = null;
 window._selectedContainerScope = null;
+// Set to true after the saved quadlet selection has been restored once,
+// so subsequent htmx:afterSwap tree re-renders don't override user clicks.
+window._quadletRestored = false;
 
 window.selectContainerStem = function(stem, serverId, scope) {
     window._selectedContainerStem = (stem || '').toLowerCase();
     window._selectedContainerServerId = parseInt(serverId, 10);
     window._selectedContainerScope = scope || 'global';
+    try {
+        localStorage.setItem('qm-selected-quadlet', JSON.stringify({
+            stem: window._selectedContainerStem,
+            serverId: window._selectedContainerServerId,
+            scope: window._selectedContainerScope
+        }));
+    } catch(e) {}
     var emptyEl = document.getElementById('inspector-empty-state');
     if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
     updateInspectorStatsCard();
@@ -1116,6 +1142,7 @@ window.toggleInspectorExpand = function() {
 
 // ── Monitoring Server Selector ────────────────────────────
 window.selectMonitoringServer = function(serverId) {
+  try { localStorage.setItem('qm-monitor-server', serverId ? String(serverId) : ''); } catch(e) {}
   var numId = parseInt(serverId, 10);
   var emptyEl = document.getElementById('monitoring-empty-state');
   var contentEl = document.getElementById('monitoring-content');
@@ -1267,10 +1294,10 @@ function updateSummaryStrip(data) {
 function populateServerSelector() {
   var select = document.getElementById('monitoring-server-select');
   if (!select) return;
-  
+
   // Clear existing options except the placeholder
   select.innerHTML = '<option value="">Select a server...</option>';
-  
+
   // Add servers from the cached stats data
   Object.keys(lastStatsPerServer).forEach(function(serverId) {
     var data = lastStatsPerServer[serverId];
@@ -1282,6 +1309,16 @@ function populateServerSelector() {
     }
     select.appendChild(option);
   });
+
+  // Restore saved monitor server on first population if not yet selected.
+  if (!window._monitoringServerId) {
+    var savedServer;
+    try { savedServer = localStorage.getItem('qm-monitor-server'); } catch(e) {}
+    if (savedServer && lastStatsPerServer[savedServer]) {
+      select.value = savedServer;
+      selectMonitoringServer(savedServer);
+    }
+  }
 }
 
 // ── Terminal Session Management ──────────────────────────
@@ -1363,6 +1400,7 @@ window.toggleBottomPanelExpand = function() {
 };
 
 window.switchBottomTab = function(pane) {
+    try { localStorage.setItem('qm-bottom-tab', pane); } catch(e) {}
     document.querySelectorAll('.bottom-tab').forEach(function(btn) {
         btn.classList.toggle('is-active', btn.dataset.pane === pane);
     });
@@ -1793,6 +1831,7 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 window.switchTab(localStorage.getItem('qm-active-tab') || 'overview');
+switchBottomTab(localStorage.getItem('qm-bottom-tab') || 'terminal');
 initStatsChart();
 initCpuChart();
 initMemChart();
