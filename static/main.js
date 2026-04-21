@@ -5,7 +5,21 @@ window.toggleServerCollapse = function(serverId) {
     var collapsed = li.classList.toggle('is-collapsed');
     var btn = li.querySelector('.server-row-toggle');
     if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    try { localStorage.setItem('qm-server-collapsed-' + serverId, collapsed ? '1' : '0'); } catch(e) {}
 };
+
+function restoreServerCollapseStates() {
+    document.querySelectorAll('li[data-server-id]').forEach(function(li) {
+        var id = li.dataset.serverId;
+        var saved;
+        try { saved = localStorage.getItem('qm-server-collapsed-' + id); } catch(e) {}
+        if (saved === '1') {
+            li.classList.add('is-collapsed');
+            var btn = li.querySelector('.server-row-toggle');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
 
 document.addEventListener('keydown', function(e) {
     var toggle = e.target.closest('.server-row-toggle');
@@ -146,6 +160,10 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
     // single querySelector with no match is negligible.
     if (e.target && e.target.querySelector && e.target.querySelector('.quadlet-tree-btn')) {
         reapplyQuadletSelection();
+    }
+    // Restore collapse states when the server list is (re)loaded via HTMX.
+    if (e.target && e.target.querySelector && e.target.querySelector('li[data-server-id]')) {
+        restoreServerCollapseStates();
     }
     // Sync expand button tooltip after editor pane swaps
     syncInspectorToggleBtn();
