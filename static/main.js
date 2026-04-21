@@ -1015,6 +1015,7 @@ let _statsReceived = false;
 let _statsWaitTimeout = null;
 
 window.switchTab = function(tabId) {
+localStorage.setItem('qm-active-tab', tabId);
 document.body.className = 'view-' + tabId;
 // Restore inspector-expanded class on containers tab if persisted
 if (tabId === 'containers' && localStorage.getItem('qm-inspector-expanded') === 'true') {
@@ -1771,7 +1772,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 })();
 
-window.switchTab('overview');
+window.switchTab(localStorage.getItem('qm-active-tab') || 'overview');
 initStatsChart();
 initCpuChart();
 initMemChart();
