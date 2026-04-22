@@ -1531,7 +1531,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     if (hint) hint.style.display = 'none';
 
     // Toggle DOM visibility BEFORE creating xterm to avoid 0x0 size calculation
-    window._terminalTabs.set(tabKey, { tabEl: tabEl, paneEl: paneEl });
+    window._terminalTabs.set(tabKey, { tabEl: tabEl, paneEl: paneEl, serverId: serverId, containerName: containerName, scope: scope, cmd: cmd });
     switchTerminalTab(tabKey);
 
     // ── xterm instance ──────────────────────────────────
@@ -1575,7 +1575,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
         tabEl.classList.add('is-disconnected');
     };
 
-    window._terminalTabs.set(tabKey, { term: term, ws: ws, fitAddon: fitAddon, tabEl: tabEl, paneEl: paneEl });
+    window._terminalTabs.set(tabKey, { term: term, ws: ws, fitAddon: fitAddon, tabEl: tabEl, paneEl: paneEl, serverId: serverId, containerName: containerName, scope: scope, cmd: cmd });
 
     setTimeout(function() {
         if (ws.readyState === WebSocket.OPEN) {
@@ -1862,6 +1862,50 @@ setupShellSelector();
 connectSSE();
 initResizableHandles();
 
+// ── Reconnect Banner ──────────────────────────────────────
+(function() {
+    var pending = null;
+    try { pending = JSON.parse(localStorage.getItem('qm-pending-reconnect')); } catch(e) {}
+    if (!pending || (pending.terminals.length === 0 && !pending.logTail)) return;
+    localStorage.removeItem('qm-pending-reconnect');
+
+    var parts = [];
+    if (pending.terminals.length > 0) parts.push(pending.terminals.length + ' terminal' + (pending.terminals.length > 1 ? 's' : ''));
+    if (pending.logTail) parts.push('1 log tail');
+
+    var banner = document.createElement('div');
+    banner.id = 'reconnect-banner';
+    banner.className = 'reconnect-banner';
+    banner.innerHTML =
+        '<span class="reconnect-banner-msg">You had ' + parts.join(' and ') + ' open before the last reload.</span>' +
+        '<button class="btn btn-sm btn-primary" id="reconnect-yes-btn">Reconnect</button>' +
+        '<button class="btn btn-sm btn-secondary" id="reconnect-no-btn">Dismiss</button>';
+
+    var nav = document.querySelector('.top-nav');
+    if (nav) nav.parentNode.insertBefore(banner, nav.nextSibling);
+
+    document.getElementById('reconnect-no-btn').addEventListener('click', function() {
+        banner.remove();
+    });
+
+    document.getElementById('reconnect-yes-btn').addEventListener('click', function() {
+        banner.remove();
+        if (pending.logTail) {
+            window.toggleLogs(pending.logTail.serverId, pending.logTail.unitName, pending.logTail.scope);
+        }
+        if (pending.terminals.length > 0) {
+            openBottomPanel('terminal');
+            loadFitAddon(function() {
+                pending.terminals.forEach(function(t) {
+                    if (!window._terminalTabs.has(t.tabKey)) {
+                        createTerminalTab(t.tabKey, t.serverId, t.containerName, t.cmd, t.scope);
+                    }
+                });
+            });
+        }
+    });
+})();
+
 // If no stats arrive within 15s of page load, update the placeholder
 // so the user isn't left staring at "Waiting for stats data..." forever.
 _statsWaitTimeout = setTimeout(function() {
@@ -2006,6 +2050,7 @@ window.executeDeleteFile = async function(serverId, path, scope) {
 
 // ── Real-time Logs WebSocket ─────────────────────────────
 let currentLogSocket = null;
+let _currentLogMeta = null;  // { serverId, unitName, scope } while a tail is active
 
 window.tailLogsFromPanel = function() {
     var stem = window._selectedContainerStem;
@@ -2037,6 +2082,7 @@ window.toggleLogs = function(serverId, unitName, scope) {
     if (btn) { btn.classList.remove('btn-primary'); btn.classList.add('is-tailing'); }
 
     const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
+    _currentLogMeta = { serverId: serverId, unitName: unitName, scope: scope };
     currentLogSocket = new WebSocket(wsUrl);
 
     currentLogSocket.onmessage = function(event) {
@@ -2066,6 +2112,7 @@ function stopLogs() {
         currentLogSocket.send('STOP');
         currentLogSocket.close();
         currentLogSocket = null;
+        _currentLogMeta = null;
     }
     var btn = document.getElementById('toggle-logs-btn');
     if (btn) {
@@ -2076,6 +2123,44 @@ function stopLogs() {
     var logDiv = document.getElementById('log-stream');
     if (logDiv) logDiv.textContent += '\n--- Stopped ---\n';
 }
+
+// ── Session Save / Reload / Reconnect ────────────────────
+function saveActiveSessionsToStorage() {
+    var sessions = { terminals: [], logTail: null };
+    window._terminalTabs.forEach(function(session, tabKey) {
+        if (session.serverId && session.containerName) {
+            sessions.terminals.push({
+                tabKey: tabKey,
+                serverId: session.serverId,
+                containerName: session.containerName,
+                scope: session.scope || 'user',
+                cmd: session.cmd || 'bash'
+            });
+        }
+    });
+    if (_currentLogMeta) {
+        sessions.logTail = _currentLogMeta;
+    }
+    if (sessions.terminals.length > 0 || sessions.logTail) {
+        try { localStorage.setItem('qm-pending-reconnect', JSON.stringify(sessions)); } catch(e) {}
+    } else {
+        try { localStorage.removeItem('qm-pending-reconnect'); } catch(e) {}
+    }
+}
+
+function _beforeunloadHandler(e) {
+    if (window._terminalTabs.size > 0 || currentLogSocket) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+}
+window.addEventListener('beforeunload', _beforeunloadHandler);
+
+window.safeReload = function() {
+    saveActiveSessionsToStorage();
+    window.removeEventListener('beforeunload', _beforeunloadHandler);
+    window.location.reload();
+};
 
 // ── Modal Dismissal Handlers ───────────────────────────────
 window.setupModalDismissal = function(modalId) {
