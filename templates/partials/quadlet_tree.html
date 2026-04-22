@@ -1,9 +1,7 @@
 {% for scope in ['global', 'user'] %}
+{% if data[scope] %}
     <div class="font-semibold text-muted mt-2 uppercase text-xs">{{ scope }} Scope</div>
     <ul class="space-y-1 mt-1">
-    {% if not data[scope] %}
-        <li class="text-muted italic text-xs">No files found</li>
-    {% else %}
         {% for file_info in data[scope] %}
         <li>
             <button class="quadlet-tree-btn"
@@ -22,6 +20,6 @@
             </button>
         </li>
         {% endfor %}
-    {% endif %}
     </ul>
+{% endif %}
 {% endfor %}
