@@ -2162,6 +2162,11 @@ window.safeReload = function() {
     window.location.reload();
 };
 
+window.softRefresh = function() {
+    htmx.trigger(document.body, 'reload-servers');
+    loadMonitorCharts(window._monitorChartMinutes || 15);
+};
+
 // ── Modal Dismissal Handlers ───────────────────────────────
 window.setupModalDismissal = function(modalId) {
   var modal = document.getElementById(modalId);

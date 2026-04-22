@@ -145,9 +145,19 @@ class TestReconnectBanner:
 class TestNavReloadButton:
     def setup_method(self):
         self.html = _html()
+        self.js = _js()
 
     def test_reload_button_exists(self):
         assert "nav-reload-btn" in self.html
 
-    def test_reload_button_calls_safe_reload(self):
-        assert "safeReload()" in self.html
+    def test_reload_button_calls_soft_refresh(self):
+        assert "softRefresh()" in self.html
+
+    def test_soft_refresh_function_exists(self):
+        assert "window.softRefresh" in self.js
+
+    def test_soft_refresh_triggers_htmx_reload(self):
+        assert "reload-servers" in self.js
+
+    def test_soft_refresh_reloads_monitor_charts(self):
+        assert "loadMonitorCharts" in self.js
