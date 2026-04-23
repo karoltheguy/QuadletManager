@@ -1,4 +1,235 @@
 # QuadletManager
 
-
 ![Tests](https://forgejo.atelier.pierrenoir.app/carol/QuadletManager/actions/workflows/tests.yml/badge.svg)
+
+A self-hosted, agentless web dashboard for managing Podman Quadlets on multiple remote Linux servers via systemd. All operations are performed over SSH -- no agent software is required on managed servers.
+
+**Disclaimer**
+This has been developed with help of Claude and Gemini.
+I'm an old timer developer with most experience in c# then c++, not much frontend development except for ugly UI with .Net or QT.
+All the above led me to choose htmx and python. I felt that htmx left most of the power to the backend and also less learning for me to assure a minimum of QA.
+
+I first started my development in my home repo and as I want to be as transparant as possible, I've transfered everything in Github(all issues).
+
+## Features
+
+- **Agentless architecture** -- manages servers entirely over SSH; nothing to install on remote hosts
+- **Multi-server management** -- monitor and control quadlets across multiple Linux servers from a single dashboard
+- **Three-pane layout** -- file navigator, Monaco editor, and inspector with systemd status
+- **Real-time monitoring** -- CPU/memory stats, container health history, and live log streaming
+- **File synchronization** -- detects external file changes via timestamp polling and pushes updates to the UI through Server-Sent Events
+- **Role-based access control** -- viewer (read-only) and editor (full CRUD + service management) roles
+- **Encrypted SSH key storage** -- private keys encrypted at rest with AES-256-GCM
+- **Podman pod support** -- start, stop, and restart `.pod` quadlets directly from the dashboard
+- **Quadlet templates** -- pre-built boilerplate for container, volume, network, and pod quadlet types
+
+## Screenshots
+
+### Dashboard View
+
+<!-- Screenshot: Dashboard three-pane layout showing navigator, editor, and inspector -->
+
+`[Insert screenshot of dashboard view]`
+
+### Monitoring Tab
+
+<!-- Screenshot: Monitoring tab with resource charts and health history -->
+
+`[Insert screenshot of monitoring tab]`
+
+### Editor View
+
+<!-- Screenshot: Editor tab with Monaco editor and file navigator -->
+
+`[Insert screenshot of editor view]`
+
+### Settings View
+
+<!-- Screenshot: Settings tab with server and user management panels -->
+
+`[Insert screenshot of settings view]`
+
+## Requirements
+
+- Python 3.12+
+- Remote Linux servers with systemd and Podman installed
+- SSH access to managed servers (key-based authentication)
+
+## Installation
+
+### From Source
+
+```bash
+git clone <repository-url>
+cd QuadletManager
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Container (Docker Compose)
+
+```bash
+QUADLET_MASTER_KEY=$(openssl rand -hex 32) docker compose up -d
+```
+
+### Container (Podman Quadlet)
+
+Copy `quadletmanager.container` to `~/.config/containers/systemd/` (rootless) or `/etc/containers/systemd/` (rootful), then:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user start quadletmanager
+```
+
+## Configuration
+
+### Master Key
+
+The master key is used to encrypt and decrypt SSH private keys stored in the database. Set it via environment variable or `config.yaml`:
+
+```bash
+export QUADLET_MASTER_KEY=$(openssl rand -hex 32)
+```
+
+### config.yaml
+
+```yaml
+master_key: "your-64-char-hex-master-key"
+session_timeout: 3600
+poll_frequency: 10
+dev_auto_login: false
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `QUADLET_MASTER_KEY` | AES-256 master key (64 hex characters) |
+| `QUADLET_CONFIG_PATH` | Path to config YAML file (default: `config.yaml`) |
+| `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
+| `LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+
+## Running
+
+```bash
+source venv/bin/activate
+export QUADLET_MASTER_KEY=$(openssl rand -hex 32)
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+On first startup, the database is seeded with two default users:
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin` | Editor |
+| `viewer` | `viewer` | Viewer |
+
+Change these passwords before deploying to production.
+
+## Remote Server Setup
+
+On each target server, create a dedicated user and grant passwordless sudo for the specific commands QuadletManager needs.
+
+### 1. Create the SSH User
+
+```bash
+sudo useradd -m -s /bin/bash quadlet-agent
+```
+
+Add your QuadletManager public SSH key to `/home/quadlet-agent/.ssh/authorized_keys`.
+
+### 2. Sudoers Configuration (Global Scope Only)
+
+For rootless (user) scope quadlets, no sudo is required. For global scope quadlets, create `/etc/sudoers.d/quadlet-manager`:
+
+```bash
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
+```
+
+### 3. Quadlet File Paths
+
+| Scope | Path on Remote Server | Sudo Required |
+|-------|----------------------|---------------|
+| User (rootless) | `~/.config/containers/systemd/` | No |
+| Global (rootful) | `/etc/containers/systemd/` | Yes |
+
+## Testing
+
+See [docs/TESTING.md](docs/TESTING.md) for the full testing guide.
+
+### Unit Tests
+
+```bash
+pip install -r requirements-test.txt
+PYTHONPATH=. pytest tests/ --ignore=tests/e2e/
+```
+
+### E2E Tests (requires running backend + Chromium)
+
+```bash
+playwright install chromium
+PYTHONPATH=. pytest tests/e2e/
+```
+
+### With Coverage
+
+```bash
+PYTHONPATH=. pytest tests/ --ignore=tests/e2e/ --cov=. --cov-report=term-missing
+```
+
+## Architecture
+
+```
+Browser (HTMX/Monaco/Chart.js)
+        |
+    FastAPI Server
+    /      |      \
+Sync     Stats   SSH Manager
+Engine   Engine  (Connection Pool)
+  |        |         |
+  +--------+---------+---> Remote Linux Servers
+                                (systemd + podman)
+```
+
+- **Backend**: FastAPI (Python) with asyncssh for SSH connection pooling
+- **Frontend**: HTMX for server-driven UI updates, Monaco Editor for file editing, Chart.js for resource visualization
+- **Database**: SQLite with AES-256-GCM encrypted SSH key storage
+- **Real-time**: Server-Sent Events for stats/sync updates, WebSocket for log streaming
+
+Full architecture documentation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+## API Reference
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/login` | Submit credentials |
+| GET | `/logout` | Clear session |
+| GET | `/` | Main dashboard |
+| GET | `/api/servers` | Server list |
+| GET | `/api/quadlets/{server_id}` | File tree for a server |
+| GET | `/api/file/{server_id}` | File content |
+| POST | `/api/save` | Save file content |
+| POST | `/api/create` | Create new quadlet |
+| GET | `/api/systemctl/status/{server_id}` | Get unit status |
+| POST | `/api/systemctl/{server_id}` | Execute systemctl action (start/stop/restart) |
+| POST | `/api/pod-action/{server_id}` | Execute pod action |
+| GET | `/api/health/history/{server_id}` | Container health history |
+| GET | `/api/events` | SSE stream for real-time updates |
+| WS | `/ws/logs/{server_id}/{unit_name}` | Log streaming |
+
+Full API documentation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#api-reference)
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) -- system architecture, component details, API reference
+- [docs/SETUP.MD](docs/SETUP.MD) -- remote server setup guide
+- [docs/TESTING.md](docs/TESTING.md) -- test structure and writing guide
+- [docs/REQUIREMENTS.MD](docs/REQUIREMENTS.MD) -- original requirements specification
