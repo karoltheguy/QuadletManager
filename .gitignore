@@ -10,3 +10,6 @@ env/
 .pytest_cache/
 node_modules/
 .kilo/
+.agents/
+.claude/
+.vscode/
