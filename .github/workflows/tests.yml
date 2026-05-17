@@ -67,7 +67,7 @@ jobs:
   # FORGEJO RUNNER (Container Execution)
   # ==========================================
   test-forgejo:
-    if: ${{ env.FORGEJO_ACTIONS == 'true' }}
+    if: ${{ github.server_url != 'https://github.com' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/catthehacker/ubuntu:act-latest
