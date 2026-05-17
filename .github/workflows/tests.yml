@@ -15,7 +15,6 @@ jobs:
         - act-toolcache:/opt/hostedtoolcache
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -23,7 +22,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip' # Enables caching
+          cache: 'pip'
           cache-dependency-path: |
             requirements.txt
             requirements-test.txt
@@ -40,7 +39,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
-      
+        
       - name: Install Playwright Browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: playwright install --with-deps
@@ -55,7 +54,8 @@ jobs:
             --ignore=tests/test_monitoring_ui.py
 
       - name: Publish Test Results
-        uses: https://github.com/EnricoMi/publish-unit-test-result-action@v2
+        # Changed to relative path so GitHub accepts the syntax
+        uses: EnricoMi/publish-unit-test-result-action@v2
         if: (!cancelled())
         with:
           files: |
