@@ -65,9 +65,9 @@ jobs:
              
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        #uses: codecov/test-results-action@v1
+        uses: codecov/test-results-action@v1
         with:
-          token: ${{ variables.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # ==========================================
   # FORGEJO RUNNER (Container Execution)
