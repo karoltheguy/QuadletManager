@@ -1,6 +1,7 @@
 # QuadletManager
 
 ![Tests](https://forgejo.atelier.pierrenoir.app/carol/QuadletManager/actions/workflows/tests.yml/badge.svg)
+[![codecov](https://codecov.io/gh/karoltheguy/QuadletManager/graph/badge.svg?token=DAR89FXIAK)](https://codecov.io/gh/karoltheguy/QuadletManager)
 
 A self-hosted, agentless web dashboard for managing Podman Quadlets on multiple remote Linux servers via systemd. All operations are performed over SSH -- no agent software is required on managed servers.
 
