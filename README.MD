@@ -1,16 +1,16 @@
 # QuadletManager
 
-![Tests](https://forgejo.atelier.pierrenoir.app/carol/QuadletManager/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/karoltheguy/QuadletManager/actions/workflows/tests.yml/badge.svg)
 [![codecov](https://codecov.io/gh/karoltheguy/QuadletManager/graph/badge.svg?token=DAR89FXIAK)](https://codecov.io/gh/karoltheguy/QuadletManager)
 
-A self-hosted, agentless web dashboard for managing Podman Quadlets on multiple remote Linux servers via systemd. All operations are performed over SSH -- no agent software is required on managed servers.
+A self-hosted, dashboard for managing Podman Quadlets on multiple remote Linux servers via systemd. All operations are performed over SSH no agent software is required on managed servers.
 
 **Disclaimer**
 This has been developed with help of Claude and Gemini.
 I'm an old timer developer with most experience in c# then c++, not much frontend development except for ugly UI with .Net or QT.
-All the above led me to choose htmx and python. I felt that htmx left most of the power to the backend and also less learning for me to assure a minimum of QA.
+All the above led me to choose htmx and python. I felt that htmx left most of the power to the backend and also less learning for me to assure a minimum learning to perform proper QA.
 
-I first started my development in my home repo and as I want to be as transparant as possible, I've transfered everything in Github(all issues).
+I first started my development in my homelab Forgejo repository but as I want to be as transparent as possible, I've transfered everything in Github (all issues and Git commit history).
 
 ## Features
 
