@@ -132,6 +132,14 @@ Change these passwords before deploying to production.
 
 On each target server, create a dedicated user and grant passwordless sudo for the specific commands QuadletManager needs.
 
+> [!IMPORTANT]
+> **Managing the Local Host (Loopback Connection):**
+> If you are running QuadletManager inside a container (using Podman/Docker) and want to manage the host machine it is running on:
+> - Do not use `localhost` or `127.0.0.1` as the server IP, as that refers to the container itself.
+> - For **Podman**, use **`host.containers.internal`** as the IP/hostname in the settings panel.
+> - For **Docker**, use **`host.docker.internal`** (you may need to add `extra_hosts: ["host.docker.internal:host-gateway"]` to your `docker-compose.yml` or container configuration flags on Linux).
+> - Make sure the host's SSH service is running, and your public SSH key is added to the host's `authorized_keys` file.
+
 ### 1. Create the SSH User
 
 ```bash

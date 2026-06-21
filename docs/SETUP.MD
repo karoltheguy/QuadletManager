@@ -2,6 +2,14 @@
 
 To successfully run QuadletManager, your target servers need to allow the agent (SSH User) to run `systemctl` commands and read/write files in `/etc/containers/systemd/` without a password prompt.
 
+> [!IMPORTANT]
+> **Managing the Local Host (Loopback Connection):**
+> If you are running QuadletManager inside a container (using Podman/Docker) and want to manage the host machine it is running on:
+> - Do not use `localhost` or `127.0.0.1` as the server IP, as that refers to the container itself.
+> - For **Podman**, use **`host.containers.internal`** as the IP/hostname in the settings panel.
+> - For **Docker**, use **`host.docker.internal`** (you may need to add `extra_hosts: ["host.docker.internal:host-gateway"]` to your `docker-compose.yml` or container configuration flags on Linux).
+> - Make sure the host's SSH service is running, and your public SSH key is added to the host's `authorized_keys` file.
+
 ## 1. Create a Dedicated User (Recommended)
 On your target server:
 ```bash
