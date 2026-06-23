@@ -2,9 +2,10 @@ name: Tests
 
 on:
   push:
-  pull_request:
-  workflow_dispatch:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   # ==========================================
@@ -69,6 +70,8 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./test-results/coverage.xml
+          fail_ci_if_error: true
 
   # ==========================================
   # FORGEJO RUNNER (Container Execution)
@@ -120,6 +123,7 @@ jobs:
             --ignore=tests/test_monitoring_ui.py
 
       - name: Publish Test Results
+        # should remain full URL, not shortened, otherwise it won't work in Forgejo's Act runner. 
         uses: https://github.com/EnricoMi/publish-unit-test-result-action@v2
         if: (!cancelled())
         with:
