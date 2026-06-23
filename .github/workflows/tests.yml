@@ -59,7 +59,7 @@ jobs:
         if: (!cancelled())
         with:
           files: |
-            test-results/**/*.xml
+            test-results/junit.xml
           compare_to_earlier_commit: false
           check_run: false
           job_summary: true
@@ -128,7 +128,7 @@ jobs:
         if: (!cancelled())
         with:
           files: |
-            test-results/**/*.xml
+            test-results/junit.xml
           compare_to_earlier_commit: false
           check_run: false
           job_summary: true
