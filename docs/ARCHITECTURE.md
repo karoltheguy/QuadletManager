@@ -2,7 +2,7 @@
 
 ## Overview
 
-QuadletManager is a self-hosted, agentless web dashboard for managing Podman Quadlets on multiple remote Linux servers via systemd. Built with FastAPI (Python) on the backend and HTMX + Monaco Editor on the frontend, it provides real-time synchronization, monitoring, and control of container workloads without requiring any agent software on managed servers.
+QuadletManager is an agentless web dashboard for managing Podman Quadlets across multiple remote Linux servers. Built with FastAPI on the backend and powered by HTMX, Monaco Editor, and xterm.js on the frontend, it enables real-time synchronization of Quadlet files, container monitoring, and interactive terminal sessions directly through your browser. No software needs to be installed on the managed nodes.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ QuadletManager is a self-hosted, agentless web dashboard for managing Podman Qua
 ```mermaid
 flowchart TB
     subgraph QM["QuadletManager"]
-        Browser["Browser\n(HTMX/JS)"]
+        Browser["Browser\n(HTMX/JS/xterm.js)"]
         FastAPI["FastAPI\nServer"]
         SQLite["SQLite\nDatabase"]
         
@@ -35,10 +35,12 @@ flowchart TB
         SyncEngine["Sync Engine\n(Polling)"]
         StatsEngine["Stats Engine\n(Polling)"]
         SSHManager["SSH Manager\n(Pool)"]
+        EventsLoop["Events Cleanup\n(Loop)"]
         
         FastAPI --> SyncEngine
         FastAPI --> StatsEngine
         FastAPI --> SSHManager
+        FastAPI --> EventsLoop
     end
     
     subgraph Remote["Remote Linux Servers"]
@@ -69,13 +71,14 @@ flowchart TB
 ├── main.py                    # FastAPI application entry point
 ├── api/
 │   ├── routes.py              # HTTP routes and WebSocket endpoints
-│   └── sockets.py             # WebSocket handlers for log streaming
+│   └── sockets.py             # WebSocket handlers for log streaming and interactive exec sessions
 ├── core/
 │   ├── config_loader.py       # YAML configuration loader
 │   ├── crypto.py              # AES-256-GCM encryption for SSH keys
 │   ├── database.py            # SQLite schema and connection management
 │   └── events_manager.py      # SSE publisher/subscriber system
 └── services/
+    ├── container_events.py # Container events tracking and cleanup
     ├── ssh_manager.py # SSH connection pool (asyncssh)
     ├── sync_engine.py # File modification polling engine
     ├── stats_engine.py # Podman stats polling engine
@@ -98,7 +101,7 @@ tests/
 Application bootstrap and lifecycle management:
 - FastAPI app initialization
 - Static file mounting
-- Background task coordination (sync engine, stats engine)
+- Background task coordination (sync engine, stats engine, container events cleanup)
 - Graceful shutdown handling
 
 #### [`api/routes.py`](api/routes.py)
@@ -127,6 +130,7 @@ SSH connection pool implementation:
 
 - **HTMX 1.9.11**: Declarative AJAX and DOM updates
 - **Monaco Editor 0.45.0**: Code editing with syntax highlighting
+- **xterm.js**: Full-featured terminal in the browser for exec sessions
 - **Chart.js 4.4.1**: Resource usage visualization
 - **Tailwind CSS**: Utility-first styling
 
@@ -162,11 +166,11 @@ Settings --> SettingsView
 flowchart LR
 subgraph Navigator["Navigator (Left)"]
 N1["Server Tree"]
-N2["├─ Server 1"]
-N3["│ ├─ global/"]
-N4["│ │ └─ file.container"]
-N5["│ └─ user/"]
-N6["│ └─ file.container"]
+N2["Server 1"]
+N3["global"]
+N4["file.container"]
+N5["user"]
+N6["file.container"]
 N1 --> N2 --> N3 --> N4
 N2 --> N5 --> N6
 end
@@ -204,19 +208,25 @@ The dedicated Monitoring tab provides full-width container resource visualizatio
 |------|---------|
 | [`templates/dashboard.html`](templates/dashboard.html) | Main layout with tabbed navigation and panes |
 | [`templates/partials/editor_pane.html`](templates/partials/editor_pane.html) | Monaco editor container and action buttons |
+| [`templates/partials/modal_new.html`](templates/partials/modal_new.html) | Create Quadlet modal form |
+| [`templates/partials/overview.html`](templates/partials/overview.html) | Global dashboard overview and activity stream |
 | [`templates/partials/quadlet_tree.html`](templates/partials/quadlet_tree.html) | Server/file tree navigation with status dots |
 | [`templates/partials/servers_list.html`](templates/partials/servers_list.html) | Server list rendering |
-| [`static/main.js`](static/main.js) | Monaco initialization, SSE handling, chart updates, tab switching |
+| [`static/main.js`](static/main.js) | Monaco & xterm initialization, SSE handling, chart updates, tab switching |
 | [`static/style.css`](static/style.css) | Custom styles, dark theme, and view control classes |
-| [`templates/partials/settings_servers.html`](templates/partials/settings_servers.html) | Settings server list with Remove buttons |
+| [`templates/partials/settings_servers.html`](templates/partials/settings_servers.html) | Settings server list configuration |
 | [`templates/partials/settings_users.html`](templates/partials/settings_users.html) | Settings user list with inline role editing |
+| [`templates/partials/settings_themes.html`](templates/partials/settings_themes.html) | Custom theme configuration |
+| [`templates/partials/settings_keys.html`](templates/partials/settings_keys.html) | Global SSH key management |
 
 ### Settings View
 
 The Settings tab (editor-only sections) provides administrative controls:
 
-- **Server Management**: View, add, and remove monitored servers with SSH key configuration. Adding a server encrypts the private key via AES-256-GCM before storing it. Removing a server also closes any cached SSH connection and cleans up orphaned SSH key records.
-- **User Management**: View, add, edit roles, and delete users. Roles are changed inline via a dropdown. Self-deletion and self-demotion are prevented. Passwords are SHA-256 hashed before storage.
+- **Server Management**: View, add, remove, and order monitored servers, as well as filtering them by scope (user/global).
+- **User Management**: View, add, edit roles, toggle admin status, and delete users. Roles are changed inline via a dropdown. Self-deletion and self-demotion are prevented. Passwords are SHA-256 hashed before storage.
+- **Theme Management**: Create, edit, and apply custom UI themes (colors and modes) per user.
+- **SSH Key Management**: Global repository for adding and removing SSH keys. Keys are encrypted via AES-256-GCM before storing.
 
 ---
 
@@ -230,7 +240,8 @@ CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('viewer', 'editor'))
+    role TEXT NOT NULL CHECK(role IN ('viewer', 'editor')),
+    is_admin INTEGER NOT NULL DEFAULT 0
 );
 
 -- SSH key storage (encrypted)
@@ -247,6 +258,8 @@ CREATE TABLE servers (
     ip_address TEXT NOT NULL,
     ssh_user TEXT NOT NULL,
     ssh_key_id INTEGER,
+    scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both')),
+    position INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
 );
 
@@ -269,18 +282,54 @@ CREATE TABLE templates (
     content TEXT NOT NULL
 );
 
--- Container health snapshots (1-hour rolling window, written every 5s poll cycle)
+-- Container health snapshots
 CREATE TABLE container_health_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     server_id INTEGER NOT NULL,
     container_name TEXT NOT NULL,
-    is_running INTEGER NOT NULL DEFAULT 1,  -- 1 = running, 0 = stopped
+    is_running INTEGER NOT NULL DEFAULT 1,
     cpu_pct REAL DEFAULT 0,
     mem_pct REAL DEFAULT 0,
-    recorded_at INTEGER NOT NULL,           -- Unix timestamp
+    recorded_at INTEGER NOT NULL,
+    resolution_sec INTEGER NOT NULL DEFAULT 5,
+    health_status TEXT DEFAULT NULL,
     FOREIGN KEY(server_id) REFERENCES servers(id)
 );
 CREATE INDEX idx_health_history_server_time ON container_health_history(server_id, recorded_at);
+
+-- Container events audit log
+CREATE TABLE container_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    container_name TEXT NOT NULL,
+    event_type TEXT NOT NULL CHECK(event_type IN ('start', 'stop', 'restart', 'failure')),
+    triggered_by TEXT,
+    details TEXT,
+    occurred_at INTEGER NOT NULL,
+    FOREIGN KEY(server_id) REFERENCES servers(id)
+);
+CREATE INDEX idx_container_events_server_container ON container_events(server_id, container_name, occurred_at);
+
+-- Key-value settings store
+CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+-- User-specific UI themes
+CREATE TABLE user_themes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    theme_name TEXT NOT NULL,
+    mode_preference TEXT NOT NULL DEFAULT 'auto',
+    light_overrides_json TEXT NOT NULL DEFAULT '{}',
+    dark_overrides_json  TEXT NOT NULL DEFAULT '{}',
+    is_active INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, theme_name)
+);
 ```
 
 ### Entity Relationships
@@ -288,7 +337,10 @@ CREATE INDEX idx_health_history_server_time ON container_health_history(server_i
 ```mermaid
 erDiagram
     users ||--o{ servers : "authentication"
+    users ||--o{ user_themes : "has themes"
     servers ||--o{ quadlets : "tracks files per server"
+    servers ||--o{ container_health_history : "health stats"
+    servers ||--o{ container_events : "audit log"
     servers }o--|| ssh_keys : "encrypted"
 ```
 
@@ -410,6 +462,17 @@ flowchart TD
     end
 ```
 
+### Container Events Engine ([`services/container_events.py`](services/container_events.py))
+
+```mermaid
+flowchart TD
+    subgraph EventsLoop["Events Cleanup Loop (Once per day)"]
+        A["1. Query container_events table"]
+        B["2. Delete events older than configured retention period (e.g., 30 days)"]
+        A --> B
+    end
+```
+
 ### Stats Engine ([`services/stats_engine.py`](services/stats_engine.py))
 
 ```mermaid
@@ -452,6 +515,7 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/` | Main dashboard |
 | GET | `/api/servers` | Server list (HTML partial) |
+| GET | `/api/overview` | Dashboard overview statistics |
 | GET | `/api/quadlets/{server_id}` | File tree (HTML partial) |
 | GET | `/api/file/{server_id}` | File content (HTML partial) |
 
@@ -459,8 +523,10 @@ flowchart TD
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/api/modal/new` | Create Quadlet modal form (HTML partial) |
 | POST | `/api/save` | Save file content |
 | POST | `/api/create` | Create new quadlet |
+| DELETE | `/api/files` | Delete file |
 
 ### Systemctl Endpoints
 
@@ -470,11 +536,12 @@ flowchart TD
 | POST | `/api/systemctl/{server_id}` | Execute action (start/stop/restart) |
 | POST | `/api/pod-action/{server_id}` | Execute pod action (`podman pod start/stop/restart`) |
 
-### Monitoring Endpoints
+### Monitoring & Events Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health/history/{server_id}` | Per-container health history (`?minutes=N`, default 60) |
+| GET | `/api/activity/{server_id}` | Container events audit log |
 
 ### Settings Endpoints
 
@@ -482,11 +549,15 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/api/settings/servers` | List servers (HTML partial) |
 | POST | `/api/settings/servers` | Add server with encrypted SSH key |
+| PUT | `/api/settings/servers/{server_id}` | Update server scope or position |
 | DELETE | `/api/settings/servers/{server_id}` | Remove server and clean up SSH key |
 | GET | `/api/settings/users` | List users (HTML partial) |
 | POST | `/api/settings/users` | Add new user |
 | PUT | `/api/settings/users/{user_id}` | Update user role |
+| PUT | `/api/settings/users/{user_id}/admin` | Update user admin status |
 | DELETE | `/api/settings/users/{user_id}` | Delete user |
+| GET/POST/PUT/DELETE | `/api/settings/themes/*` | Manage custom user themes |
+| GET/POST/DELETE | `/api/keys/*` | Manage global SSH keys |
 
 ### Real-time Endpoints
 
@@ -494,6 +565,7 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/api/events` | SSE stream |
 | WS | `/ws/logs/{server_id}/{unit_name}` | Log streaming |
+| WS | `/ws/exec/{server_id}/{container_name}` | Interactive terminal execution |
 
 ---
 
@@ -506,8 +578,7 @@ flowchart TD
 master_key: "your-64-char-hex-master-key"
 dev_auto_login: false
 session_timeout: 3600
-polling_interval: 10
-stats_interval: 5
+poll_frequency: 10
 ```
 
 ### Environment Variables
@@ -589,4 +660,4 @@ pytest tests/test_stats_engine.py -v
 
 ---
 
-*Document last updated: 2026-03-31 — Containerized deployment: Dockerfile, docker-compose.yml, Quadlet unit file (issue #25)*
+*Document last updated: 2026-06-24 — Comprehensive overhaul for new endpoints, schemas, and components.*
