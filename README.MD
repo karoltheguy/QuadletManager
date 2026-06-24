@@ -3,7 +3,7 @@
 ![Tests](https://github.com/karoltheguy/QuadletManager/actions/workflows/tests.yml/badge.svg)
 [![codecov](https://codecov.io/gh/karoltheguy/QuadletManager/graph/badge.svg?token=DAR89FXIAK)](https://codecov.io/gh/karoltheguy/QuadletManager)
 
-A self-hosted, dashboard for managing Podman Quadlets on multiple remote Linux servers via systemd. All operations are performed over SSH no agent software is required on managed servers.
+Manage Podman Quadlets across multiple Linux servers through SSH connections.
 
 **Disclaimer**
 This has been developed with help of Claude and Gemini.
@@ -14,39 +14,31 @@ I first started my development in my homelab Forgejo repository but as I want to
 
 ## Features
 
-- **Agentless architecture** -- manages servers entirely over SSH; nothing to install on remote hosts
-- **Multi-server management** -- monitor and control quadlets across multiple Linux servers from a single dashboard
-- **Three-pane layout** -- file navigator, Monaco editor, and inspector with systemd status
-- **Real-time monitoring** -- CPU/memory stats, container health history, and live log streaming
-- **File synchronization** -- detects external file changes via timestamp polling and pushes updates to the UI through Server-Sent Events
-- **Role-based access control** -- viewer (read-only) and editor (full CRUD + service management) roles
-- **Encrypted SSH key storage** -- private keys encrypted at rest with AES-256-GCM
-- **Podman pod support** -- start, stop, and restart `.pod` quadlets directly from the dashboard
-- **Quadlet templates** -- pre-built boilerplate for container, volume, network, and pod quadlet types
+- Manage servers over SSH without installing remote agents
+- Control quadlets on multiple Linux servers from a single interface
+- Edit files, navigate directories, and view systemd status simultaneously
+- Stream live logs and monitor CPU, memory, and container health
+- Sync external file changes automatically
+- Assign viewer (read-only) or editor (full access) roles
+- Store SSH private keys with AES-256-GCM encryption
+- Start, stop, and restart Podman `.pod` quadlets directly
+- Create quadlets using built-in templates
 
 ## Screenshots
 
 ### Dashboard View
 
-<!-- Screenshot: Dashboard three-pane layout showing navigator, editor, and inspector -->
-
 ![Dashboard View](screenshots/dashboard.png)
 
 ### Monitoring Tab
-
-<!-- Screenshot: Monitoring tab with resource charts and health history -->
 
 ![Monitoring Tab](screenshots/monitor.png)
 
 ### Editor View
 
-<!-- Screenshot: Editor tab with Monaco editor and file navigator -->
-
 ![Editor View](screenshots/containers.png)
 
 ### Settings View
-
-<!-- Screenshot: Settings tab with server and user management panels -->
 
 `[Insert screenshot of settings view]`
 
