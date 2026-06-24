@@ -188,16 +188,15 @@ PYTHONPATH=. pytest tests/ --ignore=tests/e2e/ --cov=. --cov-report=term-missing
 
 ## Architecture
 
-```
-Browser (HTMX/Monaco/Chart.js)
-        |
-    FastAPI Server
-    /      |      \
-Sync     Stats   SSH Manager
-Engine   Engine  (Connection Pool)
-  |        |         |
-  +--------+---------+---> Remote Linux Servers
-                                (systemd + podman)
+```mermaid
+flowchart TD
+    Browser["Browser (HTMX/Monaco/Chart.js)"] --> FastAPI["FastAPI Server"]
+    FastAPI --> Sync["Sync Engine"]
+    FastAPI --> Stats["Stats Engine"]
+    FastAPI --> SSH["SSH Manager (Connection Pool)"]
+    Sync --> Remote["Remote Linux Servers (systemd + podman)"]
+    Stats --> Remote
+    SSH --> Remote
 ```
 
 - **Backend**: FastAPI (Python) with asyncssh for SSH connection pooling
