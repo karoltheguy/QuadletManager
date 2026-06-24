@@ -30,19 +30,19 @@ I first started my development in my homelab Forgejo repository but as I want to
 
 <!-- Screenshot: Dashboard three-pane layout showing navigator, editor, and inspector -->
 
-`[Insert screenshot of dashboard view]`
+![Dashboard View](screenshots/dashboard.png)
 
 ### Monitoring Tab
 
 <!-- Screenshot: Monitoring tab with resource charts and health history -->
 
-`[Insert screenshot of monitoring tab]`
+![Monitoring Tab](screenshots/monitor.png)
 
 ### Editor View
 
 <!-- Screenshot: Editor tab with Monaco editor and file navigator -->
 
-`[Insert screenshot of editor view]`
+![Editor View](screenshots/containers.png)
 
 ### Settings View
 
