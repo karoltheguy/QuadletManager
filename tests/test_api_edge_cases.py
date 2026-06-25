@@ -6,7 +6,8 @@ from main import app
 @pytest.fixture
 def client():
     with patch("core.config_loader.global_config.dev_auto_login", True):
-        yield TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client
 
 def test_api_quadlets_db_error(client):
     with patch("api.routes.get_db_connection") as mock_conn:

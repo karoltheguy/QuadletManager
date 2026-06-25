@@ -8,7 +8,8 @@ import hashlib
 def client():
     # Make sure DEV_AUTO_LOGIN is disabled for these tests
     with patch("core.config_loader.global_config.dev_auto_login", False):
-        yield TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client
 
 @pytest.fixture
 def mock_db_login():
