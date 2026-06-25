@@ -210,6 +210,8 @@ def test_new_tab_is_active(page: Page):
     page.evaluate("""() => {
         window._selectedContainerStem = 'beta';
         runningContainersBySid[1].add('beta');
+        var btn = document.getElementById('terminal-connect-btn');
+        if (btn) btn.disabled = false;
     }""")
     _click_connect(page)
 

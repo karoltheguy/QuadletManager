@@ -1,0 +1,22 @@
+FROM docker.io/jrei/systemd-ubuntu:22.04
+
+# Install SSH server and sudo
+RUN apt-get update && apt-get install -y openssh-server sudo && rm -rf /var/lib/apt/lists/*
+
+# Create 'editor' user, set up SSH directory, and allow passwordless sudo
+RUN useradd -m -s /bin/bash editor && \
+    echo "editor:password" | chpasswd && \
+    usermod -aG sudo editor && \
+    echo "editor ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    mkdir -p /home/editor/.ssh && \
+    chown editor:editor /home/editor/.ssh && \
+    chmod 700 /home/editor/.ssh
+
+# Copy test public key to authorized_keys
+COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
+RUN chown editor:editor /home/editor/.ssh/authorized_keys && \
+    chmod 600 /home/editor/.ssh/authorized_keys
+
+# Enable SSH service and disable PAM to allow key-based auth for users without passwords
+RUN sed -i 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config && \
+    systemctl enable ssh

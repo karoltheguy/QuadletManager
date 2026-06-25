@@ -394,3 +394,25 @@ async def test_after_save_updates_mtime_no_false_positive(mock_get_db_func, mock
 
     # No false-positive "file changed externally" event
     mock_publisher.publish.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_polling_engine_loop_cancelled():
+    import asyncio
+    from services.sync_engine import polling_engine_loop
+    with patch("services.sync_engine.asyncio.sleep", side_effect=asyncio.CancelledError()):
+        await polling_engine_loop()
+
+@pytest.mark.asyncio
+async def test_polling_engine_loop_exception_caught():
+    import asyncio
+    from services.sync_engine import polling_engine_loop
+    count = 0
+    async def mock_sleep(*args):
+        nonlocal count
+        count += 1
+        if count == 2:
+            raise asyncio.CancelledError()
+            
+    with patch("services.sync_engine.asyncio.sleep", side_effect=mock_sleep), \
+         patch("services.sync_engine.check_quadlets", side_effect=Exception("sync error")):
+        await polling_engine_loop()

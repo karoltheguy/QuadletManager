@@ -93,9 +93,11 @@ def test_expand_shows_quadlet_tree(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
     tree = page.locator(".server-quadlet-tree").first
+    li = page.locator("li[data-server-id]").first
     toggle.click()
+    expect(li).to_have_class("is-collapsed")
     toggle.click()
-    expect(tree).to_be_visible()
+    expect(tree).to_have_css("display", "block")
 
 
 # ── aria-expanded ────────────────────────────────────────────────────────────

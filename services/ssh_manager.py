@@ -42,6 +42,13 @@ class SSHConnectionPool:
                 
                 ip_address, ssh_user, encrypted_pk = row
                 
+                host = ip_address
+                port = 22
+                if ':' in host:
+                    parts = host.split(':', 1)
+                    host = parts[0]
+                    port = int(parts[1])
+                
                 # Decrypt the key in memory
                 try:
                     private_key_str = decrypt_private_key(encrypted_pk)
@@ -57,7 +64,8 @@ class SSHConnectionPool:
                 
                 # Create connection
                 conn = await asyncssh.connect(
-                    host=ip_address, 
+                    host=host,
+                    port=port,
                     username=ssh_user, 
                     client_keys=[key],
                     known_hosts=None  # Can be expanded to verify known_hosts but left None for dev

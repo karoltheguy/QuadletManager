@@ -178,3 +178,47 @@ async def test_connect_to_server_decryption_failure_gives_clear_error():
     error_message = str(exc_info.value)
     assert error_message  # must not be empty
     assert any(word in error_message.lower() for word in ("decrypt", "master key", "key"))
+
+def test_get_master_key_env_var():
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    test_key = AESGCM.generate_key(bit_length=256).hex()
+    os.environ["QUADLET_MASTER_KEY"] = test_key
+    key = get_master_key()
+    assert key.hex() == test_key
+    os.environ.pop("QUADLET_MASTER_KEY")
+
+def test_get_master_key_fallback_dev_key():
+    with patch("core.config_loader.global_config") as mock_config:
+        mock_config.master_key = ""
+        os.environ.pop("QUADLET_MASTER_KEY", None)
+        key = get_master_key()
+        assert len(key) == 32
+        assert "QUADLET_MASTER_KEY" in os.environ
+        os.environ.pop("QUADLET_MASTER_KEY")
+
+def test_get_master_key_config_loader():
+    with patch("core.config_loader.global_config") as mock_config:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        test_key = AESGCM.generate_key(bit_length=256).hex()
+        mock_config.master_key = test_key
+        os.environ.pop("QUADLET_MASTER_KEY", None)
+        key = get_master_key()
+        assert key.hex() == test_key
+
+def test_get_master_key_config_loader_hashing():
+    with patch("core.config_loader.global_config") as mock_config:
+        import hashlib
+        mock_config.master_key = "short_key"
+        os.environ.pop("QUADLET_MASTER_KEY", None)
+        key = get_master_key()
+        expected = hashlib.sha256(b"short_key").digest()
+        assert key == expected
+
+@pytest.mark.asyncio
+async def test_ensure_master_key_config_already_set():
+    with patch("core.config_loader.global_config") as mock_config:
+        mock_config.master_key = "config_set"
+        os.environ.pop("QUADLET_MASTER_KEY", None)
+        from core.crypto import ensure_master_key
+        await ensure_master_key()
+        assert "QUADLET_MASTER_KEY" not in os.environ
