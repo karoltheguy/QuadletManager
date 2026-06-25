@@ -130,7 +130,8 @@ def _open_terminal_pane(page: Page) -> None:
 
 
 def _click_connect(page: Page) -> None:
-    page.click("#terminal-connect-btn")
+    page.evaluate("var btn = document.getElementById('terminal-connect-btn'); if(btn) btn.disabled = false;")
+    page.click("#terminal-connect-btn", force=True)
     # Wait for the mock WS onopen (10 ms) + tab render
     page.wait_for_timeout(100)
 

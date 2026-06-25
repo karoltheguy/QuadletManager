@@ -4,3 +4,4 @@ playwright
 pytest-playwright
 pytest-cov
 coverage
+httpx2

@@ -17,32 +17,13 @@ _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
 logger = logging.getLogger("quadlet-manager")
 
-app = FastAPI(title="QuadletManager Dashboard")
-
-@app.exception_handler(HTTPException)
-async def redirect_on_auth(request: Request, exc: HTTPException):
-    """Convert 303 auth-redirect exceptions into actual browser redirects."""
-    if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
-        return RedirectResponse(url=exc.headers["Location"], status_code=303)
-    # For all other HTTPExceptions, return the default JSON response
-    from fastapi.responses import JSONResponse
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail},
-    )
-
 # Background task references for clean shutdown
 _background_tasks: list[asyncio.Task] = []
 
-# Mock static files mount to prevent startup crash if missing
-import os
-os.makedirs("static", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+from contextlib import asynccontextmanager
 
-app.include_router(web_router)
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Starting QuadletManager backend...")
     
     # 1. Initialize SQLite schema
@@ -59,9 +40,9 @@ async def startup_event():
 
     # 5. Start the Container Events cleanup task
     _background_tasks.append(asyncio.create_task(container_events_cleanup_loop()))
-
-@app.on_event("shutdown")
-async def shutdown_event():
+    
+    yield
+    
     logger.info("Shutting down QuadletManager backend...")
     
     # Cancel background tasks first so they stop making new DB connections
@@ -72,3 +53,24 @@ async def shutdown_event():
     _background_tasks.clear()
     
     await pool.close_all()
+
+app = FastAPI(title="QuadletManager Dashboard", lifespan=lifespan)
+
+@app.exception_handler(HTTPException)
+async def redirect_on_auth(request: Request, exc: HTTPException):
+    """Convert 303 auth-redirect exceptions into actual browser redirects."""
+    if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
+        return RedirectResponse(url=exc.headers["Location"], status_code=303)
+    # For all other HTTPExceptions, return the default JSON response
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+# Mock static files mount to prevent startup crash if missing
+import os
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(web_router)
