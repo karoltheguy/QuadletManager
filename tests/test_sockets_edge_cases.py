@@ -9,6 +9,7 @@ def mock_websocket():
     return ws
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_connection_manager_broadcast_error(mock_websocket):
     cm = ConnectionManager()
     await cm.connect(mock_websocket)
@@ -19,6 +20,7 @@ async def test_connection_manager_broadcast_error(mock_websocket):
     await cm.broadcast("test message")
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stream_logs_invalid_unit_name_send_error(mock_websocket, monkeypatch):
     mock_websocket.send_text.side_effect = Exception("Send Error")
     
@@ -27,6 +29,7 @@ async def test_stream_logs_invalid_unit_name_send_error(mock_websocket, monkeypa
     mock_websocket.send_text.assert_called_once()
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_resize_error(mock_websocket, monkeypatch):
     import json
     mock_pool = AsyncMock()
@@ -46,6 +49,7 @@ async def test_exec_terminal_resize_error(mock_websocket, monkeypatch):
     await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="test")
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_input_error(mock_websocket, monkeypatch):
     import json
     mock_pool = AsyncMock()
@@ -65,6 +69,7 @@ async def test_exec_terminal_input_error(mock_websocket, monkeypatch):
     await exec_terminal_over_websocket(mock_websocket, server_id=1, container_name="test")
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_stdout_read_error(mock_websocket, monkeypatch):
     import asyncio
     mock_pool = AsyncMock()

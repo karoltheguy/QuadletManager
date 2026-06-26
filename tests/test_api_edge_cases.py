@@ -9,6 +9,7 @@ def client():
         with TestClient(app) as test_client:
             yield test_client
 
+@pytest.mark.unit
 def test_api_quadlets_db_error(client):
     with patch("api.routes.get_db_connection") as mock_conn:
         from contextlib import asynccontextmanager
@@ -22,16 +23,19 @@ def test_api_quadlets_db_error(client):
         assert response.status_code == 200
         assert "Error loading files" in response.text
 
+@pytest.mark.unit
 def test_api_reorder_servers_invalid_order_format(client):
     response = client.patch("/api/settings/servers/reorder", json={"order": "not a list"})
     assert response.status_code == 422
     assert "'order' must be a list of integer server IDs" in response.text
 
+@pytest.mark.unit
 def test_api_reorder_servers_invalid_order_content(client):
     response = client.patch("/api/settings/servers/reorder", json={"order": ["1", "2"]})
     assert response.status_code == 422
     assert "'order' must be a list of integer server IDs" in response.text
 
+@pytest.mark.unit
 def test_api_reorder_servers_missing_servers(client):
     with patch("api.routes.get_db_connection") as mock_conn:
         mock_db = AsyncMock()
@@ -57,6 +61,7 @@ def test_api_reorder_servers_missing_servers(client):
 
 
 
+@pytest.mark.unit
 def test_api_file_db_error(client):
     with patch("api.routes.get_db_connection") as mock_conn:
         from contextlib import asynccontextmanager
@@ -70,6 +75,7 @@ def test_api_file_db_error(client):
         assert response.status_code == 200
         assert "Failed to load file content" in response.text
 
+@pytest.mark.unit
 def test_api_save_exception(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("SSH Error")
@@ -77,6 +83,7 @@ def test_api_save_exception(client):
         assert response.status_code == 200
         assert "Failed to save" in response.text
 
+@pytest.mark.unit
 def test_api_systemctl_status_exception(client):
     with patch("api.routes.systemctl_action") as mock_action:
         mock_action.side_effect = Exception("Status Error")
@@ -84,6 +91,7 @@ def test_api_systemctl_status_exception(client):
         assert response.status_code == 200
         assert "Status Error" in response.text
 
+@pytest.mark.unit
 def test_api_systemctl_post_exception(client):
     with patch("api.routes.systemctl_action") as mock_action:
         mock_action.side_effect = Exception("Action Error")
@@ -92,6 +100,7 @@ def test_api_systemctl_post_exception(client):
         assert response.status_code == 200
         assert "Action failed" in response.text
 
+@pytest.mark.unit
 def test_api_pod_action_exception(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("Pod Error")
@@ -99,6 +108,7 @@ def test_api_pod_action_exception(client):
         assert response.status_code == 200
         assert "Pod action failed" in response.text
 
+@pytest.mark.unit
 def test_api_activity_exception(client):
     with patch("api.routes.get_container_activity") as mock_act:
         mock_act.side_effect = Exception("Activity Error")
@@ -106,6 +116,7 @@ def test_api_activity_exception(client):
         assert response.status_code == 500
         assert "Failed to fetch activity" in response.text
 
+@pytest.mark.unit
 def test_api_create_exception(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("Create Error")

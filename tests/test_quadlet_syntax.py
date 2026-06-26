@@ -1,17 +1,21 @@
+import pytest
 import unittest
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 
 class TestQuadletParser(unittest.TestCase):
+    @pytest.mark.unit
     def test_valid_container(self):
         content = "[Container]\nImage=nginx:latest\nNetwork=host\n"
         self.assertTrue(validate_quadlet_syntax(content, "container"))
 
+    @pytest.mark.unit
     def test_missing_image(self):
         content = "[Container]\nNetwork=host\n"
         with self.assertRaises(QuadletValidationError) as context:
             validate_quadlet_syntax(content, "container")
         self.assertIn("must define an 'Image'", str(context.exception))
 
+    @pytest.mark.unit
     def test_invalid_type(self):
         content = "[Container]\nImage=nginx:latest\n"
         # Type is network, but file only has [Container]

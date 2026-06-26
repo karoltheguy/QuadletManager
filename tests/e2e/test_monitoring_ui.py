@@ -4,6 +4,7 @@ from playwright.sync_api import Page, expect
 # To run this, the backend must be running on localhost:8000
 # DEV_AUTO_LOGIN=1 venv/bin/uvicorn main:app --port 8000
 
+@pytest.mark.e2e
 def test_glance_bar_hidden_when_no_server_selected(page: Page):
     """Stat bar must stay hidden when no server is selected in the Monitor tab.
 
@@ -38,6 +39,7 @@ def test_glance_bar_hidden_when_no_server_selected(page: Page):
     expect(page.locator("#monitoring-empty-state")).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_monitoring_table_css(page: Page):
     """Test that the monitoring table has the correct CSS applied for alignment and padding"""
     try:

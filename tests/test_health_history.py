@@ -70,6 +70,7 @@ def _make_db_mock_with_rows(rows):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_health_history_returns_grouped_by_container(mock_get_db):
     """Rows from DB must be grouped into per-container history lists."""
     from api.routes import api_health_history
@@ -103,6 +104,7 @@ async def test_health_history_returns_grouped_by_container(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_health_history_empty_returns_empty_list(mock_get_db):
     """No rows in DB → empty JSON list."""
     from api.routes import api_health_history
@@ -117,6 +119,7 @@ async def test_health_history_empty_returns_empty_list(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_health_history_respects_minutes_param(mock_get_db):
     """The cutoff timestamp sent to the DB must reflect the minutes parameter."""
     from api.routes import api_health_history
@@ -141,6 +144,7 @@ async def test_health_history_respects_minutes_param(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_health_history_includes_cpu_and_mem(mock_get_db):
     """Each history point must include cpu and mem for time-series charts (#88)."""
     from api.routes import api_health_history
@@ -171,6 +175,7 @@ async def test_health_history_includes_cpu_and_mem(mock_get_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_rollup_aggregates_old_raw_rows():
     """15 raw (5s) rows in one 1-min bucket older than 1h collapse to 1 row with resolution_sec=60."""
     from services.stats_engine import rollup_health_history
@@ -207,6 +212,7 @@ async def test_rollup_aggregates_old_raw_rows():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_rollup_does_not_touch_recent_rows():
     """Raw rows newer than 1 hour must be left completely untouched by rollup."""
     from services.stats_engine import rollup_health_history
@@ -241,6 +247,7 @@ async def test_rollup_does_not_touch_recent_rows():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_rollup_second_pass_aggregates_minute_rows():
     """1-minute rows older than 24h must be downsampled to 5-minute rows (resolution_sec=300)."""
     from services.stats_engine import rollup_health_history
@@ -277,6 +284,7 @@ async def test_rollup_second_pass_aggregates_minute_rows():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_rollup_prunes_beyond_7_days():
     """Any rows older than 7 days must be deleted regardless of resolution."""
     from services.stats_engine import rollup_health_history
@@ -309,6 +317,7 @@ async def test_rollup_prunes_beyond_7_days():
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_history_endpoint_accepts_large_minute_values(mock_get_db):
     """GET /api/health/history/1?minutes=10080 (7d) must return 200 with correct cutoff."""
     from api.routes import api_health_history

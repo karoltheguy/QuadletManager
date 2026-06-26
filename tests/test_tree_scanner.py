@@ -9,6 +9,7 @@ def mock_pool():
         yield m
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_scan_directory_success_global(mock_pool):
     mock_pool.execute_command.return_value = "/etc/containers/systemd/app.container\n/etc/containers/systemd/db.volume\n"
     res = await scan_directory(1, GLOBAL_DIR, use_sudo=True)
@@ -19,6 +20,7 @@ async def test_scan_directory_success_global(mock_pool):
     assert res[1]["scope"] == "global"
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_scan_directory_success_user(mock_pool):
     mock_pool.execute_command.return_value = "~/.config/containers/systemd/my.pod\n"
     res = await scan_directory(1, USER_DIR, use_sudo=False)
@@ -27,18 +29,21 @@ async def test_scan_directory_success_user(mock_pool):
     assert res[0]["scope"] == "user"
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_scan_directory_empty(mock_pool):
     mock_pool.execute_command.return_value = "\n"
     res = await scan_directory(1, USER_DIR, use_sudo=False)
     assert len(res) == 0
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_scan_directory_error(mock_pool):
     mock_pool.execute_command.side_effect = Exception("SSH error")
     res = await scan_directory(1, USER_DIR, use_sudo=False)
     assert res == []
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_fetch_all_quadlets_both():
     with patch("services.tree_scanner.scan_directory") as mock_scan:
         mock_scan.side_effect = [
@@ -51,6 +56,7 @@ async def test_fetch_all_quadlets_both():
         assert mock_scan.call_count == 2
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_fetch_all_quadlets_global():
     with patch("services.tree_scanner.scan_directory") as mock_scan:
         mock_scan.side_effect = [[{"name": "global_app.container"}]]
@@ -60,6 +66,7 @@ async def test_fetch_all_quadlets_global():
         assert mock_scan.call_count == 1
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_fetch_all_quadlets_user():
     with patch("services.tree_scanner.scan_directory") as mock_scan:
         mock_scan.side_effect = [[{"name": "user_app.container"}]]

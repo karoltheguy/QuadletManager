@@ -33,6 +33,7 @@ def _goto_themes(page: Page):
     expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
+@pytest.mark.e2e
 def test_themes_tab_appears_in_settings_sidenav(page: Page):
     """Settings sidenav must show a Themes item that reveals the htmx-loaded theme editor."""
     try:
@@ -51,6 +52,7 @@ def test_themes_tab_appears_in_settings_sidenav(page: Page):
     expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
+@pytest.mark.e2e
 def test_color_picker_change_applies_css_var(page: Page):
     """Saving a dark bg_base must persist it so --bg-base reflects the value after reload."""
     _goto_themes(page)
@@ -83,6 +85,7 @@ def test_color_picker_change_applies_css_var(page: Page):
         expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
+@pytest.mark.e2e
 def test_neumorphic_shadows_preserved_after_custom_theme(page: Page):
     """All 8 allowlist color overrides must not bleed into the composite shadow on .top-nav."""
     _goto_themes(page)
@@ -111,7 +114,7 @@ def test_neumorphic_shadows_preserved_after_custom_theme(page: Page):
     )
     try:
         assert box_shadow != "none", (
-            f"Expected composite neumorphic shadow on .top-nav, got 'none'"
+            "Expected composite neumorphic shadow on .top-nav, got 'none'"
         )
         assert box_shadow.count(",") >= 1, (
             f"Expected 2-layer shadow on .top-nav (shadow vars not overridden), "
@@ -127,6 +130,7 @@ def test_neumorphic_shadows_preserved_after_custom_theme(page: Page):
         expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
+@pytest.mark.e2e
 def test_no_fouc_on_reload_with_active_custom_theme(page: Page):
     """
     ACCEPTANCE GATE: data-theme must be set before DOMContentLoaded and the
@@ -176,6 +180,7 @@ def test_no_fouc_on_reload_with_active_custom_theme(page: Page):
         expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
+@pytest.mark.e2e
 def test_mode_preference_auto_follows_os_preference(page: Page):
     """mode_preference='auto' must derive data-theme from prefers-color-scheme on reload."""
     _goto_themes(page)

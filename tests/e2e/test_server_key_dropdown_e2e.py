@@ -24,6 +24,7 @@ BASE_URL = "http://localhost:8000"
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
+@pytest.mark.e2e
 def test_ssh_key_dropdown_populated_on_settings_visit(page: Page):
     """After adding an SSH key, the dropdown in Settings > Servers must show
     that key when the user navigates to the Servers sub-section (issue #86)."""
@@ -38,7 +39,7 @@ def test_ssh_key_dropdown_populated_on_settings_visit(page: Page):
     page.fill("input[name='key_name']", "e2e-test-key")
     page.fill(
         "textarea[name='private_key']",
-        "-----BEGIN OPENSSH PRIVATE KEY-----\nfakekey\n-----END OPENSSH PRIVATE KEY-----",
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nfakekey\n-----END OPENSSH PRIVATE KEY-----", # gitleaks:allow
     )
     page.click("button[type='submit']:has-text('Add Key')")
     page.wait_for_timeout(500)

@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for UI Density toggle (Issue #109).
 - dashboard.html must have the density section with Relaxed/Compact radio buttons
@@ -20,19 +21,24 @@ class TestDensityHTML:
     def setup_method(self):
         self.html = _read(TEMPLATE_PATH)
 
+    @pytest.mark.unit
     def test_density_section_exists(self):
         assert 'id="density-section"' in self.html, "density-section div must be present"
 
+    @pytest.mark.unit
     def test_density_relaxed_radio_exists(self):
         assert 'id="density-relaxed"' in self.html, "density-relaxed radio input must be present"
 
+    @pytest.mark.unit
     def test_density_compact_radio_exists(self):
         assert 'id="density-compact"' in self.html, "density-compact radio input must be present"
 
+    @pytest.mark.unit
     def test_density_toggle_calls_js(self):
         assert "toggleDensity('relaxed')" in self.html
         assert "toggleDensity('compact')" in self.html
 
+    @pytest.mark.unit
     def test_density_section_is_outside_themes_root(self):
         themes_root_start = self.html.find('<div id="themes-root"')
         density_section_pos = self.html.find('id="density-section"')
@@ -43,6 +49,7 @@ class TestDensityHTML:
             "density-section must be outside #themes-root to survive htmx swaps"
         )
 
+    @pytest.mark.unit
     def test_fouc_prevention_in_head(self):
         head_end = self.html.find('</head>')
         head = self.html[:head_end]
@@ -54,18 +61,23 @@ class TestDensityCSS:
     def setup_method(self):
         self.css = _read(CSS_PATH)
 
+    @pytest.mark.unit
     def test_density_panel_padding_token_defined(self):
         assert '--density-panel-padding' in self.css
 
+    @pytest.mark.unit
     def test_density_gap_token_defined(self):
         assert '--density-gap' in self.css
 
+    @pytest.mark.unit
     def test_density_section_padding_token_defined(self):
         assert '--density-section-padding' in self.css
 
+    @pytest.mark.unit
     def test_compact_override_block_exists(self):
         assert '[data-density="compact"]' in self.css
 
+    @pytest.mark.unit
     def test_compact_reduces_panel_padding(self):
         compact_block_match = re.search(
             r'\[data-density="compact"\]\s*\{([^}]+)\}', self.css
@@ -74,14 +86,18 @@ class TestDensityCSS:
         block = compact_block_match.group(1)
         assert '--density-panel-padding' in block
 
+    @pytest.mark.unit
     def test_settings_main_uses_density_token(self):
         assert 'padding: var(--density-panel-padding)' in self.css
 
+    @pytest.mark.unit
     def test_settings_group_uses_density_gap_token(self):
         assert 'gap: var(--density-gap)' in self.css
 
+    @pytest.mark.unit
     def test_settings_section_uses_density_section_padding_token(self):
         assert 'padding: var(--density-section-padding)' in self.css
 
+    @pytest.mark.unit
     def test_raised_panels_use_density_token(self):
         assert 'padding: var(--density-panel-padding)' in self.css

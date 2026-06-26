@@ -69,6 +69,7 @@ def _inject_stats_update(page: Page, server_id: int, container_names: list[str])
         }})();
     """)
 
+@pytest.mark.e2e
 def test_notification_mock(page: Page):
     _goto_and_mock_notifications(page)
     # This is a placeholder test. Full E2E for inline SSE handlers might require mocking EventSource 

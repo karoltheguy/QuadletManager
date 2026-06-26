@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_modal_does_not_use_onsubmit(mock_db):
     """The form must NOT use an `onsubmit` handler that removes the modal
     before HTMX sends the request. Instead, `hx-on::after-request`
@@ -66,6 +67,7 @@ async def test_modal_does_not_use_onsubmit(mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_create_endpoint_returns_reload_trigger(mock_execute, mock_db):
     """After creating a file, the response must include the HX-Trigger
     header so the file tree reloads and shows the new file."""
@@ -109,6 +111,7 @@ def _make_db_mock(servers):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_modal_preselects_server_when_server_id_provided(mock_db):
     """When server_id is passed as a query param, the matching option is pre-selected."""
     from api.routes import new_file_modal
@@ -128,6 +131,7 @@ async def test_modal_preselects_server_when_server_id_provided(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_modal_no_preselect_when_server_id_omitted(mock_db):
     """When server_id is not provided, no option is forcibly pre-selected."""
     from api.routes import new_file_modal
@@ -145,6 +149,7 @@ async def test_modal_no_preselect_when_server_id_omitted(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_servers_list_shows_new_btn_for_editor(mock_db):
     """Editor role gets a + button on each server row with correct title/aria-label."""
     from api.routes import api_servers
@@ -164,6 +169,7 @@ async def test_servers_list_shows_new_btn_for_editor(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_servers_list_hides_new_btn_for_viewer(mock_db):
     """Viewer role must not see the + button."""
     from api.routes import api_servers

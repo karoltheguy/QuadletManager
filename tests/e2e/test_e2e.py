@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright is not in
 # To run this, the backend must be running on localhost:8000
 # pytest tests/test_e2e.py
 
+@pytest.mark.e2e
 def test_editor_load(page: Page):
     """Test that the application UI loads the main elements"""
     try:
@@ -32,6 +33,7 @@ def test_editor_load(page: Page):
     expect(page.locator("h2:text('Settings')")).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_polling_alert_banner(page: Page):
     """File-changed SSE event triggers the polling alert toast within 10 s."""
     sse_payload = (
@@ -62,6 +64,7 @@ def test_polling_alert_banner(page: Page):
     expect(page.locator("#status-toast .toast-warning")).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_template_injection_into_editor(page: Page):
     """New quadlet created from template populates the Monaco editor with the correct boilerplate."""
     editor_html = (

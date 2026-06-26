@@ -37,6 +37,7 @@ def _goto(page: Page):
 
 # ── Card Slot Existence ────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_stats_card_slot_exists(page: Page):
     """The container-stats-card element must be present in the inspector."""
     _goto(page)
@@ -44,6 +45,7 @@ def test_stats_card_slot_exists(page: Page):
     expect(card).to_have_count(1)
 
 
+@pytest.mark.e2e
 def test_stats_card_hidden_by_default(page: Page):
     """The stats card should be hidden when no container is selected."""
     _goto(page)
@@ -53,6 +55,7 @@ def test_stats_card_hidden_by_default(page: Page):
 
 # ── selectContainerStem JS API ─────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_selecting_container_shows_card(page: Page):
     """Calling selectContainerStem should make the card visible."""
     _goto(page)
@@ -78,6 +81,7 @@ def test_selecting_container_shows_card(page: Page):
     expect(card).not_to_have_class(re.compile(r"hidden"))
 
 
+@pytest.mark.e2e
 def test_card_displays_cpu_mem_net_pids(page: Page):
     """Stats card should show CPU, Memory, Net I/O, and PIDs values."""
     _goto(page)
@@ -105,6 +109,7 @@ def test_card_displays_cpu_mem_net_pids(page: Page):
     expect(card).to_contain_text("8")
 
 
+@pytest.mark.e2e
 def test_card_shows_not_running_for_stopped_container(page: Page):
     """When container is not running, show 'Container not running'."""
     _goto(page)
@@ -124,6 +129,7 @@ def test_card_shows_not_running_for_stopped_container(page: Page):
     expect(card).to_contain_text("Container not running")
 
 
+@pytest.mark.e2e
 def test_switching_containers_updates_card(page: Page):
     """Selecting a different container should update the card immediately."""
     _goto(page)
@@ -148,6 +154,7 @@ def test_switching_containers_updates_card(page: Page):
     expect(card).to_contain_text("50.00%")
 
 
+@pytest.mark.e2e
 def test_card_updates_on_sse_data(page: Page):
     """Simulating an SSE stats update should refresh the card values."""
     _goto(page)
@@ -182,6 +189,7 @@ def test_card_updates_on_sse_data(page: Page):
     expect(card).to_contain_text("60.00%")
 
 
+@pytest.mark.e2e
 def test_card_shows_container_name_in_title(page: Page):
     """The card title should display the container name."""
     _goto(page)

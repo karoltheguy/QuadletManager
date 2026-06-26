@@ -44,6 +44,7 @@ class _AioDualMock:
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_keys_options_returns_option_elements(mock_db):
     """GET /api/keys/options should return HTML <option> tags for each key."""
     from api.routes import api_keys_options
@@ -65,6 +66,7 @@ async def test_keys_options_returns_option_elements(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_keys_options_empty_when_no_keys(mock_db):
     """GET /api/keys/options with no keys returns only the placeholder option."""
     from api.routes import api_keys_options
@@ -89,6 +91,7 @@ async def test_keys_options_empty_when_no_keys(mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_add_server_with_ssh_key_id(mock_db, mock_list):
     """Adding a server with a valid ssh_key_id should succeed."""
     from fastapi.responses import HTMLResponse
@@ -121,6 +124,7 @@ async def test_add_server_with_ssh_key_id(mock_db, mock_list):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_add_server_with_invalid_key_id_returns_400(mock_db):
     """Adding a server with a non-existent ssh_key_id should return 400."""
     from api.routes import settings_add_server
@@ -148,6 +152,7 @@ async def test_add_server_with_invalid_key_id_returns_400(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_add_server_non_admin_rejected(mock_db):
     """Non-admin users cannot add servers."""
     from api.routes import settings_add_server

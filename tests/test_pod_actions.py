@@ -38,6 +38,7 @@ def _template_context(mock_template):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_fetch_file_pod_passes_quadlet_type(mock_exec):
     """fetch_file must pass quadlet_type='pod' to the template for .pod files."""
     from api.routes import fetch_file
@@ -64,6 +65,7 @@ async def test_fetch_file_pod_passes_quadlet_type(mock_exec):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_fetch_file_container_passes_quadlet_type(mock_exec):
     """fetch_file must pass quadlet_type='container' for .container files."""
     from api.routes import fetch_file
@@ -95,6 +97,7 @@ async def test_fetch_file_container_passes_quadlet_type(mock_exec):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_pod_action_stop(mock_exec):
     """api_pod_action with action=stop must run `podman pod stop <name>`."""
     from api.routes import api_pod_action
@@ -121,6 +124,7 @@ async def test_pod_action_stop(mock_exec):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_pod_action_start(mock_exec):
     """api_pod_action with action=start must run `podman pod start <name>`."""
     from api.routes import api_pod_action
@@ -146,6 +150,7 @@ async def test_pod_action_start(mock_exec):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_pod_action_restart(mock_exec):
     """api_pod_action with action=restart must run `podman pod restart <name>`."""
     from api.routes import api_pod_action
@@ -170,6 +175,7 @@ async def test_pod_action_restart(mock_exec):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_pod_action_viewer_forbidden():
     """Viewers must be forbidden from pod actions (start/stop/restart)."""
     from api.routes import api_pod_action
@@ -187,6 +193,7 @@ async def test_pod_action_viewer_forbidden():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_pod_action_rejects_invalid_action():
     """Only start/stop/restart are valid pod actions."""
     from api.routes import api_pod_action
@@ -205,6 +212,7 @@ async def test_pod_action_rejects_invalid_action():
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_pod_action_user_scope_no_sudo(mock_exec):
     """User scope pod actions must NOT use sudo."""
     from api.routes import api_pod_action
@@ -230,6 +238,7 @@ async def test_pod_action_user_scope_no_sudo(mock_exec):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_pod_action_global_scope_uses_sudo(mock_exec):
     """Global scope pod actions must use sudo."""
     from api.routes import api_pod_action
@@ -255,6 +264,7 @@ async def test_pod_action_global_scope_uses_sudo(mock_exec):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_pod_action_records_event(mock_exec):
     """Pod actions must record a container event like systemctl actions do."""
     from api.routes import api_pod_action
@@ -281,6 +291,7 @@ async def test_pod_action_records_event(mock_exec):
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_editor_pane_has_pod_action_endpoint():
     """The editor pane must reference the /api/pod-action endpoint for pod quadlets."""
     html = _read_editor()
@@ -288,6 +299,7 @@ def test_editor_pane_has_pod_action_endpoint():
         "Editor pane must contain /api/pod-action/ endpoint for pod quadlets"
 
 
+@pytest.mark.unit
 def test_editor_pane_conditional_pod_actions():
     """The editor pane must conditionally render pod actions vs systemctl actions."""
     html = _read_editor()
@@ -300,6 +312,7 @@ def test_editor_pane_conditional_pod_actions():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_context_menu_detects_pod_extension():
     """The JS context menu must detect .pod file extension."""
     js = _read_js()
@@ -307,6 +320,7 @@ def test_context_menu_detects_pod_extension():
         "Context menu must route .pod files to /api/pod-action endpoint"
 
 
+@pytest.mark.unit
 def test_context_menu_preserves_systemctl_for_non_pod():
     """Non-.pod files must still use systemctl endpoint."""
     js = _read_js()

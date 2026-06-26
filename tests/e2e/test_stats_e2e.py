@@ -5,6 +5,7 @@ from playwright.sync_api import Page, expect
 # To run this, the backend must be running on localhost:8000
 # DEV_AUTO_LOGIN=1 venv/bin/uvicorn main:app --port 8000
 
+@pytest.mark.e2e
 def test_stats_update_received(page: Page):
     """Test that the stats table updates when receiving SSE events"""
     try:
@@ -43,6 +44,7 @@ def test_stats_update_received(page: Page):
     # Verify that the CPU history chart canvas is present
     expect(page.locator("#cpu-history-chart")).to_be_visible()
 
+@pytest.mark.e2e
 def test_log_streaming_ui(page: Page):
     """Test that clicking Tail Logs changes button state and activates log streaming"""
     try:

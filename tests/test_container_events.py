@@ -10,6 +10,7 @@ from core.database import get_db_connection, init_db
 
 
 @pytest.fixture
+@pytest.mark.unit
 async def test_db(monkeypatch):
     """Create and initialize a test database with container_events table."""
     # Create a temporary database file
@@ -35,6 +36,7 @@ async def test_db(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_record_container_event(test_db):
     """Test recording a container event."""
     from services.container_events import record_container_event
@@ -65,6 +67,7 @@ async def test_record_container_event(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_container_activity(test_db):
     """Test fetching container activity events."""
     from services.container_events import record_container_event, get_container_activity
@@ -89,6 +92,7 @@ async def test_get_container_activity(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_container_activity_respects_limit(test_db):
     """Test that activity retrieval respects the limit parameter."""
     from services.container_events import record_container_event, get_container_activity
@@ -107,6 +111,7 @@ async def test_get_container_activity_respects_limit(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_activity_event_includes_timestamp(test_db):
     """Test that activity events include readable timestamps."""
     from services.container_events import record_container_event, get_container_activity
@@ -126,6 +131,7 @@ async def test_activity_event_includes_timestamp(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_cleanup_old_events_removes_old_records(test_db):
     """Test that cleanup_old_events deletes records older than the retention period."""
     from services.container_events import record_container_event, cleanup_old_events
@@ -156,6 +162,7 @@ async def test_cleanup_old_events_removes_old_records(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_cleanup_old_events_preserves_recent_records(test_db):
     """Test that cleanup_old_events does not delete recent records."""
     from services.container_events import record_container_event, cleanup_old_events
@@ -178,6 +185,7 @@ async def test_cleanup_old_events_preserves_recent_records(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_cleanup_old_events_mixed(test_db):
     """Test that cleanup deletes only old events and keeps recent ones."""
     from services.container_events import record_container_event, cleanup_old_events
@@ -208,6 +216,7 @@ async def test_cleanup_old_events_mixed(test_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_systemctl_action_records_stem_not_full_unit_name():
     """Events must be stored by stem so the JS activity query (which uses stem) finds them."""
     from unittest.mock import AsyncMock, patch, MagicMock
@@ -244,6 +253,7 @@ async def test_systemctl_action_records_stem_not_full_unit_name():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_activity_route_caps_limit():
     """Test that the /api/activity route caps an unbounded client-supplied limit at 100."""
     from unittest.mock import AsyncMock, patch

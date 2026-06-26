@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
        return_value={"mode_pref": "auto", "light": {}, "dark": {}})
 @patch('api.routes.get_current_user_is_admin', return_value=True)
 @patch('api.routes.get_current_user_role', return_value='editor')
+@pytest.mark.unit
 async def test_dashboard_view_passes_is_admin_true(mock_role, mock_admin, mock_load, mock_ensure):
     """dashboard_view must include is_admin=True for admin sessions."""
     from api.routes import dashboard_view
@@ -51,6 +52,7 @@ async def test_dashboard_view_passes_is_admin_true(mock_role, mock_admin, mock_l
 @patch('api.routes._ensure_default_theme', new_callable=AsyncMock)
 @patch('api.routes.load_active_theme', new_callable=AsyncMock,
        return_value={"mode_pref": "auto", "light": {}, "dark": {}})
+@pytest.mark.unit
 async def test_dashboard_view_passes_is_admin_false(mock_load, mock_ensure):
     """dashboard_view must include is_admin=False for non-admin sessions."""
     from api.routes import dashboard_view
@@ -83,11 +85,10 @@ async def test_dashboard_view_passes_is_admin_false(mock_load, mock_ensure):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_settings_list_servers_includes_is_admin_in_context(mock_db):
     """settings_list_servers must pass is_admin to the template context."""
     from api.routes import settings_list_servers
-
-    _select = MagicMock()
 
     class _FetchAllMock:
         def __await__(self):
@@ -148,42 +149,49 @@ def _render_dashboard(is_admin: bool, user_role: str = 'editor') -> str:
     )
 
 
+@pytest.mark.unit
 def test_admin_sees_server_management_form():
     """Admin users must see the Add Server form in the Settings pane."""
     html = _render_dashboard(is_admin=True, user_role='editor')
     assert 'hx-post="/api/settings/servers"' in html
 
 
+@pytest.mark.unit
 def test_non_admin_does_not_see_server_management_form():
     """Non-admin users must NOT see the Add Server form."""
     html = _render_dashboard(is_admin=False, user_role='editor')
     assert 'hx-post="/api/settings/servers"' not in html
 
 
+@pytest.mark.unit
 def test_admin_sees_user_management_form():
     """Admin users must see the Add User form."""
     html = _render_dashboard(is_admin=True, user_role='editor')
     assert 'hx-post="/api/settings/users"' in html
 
 
+@pytest.mark.unit
 def test_non_admin_does_not_see_user_management_form():
     """Non-admin users must NOT see the Add User form."""
     html = _render_dashboard(is_admin=False, user_role='editor')
     assert 'hx-post="/api/settings/users"' not in html
 
 
+@pytest.mark.unit
 def test_admin_sees_ssh_key_section():
     """Admin users must see the SSH Key Management section."""
     html = _render_dashboard(is_admin=True, user_role='editor')
     assert '/api/keys' in html
 
 
+@pytest.mark.unit
 def test_non_admin_does_not_see_ssh_key_section():
     """Non-admin users must NOT see the SSH Key Management section."""
     html = _render_dashboard(is_admin=False, user_role='editor')
     assert 'hx-post="/api/keys"' not in html
 
 
+@pytest.mark.unit
 def test_viewer_non_admin_does_not_see_admin_sections():
     """Viewer role without admin flag must see no admin sections."""
     html = _render_dashboard(is_admin=False, user_role='viewer')
@@ -208,12 +216,14 @@ def _render_settings_servers(is_admin: bool) -> str:
     return template.render(servers=servers, is_admin=is_admin)
 
 
+@pytest.mark.unit
 def test_admin_sees_remove_button_in_servers_list():
     """Admin must see the Remove button for each server."""
     html = _render_settings_servers(is_admin=True)
     assert 'Remove' in html
 
 
+@pytest.mark.unit
 def test_non_admin_does_not_see_remove_button_in_servers_list():
     """Non-admin must NOT see the Remove button."""
     html = _render_settings_servers(is_admin=False)
@@ -225,30 +235,35 @@ def test_non_admin_does_not_see_remove_button_in_servers_list():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_servers_list_div_has_refresh_servers_trigger():
     """#servers-list must listen for refresh-servers to support reorder-driven reloads."""
     html = _render_dashboard(is_admin=True)
     assert 'refresh-servers' in html
 
 
+@pytest.mark.unit
 def test_servers_list_div_has_response_error_handler():
     """#servers-list must have an htmx:responseError handler to surface load failures."""
     html = _render_dashboard(is_admin=True)
     assert 'response-error' in html
 
 
+@pytest.mark.unit
 def test_servers_list_div_has_send_error_handler():
     """#servers-list must have an htmx:sendError handler to surface network failures."""
     html = _render_dashboard(is_admin=True)
     assert 'send-error' in html
 
 
+@pytest.mark.unit
 def test_reorder_handler_dispatches_refresh_servers_event():
     """The drag-and-drop reorder handler must dispatch refresh-servers, not call htmx.process(target)."""
     html = _render_settings_servers(is_admin=True)
     assert 'refresh-servers' in html
 
 
+@pytest.mark.unit
 def test_reorder_handler_does_not_call_htmx_process_on_outer_target():
     """The reorder handler must not call htmx.process(target) on #servers-list (re-fires load trigger)."""
     html = _render_settings_servers(is_admin=True)

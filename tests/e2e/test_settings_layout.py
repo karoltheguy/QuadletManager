@@ -31,6 +31,7 @@ def _goto_settings(page: Page):
     expect(page.locator("#settings-pane")).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_settings_title_has_left_padding(page: Page):
     """The Settings header must have non-zero bottom padding (title separation from content)."""
     _goto_settings(page)
@@ -43,6 +44,7 @@ def test_settings_title_has_left_padding(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_settings_title_is_fully_visible(page: Page):
     """The Settings panel-title must be fully within the viewport horizontally."""
     _goto_settings(page)
@@ -53,6 +55,7 @@ def test_settings_title_is_fully_visible(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_settings_sidenav_is_visible(page: Page):
     """Settings page must render an inner sidebar navigation."""
     _goto_settings(page)
@@ -62,6 +65,7 @@ def test_settings_sidenav_is_visible(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_settings_sidenav_switches_sections(page: Page):
     """Clicking a sidenav item shows that group and hides others."""
     _goto_settings(page)
@@ -75,6 +79,7 @@ def test_settings_sidenav_switches_sections(page: Page):
     expect(page.locator(".settings-group[data-group='servers']")).to_be_hidden()
 
 
+@pytest.mark.e2e
 def test_settings_active_group_uses_grid_layout(page: Page):
     """The active settings group must use CSS grid for multi-column layout."""
     _goto_settings(page)
@@ -86,6 +91,7 @@ def test_settings_active_group_uses_grid_layout(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_settings_group_multi_column_on_wide_viewport(page: Page):
     """On a wide viewport, sections within the active group should fill multiple columns."""
     page.set_viewport_size({"width": 1400, "height": 900})
@@ -110,6 +116,7 @@ def test_settings_group_multi_column_on_wide_viewport(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_settings_group_single_column_on_narrow_viewport(page: Page):
     """On a narrow viewport, sections within the active group should collapse to one column."""
     page.set_viewport_size({"width": 600, "height": 900})

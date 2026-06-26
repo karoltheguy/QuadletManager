@@ -12,6 +12,7 @@ def mock_websocket():
     return ws
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_connection_manager(mock_websocket):
     cm = ConnectionManager()
     await cm.connect(mock_websocket)
@@ -25,6 +26,7 @@ async def test_connection_manager(mock_websocket):
     assert mock_websocket not in cm.active_connections
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stream_logs_over_websocket_disconnect(mock_websocket, monkeypatch):
     mock_pool = AsyncMock()
     mock_conn = AsyncMock()
@@ -52,6 +54,7 @@ async def test_stream_logs_over_websocket_disconnect(mock_websocket, monkeypatch
     mock_process.wait.assert_awaited_once_with(check=False)
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stream_logs_over_websocket_stop_command(mock_websocket, monkeypatch):
     mock_pool = AsyncMock()
     mock_conn = AsyncMock()
@@ -76,6 +79,7 @@ async def test_stream_logs_over_websocket_stop_command(mock_websocket, monkeypat
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_over_websocket_disconnect(mock_websocket, monkeypatch):
     """Test that terminal process is properly cleaned up on WebSocket disconnect"""
     mock_pool = AsyncMock()
@@ -106,6 +110,7 @@ async def test_exec_terminal_over_websocket_disconnect(mock_websocket, monkeypat
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_forward_input(mock_websocket, monkeypatch):
     """Test that terminal input is forwarded to process stdin"""
     mock_pool = AsyncMock()
@@ -131,6 +136,7 @@ async def test_exec_terminal_forward_input(mock_websocket, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_resize_event(mock_websocket, monkeypatch):
     """Test that terminal resize events are handled"""
     import json
@@ -158,6 +164,7 @@ async def test_exec_terminal_resize_event(mock_websocket, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_with_custom_command(mock_websocket, monkeypatch):
     """Test that custom commands are passed to podman exec"""
     mock_pool = AsyncMock()
@@ -181,6 +188,7 @@ async def test_exec_terminal_with_custom_command(mock_websocket, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stream_logs_rejects_invalid_unit_name(mock_websocket, monkeypatch):
     """Test that injected chars in unit_name are rejected before process is started"""
     mock_pool = AsyncMock()
@@ -195,6 +203,7 @@ async def test_stream_logs_rejects_invalid_unit_name(mock_websocket, monkeypatch
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_rejects_invalid_container_name(mock_websocket, monkeypatch):
     """Test that injected chars in container_name are rejected before process is started"""
     mock_pool = AsyncMock()
@@ -209,6 +218,7 @@ async def test_exec_terminal_rejects_invalid_container_name(mock_websocket, monk
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_cmd_injection_is_quoted(mock_websocket, monkeypatch):
     """Test that shell metacharacters in cmd are quoted, not interpreted"""
     mock_pool = AsyncMock()
@@ -235,6 +245,7 @@ async def test_exec_terminal_cmd_injection_is_quoted(mock_websocket, monkeypatch
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stream_logs_valid_unit_name_passes(mock_websocket, monkeypatch):
     """Test that valid systemd unit names (including template instances) still work"""
     mock_pool = AsyncMock()
@@ -277,6 +288,7 @@ def authed_ws():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ws_logs_rejects_unauthenticated(unauth_ws, monkeypatch):
     """Unauthenticated /ws/logs connections must be closed before streaming starts."""
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
@@ -295,6 +307,7 @@ async def test_ws_logs_rejects_unauthenticated(unauth_ws, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ws_exec_rejects_unauthenticated(unauth_ws, monkeypatch):
     """Unauthenticated /ws/exec connections must be closed before streaming starts."""
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
@@ -312,6 +325,7 @@ async def test_ws_exec_rejects_unauthenticated(unauth_ws, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ws_logs_accepts_valid_session(authed_ws, monkeypatch):
     """A valid signed session cookie must allow the log stream handler to run."""
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
@@ -329,6 +343,7 @@ async def test_ws_logs_accepts_valid_session(authed_ws, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ws_exec_accepts_valid_session(authed_ws, monkeypatch):
     """A valid signed session cookie must allow the exec terminal handler to run."""
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
@@ -346,6 +361,7 @@ async def test_ws_exec_accepts_valid_session(authed_ws, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_sends_prompt_without_newline(mock_websocket, monkeypatch):
     """PTY shell prompts have no trailing newline.  The terminal must forward them
     immediately via read(), not stall in readline() waiting for '\\n'.
@@ -396,6 +412,7 @@ async def test_exec_terminal_sends_prompt_without_newline(mock_websocket, monkey
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_notifies_on_process_exit(mock_websocket, monkeypatch):
     """When the remote process exits unexpectedly, the client receives a
     notification message and the websocket is closed cleanly."""
@@ -431,6 +448,7 @@ async def test_exec_terminal_notifies_on_process_exit(mock_websocket, monkeypatc
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_exec_terminal_no_spurious_notification_on_client_disconnect(mock_websocket, monkeypatch):
     """When the client disconnects normally (not process exit), no process-exit
     notification should be sent."""
@@ -465,6 +483,7 @@ async def test_exec_terminal_no_spurious_notification_on_client_disconnect(mock_
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ws_logs_dev_auto_login_bypasses_auth(unauth_ws, monkeypatch):
     """When dev_auto_login is enabled, missing cookies must not block the stream."""
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", True)

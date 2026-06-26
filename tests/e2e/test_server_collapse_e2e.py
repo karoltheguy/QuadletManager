@@ -34,24 +34,28 @@ def _goto(page: Page):
 
 # ── Structure ────────────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_server_row_toggle_button_exists(page: Page):
     _goto(page)
     toggles = page.locator(".server-row-toggle")
     assert toggles.count() >= 1, "Expected at least one .server-row-toggle button"
 
 
+@pytest.mark.e2e
 def test_server_chevron_exists(page: Page):
     _goto(page)
     chevrons = page.locator(".server-chevron")
     assert chevrons.count() >= 1, "Expected at least one .server-chevron span"
 
 
+@pytest.mark.e2e
 def test_server_quadlet_tree_class_exists(page: Page):
     _goto(page)
     trees = page.locator(".server-quadlet-tree")
     assert trees.count() >= 1, "Expected at least one .server-quadlet-tree div"
 
 
+@pytest.mark.e2e
 def test_toggle_button_is_focusable(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -63,6 +67,7 @@ def test_toggle_button_is_focusable(page: Page):
 
 # ── Collapse / Expand ────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_click_collapses_server(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -71,6 +76,7 @@ def test_click_collapses_server(page: Page):
     expect(li).to_have_class("is-collapsed")
 
 
+@pytest.mark.e2e
 def test_click_again_expands_server(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -81,6 +87,7 @@ def test_click_again_expands_server(page: Page):
     assert "is-collapsed" not in classes, "Second click should remove is-collapsed"
 
 
+@pytest.mark.e2e
 def test_collapse_hides_quadlet_tree(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -89,6 +96,7 @@ def test_collapse_hides_quadlet_tree(page: Page):
     expect(tree).to_be_hidden()
 
 
+@pytest.mark.e2e
 def test_expand_shows_quadlet_tree(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -102,12 +110,14 @@ def test_expand_shows_quadlet_tree(page: Page):
 
 # ── aria-expanded ────────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_aria_expanded_starts_true(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
     expect(toggle).to_have_attribute("aria-expanded", "true")
 
 
+@pytest.mark.e2e
 def test_aria_expanded_false_when_collapsed(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -115,6 +125,7 @@ def test_aria_expanded_false_when_collapsed(page: Page):
     expect(toggle).to_have_attribute("aria-expanded", "false")
 
 
+@pytest.mark.e2e
 def test_aria_expanded_true_after_reexpand(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -125,6 +136,7 @@ def test_aria_expanded_true_after_reexpand(page: Page):
 
 # ── + Button Independence ────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_new_btn_does_not_collapse(page: Page):
     _goto(page)
     li = page.locator("li[data-server-id]").first
@@ -140,6 +152,7 @@ def test_new_btn_does_not_collapse(page: Page):
 
 # ── Keyboard Navigation ──────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_arrow_left_collapses(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -149,6 +162,7 @@ def test_arrow_left_collapses(page: Page):
     expect(li).to_have_class("is-collapsed")
 
 
+@pytest.mark.e2e
 def test_arrow_right_expands(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -160,6 +174,7 @@ def test_arrow_right_expands(page: Page):
     assert "is-collapsed" not in classes
 
 
+@pytest.mark.e2e
 def test_enter_toggles_collapse(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first
@@ -169,6 +184,7 @@ def test_enter_toggles_collapse(page: Page):
     expect(li).to_have_class("is-collapsed")
 
 
+@pytest.mark.e2e
 def test_space_toggles_collapse(page: Page):
     _goto(page)
     toggle = page.locator(".server-row-toggle").first

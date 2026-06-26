@@ -36,6 +36,7 @@ async def fresh_db(tmp_path):
 # ── Schema tests ──────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_schema_init_creates_user_themes_table(fresh_db):
     """init_db() must create the user_themes table with all required columns."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -54,6 +55,7 @@ async def test_schema_init_creates_user_themes_table(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_schema_init_creates_user_active_index(fresh_db):
     """init_db() must create the idx_user_themes_user_active index."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -64,6 +66,7 @@ async def test_schema_init_creates_user_active_index(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_mode_preference_check_constraint(fresh_db):
     """Inserting an invalid mode_preference must raise an IntegrityError."""
     import time
@@ -79,6 +82,7 @@ async def test_mode_preference_check_constraint(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_schema_idempotent_on_second_init(fresh_db):
     """Running init_db() a second time must not raise (idempotent migrations)."""
     await init_db()  # second call — should be a no-op
@@ -87,6 +91,7 @@ async def test_schema_idempotent_on_second_init(fresh_db):
 # ── _ensure_default_theme() tests ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_default_theme_seeds_once(fresh_db):
     """Calling _ensure_default_theme(user_id=1) must insert exactly one row."""
     from api.routes import _ensure_default_theme
@@ -102,6 +107,7 @@ async def test_ensure_default_theme_seeds_once(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_default_theme_is_idempotent(fresh_db):
     """Calling _ensure_default_theme() twice must still yield exactly one row."""
     from api.routes import _ensure_default_theme
@@ -118,6 +124,7 @@ async def test_ensure_default_theme_is_idempotent(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_default_theme_is_active(fresh_db):
     """The seeded default theme must have is_active=1 and mode_preference='auto'."""
     from api.routes import _ensure_default_theme
@@ -139,6 +146,7 @@ async def test_ensure_default_theme_is_active(fresh_db):
 # ── get_current_user_id() tests ───────────────────────────────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_current_user_id_returns_correct_id(fresh_db):
     """get_current_user_id returns the numeric id for a known username."""
     from api.routes import get_current_user_id
@@ -148,6 +156,7 @@ async def test_get_current_user_id_returns_correct_id(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_current_user_id_viewer(fresh_db):
     """get_current_user_id returns id=2 for the seeded viewer user."""
     from api.routes import get_current_user_id
@@ -157,6 +166,7 @@ async def test_get_current_user_id_viewer(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_current_user_id_missing_user_raises_404(fresh_db):
     """get_current_user_id raises HTTP 404 for an unknown username."""
     from fastapi import HTTPException
@@ -178,6 +188,7 @@ def _mock_request():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_create_theme_unique_name_per_user(fresh_db):
     """Duplicate theme name for same user → 409."""
     from fastapi import HTTPException
@@ -200,6 +211,7 @@ async def test_create_theme_unique_name_per_user(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_create_theme_copy_from_existing(fresh_db):
     """New theme with copy_from inherits light/dark overrides from source."""
     from api.routes import settings_create_theme
@@ -235,6 +247,7 @@ async def test_create_theme_copy_from_existing(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_put_colors_allowlist_drops_unknown_keys(fresh_db):
     """PUT /colors silently drops keys outside the 8-key allowlist; DB row stays clean."""
     from api.routes import settings_update_theme_colors
@@ -274,6 +287,7 @@ async def test_put_colors_allowlist_drops_unknown_keys(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_put_colors_rejects_invalid_hex(fresh_db):
     """PUT /colors with invalid hex values → 422."""
     from fastapi import HTTPException
@@ -301,6 +315,7 @@ async def test_put_colors_rejects_invalid_hex(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_activate_clears_others(fresh_db):
     """After POST activate, exactly one is_active=1 row exists for that user."""
     from api.routes import settings_activate_theme
@@ -336,6 +351,7 @@ async def test_activate_clears_others(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_reset_clears_one_mode_only(fresh_db):
     """POST /reset?mode=light zeroes light_overrides_json but leaves dark_overrides_json unchanged."""
     from api.routes import settings_reset_theme
@@ -368,6 +384,7 @@ async def test_reset_clears_one_mode_only(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_delete_active_blocked(fresh_db):
     """DELETE on the active theme → 400 with a non-empty error message."""
     from fastapi import HTTPException
@@ -393,6 +410,7 @@ async def test_delete_active_blocked(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_cross_user_isolation(fresh_db):
     """User B's requests against user A's theme ID return 404 (no existence leak)."""
     from fastapi import HTTPException
@@ -421,6 +439,7 @@ async def test_cross_user_isolation(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_active_css_shape(fresh_db):
     """GET active.css returns text/css; contains :root[data-theme="light"] only when light overrides exist."""
     from api.routes import settings_active_css
@@ -447,6 +466,7 @@ async def test_active_css_shape(fresh_db):
 # ── Issue #75: Dashboard route theme context ──────────────────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_dashboard_route_includes_active_theme_context(fresh_db):
     """GET / must render qm-theme-overrides style block in the page body."""
     from api.routes import load_active_theme, _ensure_default_theme
@@ -463,6 +483,7 @@ async def test_dashboard_route_includes_active_theme_context(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_dashboard_route_emits_light_override_selector_when_set(fresh_db):
     """load_active_theme returns light overrides that were saved for the active theme."""
     import json as _j
@@ -493,18 +514,21 @@ def _read_main_js():
         return f.read()
 
 
+@pytest.mark.unit
 def test_main_js_defines_apply_theme_preview():
     """applyThemePreview must be defined in static/main.js."""
     content = _read_main_js()
     assert 'function applyThemePreview' in content
 
 
+@pytest.mark.unit
 def test_main_js_defines_clear_theme_preview():
     """clearThemePreview must be defined in static/main.js."""
     content = _read_main_js()
     assert 'function clearThemePreview' in content
 
 
+@pytest.mark.unit
 def test_toggle_theme_uses_qm_theme_override_key():
     """toggleTheme must persist to 'qm-theme-override' (matches FOUC init script)."""
     content = _read_main_js()
@@ -514,6 +538,7 @@ def test_toggle_theme_uses_qm_theme_override_key():
     assert 'qm-theme-override' in toggle_body
 
 
+@pytest.mark.unit
 def test_theme_updated_listener_registered():
     """main.js must register a 'theme-updated' body event listener."""
     content = _read_main_js()

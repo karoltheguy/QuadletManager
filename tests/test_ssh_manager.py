@@ -26,6 +26,7 @@ def mock_db_ctx():
     return _mock_db
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_connection_caches(pool, mock_db_ctx):
     with patch("services.ssh_manager.get_db_connection", side_effect=mock_db_ctx), \
          patch("asyncssh.connect", new_callable=AsyncMock) as mock_connect, \
@@ -43,6 +44,7 @@ async def test_get_connection_caches(pool, mock_db_ctx):
         assert mock_connect.call_count == 1
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_get_connection_reconnects_if_closed(pool):
     pool.connections[1] = MagicMock()
     pool.connections[1]._transport.is_closing.return_value = True
@@ -53,6 +55,7 @@ async def test_get_connection_reconnects_if_closed(pool):
         assert conn == "new_conn"
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_success(pool):
     mock_conn = AsyncMock()
     mock_process = MagicMock()
@@ -66,6 +69,7 @@ async def test_execute_command_success(pool):
         assert res == "output"
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_process_error(pool):
     mock_conn = AsyncMock()
     mock_process = MagicMock()
@@ -79,6 +83,7 @@ async def test_execute_command_process_error(pool):
             await pool.execute_command(1, "ls")
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_timeout(pool):
     mock_conn = AsyncMock()
     mock_process = MagicMock()
@@ -96,6 +101,7 @@ async def test_execute_command_timeout(pool):
         mock_process.close.assert_called_once()
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_reconnects_on_channel_error(pool):
     mock_conn1 = MagicMock()
     mock_conn1._transport.is_closing.return_value = False
@@ -117,6 +123,7 @@ async def test_execute_command_reconnects_on_channel_error(pool):
         mock_conn1.close.assert_called_once()
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_reconnects_on_disconnect(pool):
     mock_conn1 = MagicMock()
     mock_conn1._transport.is_closing.return_value = False
@@ -138,6 +145,7 @@ async def test_execute_command_reconnects_on_disconnect(pool):
         mock_conn1.close.assert_called_once()
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_close_all(pool):
     mock_conn1 = MagicMock()
     mock_conn2 = MagicMock()
@@ -148,6 +156,7 @@ async def test_close_all(pool):
     assert len(pool.connections) == 0
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_connect_to_server_not_found(pool):
     @asynccontextmanager
     async def _mock_db_empty():
@@ -165,6 +174,7 @@ async def test_connect_to_server_not_found(pool):
             await pool.connect_to_server(1)
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_connect_to_server_invalid_key(pool, mock_db_ctx):
     with patch("services.ssh_manager.get_db_connection", side_effect=mock_db_ctx), \
          patch("services.ssh_manager.decrypt_private_key", side_effect=ValueError("bad key")):

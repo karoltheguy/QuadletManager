@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for nav layout restructure (Issue #66):
 - Primary nav tabs (.nav-tabs) must be a distinct container
@@ -84,6 +85,7 @@ def _parse_template():
     return parser
 
 
+@pytest.mark.unit
 def test_nav_tabs_container_exists():
     """dashboard.html must have a .nav-tabs container for primary navigation."""
     p = _parse_template()
@@ -93,6 +95,7 @@ def test_nav_tabs_container_exists():
     )
 
 
+@pytest.mark.unit
 def test_nav_actions_container_exists():
     """dashboard.html must have a .nav-actions container for utility controls."""
     p = _parse_template()
@@ -102,6 +105,7 @@ def test_nav_actions_container_exists():
     )
 
 
+@pytest.mark.unit
 def test_nav_links_not_used():
     """.nav-links must be removed — replaced by .nav-tabs + .nav-actions."""
     p = _parse_template()
@@ -111,6 +115,7 @@ def test_nav_links_not_used():
     )
 
 
+@pytest.mark.unit
 def test_nav_tabs_contains_nav_items():
     """The .nav-tabs container must contain elements with class nav-item."""
     p = _parse_template()
@@ -122,6 +127,7 @@ def test_nav_tabs_contains_nav_items():
     )
 
 
+@pytest.mark.unit
 def test_theme_toggle_in_nav_actions():
     """The theme toggle must be inside .nav-actions, not loose in .nav-tabs."""
     p = _parse_template()

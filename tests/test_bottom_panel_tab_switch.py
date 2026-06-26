@@ -1,3 +1,4 @@
+import pytest
 """Tests for bottom panel expansion state preservation across tab switches (Issue #98).
 
 Verifies:
@@ -22,6 +23,7 @@ def _read_js():
 # ── JS Behaviour Tests ─────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_switchtab_restores_bottom_panel_expanded_class():
     """switchTab('containers') must restore body.bottom-panel-expanded if panel is expanded.
     
@@ -83,6 +85,7 @@ def test_switchtab_restores_bottom_panel_expanded_class():
     )
 
 
+@pytest.mark.unit
 def test_bottom_panel_expand_persistence_key():
     """Verify the localStorage key for expanded state exists."""
     js = _read_js()
@@ -91,6 +94,7 @@ def test_bottom_panel_expand_persistence_key():
     )
 
 
+@pytest.mark.unit
 def test_bottom_panel_state_restored_on_pageload():
     """Verify expanded state is restored on DOMContentLoaded."""
     js = _read_js()

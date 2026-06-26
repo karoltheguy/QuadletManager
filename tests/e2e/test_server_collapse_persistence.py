@@ -27,6 +27,7 @@ def _goto_containers(page: Page):
     page.click("button.nav-item:has-text('Containers')")
 
 
+@pytest.mark.e2e
 def test_collapse_saves_to_localstorage(page: Page):
     """Collapsing a server row must write its state to localStorage."""
     _goto_containers(page)
@@ -59,6 +60,7 @@ def test_collapse_saves_to_localstorage(page: Page):
     assert stored == "1", f"Expected '1' in localStorage, got {stored!r}"
 
 
+@pytest.mark.e2e
 def test_expand_saves_to_localstorage(page: Page):
     """Expanding a collapsed row must update localStorage to '0'."""
     _goto_containers(page)
@@ -84,6 +86,7 @@ def test_expand_saves_to_localstorage(page: Page):
     assert stored == "0", f"Expected '0' in localStorage after expand, got {stored!r}"
 
 
+@pytest.mark.e2e
 def test_collapsed_state_restores_after_reload(page: Page):
     """Collapsing a server row and reloading must keep it collapsed."""
     _goto_containers(page)
@@ -114,6 +117,7 @@ def test_collapsed_state_restores_after_reload(page: Page):
         "Server row must still be collapsed after page reload"
 
 
+@pytest.mark.e2e
 def test_expanded_state_restores_after_reload(page: Page):
     """A server previously collapsed then expanded must stay expanded after reload."""
     _goto_containers(page)

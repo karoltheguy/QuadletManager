@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for the session reconnect prompt (Issue #120).
 Covers:
@@ -29,16 +30,20 @@ class TestBeforeunloadGuard:
     def setup_method(self):
         self.js = _js()
 
+    @pytest.mark.unit
     def test_beforeunload_handler_registered(self):
         assert "addEventListener('beforeunload', _beforeunloadHandler)" in self.js
 
+    @pytest.mark.unit
     def test_beforeunload_checks_terminal_tabs(self):
         assert "_terminalTabs.size" in self.js
 
+    @pytest.mark.unit
     def test_beforeunload_checks_log_socket(self):
         pattern = r"_beforeunloadHandler[\s\S]{0,300}currentLogSocket"
         assert re.search(pattern, self.js)
 
+    @pytest.mark.unit
     def test_beforeunload_sets_return_value(self):
         assert "e.returnValue = ''" in self.js
 
@@ -47,15 +52,19 @@ class TestSafeReload:
     def setup_method(self):
         self.js = _js()
 
+    @pytest.mark.unit
     def test_safe_reload_function_exists(self):
         assert "window.safeReload" in self.js
 
+    @pytest.mark.unit
     def test_safe_reload_saves_sessions(self):
         assert "saveActiveSessionsToStorage" in self.js
 
+    @pytest.mark.unit
     def test_safe_reload_removes_beforeunload_listener(self):
         assert "removeEventListener('beforeunload', _beforeunloadHandler)" in self.js
 
+    @pytest.mark.unit
     def test_safe_reload_calls_location_reload(self):
         assert "window.location.reload()" in self.js
 
@@ -64,27 +73,35 @@ class TestSessionStorage:
     def setup_method(self):
         self.js = _js()
 
+    @pytest.mark.unit
     def test_save_function_exists(self):
         assert "saveActiveSessionsToStorage" in self.js
 
+    @pytest.mark.unit
     def test_pending_reconnect_key_used(self):
         assert "'qm-pending-reconnect'" in self.js
 
+    @pytest.mark.unit
     def test_terminals_array_saved(self):
         assert "sessions.terminals" in self.js
 
+    @pytest.mark.unit
     def test_log_tail_saved(self):
         assert "sessions.logTail" in self.js
 
+    @pytest.mark.unit
     def test_terminal_entry_includes_server_id(self):
         assert "session.serverId" in self.js
 
+    @pytest.mark.unit
     def test_terminal_entry_includes_container_name(self):
         assert "session.containerName" in self.js
 
+    @pytest.mark.unit
     def test_terminal_entry_includes_scope(self):
         assert "session.scope" in self.js
 
+    @pytest.mark.unit
     def test_terminal_entry_includes_cmd(self):
         assert "session.cmd" in self.js
 
@@ -93,13 +110,16 @@ class TestLogMetaTracking:
     def setup_method(self):
         self.js = _js()
 
+    @pytest.mark.unit
     def test_current_log_meta_variable_exists(self):
         assert "_currentLogMeta" in self.js
 
+    @pytest.mark.unit
     def test_log_meta_set_on_toggle_logs(self):
         pattern = r"_currentLogMeta\s*=\s*\{[\s\S]{0,100}serverId"
         assert re.search(pattern, self.js)
 
+    @pytest.mark.unit
     def test_log_meta_cleared_on_stop_logs(self):
         pattern = r"stopLogs[\s\S]{0,300}_currentLogMeta\s*=\s*null"
         assert re.search(pattern, self.js)
@@ -109,15 +129,19 @@ class TestTerminalTabMetadata:
     def setup_method(self):
         self.js = _js()
 
+    @pytest.mark.unit
     def test_terminal_tab_stores_server_id(self):
         assert "serverId: serverId" in self.js
 
+    @pytest.mark.unit
     def test_terminal_tab_stores_container_name(self):
         assert "containerName: containerName" in self.js
 
+    @pytest.mark.unit
     def test_terminal_tab_stores_scope(self):
         assert "scope: scope" in self.js
 
+    @pytest.mark.unit
     def test_terminal_tab_stores_cmd(self):
         assert "cmd: cmd" in self.js
 
@@ -126,18 +150,23 @@ class TestReconnectBanner:
     def setup_method(self):
         self.js = _js()
 
+    @pytest.mark.unit
     def test_banner_injected_on_domcontentloaded(self):
         assert "reconnect-banner" in self.js
 
+    @pytest.mark.unit
     def test_banner_reads_pending_reconnect(self):
         assert "localStorage.getItem('qm-pending-reconnect')" in self.js
 
+    @pytest.mark.unit
     def test_banner_clears_pending_reconnect(self):
         assert "localStorage.removeItem('qm-pending-reconnect')" in self.js
 
+    @pytest.mark.unit
     def test_reconnect_yes_calls_toggle_logs(self):
         assert "toggleLogs" in self.js
 
+    @pytest.mark.unit
     def test_reconnect_yes_calls_create_terminal_tab(self):
         assert "createTerminalTab" in self.js
 
@@ -147,17 +176,22 @@ class TestNavReloadButton:
         self.html = _html()
         self.js = _js()
 
+    @pytest.mark.unit
     def test_reload_button_exists(self):
         assert "nav-reload-btn" in self.html
 
+    @pytest.mark.unit
     def test_reload_button_calls_soft_refresh(self):
         assert "softRefresh()" in self.html
 
+    @pytest.mark.unit
     def test_soft_refresh_function_exists(self):
         assert "window.softRefresh" in self.js
 
+    @pytest.mark.unit
     def test_soft_refresh_triggers_htmx_reload(self):
         assert "reload-servers" in self.js
 
+    @pytest.mark.unit
     def test_soft_refresh_reloads_monitor_charts(self):
         assert "loadMonitorCharts" in self.js

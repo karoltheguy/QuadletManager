@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for UI selection persistence across page refreshes (Issue #118).
 Covers:
@@ -20,18 +21,21 @@ class TestBottomPanelTabPersistence:
     def setup_method(self):
         self.js = _read()
 
+    @pytest.mark.unit
     def test_switch_bottom_tab_saves_to_localstorage(self):
         assert "localStorage.setItem('qm-bottom-tab', pane)" in self.js, (
             "switchBottomTab must persist the active pane to localStorage "
             "under 'qm-bottom-tab'."
         )
 
+    @pytest.mark.unit
     def test_domcontentloaded_restores_bottom_tab(self):
         assert "localStorage.getItem('qm-bottom-tab')" in self.js, (
             "DOMContentLoaded must read 'qm-bottom-tab' from localStorage "
             "to restore the last active bottom panel tab."
         )
 
+    @pytest.mark.unit
     def test_domcontentloaded_bottom_tab_falls_back_to_terminal(self):
         pattern = r"localStorage\.getItem\('qm-bottom-tab'\)\s*\|\|\s*'terminal'"
         assert re.search(pattern, self.js), (
@@ -44,18 +48,21 @@ class TestMonitorServerPersistence:
     def setup_method(self):
         self.js = _read()
 
+    @pytest.mark.unit
     def test_select_monitoring_server_saves_to_localstorage(self):
         assert "localStorage.setItem('qm-monitor-server'" in self.js, (
             "selectMonitoringServer must persist the selected server id to "
             "localStorage under 'qm-monitor-server'."
         )
 
+    @pytest.mark.unit
     def test_populate_server_selector_restores_saved_server(self):
         assert "localStorage.getItem('qm-monitor-server')" in self.js, (
             "populateServerSelector must read 'qm-monitor-server' from "
             "localStorage and auto-select it when data is available."
         )
 
+    @pytest.mark.unit
     def test_restore_only_when_no_server_selected(self):
         # The guard must check _monitoringServerId before auto-restoring.
         assert "_monitoringServerId" in self.js, (
@@ -68,24 +75,28 @@ class TestQuadletSelectionPersistence:
     def setup_method(self):
         self.js = _read()
 
+    @pytest.mark.unit
     def test_select_container_stem_saves_to_localstorage(self):
         assert "localStorage.setItem('qm-selected-quadlet'" in self.js, (
             "selectContainerStem must persist stem/serverId/scope to "
             "localStorage under 'qm-selected-quadlet'."
         )
 
+    @pytest.mark.unit
     def test_restore_quadlet_selection_function_exists(self):
         assert "restoreQuadletSelection" in self.js, (
             "A restoreQuadletSelection function must exist to restore the "
             "saved quadlet after the HTMX tree loads."
         )
 
+    @pytest.mark.unit
     def test_restore_guarded_by_quadlet_restored_flag(self):
         assert "_quadletRestored" in self.js, (
             "restoreQuadletSelection must use a _quadletRestored flag to "
             "prevent overriding user selections on subsequent tree re-renders."
         )
 
+    @pytest.mark.unit
     def test_restore_called_from_htmx_after_swap(self):
         # Check that restoreQuadletSelection is called inside htmx:afterSwap
         pattern = r"htmx:afterSwap[\s\S]{0,500}restoreQuadletSelection"
@@ -94,6 +105,7 @@ class TestQuadletSelectionPersistence:
             "handler, since the quadlet tree is loaded via HTMX, not inline."
         )
 
+    @pytest.mark.unit
     def test_restore_reads_localstorage(self):
         assert "localStorage.getItem('qm-selected-quadlet')" in self.js, (
             "restoreQuadletSelection must read 'qm-selected-quadlet' from "

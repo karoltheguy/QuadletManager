@@ -56,6 +56,7 @@ def _make_db_mock(servers_rows, history_rows):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_returns_html_response(mock_get_db):
     """Endpoint must return an HTMLResponse."""
     from fastapi.responses import HTMLResponse
@@ -74,6 +75,7 @@ async def test_overview_returns_html_response(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_empty_state_when_no_servers(mock_get_db):
     """When no servers are configured, the response contains the empty state marker."""
     from api.routes import api_overview
@@ -91,6 +93,7 @@ async def test_overview_empty_state_when_no_servers(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_shows_health_badge_for_healthy_container(mock_get_db):
     """Running containers with a non-empty health_status must show a health badge."""
     from api.routes import api_overview
@@ -132,6 +135,7 @@ async def test_overview_shows_health_badge_for_healthy_container(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_no_health_badge_when_status_empty(mock_get_db):
     """Running containers with no healthcheck (empty status) must not show a badge."""
     from api.routes import api_overview
@@ -171,6 +175,7 @@ async def test_overview_no_health_badge_when_status_empty(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_aggregates_running_and_stopped_counts(mock_get_db):
     """With one server and mixed container statuses, counts must appear in the HTML."""
     from api.routes import api_overview
@@ -218,6 +223,7 @@ async def test_overview_aggregates_running_and_stopped_counts(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_total_counts_in_stat_tiles(mock_get_db):
     """Summary stat totals must be rendered in the response."""
     from api.routes import api_overview
@@ -261,6 +267,7 @@ async def test_overview_total_counts_in_stat_tiles(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("api.routes.get_db_connection")
+@pytest.mark.unit
 async def test_overview_deduplicates_duplicate_db_rows(mock_get_db):
     """When DB returns duplicate rows for the same container name (e.g. from
     scope-collision writes), each container must appear exactly once in the HTML."""

@@ -1,3 +1,4 @@
+import pytest
 import os
 import unittest
 import yaml
@@ -22,6 +23,7 @@ class TestConfigLoader(unittest.TestCase):
             
         os.environ["QUADLET_CONFIG_PATH"] = self.config_path
 
+    @pytest.mark.unit
     def test_yaml_override(self):
         # We import here so it evaluates the environment variables freshly
         from core.config_loader import AppConfig
@@ -33,6 +35,7 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(config.session_timeout, 7200)
         self.assertTrue(config.dev_auto_login)
 
+    @pytest.mark.unit
     def test_missing_config_fallback(self):
         os.environ["QUADLET_CONFIG_PATH"] = "/nonexistent/config.yaml"
         os.environ["QUADLET_MASTER_KEY"] = "env_fallback_key"

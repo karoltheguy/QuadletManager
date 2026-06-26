@@ -35,6 +35,7 @@ def _goto(page: Page):
 
 # ── Existence Tests ──────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_resize_handles_exist(page: Page):
     """Both resize-handle dividers must be present in the DOM."""
     _goto(page)
@@ -44,6 +45,7 @@ def test_resize_handles_exist(page: Page):
     expect(right).to_have_count(1)
 
 
+@pytest.mark.e2e
 def test_resize_handles_have_correct_cursor(page: Page):
     """Handles must advertise col-resize cursor via CSS."""
     _goto(page)
@@ -59,6 +61,7 @@ def test_resize_handles_have_correct_cursor(page: Page):
 
 # ── Drag Tests ───────────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_drag_left_handle_widens_sidebar(page: Page):
     """Dragging the left handle to the right should widen the sidebar."""
     _goto(page)
@@ -84,6 +87,7 @@ def test_drag_left_handle_widens_sidebar(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_drag_left_handle_narrows_sidebar(page: Page):
     """Dragging the left handle to the left should narrow the sidebar."""
     _goto(page)
@@ -109,6 +113,7 @@ def test_drag_left_handle_narrows_sidebar(page: Page):
 
 
 @pytest.mark.skip(reason="Right handle is currently hidden in all views")
+@pytest.mark.e2e
 def test_drag_right_handle_widens_inspector(page: Page):
     """Dragging the right handle to the left should widen the inspector."""
     _goto(page)
@@ -135,6 +140,7 @@ def test_drag_right_handle_widens_inspector(page: Page):
 
 # ── Min/Max Clamp Tests ──────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_sidebar_respects_minimum_width(page: Page):
     """Sidebar must not shrink below 180 px regardless of drag distance."""
     _goto(page)
@@ -159,6 +165,7 @@ def test_sidebar_respects_minimum_width(page: Page):
 
 
 @pytest.mark.skip(reason="Right handle is currently hidden in all views")
+@pytest.mark.e2e
 def test_inspector_respects_minimum_width(page: Page):
     """Inspector must not shrink below 220 px regardless of drag distance."""
     _goto(page)
@@ -184,6 +191,7 @@ def test_inspector_respects_minimum_width(page: Page):
 
 # ── localStorage Persistence ─────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_sidebar_width_persists_across_reload(page: Page):
     """Width set by dragging must survive a full page reload."""
     _goto(page)
@@ -217,6 +225,7 @@ def test_sidebar_width_persists_across_reload(page: Page):
 
 
 @pytest.mark.skip(reason="#stats-chart removed from inspector; charts are now in the Monitor tab")
+@pytest.mark.e2e
 def test_drag_left_handle_resizes_stats_chart(page: Page):
     """Dragging the left handle to the right should narrow the inspector and change chart width."""
     _goto(page)

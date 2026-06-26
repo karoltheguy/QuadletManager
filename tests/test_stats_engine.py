@@ -24,6 +24,7 @@ from services.stats_engine import (
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_podman_v4_format():
     """Podman 4.x uses keys like 'CPUPerc', 'MemPerc', etc."""
     raw = {
@@ -46,6 +47,7 @@ def test_podman_v4_format():
     assert result["pids"] == "4"
 
 
+@pytest.mark.unit
 def test_podman_v3_format():
     """Podman 3.x uses lowercase keys like 'cpu_percent', 'mem_percent'."""
     raw = {
@@ -66,6 +68,7 @@ def test_podman_v3_format():
     assert result["pids"] == "1"
 
 
+@pytest.mark.unit
 def test_missing_fields_fallback_to_defaults():
     """If a field is completely absent, we get safe defaults (no KeyError)."""
     raw = {}
@@ -80,6 +83,7 @@ def test_missing_fields_fallback_to_defaults():
     assert result["pids"] == "0"
 
 
+@pytest.mark.unit
 def test_mixed_keys_prefers_lowercase():
     """When both v3 and v4 keys exist, lowercase (v3) wins because
     of the `or` chain order in normalize_container_stats."""
@@ -95,6 +99,7 @@ def test_mixed_keys_prefers_lowercase():
     assert result["cpu"] == "1.00%"
 
 
+@pytest.mark.unit
 def test_empty_string_values_treated_as_missing():
     """Empty strings are falsy, so the fallback should kick in."""
     raw = {
@@ -110,6 +115,7 @@ def test_empty_string_values_treated_as_missing():
     assert result["mem"] == "0%"
 
 
+@pytest.mark.unit
 def test_all_keys_present_in_output():
     """Verify the output always contains exactly the expected keys."""
     raw = {"name": "test"}
@@ -126,6 +132,7 @@ def test_all_keys_present_in_output():
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_rootless_commands_include_env_prefix(mock_pool):
     """Rootless (user) scope must prefix commands with XDG_RUNTIME_DIR."""
     ps_json = json.dumps([{"Names": "app", "HealthStatus": ""}])
@@ -150,6 +157,7 @@ async def test_rootless_commands_include_env_prefix(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_rootful_commands_use_sudo(mock_pool):
     """Global (rootful) scope must use sudo, not the env prefix."""
     ps_json = json.dumps([{"Names": "system-app", "HealthStatus": ""}])
@@ -171,6 +179,7 @@ async def test_rootful_commands_use_sudo(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_no_running_containers_returns_empty(mock_pool):
     """If podman ps returns an empty JSON array, we get an empty list (no crash)."""
     mock_pool.execute_command = AsyncMock(return_value="[]")
@@ -184,6 +193,7 @@ async def test_no_running_containers_returns_empty(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_ssh_error_returns_empty_list(mock_pool):
     """SSH errors are caught and logged; an empty list is returned."""
     mock_pool.execute_command = AsyncMock(side_effect=Exception("Connection refused"))
@@ -195,6 +205,7 @@ async def test_ssh_error_returns_empty_list(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_invalid_json_returns_empty_list(mock_pool):
     """If podman stats returns garbage, we return an empty list."""
     ps_json = json.dumps([{"Names": "app", "HealthStatus": ""}])
@@ -207,6 +218,7 @@ async def test_invalid_json_returns_empty_list(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_fetch_scope_stats_uses_json_ps_format(mock_pool):
     """podman ps must use --format json so health status can be parsed."""
     stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
@@ -221,6 +233,7 @@ async def test_fetch_scope_stats_uses_json_ps_format(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_health_status_included_in_result(mock_pool):
     """Containers with a healthcheck must have their health status in the result dict."""
     ps_json = json.dumps([{"Names": "nginx", "HealthStatus": "healthy"}])
@@ -235,6 +248,7 @@ async def test_health_status_included_in_result(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_health_status_defaults_to_empty_when_absent(mock_pool):
     """Containers without a healthcheck definition have health == '' (not an error)."""
     ps_json = json.dumps([{"Names": "redis", "HealthStatus": ""}])
@@ -248,6 +262,7 @@ async def test_health_status_defaults_to_empty_when_absent(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_health_status_names_as_list(mock_pool):
     """Names returned as a JSON array (older Podman) must still be parsed correctly."""
     ps_json = json.dumps([{"Names": ["app"], "HealthStatus": "unhealthy"}])
@@ -262,6 +277,7 @@ async def test_health_status_names_as_list(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_record_health_history_includes_health_status(mock_get_db):
     """Health status must be stored as the 7th element in each INSERT record."""
     mock_get_db_fn, mock_db = _make_health_db_mock()
@@ -314,6 +330,7 @@ def _make_db_mock(server_rows):
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_deduplicates_same_name_container_across_scopes(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """When the same container name appears in both rootless and rootful scopes,
     fetch_server_stats must deduplicate so _record_health_history receives only one entry."""
@@ -341,6 +358,7 @@ async def test_deduplicates_same_name_container_across_scopes(mock_get_db, mock_
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """fetch_server_stats should merge rootless + rootful containers."""
     mock_get_db.side_effect = _make_db_mock([(1, "testbox")])
@@ -374,6 +392,7 @@ async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_p
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """When no containers run in either scope, publish empty update."""
     mock_get_db.side_effect = _make_db_mock([(2, "emptybox")])
@@ -395,6 +414,7 @@ async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_p
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_gather_exception_publishes_error(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """If the gather itself raises, we publish a stats_error event."""
     mock_get_db.side_effect = _make_db_mock([(3, "badbox")])
@@ -416,6 +436,7 @@ async def test_gather_exception_publishes_error(mock_get_db, mock_fetch, mock_pu
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """When multiple servers exist, stats are fetched and published for each."""
     mock_get_db.side_effect = _make_db_mock([(1, "server-a"), (2, "server-b")])
@@ -446,30 +467,37 @@ async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publi
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_parse_pct_string_with_percent():
     assert _parse_pct("5.23%") == pytest.approx(5.23)
 
 
+@pytest.mark.unit
 def test_parse_pct_string_without_percent():
     assert _parse_pct("12.5") == pytest.approx(12.5)
 
 
+@pytest.mark.unit
 def test_parse_pct_float():
     assert _parse_pct(3.14) == pytest.approx(3.14)
 
 
+@pytest.mark.unit
 def test_parse_pct_int():
     assert _parse_pct(7) == pytest.approx(7.0)
 
 
+@pytest.mark.unit
 def test_parse_pct_empty_string():
     assert _parse_pct("") == 0.0
 
 
+@pytest.mark.unit
 def test_parse_pct_invalid_string():
     assert _parse_pct("N/A") == 0.0
 
 
+@pytest.mark.unit
 def test_parse_pct_zero_string():
     assert _parse_pct("0%") == 0.0
 
@@ -496,6 +524,7 @@ def _make_health_db_mock():
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_record_health_history_inserts_running_containers(mock_get_db):
     """Running containers must produce is_running=1 records."""
     mock_get_db_fn, mock_db = _make_health_db_mock()
@@ -524,6 +553,7 @@ async def test_record_health_history_inserts_running_containers(mock_get_db):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_record_health_history_writes_stopped_for_disappeared(mock_get_db):
     """Containers that were running before but are absent now get is_running=0."""
     mock_get_db_fn, mock_db = _make_health_db_mock()
@@ -544,6 +574,7 @@ async def test_record_health_history_writes_stopped_for_disappeared(mock_get_db)
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_record_health_history_skips_db_when_no_change(mock_get_db):
     """If containers list is empty and no prev containers, no DB write occurs."""
     mock_get_db_fn, mock_db = _make_health_db_mock()
@@ -579,6 +610,7 @@ _HEALTH_TABLE_DDL = """
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_health_extracted_from_status_string_when_health_fields_absent(mock_pool):
     """When HealthStatus and Health are both absent/empty, parse the health state
     from the Status field (e.g. 'Up 3 hours (healthy)').
@@ -605,6 +637,7 @@ async def test_health_extracted_from_status_string_when_health_fields_absent(moc
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_health_extracted_from_status_string_unhealthy(mock_pool):
     """Unhealthy state parsed from Status string when HealthStatus is absent."""
     ps_json = json.dumps([{
@@ -621,6 +654,7 @@ async def test_health_extracted_from_status_string_unhealthy(mock_pool):
 
 @pytest.mark.asyncio
 @patch("services.stats_engine.pool")
+@pytest.mark.unit
 async def test_no_health_when_status_string_has_no_parenthetical(mock_pool):
     """Container with no healthcheck: Status has no (healthy) suffix, health stays empty."""
     ps_json = json.dumps([{
@@ -636,6 +670,7 @@ async def test_no_health_when_status_string_has_no_parenthetical(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_record_health_history_persists_health_status_to_real_db():
     """Health status must actually reach the DB — not be silently dropped by a
     column/placeholder count mismatch in the INSERT query.

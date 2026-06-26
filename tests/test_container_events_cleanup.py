@@ -4,6 +4,7 @@ from unittest.mock import patch, AsyncMock
 from services.container_events import container_events_cleanup_loop
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_container_events_cleanup_loop_runs_and_cancels():
     with patch("services.container_events.asyncio.sleep") as mock_sleep, \
          patch("services.container_events.cleanup_old_events") as mock_cleanup:
@@ -19,6 +20,7 @@ async def test_container_events_cleanup_loop_runs_and_cancels():
         assert mock_cleanup.call_count == 1
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_container_events_cleanup_loop_handles_exception():
     with patch("services.container_events.asyncio.sleep") as mock_sleep, \
          patch("services.container_events.cleanup_old_events") as mock_cleanup:

@@ -36,6 +36,7 @@ def _goto(page: Page):
 
 # ── Button Existence ────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_expand_button_exists_in_inspector(page: Page):
     """An expand/collapse toggle button must be present in the inspector panel."""
     _goto(page)
@@ -48,6 +49,7 @@ def test_expand_button_exists_in_inspector(page: Page):
 # "Expanding" hides the inspector panel (body gains class `inspector-expanded`),
 # giving the editor full width. The sidebar (#navigator) is unaffected.
 
+@pytest.mark.e2e
 def test_clicking_expand_hides_inspector(page: Page):
     """When expanded, the inspector panel itself should be hidden."""
     _goto(page)
@@ -59,6 +61,7 @@ def test_clicking_expand_hides_inspector(page: Page):
     expect(inspector).not_to_be_visible()
 
 
+@pytest.mark.e2e
 def test_clicking_expand_hides_right_resize_handle(page: Page):
     """When expanded, the right resize handle should be hidden."""
     _goto(page)
@@ -68,6 +71,7 @@ def test_clicking_expand_hides_right_resize_handle(page: Page):
     expect(handle).not_to_be_visible()
 
 
+@pytest.mark.e2e
 def test_clicking_expand_keeps_sidebar_visible(page: Page):
     """Expanding the inspector must not affect the sidebar (#navigator)."""
     _goto(page)
@@ -81,6 +85,7 @@ def test_clicking_expand_keeps_sidebar_visible(page: Page):
 
 # ── Collapse Behavior ───────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_clicking_again_restores_inspector(page: Page):
     """Clicking the button a second time should restore the inspector panel."""
     _goto(page)
@@ -93,6 +98,7 @@ def test_clicking_again_restores_inspector(page: Page):
     expect(inspector).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_inspector_restores_original_width(page: Page):
     """After collapse, the inspector should return to its previous width."""
     _goto(page)
@@ -110,6 +116,7 @@ def test_inspector_restores_original_width(page: Page):
 
 # ── localStorage Persistence ────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_expanded_state_persists_across_reload(page: Page):
     """Expanded state (inspector hidden) must survive a full page reload."""
     _goto(page)
@@ -125,6 +132,7 @@ def test_expanded_state_persists_across_reload(page: Page):
     expect(inspector).not_to_be_visible()
 
 
+@pytest.mark.e2e
 def test_collapsed_state_persists_across_reload(page: Page):
     """Collapsing after expanding should persist — inspector must be visible after reload."""
     _goto(page)
@@ -143,6 +151,7 @@ def test_collapsed_state_persists_across_reload(page: Page):
 
 # ── Tab Switching ───────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_expand_only_affects_dashboard_tab(page: Page):
     """Expanding the inspector should not affect other tabs."""
     _goto(page)
@@ -186,6 +195,7 @@ MOCK_EDITOR_HTML = (
 )
 
 
+@pytest.mark.e2e
 def test_extend_right_retracts_after_editor_load(page: Page):
     """Issue #102: extend-right toggle must retract the inspector after Monaco loads.
 

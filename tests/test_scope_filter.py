@@ -36,6 +36,7 @@ def _make_db_mock_with_scope(server_rows):
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_scope_filter_both_fetches_both_scopes(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """scope_filter='both' must fetch user AND global containers."""
     from services.stats_engine import fetch_server_stats
@@ -64,6 +65,7 @@ async def test_scope_filter_both_fetches_both_scopes(mock_get_db, mock_fetch, mo
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_scope_filter_user_only_skips_global(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """scope_filter='user' must only fetch rootless containers, never rootful."""
     from services.stats_engine import fetch_server_stats
@@ -89,6 +91,7 @@ async def test_scope_filter_user_only_skips_global(mock_get_db, mock_fetch, mock
 @patch("services.stats_engine.publisher")
 @patch("services.stats_engine._fetch_scope_stats")
 @patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
 async def test_scope_filter_global_only_skips_user(mock_get_db, mock_fetch, mock_publisher, mock_record):
     """scope_filter='global' must only fetch rootful containers, never rootless."""
     from services.stats_engine import fetch_server_stats
@@ -115,6 +118,7 @@ async def test_scope_filter_global_only_skips_user(mock_get_db, mock_fetch, mock
 
 @pytest.mark.asyncio
 @patch("services.tree_scanner.scan_directory")
+@pytest.mark.unit
 async def test_fetch_all_quadlets_both_scans_both(mock_scan):
     """scope_filter='both' scans global and user directories."""
     from services.tree_scanner import fetch_all_quadlets
@@ -133,6 +137,7 @@ async def test_fetch_all_quadlets_both_scans_both(mock_scan):
 
 @pytest.mark.asyncio
 @patch("services.tree_scanner.scan_directory")
+@pytest.mark.unit
 async def test_fetch_all_quadlets_user_only(mock_scan):
     """scope_filter='user' only scans user directory, global is empty."""
     from services.tree_scanner import fetch_all_quadlets
@@ -152,6 +157,7 @@ async def test_fetch_all_quadlets_user_only(mock_scan):
 
 @pytest.mark.asyncio
 @patch("services.tree_scanner.scan_directory")
+@pytest.mark.unit
 async def test_fetch_all_quadlets_global_only(mock_scan):
     """scope_filter='global' only scans global directory, user is empty."""
     from services.tree_scanner import fetch_all_quadlets
@@ -171,6 +177,7 @@ async def test_fetch_all_quadlets_global_only(mock_scan):
 
 @pytest.mark.asyncio
 @patch("services.tree_scanner.scan_directory")
+@pytest.mark.unit
 async def test_fetch_all_quadlets_defaults_to_both(mock_scan):
     """fetch_all_quadlets without scope_filter defaults to 'both'."""
     from services.tree_scanner import fetch_all_quadlets

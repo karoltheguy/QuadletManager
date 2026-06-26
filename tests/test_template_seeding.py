@@ -28,6 +28,7 @@ async def fresh_db(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_all_four_template_types_are_seeded(fresh_db):
     """init_db() must seed templates for all four Quadlet types."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -42,6 +43,7 @@ async def test_all_four_template_types_are_seeded(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_volume_template_has_volume_section(fresh_db):
     """Volume template content must start with [Volume]."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -56,6 +58,7 @@ async def test_volume_template_has_volume_section(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_network_template_has_network_section(fresh_db):
     """Network template content must start with [Network]."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -70,6 +73,7 @@ async def test_network_template_has_network_section(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_pod_template_has_pod_section(fresh_db):
     """Pod template content must start with [Pod]."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -84,6 +88,7 @@ async def test_pod_template_has_pod_section(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_container_template_still_present(fresh_db):
     """Existing Container template must still be seeded."""
     async with aiosqlite.connect(fresh_db) as db:
@@ -98,6 +103,7 @@ async def test_container_template_still_present(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_seeding_is_idempotent(fresh_db):
     """Running init_db() a second time must not duplicate templates."""
     import core.database as db_module

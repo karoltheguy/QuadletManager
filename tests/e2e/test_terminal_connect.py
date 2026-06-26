@@ -138,6 +138,7 @@ def _click_connect(page: Page) -> None:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
+@pytest.mark.e2e
 def test_connect_creates_tab(page: Page):
     """Clicking Connect creates a terminal-conn-tab in the tab strip."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -151,6 +152,7 @@ def test_connect_creates_tab(page: Page):
     expect(tabs).to_have_count(1)
 
 
+@pytest.mark.e2e
 def test_tab_label_uses_server_name_and_container(page: Page):
     """Tab label is '<server_name>:<container>' format."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -164,6 +166,7 @@ def test_tab_label_uses_server_name_and_container(page: Page):
     expect(label).to_have_text("testserver:myapp")
 
 
+@pytest.mark.e2e
 def test_connect_same_container_twice_deduplicates(page: Page):
     """Clicking Connect twice for the same container does not open a second tab."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -178,6 +181,7 @@ def test_connect_same_container_twice_deduplicates(page: Page):
     expect(tabs).to_have_count(1)
 
 
+@pytest.mark.e2e
 def test_second_container_opens_second_tab(page: Page):
     """Connecting to a different container creates a second tab."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -200,6 +204,7 @@ def test_second_container_opens_second_tab(page: Page):
     expect(tabs).to_have_count(2)
 
 
+@pytest.mark.e2e
 def test_new_tab_is_active(page: Page):
     """The most-recently opened tab carries the is-active class."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -222,6 +227,7 @@ def test_new_tab_is_active(page: Page):
     expect(label).to_have_text("srv:beta")
 
 
+@pytest.mark.e2e
 def test_close_button_removes_tab(page: Page):
     """Clicking × on a tab removes it from the strip and disposes the session."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -239,6 +245,7 @@ def test_close_button_removes_tab(page: Page):
     expect(page.locator(".terminal-conn-tab")).to_have_count(0, timeout=5000)
 
 
+@pytest.mark.e2e
 def test_close_last_tab_shows_empty_hint(page: Page):
     """After the last tab is closed the empty-state hint reappears."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -251,11 +258,11 @@ def test_close_last_tab_shows_empty_hint(page: Page):
     page.wait_for_timeout(300)
 
     # Hint is shown again (display is not 'none')
-    hint = page.locator("#terminal-empty-hint")
     display = page.evaluate("() => document.getElementById('terminal-empty-hint').style.display")
     assert display != 'none', f"Expected hint to be visible, display was: '{display}'"
 
 
+@pytest.mark.e2e
 def test_ws_natural_close_dims_tab(page: Page):
     """When the server closes the WS the tab gains is-disconnected (dims) but stays open."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -275,6 +282,7 @@ def test_ws_natural_close_dims_tab(page: Page):
     expect(page.locator(".terminal-conn-tab.is-disconnected")).to_have_count(1)
 
 
+@pytest.mark.e2e
 def test_connect_sends_resize_message(page: Page):
     """On connect the JS sends a resize JSON message so the PTY gets initial dimensions."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -303,6 +311,7 @@ def test_connect_sends_resize_message(page: Page):
     assert dims["cols"] > 0 and dims.get("rows", dims.get("height", 1)) > 0
 
 
+@pytest.mark.e2e
 def test_tab_strip_hidden_when_empty(page: Page):
     """The tab strip (#terminal-conn-tabs) has no .has-tabs class when no sessions exist."""
     page.add_init_script(_WS_MOCK_INIT)
@@ -315,6 +324,7 @@ def test_tab_strip_hidden_when_empty(page: Page):
     assert "has-tabs" not in (tabs_el.get_attribute("class") or "")
 
 
+@pytest.mark.e2e
 def test_tab_strip_visible_after_connect(page: Page):
     """After connect #terminal-conn-tabs gains .has-tabs (makes it flex-visible)."""
     page.add_init_script(_WS_MOCK_INIT)

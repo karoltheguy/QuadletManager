@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_viewer_cannot_save():
     from api.routes import save_file
 
@@ -41,6 +42,7 @@ async def test_viewer_cannot_save():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_viewer_cannot_create():
     from api.routes import create_new_quadlet
 
@@ -61,6 +63,7 @@ async def test_viewer_cannot_create():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_viewer_cannot_systemctl_post():
     from api.routes import api_systemctl_post
     from unittest.mock import MagicMock
@@ -105,6 +108,7 @@ async def test_viewer_cannot_systemctl_post():
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @patch('api.routes.reload_and_restart', new_callable=AsyncMock)
 @patch('api.routes.systemctl_action', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_editor_can_save(mock_systemctl, mock_reload, mock_execute, mock_db):
     from api.routes import save_file
 
@@ -135,6 +139,7 @@ async def test_editor_can_save(mock_systemctl, mock_reload, mock_execute, mock_d
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_editor_can_create(mock_execute, mock_db):
     from api.routes import create_new_quadlet
 
@@ -188,6 +193,7 @@ class _AioDualMock:
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers):
     from fastapi.responses import HTMLResponse
     from api.routes import settings_add_server
@@ -221,6 +227,7 @@ async def test_add_server_triggers_navigator_refresh(mock_db, mock_list_servers)
 @patch('api.routes.pool')
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_delete_server_triggers_navigator_refresh(mock_db, mock_list_servers, mock_pool):
     from fastapi.responses import HTMLResponse
     from api.routes import settings_delete_server
@@ -252,6 +259,7 @@ async def test_delete_server_triggers_navigator_refresh(mock_db, mock_list_serve
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_viewer_cannot_add_server(mock_db, mock_list_servers):
     from api.routes import settings_add_server
 
@@ -272,6 +280,7 @@ async def test_viewer_cannot_add_server(mock_db, mock_list_servers):
 @patch('api.routes.pool')
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool):
     from api.routes import settings_delete_server
 
@@ -293,6 +302,7 @@ async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers):
     from api.routes import settings_add_server
 
@@ -313,6 +323,7 @@ async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers):
 @patch('api.routes.pool')
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_delete_server(mock_db, mock_list_servers, mock_pool):
     from api.routes import settings_delete_server
 
@@ -333,6 +344,7 @@ async def test_non_admin_editor_cannot_delete_server(mock_db, mock_list_servers,
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_list_users(mock_db):
     from api.routes import settings_list_users
 
@@ -346,6 +358,7 @@ async def test_non_admin_editor_cannot_list_users(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_add_user(mock_db):
     from api.routes import settings_add_user
 
@@ -363,6 +376,7 @@ async def test_non_admin_editor_cannot_add_user(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_update_user_role(mock_db):
     from api.routes import settings_update_user_role
 
@@ -379,6 +393,7 @@ async def test_non_admin_editor_cannot_update_user_role(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_delete_user(mock_db):
     from api.routes import settings_delete_user
 
@@ -400,6 +415,7 @@ async def test_non_admin_editor_cannot_delete_user(mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_servers', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_admin_can_update_server(mock_db, mock_list_servers):
     from fastapi.responses import HTMLResponse
     from api.routes import settings_update_server
@@ -427,6 +443,7 @@ async def test_admin_can_update_server(mock_db, mock_list_servers):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_editor_cannot_update_server(mock_db):
     from api.routes import settings_update_server
 
@@ -445,6 +462,7 @@ async def test_non_admin_editor_cannot_update_server(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_viewer_cannot_update_server(mock_db):
     from api.routes import settings_update_server
 
@@ -463,6 +481,7 @@ async def test_viewer_cannot_update_server(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.systemctl_action', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_editor_can_systemctl_post(mock_action):
     from api.routes import api_systemctl_post
     from unittest.mock import MagicMock
@@ -493,6 +512,7 @@ async def test_editor_can_systemctl_post(mock_action):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_save_invalid_container_returns_validation_error(mock_execute):
     """Saving a .container file with invalid content must return an error toast
     without calling execute_command (file must not be written)."""
@@ -521,6 +541,7 @@ async def test_save_invalid_container_returns_validation_error(mock_execute):
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @patch('api.routes.reload_and_restart', new_callable=AsyncMock)
 @patch('api.routes.systemctl_action', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_save_valid_container_proceeds(mock_systemctl, mock_reload, mock_execute, mock_db):
     """Saving a .container file with valid content must write the file."""
     from api.routes import save_file
@@ -557,6 +578,7 @@ async def test_save_valid_container_proceeds(mock_systemctl, mock_reload, mock_e
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_users', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_admin_can_promote_user(mock_db, mock_list_users):
     from fastapi.responses import HTMLResponse
     from api.routes import settings_toggle_admin
@@ -587,6 +609,7 @@ async def test_admin_can_promote_user(mock_db, mock_list_users):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_admin_cannot_demote_self(mock_db):
     from api.routes import settings_toggle_admin
 
@@ -611,6 +634,7 @@ async def test_admin_cannot_demote_self(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_cannot_toggle_admin(mock_db):
     from api.routes import settings_toggle_admin
 
@@ -628,6 +652,7 @@ async def test_non_admin_cannot_toggle_admin(mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.settings_list_users', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_admin_can_create_admin_user(mock_db, mock_list_users):
     from fastapi.responses import HTMLResponse
     from api.routes import settings_add_user

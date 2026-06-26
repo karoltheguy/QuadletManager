@@ -5,6 +5,7 @@ from unittest.mock import patch, AsyncMock
 from services.stats_engine import stats_engine_loop
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stats_engine_loop_runs_and_cancels():
     with patch("services.stats_engine.asyncio.sleep") as mock_sleep, \
          patch("services.stats_engine.fetch_server_stats") as mock_fetch, \
@@ -23,6 +24,7 @@ async def test_stats_engine_loop_runs_and_cancels():
         assert mock_rollup.call_count == 1
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_stats_engine_loop_handles_exception():
     with patch("services.stats_engine.asyncio.sleep") as mock_sleep, \
          patch("services.stats_engine.fetch_server_stats") as mock_fetch:

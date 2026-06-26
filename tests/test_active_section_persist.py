@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for active section persistence across page refreshes (Issue #117).
 - switchTab must save the active tab to localStorage under 'qm-active-tab'
@@ -18,6 +19,7 @@ class TestActiveTabPersistence:
     def setup_method(self):
         self.js = _read()
 
+    @pytest.mark.unit
     def test_switchtab_saves_to_localstorage(self):
         """switchTab must persist the active tab id to localStorage."""
         assert "localStorage.setItem('qm-active-tab'" in self.js, (
@@ -25,6 +27,7 @@ class TestActiveTabPersistence:
             "to persist the active section."
         )
 
+    @pytest.mark.unit
     def test_domcontentloaded_restores_from_localstorage(self):
         """DOMContentLoaded must restore the active tab from localStorage."""
         assert "localStorage.getItem('qm-active-tab')" in self.js, (
@@ -32,6 +35,7 @@ class TestActiveTabPersistence:
             "to restore the last-viewed section on refresh."
         )
 
+    @pytest.mark.unit
     def test_domcontentloaded_falls_back_to_overview(self):
         """Restoration must fall back to 'overview' if no value is stored."""
         pattern = r"localStorage\.getItem\('qm-active-tab'\)\s*\|\|\s*'overview'"
@@ -40,6 +44,7 @@ class TestActiveTabPersistence:
             "when no qm-active-tab is stored: localStorage.getItem('qm-active-tab') || 'overview'"
         )
 
+    @pytest.mark.unit
     def test_hardcoded_overview_not_used_on_init(self):
         """DOMContentLoaded must not hard-code switchTab('overview')."""
         assert "switchTab('overview')" not in self.js, (

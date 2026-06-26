@@ -71,6 +71,7 @@ def _simulate_drag(page: Page, source_id: int, target_id: int):
     """, [source_id, target_id])
 
 
+@pytest.mark.e2e
 def test_drag_handle_visible_for_admin(page: Page):
     """The drag handle column must be rendered for admin users."""
     _goto_servers_settings(page)
@@ -81,6 +82,7 @@ def test_drag_handle_visible_for_admin(page: Page):
     assert handles.count() > 0, "Expected at least one drag handle cell for admin"
 
 
+@pytest.mark.e2e
 def test_server_rows_have_draggable_attribute(page: Page):
     """Server rows in the settings table must have draggable=true for admin."""
     _goto_servers_settings(page)
@@ -92,6 +94,7 @@ def test_server_rows_have_draggable_attribute(page: Page):
     assert draggable == 'true', f"Expected draggable='true', got '{draggable}'"
 
 
+@pytest.mark.e2e
 def test_drag_reorders_rows_in_dom(page: Page):
     """Dragging a server row should update the DOM order immediately."""
     _goto_servers_settings(page)
@@ -111,6 +114,7 @@ def test_drag_reorders_rows_in_dom(page: Page):
     assert first_id in new_order, "Dragged server should still appear in list"
 
 
+@pytest.mark.e2e
 def test_reorder_persists_after_page_reload(page: Page):
     """After dragging, the new order must survive a page reload (DB persisted)."""
     _goto_servers_settings(page)
@@ -132,6 +136,7 @@ def test_reorder_persists_after_page_reload(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_sidebar_reflects_management_list_order(page: Page):
     """The sidebar server list must match the management list order."""
     _goto_servers_settings(page)

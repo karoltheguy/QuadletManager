@@ -40,6 +40,7 @@ async def integration_db(tmp_path):
         del os.environ["QUADLET_DB_PATH"]
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_ssh_connection_and_systemctl(integration_db):
     """Tests that we can connect via SSH and run systemctl on the test container."""
     await pool.close_all()

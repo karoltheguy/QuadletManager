@@ -1,3 +1,4 @@
+import pytest
 """Tests for context menu actions: Edit, Start, Stop (issue #71).
 
 Verifies that static/main.js contains the correct patterns for the new
@@ -20,21 +21,25 @@ def _read_js():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_context_menu_has_edit_item():
     js = _read_js()
     assert "textContent = 'Edit'" in js, "Edit menu item must be present"
 
 
+@pytest.mark.unit
 def test_context_menu_has_start_item():
     js = _read_js()
     assert "textContent = 'Start'" in js, "Start menu item must be present"
 
 
+@pytest.mark.unit
 def test_context_menu_has_stop_item():
     js = _read_js()
     assert "textContent = 'Stop'" in js, "Stop menu item must be present"
 
 
+@pytest.mark.unit
 def test_context_menu_has_delete_item():
     js = _read_js()
     assert "textContent = 'Delete'" in js, "Delete menu item must still be present"
@@ -45,6 +50,7 @@ def test_context_menu_has_delete_item():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_unit_name_derived_from_stem():
     """The JS must derive unitName as stem + '.service', matching api/routes.py:217."""
     js = _read_js()
@@ -52,6 +58,7 @@ def test_unit_name_derived_from_stem():
         "unitName must be derived as stem + '.service'"
 
 
+@pytest.mark.unit
 def test_stem_strips_extension():
     """The stem regex must strip the last extension from the filename."""
     js = _read_js()
@@ -64,18 +71,21 @@ def test_stem_strips_extension():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_edit_action_targets_editor_pane():
     js = _read_js()
     assert "target: '#editor-pane'" in js, \
         "Edit action must target #editor-pane for HTMX swap"
 
 
+@pytest.mark.unit
 def test_edit_action_uses_outerhtml_swap():
     js = _read_js()
     assert "swap: 'outerHTML'" in js, \
         "Edit action must use outerHTML swap to replace editor pane"
 
 
+@pytest.mark.unit
 def test_edit_action_switches_to_editor_tab():
     js = _read_js()
     # The editor lives inside the containers tab; edit action must switch to it
@@ -83,6 +93,7 @@ def test_edit_action_switches_to_editor_tab():
         "Edit action must call switchTab('containers') to reveal the editor pane"
 
 
+@pytest.mark.unit
 def test_edit_action_calls_api_file_endpoint():
     js = _read_js()
     assert "'/api/file/' + serverId" in js, \
@@ -94,18 +105,21 @@ def test_edit_action_calls_api_file_endpoint():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_start_action_uses_systemctl_endpoint():
     js = _read_js()
     assert "action=start" in js, \
         "Start action must POST with action=start to systemctl endpoint"
 
 
+@pytest.mark.unit
 def test_stop_action_uses_systemctl_endpoint():
     js = _read_js()
     assert "action=stop" in js, \
         "Stop action must POST with action=stop to systemctl endpoint"
 
 
+@pytest.mark.unit
 def test_start_stop_use_swap_none():
     """swap:'none' ensures htmx:beforeRequest fires (for notifications) without
     needing a DOM target — critical when the user is not on the editor tab."""
@@ -119,6 +133,7 @@ def test_start_stop_use_swap_none():
 # =============================================================================
 
 
+@pytest.mark.unit
 def test_menu_item_order():
     """Edit must come before Start, Start before Stop, Stop before Delete."""
     js = _read_js()

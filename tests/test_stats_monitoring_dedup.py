@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for deduplication of stats/monitoring chart and table rendering logic.
 These are structural tests — they verify that shared factory helpers exist in
@@ -16,6 +17,7 @@ def _src():
 
 # ── Chart factory ────────────────────────────────────────────────────────────
 
+@pytest.mark.unit
 def test_build_bar_chart_config_factory_exists():
     """A shared buildBarChartConfig(elementId) factory function must exist."""
     assert re.search(r'function\s+buildBarChartConfig\s*\(', _src()), (
@@ -23,6 +25,7 @@ def test_build_bar_chart_config_factory_exists():
     )
 
 
+@pytest.mark.unit
 def test_init_stats_chart_uses_factory():
     """initStatsChart must delegate to buildBarChartConfig, not inline the config."""
     src = _src()
@@ -37,6 +40,7 @@ def test_init_stats_chart_uses_factory():
     )
 
 
+@pytest.mark.unit
 def test_monitor_time_series_charts_use_factory():
     """initCpuChart and initMemChart must delegate to _buildTimeSeriesConfig (#88)."""
     src = _src()
@@ -51,6 +55,7 @@ def test_monitor_time_series_charts_use_factory():
 
 # ── Table renderer ───────────────────────────────────────────────────────────
 
+@pytest.mark.unit
 def test_render_container_stats_table_exists():
     """A shared renderContainerStatsTable(tableElId, data) helper must exist."""
     assert re.search(r'function\s+renderContainerStatsTable\s*\(', _src()), (
@@ -58,6 +63,7 @@ def test_render_container_stats_table_exists():
     )
 
 
+@pytest.mark.unit
 def test_update_stats_uses_shared_table_renderer():
     """updateStats must delegate table rendering to renderContainerStatsTable."""
     src = _src()
@@ -72,6 +78,7 @@ def test_update_stats_uses_shared_table_renderer():
     )
 
 
+@pytest.mark.unit
 def test_update_monitoring_view_uses_shared_table_renderer():
     """updateMonitoringView must delegate table rendering to renderContainerStatsTable."""
     src = _src()

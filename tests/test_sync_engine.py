@@ -15,6 +15,7 @@ from services.sync_engine import parse_mtime, check_quadlets
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_valid_timestamp():
     """Standard numeric timestamp string parses correctly."""
     result = await parse_mtime("1709827200\n")
@@ -22,6 +23,7 @@ async def test_valid_timestamp():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_timestamp_with_whitespace():
     """Timestamp padded with whitespace/newlines is trimmed and parsed."""
     result = await parse_mtime(" 1709827200 \n")
@@ -29,6 +31,7 @@ async def test_timestamp_with_whitespace():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_empty_string_returns_zero():
     """Empty string (e.g. file not found) falls back to 0."""
     result = await parse_mtime("")
@@ -36,6 +39,7 @@ async def test_empty_string_returns_zero():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_non_numeric_returns_zero():
     """Non-numeric output (e.g. stat error message) falls back to 0."""
     result = await parse_mtime("stat: cannot statx '/missing': No such file or directory")
@@ -43,6 +47,7 @@ async def test_non_numeric_returns_zero():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_float_string_returns_zero():
     """Float-like string (e.g. '1709827200.5') cannot int-parse, falls back to 0."""
     result = await parse_mtime("1709827200.5")
@@ -50,6 +55,7 @@ async def test_float_string_returns_zero():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_zero_timestamp():
     """Explicit zero is a valid mtime (epoch start)."""
     result = await parse_mtime("0")
@@ -115,6 +121,7 @@ def _make_db_cm(quadlet_rows):
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_newer_mtime_triggers_publish(mock_get_db_func, mock_pool, mock_publisher):
     """When the remote mtime is newer than the DB mtime, a file_changed event is published."""
     quadlet_row = {
@@ -150,6 +157,7 @@ async def test_newer_mtime_triggers_publish(mock_get_db_func, mock_pool, mock_pu
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_same_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher):
     """When the remote mtime matches the DB mtime, no event is published."""
     quadlet_row = {
@@ -176,6 +184,7 @@ async def test_same_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_older_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher):
     """When the remote mtime is *older* than the DB mtime (edge case), no event fires."""
     quadlet_row = {
@@ -201,6 +210,7 @@ async def test_older_mtime_no_publish(mock_get_db_func, mock_pool, mock_publishe
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_none_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher):
     """When last_known_mtime is None (newly registered, never polled), no event fires."""
     quadlet_row = {
@@ -227,6 +237,7 @@ async def test_none_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_ssh_error_does_not_crash(mock_get_db_func, mock_pool, mock_publisher):
     """If SSH fails for a quadlet, the function logs the error but doesn't raise."""
     quadlet_row = {
@@ -253,6 +264,7 @@ async def test_ssh_error_does_not_crash(mock_get_db_func, mock_pool, mock_publis
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_user_scope_does_not_use_sudo(mock_get_db_func, mock_pool, mock_publisher):
     """User-scope quadlets should use use_sudo=False."""
     quadlet_row = {
@@ -283,6 +295,7 @@ async def test_user_scope_does_not_use_sudo(mock_get_db_func, mock_pool, mock_pu
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_global_scope_uses_sudo(mock_get_db_func, mock_pool, mock_publisher):
     """Global-scope quadlets should use use_sudo=True."""
     quadlet_row = {
@@ -312,6 +325,7 @@ async def test_global_scope_uses_sudo(mock_get_db_func, mock_pool, mock_publishe
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_no_quadlets_in_db_is_noop(mock_get_db_func, mock_pool, mock_publisher):
     """When the quadlets table is empty, nothing happens."""
     select_cm, _ = _make_db_cm([])
@@ -330,6 +344,7 @@ async def test_no_quadlets_in_db_is_noop(mock_get_db_func, mock_pool, mock_publi
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_db_updated_with_new_mtime(mock_get_db_func, mock_pool, mock_publisher):
     """After detecting a change, the DB is updated with the new remote mtime."""
     quadlet_row = {
@@ -368,6 +383,7 @@ async def test_db_updated_with_new_mtime(mock_get_db_func, mock_pool, mock_publi
 @patch("services.sync_engine.publisher")
 @patch("services.sync_engine.pool")
 @patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
 async def test_after_save_updates_mtime_no_false_positive(mock_get_db_func, mock_pool, mock_publisher):
     """Simulates: UI saves at mtime=2000, poller sees mtime=2000 → no event.
 
@@ -396,6 +412,7 @@ async def test_after_save_updates_mtime_no_false_positive(mock_get_db_func, mock
     mock_publisher.publish.assert_not_called()
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_polling_engine_loop_cancelled():
     import asyncio
     from services.sync_engine import polling_engine_loop
@@ -403,6 +420,7 @@ async def test_polling_engine_loop_cancelled():
         await polling_engine_loop()
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_polling_engine_loop_exception_caught():
     import asyncio
     from services.sync_engine import polling_engine_loop

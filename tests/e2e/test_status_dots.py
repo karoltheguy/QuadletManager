@@ -75,6 +75,7 @@ def _inject_stats_update(page: Page, server_id: int, container_names: list[str])
 # Tests
 # ---------------------------------------------------------------------------
 
+@pytest.mark.e2e
 def test_status_dots_present_after_tree_loads(page: Page):
     """
     After the quadlet tree loads for any server, at least one .status-dot
@@ -95,6 +96,7 @@ def test_status_dots_present_after_tree_loads(page: Page):
     expect(dots.first).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_status_dots_start_as_stopped(page: Page):
     """
     When all running containers are cleared, navigator dots must carry dot-stopped.
@@ -136,6 +138,7 @@ def test_status_dots_start_as_stopped(page: Page):
         )
 
 
+@pytest.mark.e2e
 def test_dot_transitions_to_running_on_stats_update(page: Page):
     """
     When applyStatusDots is called with a running container name that matches
@@ -170,6 +173,7 @@ def test_dot_transitions_to_running_on_stats_update(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_dot_returns_to_stopped_when_container_disappears(page: Page):
     """
     If a container that was running disappears from the next stats_update,
@@ -206,6 +210,7 @@ def test_dot_returns_to_stopped_when_container_disappears(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_multiple_servers_dots_update_independently(page: Page):
     """
     applyStatusDots only targets dots for the specified server_id.
@@ -259,6 +264,7 @@ def test_multiple_servers_dots_update_independently(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_dot_title_attribute_reflects_state(page: Page):
     """
     The tooltip (title attribute) on each dot must update to reflect

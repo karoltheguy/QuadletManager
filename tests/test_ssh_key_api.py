@@ -38,6 +38,7 @@ class _AioDualMock:
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_cannot_list_keys(mock_db):
     from api.routes import api_list_keys
 
@@ -50,6 +51,7 @@ async def test_non_admin_cannot_list_keys(mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_admin_can_list_keys(mock_db):
     from api.routes import api_list_keys
 
@@ -78,6 +80,7 @@ async def test_admin_can_list_keys(mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@pytest.mark.unit
 async def test_non_admin_cannot_add_key(mock_encrypt, mock_db):
     from api.routes import api_add_key
 
@@ -85,7 +88,7 @@ async def test_non_admin_cannot_add_key(mock_encrypt, mock_db):
         await api_add_key(
             request=MagicMock(),
             key_name="test-key",
-            private_key="-----BEGIN OPENSSH PRIVATE KEY-----",
+            private_key="-----BEGIN OPENSSH PRIVATE KEY-----", # gitleaks:allow
             key_file=None,
             is_admin=False,
         )
@@ -96,6 +99,7 @@ async def test_non_admin_cannot_add_key(mock_encrypt, mock_db):
 @patch('api.routes.api_list_keys', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
 @patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@pytest.mark.unit
 async def test_admin_can_add_key_by_paste(mock_encrypt, mock_db, mock_list):
     from fastapi.responses import HTMLResponse
     from api.routes import api_add_key
@@ -111,7 +115,7 @@ async def test_admin_can_add_key_by_paste(mock_encrypt, mock_db, mock_list):
     response = await api_add_key(
         request=MagicMock(),
         key_name="my-key",
-        private_key="-----BEGIN OPENSSH PRIVATE KEY-----\ndata\n-----END OPENSSH PRIVATE KEY-----",
+        private_key="-----BEGIN OPENSSH PRIVATE KEY-----\ndata\n-----END OPENSSH PRIVATE KEY-----", # gitleaks:allow
         key_file=None,
         is_admin=True,
     )
@@ -123,6 +127,7 @@ async def test_admin_can_add_key_by_paste(mock_encrypt, mock_db, mock_list):
 @patch('api.routes.api_list_keys', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
 @patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@pytest.mark.unit
 async def test_admin_can_add_key_by_file_upload(mock_encrypt, mock_db, mock_list):
     from fastapi.responses import HTMLResponse
     from api.routes import api_add_key
@@ -136,7 +141,7 @@ async def test_admin_can_add_key_by_file_upload(mock_encrypt, mock_db, mock_list
     mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
 
     fake_file = AsyncMock()
-    fake_file.read = AsyncMock(return_value=b"-----BEGIN OPENSSH PRIVATE KEY-----\ndata\n-----END OPENSSH PRIVATE KEY-----")
+    fake_file.read = AsyncMock(return_value=b"-----BEGIN OPENSSH PRIVATE KEY-----\ndata\n-----END OPENSSH PRIVATE KEY-----") # gitleaks:allow
 
     response = await api_add_key(
         request=MagicMock(),
@@ -152,6 +157,7 @@ async def test_admin_can_add_key_by_file_upload(mock_encrypt, mock_db, mock_list
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.encrypt_private_key', return_value=b'encrypted')
+@pytest.mark.unit
 async def test_add_key_requires_key_content(mock_encrypt, mock_db):
     """POST with no paste and no file must return 400."""
     from api.routes import api_add_key
@@ -174,6 +180,7 @@ async def test_add_key_requires_key_content(mock_encrypt, mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_non_admin_cannot_delete_key(mock_db):
     from api.routes import api_delete_key
 
@@ -189,6 +196,7 @@ async def test_non_admin_cannot_delete_key(mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.api_list_keys', new_callable=AsyncMock)
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_admin_can_delete_key(mock_db, mock_list):
     from fastapi.responses import HTMLResponse
     from api.routes import api_delete_key
@@ -214,6 +222,7 @@ async def test_admin_can_delete_key(mock_db, mock_list):
 
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
+@pytest.mark.unit
 async def test_delete_key_in_use_returns_409(mock_db):
     """Deleting a key that is still referenced by a server must return 409."""
     from api.routes import api_delete_key

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_viewer_cannot_delete_file():
     from api.routes import delete_file
 
@@ -38,6 +39,7 @@ async def test_viewer_cannot_delete_file():
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_editor_can_delete_user_scope_file(mock_execute, mock_db):
     from api.routes import delete_file
 
@@ -72,6 +74,7 @@ async def test_editor_can_delete_user_scope_file(mock_execute, mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_editor_can_delete_global_scope_file(mock_execute, mock_db):
     from api.routes import delete_file
 
@@ -106,6 +109,7 @@ async def test_editor_can_delete_global_scope_file(mock_execute, mock_db):
 @pytest.mark.asyncio
 @patch('api.routes.get_db_connection')
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_delete_triggers_navigator_refresh(mock_execute, mock_db):
     from api.routes import delete_file
 
@@ -133,6 +137,7 @@ async def test_delete_triggers_navigator_refresh(mock_execute, mock_db):
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+@pytest.mark.unit
 async def test_delete_ssh_error_returns_error_toast(mock_execute):
     from api.routes import delete_file
 

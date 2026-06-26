@@ -1,3 +1,4 @@
+import pytest
 """Tests for bottom panel sidebar alignment and expand toggle (Issue #87).
 
 Verifies:
@@ -128,6 +129,7 @@ def _parse_html():
     return p
 
 
+@pytest.mark.unit
 def test_expand_button_exists():
     """dashboard.html must have a button with id='bottom-panel-expand-btn'."""
     p = _parse_html()
@@ -137,6 +139,7 @@ def test_expand_button_exists():
     )
 
 
+@pytest.mark.unit
 def test_expand_button_in_header():
     """The expand button must be inside .bottom-panel-header."""
     p = _parse_html()
@@ -145,6 +148,7 @@ def test_expand_button_in_header():
     )
 
 
+@pytest.mark.unit
 def test_expand_button_before_tabs():
     """Expand button must be in .bottom-panel-header-actions (right-edge of Row 1)."""
     p = _parse_html()
@@ -154,6 +158,7 @@ def test_expand_button_before_tabs():
     )
 
 
+@pytest.mark.unit
 def test_navigator_is_direct_child_of_app_container():
     """#navigator must be a direct child of .app-container, not nested in .workspace-row."""
     p = _parse_html()
@@ -163,6 +168,7 @@ def test_navigator_is_direct_child_of_app_container():
     )
 
 
+@pytest.mark.unit
 def test_navigator_not_inside_workspace_row():
     """#navigator must NOT be inside .workspace-row (it has been promoted to .app-container)."""
     p = _parse_html()
@@ -179,6 +185,7 @@ def _read_css():
         return f.read()
 
 
+@pytest.mark.unit
 def test_app_container_uses_grid_in_containers_view():
     """body.view-containers .app-container must use CSS grid layout."""
     css = _read_css()
@@ -188,6 +195,7 @@ def test_app_container_uses_grid_in_containers_view():
     )
 
 
+@pytest.mark.unit
 def test_grid_has_sidebar_column():
     """The CSS grid must use var(--sidebar-width) to size the navigator column."""
     css = _read_css()
@@ -197,6 +205,7 @@ def test_grid_has_sidebar_column():
     )
 
 
+@pytest.mark.unit
 def test_navigator_spans_both_grid_rows():
     """#navigator must use grid-row: 1 / 3 to extend alongside the bottom panel."""
     css = _read_css()
@@ -206,6 +215,7 @@ def test_navigator_spans_both_grid_rows():
     )
 
 
+@pytest.mark.unit
 def test_is_expanded_spans_both_columns():
     """#bottom-panel.is-expanded must span both grid columns for full-width layout."""
     css = _read_css()
@@ -217,6 +227,7 @@ def test_is_expanded_spans_both_columns():
     )
 
 
+@pytest.mark.unit
 def test_body_class_retracts_navigator_when_expanded():
     """body.bottom-panel-expanded must set navigator back to grid-row: 1."""
     css = _read_css()
@@ -226,6 +237,7 @@ def test_body_class_retracts_navigator_when_expanded():
     )
 
 
+@pytest.mark.unit
 def test_expand_btn_icon_flips_on_expanded():
     """CSS ::after on #bottom-panel-expand-btn must flip icon when .is-expanded."""
     css = _read_css()
@@ -245,6 +257,7 @@ def _read_js():
         return f.read()
 
 
+@pytest.mark.unit
 def test_toggle_expand_function_exists():
     """main.js must define window.toggleBottomPanelExpand."""
     js = _read_js()
@@ -253,6 +266,7 @@ def test_toggle_expand_function_exists():
     )
 
 
+@pytest.mark.unit
 def test_toggle_expand_toggles_body_class():
     """toggleBottomPanelExpand must toggle body.bottom-panel-expanded."""
     js = _read_js()
@@ -262,6 +276,7 @@ def test_toggle_expand_toggles_body_class():
     )
 
 
+@pytest.mark.unit
 def test_expand_state_persisted_to_localstorage():
     """toggleBottomPanelExpand must write to localStorage key qm-bottom-panel-expanded."""
     js = _read_js()
@@ -270,6 +285,7 @@ def test_expand_state_persisted_to_localstorage():
     )
 
 
+@pytest.mark.unit
 def test_expand_state_restored_on_load():
     """restorePanelWidths must read qm-bottom-panel-expanded and apply is-expanded class."""
     js = _read_js()

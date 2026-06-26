@@ -30,6 +30,7 @@ def _goto_density(page: Page):
     expect(page.locator("#density-section")).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_density_section_visible_in_themes_tab(page: Page):
     """Themes settings tab must show the density toggle section."""
     _goto_density(page)
@@ -38,6 +39,7 @@ def test_density_section_visible_in_themes_tab(page: Page):
     expect(page.locator("#density-compact")).to_be_visible()
 
 
+@pytest.mark.e2e
 def test_compact_toggle_sets_data_attribute(page: Page):
     """Selecting Compact must set data-density='compact' on <html>."""
     _goto_density(page)
@@ -48,6 +50,7 @@ def test_compact_toggle_sets_data_attribute(page: Page):
     assert density == "compact", f"Expected data-density='compact', got {density!r}"
 
 
+@pytest.mark.e2e
 def test_relaxed_toggle_removes_data_attribute(page: Page):
     """Selecting Relaxed must remove data-density from <html>."""
     _goto_density(page)
@@ -61,6 +64,7 @@ def test_relaxed_toggle_removes_data_attribute(page: Page):
     )
 
 
+@pytest.mark.e2e
 def test_compact_persists_in_localstorage(page: Page):
     """Selecting Compact must write 'compact' to localStorage['qm-density']."""
     _goto_density(page)
@@ -69,6 +73,7 @@ def test_compact_persists_in_localstorage(page: Page):
     assert stored == "compact", f"Expected qm-density='compact' in localStorage, got {stored!r}"
 
 
+@pytest.mark.e2e
 def test_density_fouc_prevention_on_reload(page: Page):
     """data-density must be applied before first paint (no FOUC) after page reload."""
     _goto_density(page)

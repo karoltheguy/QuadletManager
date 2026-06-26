@@ -19,8 +19,9 @@ class TestCrypto:
     def teardown_method(self):
         os.environ.pop("QUADLET_MASTER_KEY", None)
 
+    @pytest.mark.unit
     def test_encryption_decryption_cycle(self):
-        original_key = "-----BEGIN OPENSSH PRIVATE KEY-----\\nb1b2b3b4\\n-----END OPENSSH PRIVATE KEY-----"
+        original_key = "-----BEGIN OPENSSH PRIVATE KEY-----\\nb1b2b3b4\\n-----END OPENSSH PRIVATE KEY-----" # gitleaks:allow
         encrypted = encrypt_private_key(original_key)
         assert original_key.encode('utf-8') != encrypted
         decrypted = decrypt_private_key(encrypted)
@@ -46,6 +47,7 @@ async def fresh_db(tmp_path):
 # ── ensure_master_key tests ───────────────────────────────────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_master_key_generates_and_persists(fresh_db):
     """When no key is configured, ensure_master_key generates a key and stores it in the DB."""
     import core.database as db_module
@@ -75,6 +77,7 @@ async def test_ensure_master_key_generates_and_persists(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_master_key_reuses_persisted_key(fresh_db):
     """On second call, ensure_master_key loads the previously persisted key — not a new one."""
     import core.database as db_module
@@ -101,6 +104,7 @@ async def test_ensure_master_key_reuses_persisted_key(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_master_key_respects_existing_env_var(fresh_db):
     """If QUADLET_MASTER_KEY is already set, ensure_master_key must not overwrite it."""
     import core.database as db_module
@@ -117,6 +121,7 @@ async def test_ensure_master_key_respects_existing_env_var(fresh_db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_master_key_idempotent_no_duplicate_rows(fresh_db):
     """Calling ensure_master_key twice must not create duplicate rows in the settings table."""
     import core.database as db_module
@@ -146,6 +151,7 @@ async def test_ensure_master_key_idempotent_no_duplicate_rows(fresh_db):
 # ── SSH key decryption error surfaces a meaningful message ────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_connect_to_server_decryption_failure_gives_clear_error():
     """InvalidTag from AESGCM must surface as a readable error, not an empty string."""
     from cryptography.exceptions import InvalidTag
@@ -179,6 +185,7 @@ async def test_connect_to_server_decryption_failure_gives_clear_error():
     assert error_message  # must not be empty
     assert any(word in error_message.lower() for word in ("decrypt", "master key", "key"))
 
+@pytest.mark.unit
 def test_get_master_key_env_var():
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     test_key = AESGCM.generate_key(bit_length=256).hex()
@@ -187,6 +194,7 @@ def test_get_master_key_env_var():
     assert key.hex() == test_key
     os.environ.pop("QUADLET_MASTER_KEY")
 
+@pytest.mark.unit
 def test_get_master_key_fallback_dev_key():
     with patch("core.config_loader.global_config") as mock_config:
         mock_config.master_key = ""
@@ -196,6 +204,7 @@ def test_get_master_key_fallback_dev_key():
         assert "QUADLET_MASTER_KEY" in os.environ
         os.environ.pop("QUADLET_MASTER_KEY")
 
+@pytest.mark.unit
 def test_get_master_key_config_loader():
     with patch("core.config_loader.global_config") as mock_config:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -205,6 +214,7 @@ def test_get_master_key_config_loader():
         key = get_master_key()
         assert key.hex() == test_key
 
+@pytest.mark.unit
 def test_get_master_key_config_loader_hashing():
     with patch("core.config_loader.global_config") as mock_config:
         import hashlib
@@ -215,6 +225,7 @@ def test_get_master_key_config_loader_hashing():
         assert key == expected
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_ensure_master_key_config_already_set():
     with patch("core.config_loader.global_config") as mock_config:
         mock_config.master_key = "config_set"

@@ -8,6 +8,7 @@ from core.events_manager import EventPublisher
 def publisher():
     return EventPublisher()
 
+@pytest.mark.unit
 def test_subscribe_unsubscribe(publisher):
     q = publisher.subscribe()
     assert len(publisher.queues) == 1
@@ -20,6 +21,7 @@ def test_subscribe_unsubscribe(publisher):
     publisher.unsubscribe(q)
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_publish(publisher):
     q1 = publisher.subscribe()
     q2 = publisher.subscribe()
@@ -34,6 +36,7 @@ async def test_publish(publisher):
     assert msg2 == expected
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_event_generator(publisher):
     mock_request = AsyncMock()
     mock_request.is_disconnected.side_effect = [False, True]

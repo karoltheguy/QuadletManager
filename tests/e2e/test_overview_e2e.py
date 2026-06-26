@@ -22,6 +22,7 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
+@pytest.mark.e2e
 def test_overview_tab_exists_in_nav(page: Page):
     """An 'Overview' nav button must be present."""
     try:
@@ -33,6 +34,7 @@ def test_overview_tab_exists_in_nav(page: Page):
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
+@pytest.mark.e2e
 def test_overview_pane_is_default_tab(page: Page):
     """#overview-pane must be visible on initial page load (default tab)."""
     try:
@@ -44,6 +46,7 @@ def test_overview_pane_is_default_tab(page: Page):
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
+@pytest.mark.e2e
 def test_overview_stat_tiles_present(page: Page):
     """Overview must render stat tiles with data-stat attributes."""
     try:
@@ -58,6 +61,7 @@ def test_overview_stat_tiles_present(page: Page):
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")
+@pytest.mark.e2e
 def test_dashboard_tab_removed_from_nav(page: Page):
     """The old 'Dashboard' nav tab must no longer exist."""
     try:
