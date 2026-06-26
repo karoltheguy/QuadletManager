@@ -1,0 +1,108 @@
+name: Sync Security Alerts to Issues
+
+on:
+  schedule:
+    - cron: '0 2 * * 1-5' # Runs at 02:00 UTC Monday–Friday
+  workflow_dispatch: # Allows manual trigger
+
+permissions:
+  contents: read
+  security-events: read
+  issues: write
+
+jobs:
+  create-vulnerability-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/templates
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create "security" --repo "$REPO" --color "D93F0B" \
+            --description "Security vulnerability" --force || true
+          gh label create "vulnerability" --repo "$REPO" --color "E11D48" \
+            --description "Code scanning alert" --force || true
+
+      - name: Fetch and Process Code Scanning Alerts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Fetch all open code scanning alerts.
+          # --jq '.[]' flattens paginated array responses into newline-delimited JSON objects.
+          ALERTS=$(gh api --paginate "repos/$REPO/code-scanning/alerts?state=open" \
+            --jq '.[]' 2>&1) || {
+            echo "::warning::Failed to fetch code scanning alerts. Is code scanning enabled?"
+            echo "$ALERTS"
+            exit 0
+          }
+
+          if [ -z "$ALERTS" ]; then
+            echo "No open code scanning alerts found."
+            exit 0
+          fi
+
+          CREATED=0
+          SKIPPED=0
+          FAILED=0
+
+          # Process substitution keeps the loop in the current shell so
+          # variable updates (counters) and failures are not lost.
+          while IFS= read -r alert; do
+            export ALERT_NUM=$(echo "$alert" | jq -r '.number')
+            export TITLE=$(echo "$alert" | jq -r '.rule.description')
+            export SEVERITY=$(echo "$alert" | jq -r '.rule.security_severity_level // "unknown"')
+            export URL=$(echo "$alert" | jq -r '.html_url')
+            export RULE_ID=$(echo "$alert" | jq -r '.rule.id')
+            export TOOL=$(echo "$alert" | jq -r '.tool.name // "unknown"')
+
+            # Unique marker embedded in issue body for reliable dedup.
+            # Using an HTML comment avoids polluting the visible body while
+            # remaining searchable via GitHub's issue search index.
+            export MARKER="<!-- code-scanning-alert:${ALERT_NUM} -->"
+
+            # Search ALL issues (open + closed) so we don't re-create an issue
+            # that someone intentionally closed.
+            EXISTING_ISSUE=$(gh issue list --repo "$REPO" \
+              --search "\"code-scanning-alert:${ALERT_NUM}\" in:body" \
+              --state all --label "security" \
+              --json number -q '.[0].number' 2>/dev/null || echo "")
+
+            if [ -n "$EXISTING_ISSUE" ] && [ "$EXISTING_ISSUE" != "null" ]; then
+              echo "Skipping alert #$ALERT_NUM — tracked by issue #$EXISTING_ISSUE"
+              SKIPPED=$((SKIPPED + 1))
+              continue
+            fi
+
+            echo "Creating issue for alert #$ALERT_NUM: $TITLE"
+
+            ISSUE_BODY=$(envsubst < .github/templates/vulnerability-issue.md)
+
+            if gh issue create --repo "$REPO" \
+              --title "Security Alert [${SEVERITY}]: ${TITLE} (Alert #${ALERT_NUM})" \
+              --body "$ISSUE_BODY" \
+              --label "security,vulnerability"; then
+              CREATED=$((CREATED + 1))
+            else
+              echo "::warning::Failed to create issue for alert #$ALERT_NUM"
+              FAILED=$((FAILED + 1))
+            fi
+
+            # Throttle to avoid hitting GitHub's secondary rate limits
+            sleep 2
+          done < <(echo "$ALERTS" | jq -c '.')
+
+          echo "::notice::Summary: ${CREATED} created, ${SKIPPED} already tracked, ${FAILED} failed."
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::warning::${FAILED} issue(s) failed to create. Check logs above."
+          fi
