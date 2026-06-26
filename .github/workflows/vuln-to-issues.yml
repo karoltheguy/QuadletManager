@@ -52,6 +52,7 @@ jobs:
           fi
 
           CREATED=0
+          UPDATED=0
           SKIPPED=0
           FAILED=0
 
@@ -60,6 +61,10 @@ jobs:
           while IFS= read -r alert; do
             export ALERT_NUM=$(echo "$alert" | jq -r '.number')
             export TITLE=$(echo "$alert" | jq -r '.rule.description')
+            export DESCRIPTION=$(echo "$alert" | jq -r '.rule.full_description // "No description provided."')
+            export INSTANCE_MSG=$(echo "$alert" | jq -r '.most_recent_instance.message.text // "N/A"')
+            export FILE_PATH=$(echo "$alert" | jq -r '.most_recent_instance.location.path // "N/A"')
+            export START_LINE=$(echo "$alert" | jq -r '.most_recent_instance.location.start_line // "N/A"')
             export SEVERITY=$(echo "$alert" | jq -r '.rule.security_severity_level // "unknown"')
             export URL=$(echo "$alert" | jq -r '.html_url')
             export RULE_ID=$(echo "$alert" | jq -r '.rule.id')
@@ -70,6 +75,8 @@ jobs:
             # remaining searchable via GitHub's issue search index.
             export MARKER="<!-- code-scanning-alert:${ALERT_NUM} -->"
 
+            ISSUE_BODY=$(envsubst < .github/templates/vulnerability-issue.md)
+
             # Search ALL issues (open + closed) so we don't re-create an issue
             # that someone intentionally closed.
             EXISTING_ISSUE=$(gh issue list --repo "$REPO" \
@@ -78,14 +85,17 @@ jobs:
               --json number -q '.[0].number' 2>/dev/null || echo "")
 
             if [ -n "$EXISTING_ISSUE" ] && [ "$EXISTING_ISSUE" != "null" ]; then
-              echo "Skipping alert #$ALERT_NUM — tracked by issue #$EXISTING_ISSUE"
-              SKIPPED=$((SKIPPED + 1))
+              echo "Updating existing issue #$EXISTING_ISSUE for alert #$ALERT_NUM"
+              if gh issue edit "$EXISTING_ISSUE" --repo "$REPO" --body "$ISSUE_BODY"; then
+                UPDATED=$((UPDATED + 1))
+              else
+                echo "::warning::Failed to update issue #$EXISTING_ISSUE"
+                FAILED=$((FAILED + 1))
+              fi
               continue
             fi
 
             echo "Creating issue for alert #$ALERT_NUM: $TITLE"
-
-            ISSUE_BODY=$(envsubst < .github/templates/vulnerability-issue.md)
 
             if gh issue create --repo "$REPO" \
               --title "Security Alert [${SEVERITY}]: ${TITLE} (Alert #${ALERT_NUM})" \
@@ -101,7 +111,7 @@ jobs:
             sleep 2
           done < <(echo "$ALERTS" | jq -c '.')
 
-          echo "::notice::Summary: ${CREATED} created, ${SKIPPED} already tracked, ${FAILED} failed."
+          echo "::notice::Summary: ${CREATED} created, ${UPDATED} updated, ${SKIPPED} already tracked, ${FAILED} failed."
 
           if [ "$FAILED" -gt 0 ]; then
             echo "::warning::${FAILED} issue(s) failed to create. Check logs above."
