@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse,
 from typing import Optional
 from fastapi.templating import Jinja2Templates
 import hashlib
+from argon2 import PasswordHasher, exceptions
 import json
 import re
 import shlex
@@ -189,12 +190,37 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     stored_hash = row[0]
     role = row[1]
     is_admin = bool(row[2])
-    current_hash = hashlib.sha256(password.encode()).hexdigest()
+    
+    ph = PasswordHasher()
+    credentials_valid = False
+    needs_upgrade = False
+    
+    try:
+        ph.verify(stored_hash, password)
+        credentials_valid = True
+    except exceptions.VerifyMismatchError:
+        pass
+    except exceptions.InvalidHashError:
+        # Fallback to legacy SHA256
+        current_hash = hashlib.sha256(password.encode()).hexdigest()
+        if secrets.compare_digest(current_hash, stored_hash):
+            credentials_valid = True
+            needs_upgrade = True
 
-    if not secrets.compare_digest(current_hash, stored_hash):
+    if not credentials_valid:
         return templates.TemplateResponse(request, "login.html", {
             "error": "Invalid username or password"
         }, status_code=401)
+        
+    if needs_upgrade:
+        # Upgrade hash in database
+        new_hash = ph.hash(password)
+        async with get_db_connection() as update_db:
+            await update_db.execute(
+                "UPDATE users SET password_hash = ? WHERE username = ?",
+                (new_hash, username)
+            )
+            await update_db.commit()
 
     # Credentials valid – set session cookie and redirect to dashboard
     response = RedirectResponse(url="/", status_code=303)
@@ -779,7 +805,7 @@ async def settings_add_user(
     if user_role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role.")
 
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    password_hash = PasswordHasher().hash(password)
     async with get_db_connection() as db:
         try:
             await db.execute(

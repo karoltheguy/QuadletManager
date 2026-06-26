@@ -163,9 +163,10 @@ async def init_db():
         await db.execute("INSERT OR IGNORE INTO templates (id, name, type, content) VALUES (4, 'Basic Pod', 'pod', '[Pod]\\nPodName=mypod\\n')")
         
         # Seed default users (password is same as username)
-        import hashlib
-        admin_hash = hashlib.sha256(b"admin").hexdigest()
-        viewer_hash = hashlib.sha256(b"viewer").hexdigest()
+        from argon2 import PasswordHasher
+        ph = PasswordHasher()
+        admin_hash = ph.hash("admin")
+        viewer_hash = ph.hash("viewer")
         await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role, is_admin) VALUES (1, 'admin', ?, 'editor', 1)", (admin_hash,))
         await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (2, 'viewer', ?, 'viewer')", (viewer_hash,))
         # Ensure existing admin seed user has is_admin=1
