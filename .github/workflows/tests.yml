@@ -2,18 +2,50 @@ name: Tests
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  QUADLET_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
 
 jobs:
   # ==========================================
-  # GITHUB RUNNER (Native Execution)
+  # GITHUB RUNNER
   # ==========================================
   test-github:
+    name: GitHub / ${{ matrix.suite }}
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: unit
+            marker: unit
+            needs_docker: false
+            needs_playwright: false
+            xdist_args: "-n auto"
+
+          - suite: unmarked
+            marker: "not unit and not integration and not e2e"
+            needs_docker: false
+            needs_playwright: false
+            xdist_args: "-n auto"
+
+          - suite: integration
+            marker: integration
+            needs_docker: true
+            needs_playwright: false
+            xdist_args: "-n auto --dist=loadfile"
+
+          - suite: e2e
+            marker: e2e
+            needs_docker: true
+            needs_playwright: true
+            xdist_args: "-n auto --dist=loadfile"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,8 +53,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
           cache-dependency-path: |
             requirements.txt
             requirements-test.txt
@@ -34,62 +66,93 @@ jobs:
           pip install -r requirements-test.txt
 
       - name: Cache Playwright browsers
+        if: ${{ matrix.needs_playwright }}
         id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
-        
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt', 'requirements-test.txt') }}
+
       - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: playwright install --with-deps
 
       - name: Start Mock Environment
+        if: ${{ matrix.needs_docker }}
         run: |
           docker compose -f docker-compose.test.yml up -d --build
           echo "Waiting for app to start..."
-          timeout 30 bash -c 'until curl -s http://localhost:8000 > /dev/null; do sleep 1; done' || true
-          cat scripts/seed_test_db.py | docker compose -f docker-compose.test.yml exec -T quadlet-manager python3
 
-      - name: Run tests
+      - name: Run ${{ matrix.suite }} tests
         env:
-          QUADLET_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+          QUADLET_MASTER_KEY: ${{ env.QUADLET_MASTER_KEY }}
         run: |
-          python -m pytest tests/ -v \
-            --junit-xml=test-results/junit.xml \
-            --cov --cov-branch --cov-report=xml:test-results/coverage.xml \
-            --ignore=tests/e2e/test_stats_e2e.py \
-            --ignore=tests/e2e/test_monitoring_ui.py
+          mkdir -p test-results
 
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: (!cancelled())
+          python -m pytest tests/ -v \
+            ${{ matrix.xdist_args }} \
+            -m "${{ matrix.marker }}" \
+            --durations=25 \
+            --junit-xml=test-results/${{ matrix.suite }}.xml
+
+      - name: Show Docker logs on failure
+        if: ${{ failure() && matrix.needs_docker }}
+        run: |
+          docker compose -f docker-compose.test.yml logs
+
+      - name: Stop Mock Environment
+        if: ${{ always() && matrix.needs_docker }}
+        run: |
+          docker compose -f docker-compose.test.yml down -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            test-results/junit.xml
-          compare_to_earlier_commit: false
-          check_run: false
-          job_summary: true
-          comment_mode: off
-             
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./test-results/coverage.xml
-          fail_ci_if_error: true
+          name: github-${{ matrix.suite }}-test-results
+          path: test-results/${{ matrix.suite }}.xml
 
   # ==========================================
-  # FORGEJO RUNNER (Container Execution)
+  # FORGEJO RUNNER
   # ==========================================
   test-forgejo:
+    name: Forgejo / ${{ matrix.suite }}
     if: ${{ github.server_url != 'https://github.com' }}
     runs-on: ubuntu-latest
+
     container:
       image: ghcr.io/catthehacker/ubuntu:act-latest
       volumes:
         - act-toolcache:/opt/hostedtoolcache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: unit
+            marker: unit
+            needs_docker: false
+            needs_playwright: false
+            xdist_args: "-n auto"
+
+          - suite: unmarked
+            marker: "not unit and not integration and not e2e"
+            needs_docker: false
+            needs_playwright: false
+            xdist_args: "-n auto"
+
+          - suite: integration
+            marker: integration
+            needs_docker: true
+            needs_playwright: false
+            xdist_args: "-n auto --dist=loadfile"
+
+          - suite: e2e
+            marker: e2e
+            needs_docker: true
+            needs_playwright: true
+            xdist_args: "-n auto --dist=loadfile"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,8 +160,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
           cache-dependency-path: |
             requirements.txt
             requirements-test.txt
@@ -110,33 +173,48 @@ jobs:
           pip install -r requirements-test.txt
 
       - name: Cache Playwright browsers
+        if: ${{ matrix.needs_playwright }}
         id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
-        
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt', 'requirements-test.txt') }}
+
       - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: playwright install --with-deps
 
-      - name: Run tests
-        env:
-          QUADLET_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      - name: Start Mock Environment
+        if: ${{ matrix.needs_docker }}
         run: |
-          python -m pytest tests/ -v \
-            --junit-xml=test-results/junit.xml \
-            --ignore=tests/test_stats_e2e.py \
-            --ignore=tests/test_monitoring_ui.py
+          docker compose -f docker-compose.test.yml up -d --build
+          echo "Waiting for app to start..."
 
-      - name: Publish Test Results
-        # should remain full URL, not shortened, otherwise it won't work in Forgejo's Act runner. 
-        uses: https://github.com/EnricoMi/publish-unit-test-result-action@v2
-        if: (!cancelled())
+      - name: Run ${{ matrix.suite }} tests
+        env:
+          QUADLET_MASTER_KEY: ${{ env.QUADLET_MASTER_KEY }}
+        run: |
+          mkdir -p test-results
+
+          python -m pytest tests/ -v \
+            ${{ matrix.xdist_args }} \
+            -m "${{ matrix.marker }}" \
+            --durations=25 \
+            --junit-xml=test-results/${{ matrix.suite }}.xml
+
+      - name: Show Docker logs on failure
+        if: ${{ failure() && matrix.needs_docker }}
+        run: |
+          docker compose -f docker-compose.test.yml logs
+
+      - name: Stop Mock Environment
+        if: ${{ always() && matrix.needs_docker }}
+        run: |
+          docker compose -f docker-compose.test.yml down -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            test-results/junit.xml
-          compare_to_earlier_commit: false
-          check_run: false
-          job_summary: true
-          comment_mode: off
+          name: forgejo-${{ matrix.suite }}-test-results
+          path: test-results/${{ matrix.suite }}.xml

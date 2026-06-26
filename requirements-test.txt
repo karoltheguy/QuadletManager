@@ -1,5 +1,8 @@
 pytest>=7.4
 pytest-asyncio>=0.23
+pytest-xdist
+pytest-rerunfailures
+pytest-timeout
 playwright
 pytest-playwright
 pytest-cov
