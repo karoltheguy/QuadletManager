@@ -335,9 +335,8 @@ def test_tab_strip_visible_after_connect(page: Page):
 
     _click_connect(page)
 
-    tabs_el = page.locator("#terminal-conn-tabs")
-    class_attr = tabs_el.get_attribute("class") or ""
-    assert "has-tabs" in class_attr, f"Expected 'has-tabs' in class, got: '{class_attr}'"
+    tabs_el = page.locator("#terminal-conn-tabs.has-tabs")
+    expect(tabs_el).to_be_attached()
 
 
 def _is_resize_message(msg) -> bool:
