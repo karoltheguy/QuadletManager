@@ -12,12 +12,7 @@ def client():
 @pytest.mark.unit
 def test_api_quadlets_db_error(client):
     with patch("api.routes.get_db_connection") as mock_conn:
-        from contextlib import asynccontextmanager
-        @asynccontextmanager
-        async def _mock_conn():
-            raise Exception("DB Error")
-            yield
-        mock_conn.side_effect = _mock_conn
+        mock_conn.side_effect = Exception("DB Error")
         
         response = client.get("/api/quadlets/1")
         assert response.status_code == 200
@@ -64,12 +59,7 @@ def test_api_reorder_servers_missing_servers(client):
 @pytest.mark.unit
 def test_api_file_db_error(client):
     with patch("api.routes.get_db_connection") as mock_conn:
-        from contextlib import asynccontextmanager
-        @asynccontextmanager
-        async def _mock_conn():
-            raise Exception("DB Error")
-            yield
-        mock_conn.side_effect = _mock_conn
+        mock_conn.side_effect = Exception("DB Error")
         
         response = client.get("/api/file/1?path=test&scope=user&name=test")
         assert response.status_code == 200
