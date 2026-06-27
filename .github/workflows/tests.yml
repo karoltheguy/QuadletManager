@@ -82,6 +82,17 @@ jobs:
         run: |
           docker compose -f docker-compose.test.yml up -d --build
           echo "Waiting for app to start..."
+          python -c '
+          import urllib.request, time
+          for i in range(60):
+              try:
+                  if urllib.request.urlopen("http://localhost:8000/", timeout=1).getcode() == 200:
+                      print("App is up and ready!"); exit(0)
+              except Exception:
+                  pass
+              time.sleep(1)
+          print("App failed to start in time"); exit(1)
+          '
 
       - name: Run ${{ matrix.suite }} tests
         env:
@@ -189,6 +200,17 @@ jobs:
         run: |
           docker compose -f docker-compose.test.yml up -d --build
           echo "Waiting for app to start..."
+          python -c '
+          import urllib.request, time
+          for i in range(60):
+              try:
+                  if urllib.request.urlopen("http://localhost:8000/", timeout=1).getcode() == 200:
+                      print("App is up and ready!"); exit(0)
+              except Exception:
+                  pass
+              time.sleep(1)
+          print("App failed to start in time"); exit(1)
+          '
 
       - name: Run ${{ matrix.suite }} tests
         env:
