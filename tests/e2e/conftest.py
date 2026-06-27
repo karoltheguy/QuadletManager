@@ -13,11 +13,37 @@ run.  The async tests therefore start with a clean asyncio state.
 
 Reference: https://github.com/microsoft/playwright-pytest/issues/289
 """
+import os
+import sqlite3
 import json
 import tempfile
 import pytest
 from typing import Any, Callable, Dict, Generator, Optional
 from playwright.sync_api import Browser, BrowserType, Playwright, sync_playwright
+
+@pytest.fixture(scope="package", autouse=True)
+def seed_e2e_database_if_empty():
+    """Ensure the backend database has at least one server for E2E tests."""
+    db_path = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
+    if not os.path.exists(db_path):
+        return
+        
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM servers")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute(
+                "INSERT INTO servers (name, ip_address, ssh_user) VALUES (?, ?, ?)",
+                ("Mock Server", "localhost", "root")
+            )
+            conn.commit()
+    except Exception:
+        pass
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 
 
 @pytest.fixture(scope="package")

@@ -100,7 +100,7 @@ def _inject_prerequisites(
     page.evaluate(f"""() => {{
         window._selectedContainerStem = '{stem}';
         window._selectedContainerServerId = {server_id};
-        runningContainersBySid[{server_id}] = new Set(['{stem}']);
+        window.runningContainersBySid[{server_id}] = new Set(['{stem}']);
 
         // Populate lastStatsPerServer so the tab label resolves correctly.
         lastStatsPerServer[{server_id}] = {{
@@ -196,7 +196,7 @@ def test_second_container_opens_second_tab(page: Page):
     page.evaluate("""() => {
         window._selectedContainerStem = 'beta';
         window._selectedContainerServerId = 1;
-        runningContainersBySid[1].add('beta');
+        window.runningContainersBySid[1].add('beta');
     }""")
     _click_connect(page)
 
@@ -215,7 +215,7 @@ def test_new_tab_is_active(page: Page):
 
     page.evaluate("""() => {
         window._selectedContainerStem = 'beta';
-        runningContainersBySid[1].add('beta');
+        window.runningContainersBySid[1].add('beta');
         var btn = document.getElementById('terminal-connect-btn');
         if (btn) btn.disabled = false;
     }""")

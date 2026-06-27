@@ -73,7 +73,7 @@ def test_selecting_container_shows_card(page: Page):
                 pids: '5'
             }]
         };
-        runningContainersBySid[1] = new Set(['my-app']);
+        window.runningContainersBySid[1] = new Set(['my-app']);
         window.selectContainerStem('my-app', 1);
     }""")
 
@@ -98,7 +98,7 @@ def test_card_displays_cpu_mem_net_pids(page: Page):
                 pids: '8'
             }]
         };
-        runningContainersBySid[1] = new Set(['my-app']);
+        window.runningContainersBySid[1] = new Set(['my-app']);
         window.selectContainerStem('my-app', 1);
     }""")
 
@@ -120,7 +120,7 @@ def test_card_shows_not_running_for_stopped_container(page: Page):
             server_name: 'test-server',
             containers: []
         };
-        runningContainersBySid[1] = new Set();
+        window.runningContainersBySid[1] = new Set();
         window.selectContainerStem('stopped-app', 1);
     }""")
 
@@ -143,7 +143,7 @@ def test_switching_containers_updates_card(page: Page):
                 { name: 'app-b', cpu: '50.00%', mem: '40.00%', net_io: '10kB / 5kB', pids: '12' }
             ]
         };
-        runningContainersBySid[1] = new Set(['app-a', 'app-b']);
+        window.runningContainersBySid[1] = new Set(['app-a', 'app-b']);
         window.selectContainerStem('app-a', 1);
     }""")
 
@@ -166,7 +166,7 @@ def test_card_updates_on_sse_data(page: Page):
             server_name: 'test-server',
             containers: [{ name: 'my-app', cpu: '10.00%', mem: '5.00%', net_io: '1kB / 1kB', pids: '2' }]
         };
-        runningContainersBySid[1] = new Set(['my-app']);
+        window.runningContainersBySid[1] = new Set(['my-app']);
         window._selectedContainerServerId = 1;
         window.selectContainerStem('my-app', 1);
     }""")
@@ -181,7 +181,7 @@ def test_card_updates_on_sse_data(page: Page):
             server_name: 'test-server',
             containers: [{ name: 'my-app', cpu: '75.00%', mem: '60.00%', net_io: '50kB / 20kB', pids: '15' }]
         };
-        runningContainersBySid[1] = new Set(['my-app']);
+        window.runningContainersBySid[1] = new Set(['my-app']);
         updateInspectorStatsCard();
     }""")
 
@@ -200,7 +200,7 @@ def test_card_shows_container_name_in_title(page: Page):
             server_name: 'test-server',
             containers: [{ name: 'nginx-proxy', cpu: '1.00%', mem: '0.50%', net_io: '100B / 50B', pids: '1' }]
         };
-        runningContainersBySid[1] = new Set(['nginx-proxy']);
+        window.runningContainersBySid[1] = new Set(['nginx-proxy']);
         window.selectContainerStem('nginx-proxy', 1);
     }""")
 
