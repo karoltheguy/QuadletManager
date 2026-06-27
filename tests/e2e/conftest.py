@@ -40,12 +40,25 @@ def seed_e2e_database_if_empty():
         pass
 
     try:
-        if in_docker:
-            subprocess.run(docker_compose_cmd + ["exec", "-T", "quadlet-manager", "python", "scripts/seed_test_db.py"], check=False)
-        else:
-            # Fallback to local python execution for local testing
-            script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/seed_test_db.py"))
-            subprocess.run(["python", script_path], check=False)
+        import filelock
+        lock_file = os.path.join(tempfile.gettempdir(), "quadlet_e2e_seed.lock")
+        with filelock.FileLock(lock_file):
+            if in_docker:
+                subprocess.run(docker_compose_cmd + ["exec", "-T", "quadlet-manager", "python", "scripts/seed_test_db.py"], check=False)
+            else:
+                # Fallback to local python execution for local testing
+                script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/seed_test_db.py"))
+                subprocess.run(["python", script_path], check=False)
+    except ImportError:
+        # Fallback if filelock isn't available
+        try:
+            if in_docker:
+                subprocess.run(docker_compose_cmd + ["exec", "-T", "quadlet-manager", "python", "scripts/seed_test_db.py"], check=False)
+            else:
+                script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/seed_test_db.py"))
+                subprocess.run(["python", script_path], check=False)
+        except Exception:
+            pass
     except Exception:
         pass
 
