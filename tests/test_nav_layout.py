@@ -8,7 +8,6 @@ Tests for nav layout restructure (Issue #66):
 - .nav-links must not be used (replaced by the two new containers)
 """
 import os
-import sys
 from html.parser import HTMLParser
 
 TEMPLATE_PATH = os.path.join(
@@ -62,7 +61,7 @@ class NavStructureParser(HTMLParser):
 
     def handle_endtag(self, tag):
         if self._stack:
-            closed_tag, closed_classes = self._stack[-1]
+            _, closed_classes = self._stack[-1]
             depth = len(self._stack)
 
             if self._nav_tabs_depth and depth == self._nav_tabs_depth:

@@ -183,7 +183,6 @@ async def test_fetch_all_quadlets_defaults_to_both(mock_scan):
     from services.tree_scanner import fetch_all_quadlets
 
     mock_scan.side_effect = [[], []]
-
-    result = await fetch_all_quadlets(server_id=1)
+    await fetch_all_quadlets(server_id=1)
 
     assert mock_scan.call_count == 2

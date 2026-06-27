@@ -1,5 +1,4 @@
 import asyncio
-from core.database import get_db_connection
 from services.ssh_manager import pool
 
 async def test_ssh():
@@ -7,7 +6,7 @@ async def test_ssh():
     try:
         out = await pool.execute_command(1, "echo Hello World")
         print("Success:", out.strip())
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
 

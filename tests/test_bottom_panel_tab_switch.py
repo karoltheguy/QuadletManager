@@ -66,9 +66,6 @@ def test_switchtab_restores_bottom_panel_expanded_class():
     # based on the panel's current state (not just localStorage)
     # Pattern: check if panel has is-expanded class, then add body class
     
-    # Look for: panel.classList.contains('is-expanded') and body bottom-panel-expanded
-    has_panel_check = "classList.contains('is-expanded')" in switchtab_body or \
-                       'classList.contains("is-expanded")' in switchtab_body
     has_body_class_add = "bottom-panel-expanded" in switchtab_body
     
     # The fix should check the DOM state, not localStorage

@@ -3,7 +3,6 @@ import os
 import unittest
 import yaml
 import tempfile
-from unittest.mock import patch
 
 class TestConfigLoader(unittest.TestCase):
     def setUp(self):

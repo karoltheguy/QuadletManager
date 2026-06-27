@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from fastapi import WebSocket, WebSocketDisconnect
 from api.sockets import ConnectionManager, stream_logs_over_websocket, exec_terminal_over_websocket
 
@@ -51,7 +51,6 @@ async def test_exec_terminal_resize_error(mock_websocket, monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_exec_terminal_input_error(mock_websocket, monkeypatch):
-    import json
     mock_pool = AsyncMock()
     mock_conn = AsyncMock()
     mock_process = AsyncMock()

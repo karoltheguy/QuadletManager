@@ -4,7 +4,6 @@ import time
 import os
 import tempfile
 import aiosqlite
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.database import get_db_connection, init_db
 
@@ -133,7 +132,7 @@ async def test_activity_event_includes_timestamp(test_db):
 @pytest.mark.unit
 async def test_cleanup_old_events_removes_old_records(test_db):
     """Test that cleanup_old_events deletes records older than the retention period."""
-    from services.container_events import record_container_event, cleanup_old_events
+    from services.container_events import cleanup_old_events
 
     server_id = 1
     container_name = "old-container"
@@ -218,7 +217,7 @@ async def test_cleanup_old_events_mixed(test_db):
 @pytest.mark.unit
 async def test_systemctl_action_records_stem_not_full_unit_name():
     """Events must be stored by stem so the JS activity query (which uses stem) finds them."""
-    from unittest.mock import AsyncMock, patch, MagicMock
+    from unittest.mock import patch, MagicMock
 
     recorded = {}
 
@@ -255,7 +254,7 @@ async def test_systemctl_action_records_stem_not_full_unit_name():
 @pytest.mark.unit
 async def test_get_activity_route_caps_limit():
     """Test that the /api/activity route caps an unbounded client-supplied limit at 100."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     captured_limit = {}
 
@@ -265,7 +264,7 @@ async def test_get_activity_route_caps_limit():
 
     with patch("api.routes.get_container_activity", side_effect=fake_get_container_activity):
         from api.routes import get_activity
-        result = await get_activity(server_id=1, container="nginx", limit=999999, role="viewer")
+        await get_activity(server_id=1, container="nginx", limit=999999, role="viewer")
 
     assert captured_limit["value"] <= 100, (
         f"Expected limit to be capped at 100, but got {captured_limit['value']}"

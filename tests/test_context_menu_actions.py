@@ -6,7 +6,6 @@ context menu items and that the unit name derivation matches what the
 backend expects (stem + '.service').
 """
 import os
-import re
 
 MAIN_JS = os.path.join(os.path.dirname(__file__), '..', 'static', 'main.js')
 

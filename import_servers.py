@@ -2,7 +2,6 @@ import asyncio
 import json
 import subprocess
 import os
-import sys
 
 from core.database import get_db_connection
 from core.crypto import encrypt_private_key

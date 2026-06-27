@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 import time
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 from services.stats_engine import stats_engine_loop
 
 @pytest.mark.asyncio

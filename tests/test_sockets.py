@@ -1,10 +1,9 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from fastapi import WebSocket, WebSocketDisconnect
 from api.sockets import ConnectionManager, stream_logs_over_websocket, exec_terminal_over_websocket
 from api import routes as api_routes
-from services.ssh_manager import pool
 
 @pytest.fixture
 def mock_websocket():

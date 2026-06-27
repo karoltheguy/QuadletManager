@@ -34,10 +34,6 @@ async def check_quadlets():
             if q['last_known_mtime'] is not None and remote_mtime > q['last_known_mtime']:
                 logger.warning(f"File {q['file_path']} on server {q['server_id']} was modified externally!")
                 
-                # Fetch new content
-                cat_cmd = f"cat {q['file_path']}"
-                new_content = await pool.execute_command(q['server_id'], cat_cmd, use_sudo=use_sudo)
-                
                 # Emit Server-Sent Event broadcast (SSE)
                 await publisher.publish("file_changed", {
                     "server_id": q['server_id'],

@@ -53,7 +53,7 @@ async def test_viewer_cannot_create():
             request=MagicMock(),
             server_id=1,
             scope="user",
-            type="container",
+            quadlet_type="container",
             name="test",
             role=role
         )
@@ -158,7 +158,7 @@ async def test_editor_can_create(mock_execute, mock_db):
         request=MagicMock(),
         server_id=1,
         scope="user",
-        type="container",
+        quadlet_type="container",
         name="test",
         role=role
     )

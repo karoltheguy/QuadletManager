@@ -10,7 +10,7 @@ import shlex
 import time
 
 import aiosqlite
-from core.database import get_db_connection, DATABASE_PATH
+from core.database import get_db_connection
 from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool
@@ -549,7 +549,7 @@ async def create_new_quadlet(
     request: Request,
     server_id: int = Form(...),
     scope: str = Form(...),
-    type: str = Form(...),
+    quadlet_type: str = Form(..., alias="type"),
     name: str = Form(...),
     role: str = Depends(get_current_user_role)
 ):
@@ -557,11 +557,11 @@ async def create_new_quadlet(
         raise HTTPException(status_code=403, detail="Viewer role cannot create files.")
         
     async with get_db_connection() as db:
-        async with db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (type,)) as cursor:
+        async with db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (quadlet_type,)) as cursor:
             row = await cursor.fetchone()
-            content = row[0] if row else f"[{type.capitalize()}]\n"
+            content = row[0] if row else f"[{quadlet_type.capitalize()}]\n"
             
-    file_name = f"{name}.{type}"
+    file_name = f"{name}.{quadlet_type}"
     target_dir = "/etc/containers/systemd" if scope == "global" else "~/.config/containers/systemd"
     file_path = f"{target_dir}/{file_name}"
     

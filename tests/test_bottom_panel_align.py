@@ -12,7 +12,6 @@ Verifies:
 - localStorage key qm-bottom-panel-expanded is persisted and restored
 """
 import os
-import re
 from html.parser import HTMLParser
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "dashboard.html")
@@ -105,7 +104,7 @@ class LayoutParser(HTMLParser):
         if not self._stack:
             return
         depth = len(self._stack)
-        _, el_id, classes = self._stack[-1]
+        _, _, classes = self._stack[-1]
 
         if self._workspace_row_depth and depth == self._workspace_row_depth:
             self._in_workspace_row = False

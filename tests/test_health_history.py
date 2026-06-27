@@ -134,7 +134,7 @@ async def test_health_history_respects_minutes_param(mock_get_db):
     # Retrieve the execute call args to check the cutoff
     mock_db = mock_get_db.return_value.__aenter__.return_value
     execute_call = mock_db.execute.call_args
-    query, params = execute_call[0]
+    _, params = execute_call[0]
     cutoff = params[1]
 
     expected_min = before - 30 * 60
@@ -332,7 +332,7 @@ async def test_history_endpoint_accepts_large_minute_values(mock_get_db):
     assert json.loads(response.body) == []
 
     mock_db = mock_get_db.return_value.__aenter__.return_value
-    query, params = mock_db.execute.call_args[0]
+    _, params = mock_db.execute.call_args[0]
     cutoff = params[1]
 
     expected_min = before - 10080 * 60

@@ -6,7 +6,6 @@ Playwright tests require the backend on localhost:8000.
 """
 import sys
 import os
-import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -59,7 +58,6 @@ def _make_db_mock(servers_rows, history_rows):
 @pytest.mark.unit
 async def test_overview_returns_html_response(mock_get_db):
     """Endpoint must return an HTMLResponse."""
-    from fastapi.responses import HTMLResponse
     from api.routes import api_overview
 
     mock_get_db.return_value = _make_db_mock(

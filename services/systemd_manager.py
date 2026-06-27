@@ -1,6 +1,6 @@
 import logging
 from services.ssh_manager import pool
-from core.database import get_db_connection
+
 
 logger = logging.getLogger("quadlet-manager.systemd")
 

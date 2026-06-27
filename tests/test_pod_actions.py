@@ -4,7 +4,6 @@ Verifies that .pod quadlet files use `podman pod start/stop/restart` instead
 of systemctl, while non-pod quadlet types continue to use systemctl.
 """
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

@@ -10,7 +10,7 @@ import time as _time
 import pytest
 import pytest_asyncio
 import aiosqlite
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 

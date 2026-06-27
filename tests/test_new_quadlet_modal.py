@@ -85,7 +85,7 @@ async def test_create_endpoint_returns_reload_trigger(mock_execute, mock_db):
         request=MagicMock(),
         server_id=1,
         scope="user",
-        type="container",
+        quadlet_type="container",
         name="myapp",
         role="editor"
     )

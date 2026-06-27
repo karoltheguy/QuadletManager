@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 from services.container_events import container_events_cleanup_loop
 
 @pytest.mark.asyncio
