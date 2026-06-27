@@ -24,25 +24,30 @@ from playwright.sync_api import Browser, BrowserType, Playwright, sync_playwrigh
 @pytest.fixture(scope="package", autouse=True)
 def seed_e2e_database_if_empty():
     """Ensure the backend database has at least one server for E2E tests."""
-    db_path = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
-    if not os.path.exists(db_path):
-        return
-        
+    import subprocess
+    import os
+
+    # If the user is running the backend in Docker (e.g. in CI), we must seed the DB inside the container.
+    docker_compose_cmd = ["docker", "compose", "-f", "docker-compose.test.yml"]
+    
+    in_docker = False
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM servers")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute(
-                "INSERT INTO servers (name, ip_address, ssh_user) VALUES (?, ?, ?)",
-                ("Mock Server", "localhost", "root")
-            )
-            conn.commit()
+        # Check if docker-compose is available and the container is running
+        result = subprocess.run(docker_compose_cmd + ["ps", "--services"], capture_output=True, text=True)
+        if "quadlet-manager" in result.stdout:
+            in_docker = True
     except Exception:
         pass
-    finally:
-        if 'conn' in locals():
-            conn.close()
+
+    try:
+        if in_docker:
+            subprocess.run(docker_compose_cmd + ["exec", "-T", "quadlet-manager", "python", "scripts/seed_test_db.py"], check=False)
+        else:
+            # Fallback to local python execution for local testing
+            script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/seed_test_db.py"))
+            subprocess.run(["python", script_path], check=False)
+    except Exception:
+        pass
 
 
 
