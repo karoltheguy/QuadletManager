@@ -136,3 +136,23 @@ def browser(launch_browser: Callable[[], Browser]) -> Generator[Browser, None, N
     browser = launch_browser()
     yield browser
     browser.close()
+
+
+@pytest.fixture
+def page(context: Any) -> Generator[Any, None, None]:
+    page = context.new_page()
+
+    # Wrap page.goto to ensure main.js is loaded and executed before the test proceeds
+    orig_goto = page.goto
+    def robust_goto(*args, **kwargs):
+        response = orig_goto(*args, **kwargs)
+        try:
+            if response and response.status == 200 and "localhost:8000" in page.url:
+                page.wait_for_function("typeof window.runningContainersBySid !== 'undefined'", timeout=10000)
+        except Exception:
+            pass
+        return response
+
+    page.goto = robust_goto
+    yield page
+    page.close()

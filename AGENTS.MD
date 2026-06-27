@@ -17,3 +17,15 @@
 * Deliver technical corrections plainly and without softening the feedback.
 
 **See docs subfolder for directives and documentation on this project**
+
+## E2E Playwright Testing Best Practices
+
+### Prevent Race Conditions on Page Load
+When writing or maintaining E2E tests, be aware that client-side scripts (such as `main.js`) may not be fully executed when a page is first rendered (especially if blocked by CDNs or in parallel execution environments). 
+
+- Do not rely solely on HTMX swap states or element visibility (like `wait_for(state="hidden")` on loading indicators) before interacting with JS-driven elements.
+- The `page` fixture in `tests/e2e/conftest.py` has been globally customized to automatically wrap `page.goto` and block until `window.runningContainersBySid` is defined on `localhost:8000` dashboard routes.
+- If you write new test routes or helper scripts that navigate pages in non-standard ways (or if you need to access global JS state variables), always ensure `main.js` has finished executing by explicitly waiting:
+  ```python
+  page.wait_for_function("typeof window.runningContainersBySid !== 'undefined'")
+  ```
