@@ -1,6 +1,4 @@
-import re
 import configparser
-import io
 
 class QuadletValidationError(Exception):
     pass

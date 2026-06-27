@@ -10,15 +10,12 @@ import json
 import pytest  # type: ignore
 
 try:
-    from playwright.sync_api import Page, expect  # type: ignore
+    from playwright.sync_api import Page  # type: ignore
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
     import typing
     Page = typing.Any  # type: ignore
-
-    def expect(x: typing.Any) -> typing.Any:
-        pass
 
 pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT,

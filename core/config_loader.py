@@ -14,6 +14,22 @@ class AppConfig:
         self.dev_auto_login = os.getenv("DEV_AUTO_LOGIN") == "1"
         self._load_from_yaml()
 
+    def _apply_config_data(self, data):
+        """Override defaults if specified in yaml."""
+        if "master_key" in data:
+            self.master_key = data["master_key"]
+        if "session_timeout" in data:
+            self.session_timeout = int(data["session_timeout"])
+        if "poll_frequency" in data:
+            self.poll_frequency = int(data["poll_frequency"])
+        if "dev_auto_login" in data:
+            # Accept booleans or 0/1 style ints in YAML
+            value = data["dev_auto_login"]
+            if isinstance(value, bool):
+                self.dev_auto_login = value
+            else:
+                self.dev_auto_login = str(value) == "1"
+
     def _load_from_yaml(self):
         config_path = os.getenv("QUADLET_CONFIG_PATH", "config.yaml")
         if not os.path.exists(config_path):
@@ -24,20 +40,7 @@ class AppConfig:
             with open(config_path, "r") as f:
                 data = yaml.safe_load(f) or {}
                 
-            # Override defaults if specified in yaml
-            if "master_key" in data:
-                self.master_key = data["master_key"]
-            if "session_timeout" in data:
-                self.session_timeout = int(data["session_timeout"])
-            if "poll_frequency" in data:
-                self.poll_frequency = int(data["poll_frequency"])
-            if "dev_auto_login" in data:
-                # Accept booleans or 0/1 style ints in YAML
-                value = data["dev_auto_login"]
-                if isinstance(value, bool):
-                    self.dev_auto_login = value
-                else:
-                    self.dev_auto_login = str(value) == "1"
+            self._apply_config_data(data)
                 
             logger.info("Loaded configuration from config.yaml.")
                 

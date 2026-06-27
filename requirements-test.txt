@@ -8,3 +8,4 @@ pytest-playwright
 pytest-cov
 coverage
 httpx2
+filelock

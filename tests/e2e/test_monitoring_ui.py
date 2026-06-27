@@ -1,5 +1,6 @@
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, expect, Error as PlaywrightError
+import contextlib
 
 # To run this, the backend must be running on localhost:8000
 # DEV_AUTO_LOGIN=1 venv/bin/uvicorn main:app --port 8000
@@ -14,7 +15,7 @@ def test_glance_bar_hidden_when_no_server_selected(page: Page):
     """
     try:
         page.goto("http://localhost:8000/")
-    except Exception:
+    except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
     page.locator("text='Loading servers...'").wait_for(state="hidden")
@@ -44,7 +45,7 @@ def test_monitoring_table_css(page: Page):
     """Test that the monitoring table has the correct CSS applied for alignment and padding"""
     try:
         page.goto("http://localhost:8000/")
-    except Exception:
+    except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
     
     # Wait for the DOM to load
@@ -59,13 +60,11 @@ def test_monitoring_table_css(page: Page):
     # Wait for the monitoring table to receive stats or the 'No containers' or 'Stats unavailable' generic table frame
     # We can evaluate the CSS of the table wrapper directly. We'll wait until the selector has populated.
     # The monitoring table adds the table dynamically, so wait for the th
-    try:
+    # If no containers or stats unavailable, the table headers might not render. This makes it tricky.
+    # But wait, looking at main.js, if there are no containers it just outputs "No containers running on server".
+    # So we might not get a table if there are no containers.
+    with contextlib.suppress(PlaywrightError):
         page.wait_for_selector("#monitoring-stats-table table th.p-4", timeout=12000)
-    except Exception:
-        # If no containers or stats unavailable, the table headers might not render. This makes it tricky.
-        # But wait, looking at main.js, if there are no containers it just outputs "No containers running on server".
-        # So we might not get a table if there are no containers.
-        pass
 
     # If the table is rendered, check its computed styles
     if page.locator("#monitoring-stats-table table").is_visible():

@@ -1,5 +1,4 @@
 import pytest
-import time
 from playwright.sync_api import Page, expect
 
 # To run this, the backend must be running on localhost:8000

@@ -4,7 +4,7 @@ E2E tests for server row collapse state persistence (Issue #119).
 import pytest
 
 try:
-    from playwright.sync_api import Page, expect
+    from playwright.sync_api import Page
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False

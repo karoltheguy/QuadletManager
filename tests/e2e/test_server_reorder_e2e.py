@@ -145,7 +145,7 @@ def test_sidebar_reflects_management_list_order(page: Page):
         pytest.skip("Need at least 2 servers to test sidebar order.")
 
     first_id, second_id = row_ids[0], row_ids[1]
-    with page.expect_response("**/api/servers") as _sidebar_resp:
+    with page.expect_response("**/api/servers"):
         with page.expect_response("**/api/settings/servers/reorder"):
             _simulate_drag(page, second_id, first_id)
         # PATCH done → reload-servers dispatched → htmx fires GET /api/servers

@@ -13,8 +13,6 @@ run.  The async tests therefore start with a clean asyncio state.
 
 Reference: https://github.com/microsoft/playwright-pytest/issues/289
 """
-import os
-import sqlite3
 import json
 import tempfile
 import pytest

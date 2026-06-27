@@ -6,15 +6,13 @@ Unit tests (no browser required) live in tests/test_server_key_dropdown.py.
 import pytest
 
 try:
-    from playwright.sync_api import Page, expect
+    from playwright.sync_api import Page
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
     import typing
     Page = typing.Any
 
-    def expect(x: typing.Any) -> typing.Any:
-        pass
 
 pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT, reason="Playwright not installed"
