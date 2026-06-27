@@ -87,6 +87,7 @@ def _goto_or_skip(page: Page) -> None:
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
     page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.wait_for_function("typeof window.runningContainersBySid !== 'undefined'")
 
 
 def _inject_prerequisites(
