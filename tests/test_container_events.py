@@ -10,7 +10,6 @@ from core.database import get_db_connection, init_db
 
 
 @pytest.fixture
-@pytest.mark.unit
 async def test_db(monkeypatch):
     """Create and initialize a test database with container_events table."""
     # Create a temporary database file
