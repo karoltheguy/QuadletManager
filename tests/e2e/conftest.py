@@ -170,44 +170,44 @@ def pytest_runtest_makereport(item, call):
     rep = outcome.get_result()
 
     if rep.when == "call" and rep.failed:
-        if "page" in item.fixturenames:
-            page = item.funcargs.get("page")
-            if page:
-                results_dir = "/home/carol/development/QuadletManager/test-results"
+        page = item.funcargs.get("page")
+        if page:
+            # Determine the workspace root dynamically relative to conftest.py
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            results_dir = os.path.join(root_dir, "test-results")
+            try:
+                os.makedirs(results_dir, exist_ok=True)
+            except Exception as e:
+                print(f"\n[E2E Artifact] Failed to create directory {results_dir}: {e}")
+                return
+            # Sanitize nodeid to create a safe filename
+            safe_name = item.nodeid.replace("/", "_").replace(":", "_").replace("[", "_").replace("]", "_")
+
+            # 1. Save screenshot
+            screenshot_path = os.path.join(results_dir, f"{safe_name}.png")
+            try:
+                page.screenshot(path=screenshot_path, full_page=True)
+                print(f"\n[E2E Artifact] Saved failure screenshot to: {screenshot_path}")
+            except Exception as e:
+                print(f"\n[E2E Artifact] Failed to save screenshot: {e}")
+
+            # 2. Save HTML source
+            html_path = os.path.join(results_dir, f"{safe_name}.html")
+            try:
+                html_content = page.content()
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                print(f"[E2E Artifact] Saved HTML source to: {html_path}")
+            except Exception as e:
+                print(f"\n[E2E Artifact] Failed to save HTML source: {e}")
+
+            # 3. Save console/error logs
+            console_logs = getattr(page, "_console_logs", None)
+            if console_logs is not None:
+                log_path = os.path.join(results_dir, f"{safe_name}.log")
                 try:
-                    os.makedirs(results_dir, exist_ok=True)
+                    with open(log_path, "w", encoding="utf-8") as f:
+                        f.write("\n".join(console_logs))
+                    print(f"[E2E Artifact] Saved console logs to: {log_path}")
                 except Exception as e:
-                    print(f"\n[E2E Artifact] Failed to create directory {results_dir}: {e}")
-                    return
-
-                # Sanitize nodeid to create a safe filename
-                safe_name = item.nodeid.replace("/", "_").replace(":", "_").replace("[", "_").replace("]", "_")
-
-                # 1. Save screenshot
-                screenshot_path = os.path.join(results_dir, f"{safe_name}.png")
-                try:
-                    page.screenshot(path=screenshot_path, full_page=True)
-                    print(f"\n[E2E Artifact] Saved failure screenshot to: {screenshot_path}")
-                except Exception as e:
-                    print(f"\n[E2E Artifact] Failed to save screenshot: {e}")
-
-                # 2. Save HTML source
-                html_path = os.path.join(results_dir, f"{safe_name}.html")
-                try:
-                    html_content = page.content()
-                    with open(html_path, "w", encoding="utf-8") as f:
-                        f.write(html_content)
-                    print(f"[E2E Artifact] Saved HTML source to: {html_path}")
-                except Exception as e:
-                    print(f"\n[E2E Artifact] Failed to save HTML source: {e}")
-
-                # 3. Save console/error logs
-                console_logs = getattr(page, "_console_logs", None)
-                if console_logs is not None:
-                    log_path = os.path.join(results_dir, f"{safe_name}.log")
-                    try:
-                        with open(log_path, "w", encoding="utf-8") as f:
-                            f.write("\n".join(console_logs))
-                        print(f"[E2E Artifact] Saved console logs to: {log_path}")
-                    except Exception as e:
-                        print(f"\n[E2E Artifact] Failed to save console logs: {e}")
+                    print(f"\n[E2E Artifact] Failed to save console logs: {e}")
