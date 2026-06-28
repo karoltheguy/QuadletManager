@@ -5,14 +5,22 @@ window.toggleServerCollapse = function(serverId) {
     var collapsed = li.classList.toggle('is-collapsed');
     var btn = li.querySelector('.server-row-toggle');
     if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    try { localStorage.setItem('qm-server-collapsed-' + serverId, collapsed ? '1' : '0'); } catch(e) {}
+    try {
+        localStorage.setItem('qm-server-collapsed-' + serverId, collapsed ? '1' : '0');
+    } catch {
+        // Ignore localStorage restrictions
+    }
 };
 
 function restoreServerCollapseStates() {
     document.querySelectorAll('li[data-server-id]').forEach(function(li) {
         var id = li.dataset.serverId;
         var saved;
-        try { saved = localStorage.getItem('qm-server-collapsed-' + id); } catch(e) {}
+        try {
+            saved = localStorage.getItem('qm-server-collapsed-' + id);
+        } catch {
+            // Ignore localStorage restrictions
+        }
         if (saved === '1') {
             li.classList.add('is-collapsed');
             var btn = li.querySelector('.server-row-toggle');
@@ -45,6 +53,7 @@ function toggleProfileMenu(event) {
     var menu = document.getElementById('profile-menu');
     menu.hidden = !menu.hidden;
 }
+window.toggleProfileMenu = toggleProfileMenu;
 
 document.addEventListener('click', function() {
     var menu = document.getElementById('profile-menu');
@@ -63,9 +72,14 @@ function toggleTheme() {
     }
     var next = current === 'light' ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
-    try { localStorage.setItem('qm-theme-override', next); } catch (e) {}
+    try {
+        localStorage.setItem('qm-theme-override', next);
+    } catch {
+        // Ignore localStorage restrictions
+    }
     applyChartTheme();
 }
+window.toggleTheme = toggleTheme;
 
 // ── Density Toggle ───────────────────────────────────────
 window.toggleDensity = function(value) {
@@ -75,12 +89,20 @@ window.toggleDensity = function(value) {
     } else {
         root.removeAttribute('data-density');
     }
-    try { localStorage.setItem('qm-density', value); } catch (e) {}
+    try {
+        localStorage.setItem('qm-density', value);
+    } catch {
+        // Ignore localStorage restrictions
+    }
 };
 
 function initDensityRadio() {
     var stored = 'relaxed';
-    try { stored = localStorage.getItem('qm-density') || 'relaxed'; } catch (e) {}
+    try {
+        stored = localStorage.getItem('qm-density') || 'relaxed';
+    } catch {
+        // Ignore localStorage restrictions
+    }
     var radio = document.getElementById('density-' + stored);
     if (radio) radio.checked = true;
 }
@@ -103,6 +125,7 @@ function applyThemePreview(form) {
     }
     el.textContent = css;
 }
+window.applyThemePreview = applyThemePreview;
 
 function clearThemePreview() {
     var el = document.getElementById('qm-theme-preview');
@@ -141,6 +164,7 @@ function setSelectedQuadletBtn(el) {
         .forEach(function (b) { b.classList.remove('is-selected'); });
     if (el) el.classList.add('is-selected');
 }
+window.setSelectedQuadletBtn = setSelectedQuadletBtn;
 
 // Re-apply the .is-selected class after htmx swaps the quadlet tree.
 // Source of truth is window._selectedContainerStem / _selectedContainerServerId,
@@ -160,7 +184,11 @@ function reapplyQuadletSelection() {
 function restoreQuadletSelection() {
     if (window._quadletRestored) return;
     var saved;
-    try { saved = JSON.parse(localStorage.getItem('qm-selected-quadlet')); } catch(e) {}
+    try {
+        saved = JSON.parse(localStorage.getItem('qm-selected-quadlet'));
+    } catch {
+        // Ignore localStorage restrictions or parsing errors
+    }
     if (!saved || !saved.stem || !saved.serverId) return;
     var btn = document.querySelector(
         '.quadlet-tree-btn[data-stem="' + saved.stem + '"][data-server-id="' + saved.serverId + '"]'
@@ -249,7 +277,7 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
                 }
                 sendNotification('Error', 'Quadlet ' + stem + ' failed with error ' + errorMsg);
             })
-            .catch(function(err) {
+            .catch(function() {
                 sendNotification('Error', 'Quadlet ' + stem + ' failed to start');
             });
     }
@@ -410,7 +438,9 @@ window.selectContainerStem = function(stem, serverId, scope) {
             serverId: window._selectedContainerServerId,
             scope: window._selectedContainerScope
         }));
-    } catch(e) {}
+    } catch {
+        // Ignore localStorage restrictions
+    }
     var emptyEl = document.getElementById('inspector-empty-state');
     if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
     updateInspectorStatsCard();
@@ -696,7 +726,7 @@ function initStatsChart() {
   statsChart = new Chart(ctx, buildBarChartConfig());
 }
 
-function _buildTimeSeriesConfig(yLabel) {
+function _buildTimeSeriesConfig() {
   var t = getChartTheme();
   return {
     type: 'line',
@@ -750,13 +780,13 @@ function _buildTimeSeriesConfig(yLabel) {
 function initCpuChart() {
   var ctx = document.getElementById('cpu-history-chart');
   if (!ctx) return;
-  cpuHistoryChart = new Chart(ctx, _buildTimeSeriesConfig('CPU %'));
+  cpuHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
 
 function initMemChart() {
   var ctx = document.getElementById('mem-history-chart');
   if (!ctx) return;
-  memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig('Memory %'));
+  memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
 
 window._monitorChartMinutes = 60;
@@ -1142,7 +1172,11 @@ window.toggleInspectorExpand = function() {
 
 // ── Monitoring Server Selector ────────────────────────────
 window.selectMonitoringServer = function(serverId) {
-  try { localStorage.setItem('qm-monitor-server', serverId ? String(serverId) : ''); } catch(e) {}
+  try {
+    localStorage.setItem('qm-monitor-server', serverId ? String(serverId) : '');
+  } catch {
+    // Ignore localStorage restrictions
+  }
   var numId = parseInt(serverId, 10);
   var emptyEl = document.getElementById('monitoring-empty-state');
   var contentEl = document.getElementById('monitoring-content');
@@ -1215,7 +1249,7 @@ function updateMonitoringView(data) {
       var datasetByName = {};
       chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
 
-      allContainers.forEach(function(c, i) {
+      allContainers.forEach(function(c) {
         var val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
         if (datasetByName[c.name]) {
           datasetByName[c.name].data.push(val);
@@ -1237,7 +1271,6 @@ function updateMonitoringView(data) {
 
       // Append the shared time label and trim old data outside the window
       chart.data.labels.push(timeLabel);
-      var cutoff = Date.now() / 1000 - windowSec;
       // Trim from the front while the window is exceeded
       while (chart.data.labels.length > windowSec / 5 + 10) {
         chart.data.labels.shift();
@@ -1262,6 +1295,7 @@ function applyContainerFilter(value) {
     updateMonitoringView(lastStatsPerServer[serverId]);
   }
 }
+window.applyContainerFilter = applyContainerFilter;
 
 function updateSummaryStrip(data) {
   var containers = data.containers || [];
@@ -1313,7 +1347,11 @@ function populateServerSelector() {
   // Restore saved monitor server on first population if not yet selected.
   if (!window._monitoringServerId) {
     var savedServer;
-    try { savedServer = localStorage.getItem('qm-monitor-server'); } catch(e) {}
+    try {
+      savedServer = localStorage.getItem('qm-monitor-server');
+    } catch {
+      // Ignore localStorage restrictions
+    }
     if (savedServer && lastStatsPerServer[savedServer]) {
       select.value = savedServer;
       selectMonitoringServer(savedServer);
@@ -1400,7 +1438,11 @@ window.toggleBottomPanelExpand = function() {
 };
 
 window.switchBottomTab = function(pane) {
-    try { localStorage.setItem('qm-bottom-tab', pane); } catch(e) {}
+    try {
+        localStorage.setItem('qm-bottom-tab', pane);
+    } catch {
+        // Ignore localStorage restrictions
+    }
     document.querySelectorAll('.bottom-tab').forEach(function(btn) {
         var isActive = btn.dataset.pane === pane;
         btn.classList.toggle('is-active', isActive);
@@ -1608,7 +1650,7 @@ window.closeTerminalTab = function(key) {
     if (session.ws && session.ws.readyState !== WebSocket.CLOSED) {
         session.ws.close();
     }
-    try { session.term.dispose(); } catch (e) { /* xterm may throw if initialized on a hidden element */ }
+    try { session.term.dispose(); } catch { /* xterm may throw if initialized on a hidden element */ }
 
     if (session.tabEl && session.tabEl.parentNode) {
         session.tabEl.parentNode.removeChild(session.tabEl);
@@ -1865,7 +1907,11 @@ initResizableHandles();
 // ── Reconnect Banner ──────────────────────────────────────
 (function() {
     var pending = null;
-    try { pending = JSON.parse(localStorage.getItem('qm-pending-reconnect')); } catch(e) {}
+    try {
+        pending = JSON.parse(localStorage.getItem('qm-pending-reconnect'));
+    } catch {
+        // Ignore localStorage restrictions or parsing errors
+    }
     if (!pending || (pending.terminals.length === 0 && !pending.logTail)) return;
     localStorage.removeItem('qm-pending-reconnect');
 
@@ -2142,9 +2188,17 @@ function saveActiveSessionsToStorage() {
         sessions.logTail = _currentLogMeta;
     }
     if (sessions.terminals.length > 0 || sessions.logTail) {
-        try { localStorage.setItem('qm-pending-reconnect', JSON.stringify(sessions)); } catch(e) {}
+        try {
+            localStorage.setItem('qm-pending-reconnect', JSON.stringify(sessions));
+        } catch {
+            // Ignore localStorage restrictions
+        }
     } else {
-        try { localStorage.removeItem('qm-pending-reconnect'); } catch(e) {}
+        try {
+            localStorage.removeItem('qm-pending-reconnect');
+        } catch {
+            // Ignore localStorage restrictions
+        }
     }
 }
 
@@ -2191,7 +2245,7 @@ window.setupModalDismissal = function(modalId) {
 };
 
 // Auto-setup for modals added via HTMX
-document.body.addEventListener('htmx:afterSwap', function(e) {
+document.body.addEventListener('htmx:afterSwap', function() {
   var modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
   modals.forEach(function(modal) {
     modal.setAttribute('data-dismissal-setup', 'true');

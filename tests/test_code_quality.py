@@ -32,3 +32,24 @@ def test_code_quality_pylint():
     assert result.returncode == 0, (
         f"Pylint detected code quality issues:\n{result.stdout}"
     )
+
+
+@pytest.mark.unit
+def test_eslint_static_files():
+    """Verify that ESLint runs successfully on the static JavaScript files using the codacy config."""
+    cmd = [
+        "npx",
+        "eslint",
+        "--config",
+        ".codacy/tools-configs/eslint.config.mjs",
+        "static/main.js"
+    ]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0, (
+        f"ESLint detected code quality issues:\n{result.stdout}\n{result.stderr}"
+    )
+
