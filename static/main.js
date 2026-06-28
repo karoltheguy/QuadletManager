@@ -232,6 +232,38 @@ if ('Notification' in window && Notification.permission !== 'granted' && Notific
 const manualStops = new Set(); // tracks serverId:stem that we intentionally stopped
 const pendingStarts = {}; // tracks stems waiting for active status
 
+function el(tag, attrs, children) {
+    var element = document.createElement(tag);
+    if (attrs) {
+        Object.keys(attrs).forEach(function(k) {
+            if (k === 'className') {
+                element.className = attrs[k];
+            } else if (k === 'style' && typeof attrs[k] === 'object') {
+                Object.keys(attrs[k]).forEach(function(sk) {
+                    element.style[sk] = attrs[k][sk];
+                });
+            } else {
+                element.setAttribute(k, attrs[k]);
+            }
+        });
+    }
+    if (children !== undefined && children !== null) {
+        if (Array.isArray(children)) {
+            children.forEach(function(child) {
+                if (typeof child === 'string') {
+                    element.appendChild(document.createTextNode(child));
+                } else if (child) {
+                    element.appendChild(child);
+                }
+            });
+        } else if (typeof children === 'string') {
+            element.textContent = children;
+        } else {
+            element.appendChild(children);
+        }
+    }
+    return element;
+}
 
 function sendNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -484,72 +516,33 @@ function updateInspectorStatsCard() {
     // Clear card safely
     card.textContent = '';
 
-    var titleDiv;
-    var dotSpan;
-
     if (matched) {
-        titleDiv = document.createElement('div');
-        titleDiv.className = 'stats-card-title';
-        dotSpan = document.createElement('span');
-        dotSpan.className = 'status-dot dot-running';
-        dotSpan.style.width = '8px';
-        dotSpan.style.height = '8px';
-        titleDiv.appendChild(dotSpan);
-        titleDiv.appendChild(document.createTextNode(matched.name));
-        card.appendChild(titleDiv);
-
-        var gridDiv = document.createElement('div');
-        gridDiv.className = 'stats-card-grid';
-
-        var stats = [
+        var gridItems = [
             { label: 'CPU', value: matched.cpu },
             { label: 'Memory', value: matched.mem },
             { label: 'Net I/O', value: matched.net_io },
             { label: 'PIDs', value: matched.pids }
-        ];
-
-        stats.forEach(function(stat) {
-            var itemDiv = document.createElement('div');
-            itemDiv.className = 'stats-card-item';
-            var labelSpan = document.createElement('span');
-            labelSpan.className = 'stats-card-label';
-            labelSpan.textContent = stat.label;
-            var valueSpan = document.createElement('span');
-            valueSpan.className = 'stats-card-value';
-            valueSpan.textContent = stat.value;
-            itemDiv.appendChild(labelSpan);
-            itemDiv.appendChild(valueSpan);
-            gridDiv.appendChild(itemDiv);
+        ].map(function(stat) {
+            return el('div', { className: 'stats-card-item' }, [
+                el('span', { className: 'stats-card-label' }, stat.label),
+                el('span', { className: 'stats-card-value' }, stat.value)
+            ]);
         });
 
-        card.appendChild(gridDiv);
+        card.appendChild(el('div', { className: 'stats-card-title' }, [
+            el('span', { className: 'status-dot dot-running', style: { width: '8px', height: '8px' } }),
+            matched.name
+        ]));
+        card.appendChild(el('div', { className: 'stats-card-grid' }, gridItems));
     } else if (!isRunning) {
-        titleDiv = document.createElement('div');
-        titleDiv.className = 'stats-card-title';
-        titleDiv.textContent = stem;
-        
-        var notRunningDiv = document.createElement('div');
-        notRunningDiv.className = 'stats-card-not-running';
-        notRunningDiv.textContent = 'Container not running';
-        
-        card.appendChild(titleDiv);
-        card.appendChild(notRunningDiv);
+        card.appendChild(el('div', { className: 'stats-card-title' }, stem));
+        card.appendChild(el('div', { className: 'stats-card-not-running' }, 'Container not running'));
     } else {
-        titleDiv = document.createElement('div');
-        titleDiv.className = 'stats-card-title';
-        dotSpan = document.createElement('span');
-        dotSpan.className = 'status-dot dot-running';
-        dotSpan.style.width = '8px';
-        dotSpan.style.height = '8px';
-        titleDiv.appendChild(dotSpan);
-        titleDiv.appendChild(document.createTextNode(stem));
-
-        var waitingDiv = document.createElement('div');
-        waitingDiv.className = 'stats-card-not-running';
-        waitingDiv.textContent = 'Waiting for stats...';
-
-        card.appendChild(titleDiv);
-        card.appendChild(waitingDiv);
+        card.appendChild(el('div', { className: 'stats-card-title' }, [
+            el('span', { className: 'status-dot dot-running', style: { width: '8px', height: '8px' } }),
+            stem
+        ]));
+        card.appendChild(el('div', { className: 'stats-card-not-running' }, 'Waiting for stats...'));
     }
 }
 
@@ -658,10 +651,7 @@ window.setActiveServer = function(serverId) {
         var tableEl = document.getElementById('stats-table');
         if (tableEl) {
             tableEl.textContent = '';
-            var waitDiv = document.createElement('div');
-            waitDiv.className = 'p-4 text-muted italic';
-            waitDiv.textContent = 'Waiting for stats data...';
-            tableEl.appendChild(waitDiv);
+            tableEl.appendChild(el('div', { className: 'p-4 text-muted italic' }, 'Waiting for stats data...'));
         }
         if (statsChart) {
             statsChart.data.labels = [];
@@ -1145,25 +1135,11 @@ function connectSSE() {
   });
 
   function createStatsErrorDOM(serverName, errorMsg) {
-    var container = document.createElement('div');
-    container.className = 'p-4 text-danger';
-
-    var title = document.createElement('div');
-    title.className = 'font-bold mb-1';
-    title.textContent = '⚠ Stats unavailable for ' + (serverName || 'server');
-
-    var error = document.createElement('div');
-    error.className = 'text-xs text-muted';
-    error.textContent = errorMsg || 'Unknown error';
-
-    var retry = document.createElement('div');
-    retry.className = 'text-xs text-muted mt-1';
-    retry.textContent = 'Will retry automatically…';
-
-    container.appendChild(title);
-    container.appendChild(error);
-    container.appendChild(retry);
-    return container;
+    return el('div', { className: 'p-4 text-danger' }, [
+      el('div', { className: 'font-bold mb-1' }, '⚠ Stats unavailable for ' + (serverName || 'server')),
+      el('div', { className: 'text-xs text-muted' }, errorMsg || 'Unknown error'),
+      el('div', { className: 'text-xs text-muted mt-1' }, 'Will retry automatically…')
+    ]);
   }
 
   // Stats error events (when podman is unreachable/timed out)
@@ -1194,10 +1170,9 @@ function connectSSE() {
             var toast = document.getElementById('status-toast');
             if (toast) {
                 toast.textContent = '';
-                var toastMsg = document.createElement('div');
-                toastMsg.className = 'toast-msg toast-warning toast-enter';
-                toastMsg.textContent = '⚠ ' + data.message + ' (' + data.file_path + ')';
-                toast.appendChild(toastMsg);
+                toast.appendChild(
+                    el('div', { className: 'toast-msg toast-warning toast-enter' }, '⚠ ' + data.message + ' (' + data.file_path + ')')
+                );
                 // Auto-dismiss after 8 seconds
                 setTimeout(function() {
                     if (toast.querySelector('.toast-enter')) {
@@ -1346,10 +1321,7 @@ window.selectMonitoringServer = function(serverId) {
     var tableEl = document.getElementById('monitoring-stats-table');
     if (tableEl) {
       tableEl.textContent = '';
-      var waitDiv = document.createElement('div');
-      waitDiv.className = 'p-4 text-muted italic';
-      waitDiv.textContent = 'Waiting for stats data...';
-      tableEl.appendChild(waitDiv);
+      tableEl.appendChild(el('div', { className: 'p-4 text-muted italic' }, 'Waiting for stats data...'));
     }
     if (monitoringChart) {
       monitoringChart.data.labels = [];
@@ -1470,10 +1442,7 @@ function populateServerSelector() {
 
   // Clear existing options except the placeholder
   select.textContent = '';
-  var placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = 'Select a server...';
-  select.appendChild(placeholder);
+  select.appendChild(el('option', { value: '' }, 'Select a server...'));
 
   // Add servers from the cached stats data
   Object.keys(lastStatsPerServer).forEach(function(serverId) {
@@ -2062,27 +2031,11 @@ initResizableHandles();
     if (pending.terminals.length > 0) parts.push(pending.terminals.length + ' terminal' + (pending.terminals.length > 1 ? 's' : ''));
     if (pending.logTail) parts.push('1 log tail');
 
-    var banner = document.createElement('div');
-    banner.id = 'reconnect-banner';
-    banner.className = 'reconnect-banner';
-
-    var msgSpan = document.createElement('span');
-    msgSpan.className = 'reconnect-banner-msg';
-    msgSpan.textContent = 'You had ' + parts.join(' and ') + ' open before the last reload.';
-
-    var yesBtn = document.createElement('button');
-    yesBtn.className = 'btn btn-sm btn-primary';
-    yesBtn.id = 'reconnect-yes-btn';
-    yesBtn.textContent = 'Reconnect';
-
-    var noBtn = document.createElement('button');
-    noBtn.className = 'btn btn-sm btn-secondary';
-    noBtn.id = 'reconnect-no-btn';
-    noBtn.textContent = 'Dismiss';
-
-    banner.appendChild(msgSpan);
-    banner.appendChild(yesBtn);
-    banner.appendChild(noBtn);
+    var banner = el('div', { id: 'reconnect-banner', className: 'reconnect-banner' }, [
+        el('span', { className: 'reconnect-banner-msg' }, 'You had ' + parts.join(' and ') + ' open before the last reload.'),
+        el('button', { className: 'btn btn-sm btn-primary', id: 'reconnect-yes-btn' }, 'Reconnect'),
+        el('button', { className: 'btn btn-sm btn-secondary', id: 'reconnect-no-btn' }, 'Dismiss')
+    ]);
 
     var nav = document.querySelector('.top-nav');
     if (nav) nav.parentNode.insertBefore(banner, nav.nextSibling);
@@ -2116,18 +2069,12 @@ _statsWaitTimeout = setTimeout(function() {
     var tableEl = document.getElementById('stats-table');
     if (tableEl) {
       tableEl.textContent = '';
-      var warningDiv = document.createElement('div');
-      warningDiv.className = 'p-4 text-warning italic';
-      warningDiv.textContent = 'No stats received yet — verify server connectivity.';
-      tableEl.appendChild(warningDiv);
+      tableEl.appendChild(el('div', { className: 'p-4 text-warning italic' }, 'No stats received yet — verify server connectivity.'));
     }
     var monitoringTableEl = document.getElementById('monitoring-stats-table');
     if (monitoringTableEl) {
       monitoringTableEl.textContent = '';
-      var monitoringWarningDiv = document.createElement('div');
-      monitoringWarningDiv.className = 'p-4 text-warning italic';
-      monitoringWarningDiv.textContent = 'No stats received yet — verify server connectivity.';
-      monitoringTableEl.appendChild(monitoringWarningDiv);
+      monitoringTableEl.appendChild(el('div', { className: 'p-4 text-warning italic' }, 'No stats received yet — verify server connectivity.'));
     }
   }
 }, 15000);
