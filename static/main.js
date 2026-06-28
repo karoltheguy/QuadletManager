@@ -232,12 +232,6 @@ if ('Notification' in window && Notification.permission !== 'granted' && Notific
 const manualStops = new Set(); // tracks serverId:stem that we intentionally stopped
 const pendingStarts = {}; // tracks stems waiting for active status
 
-// HTML-escape utility for safe innerHTML insertion of API/user-controlled data.
-function escapeHtml(value) {
-    if (value === null || value === undefined) return '';
-    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return String(value).replace(/[&<>"']/g, function(m) { return map[m]; });
-}
 
 function sendNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -264,9 +258,8 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
         fetch(statusUrl)
             .then(function(res) { return res.text(); })
             .then(function(html) {
-                var temp = document.createElement('div');
-                temp.innerHTML = html;
-                var lines = temp.textContent.split('\n');
+                var doc = new window.DOMParser().parseFromString(html, 'text/html');
+                var lines = doc.body.textContent.split('\n');
                 var errorMsg = 'Unknown error';
                 for (var i = 0; i < lines.length; i++) {
                     var line = lines[i].trim();
@@ -488,23 +481,75 @@ function updateInspectorStatsCard() {
     if (connectBtn) connectBtn.disabled = !isRunning;
     // Tabs are user-managed; do not auto-close an existing session when the container stops.
 
+    // Clear card safely
+    card.textContent = '';
+
+    var titleDiv;
+    var dotSpan;
+
     if (matched) {
-        card.innerHTML =
-            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + escapeHtml(matched.name) + '</div>' +
-            '<div class="stats-card-grid">' +
-            '<div class="stats-card-item"><span class="stats-card-label">CPU</span><span class="stats-card-value">' + escapeHtml(matched.cpu) + '</span></div>' +
-            '<div class="stats-card-item"><span class="stats-card-label">Memory</span><span class="stats-card-value">' + escapeHtml(matched.mem) + '</span></div>' +
-            '<div class="stats-card-item"><span class="stats-card-label">Net I/O</span><span class="stats-card-value">' + escapeHtml(matched.net_io) + '</span></div>' +
-            '<div class="stats-card-item"><span class="stats-card-label">PIDs</span><span class="stats-card-value">' + escapeHtml(matched.pids) + '</span></div>' +
-            '</div>';
+        titleDiv = document.createElement('div');
+        titleDiv.className = 'stats-card-title';
+        dotSpan = document.createElement('span');
+        dotSpan.className = 'status-dot dot-running';
+        dotSpan.style.width = '8px';
+        dotSpan.style.height = '8px';
+        titleDiv.appendChild(dotSpan);
+        titleDiv.appendChild(document.createTextNode(matched.name));
+        card.appendChild(titleDiv);
+
+        var gridDiv = document.createElement('div');
+        gridDiv.className = 'stats-card-grid';
+
+        var stats = [
+            { label: 'CPU', value: matched.cpu },
+            { label: 'Memory', value: matched.mem },
+            { label: 'Net I/O', value: matched.net_io },
+            { label: 'PIDs', value: matched.pids }
+        ];
+
+        stats.forEach(function(stat) {
+            var itemDiv = document.createElement('div');
+            itemDiv.className = 'stats-card-item';
+            var labelSpan = document.createElement('span');
+            labelSpan.className = 'stats-card-label';
+            labelSpan.textContent = stat.label;
+            var valueSpan = document.createElement('span');
+            valueSpan.className = 'stats-card-value';
+            valueSpan.textContent = stat.value;
+            itemDiv.appendChild(labelSpan);
+            itemDiv.appendChild(valueSpan);
+            gridDiv.appendChild(itemDiv);
+        });
+
+        card.appendChild(gridDiv);
     } else if (!isRunning) {
-        card.innerHTML =
-            '<div class="stats-card-title">' + escapeHtml(stem) + '</div>' +
-            '<div class="stats-card-not-running">Container not running</div>';
+        titleDiv = document.createElement('div');
+        titleDiv.className = 'stats-card-title';
+        titleDiv.textContent = stem;
+        
+        var notRunningDiv = document.createElement('div');
+        notRunningDiv.className = 'stats-card-not-running';
+        notRunningDiv.textContent = 'Container not running';
+        
+        card.appendChild(titleDiv);
+        card.appendChild(notRunningDiv);
     } else {
-        card.innerHTML =
-            '<div class="stats-card-title"><span class="status-dot dot-running" style="width:8px;height:8px;"></span>' + escapeHtml(stem) + '</div>' +
-            '<div class="stats-card-not-running">Waiting for stats...</div>';
+        titleDiv = document.createElement('div');
+        titleDiv.className = 'stats-card-title';
+        dotSpan = document.createElement('span');
+        dotSpan.className = 'status-dot dot-running';
+        dotSpan.style.width = '8px';
+        dotSpan.style.height = '8px';
+        titleDiv.appendChild(dotSpan);
+        titleDiv.appendChild(document.createTextNode(stem));
+
+        var waitingDiv = document.createElement('div');
+        waitingDiv.className = 'stats-card-not-running';
+        waitingDiv.textContent = 'Waiting for stats...';
+
+        card.appendChild(titleDiv);
+        card.appendChild(waitingDiv);
     }
 }
 
@@ -612,7 +657,11 @@ window.setActiveServer = function(serverId) {
         // No data yet for this server – show a waiting message.
         var tableEl = document.getElementById('stats-table');
         if (tableEl) {
-            tableEl.innerHTML = '<div class="p-4 text-muted italic">Waiting for stats data...</div>';
+            tableEl.textContent = '';
+            var waitDiv = document.createElement('div');
+            waitDiv.className = 'p-4 text-muted italic';
+            waitDiv.textContent = 'Waiting for stats data...';
+            tableEl.appendChild(waitDiv);
         }
         if (statsChart) {
             statsChart.data.labels = [];
@@ -1095,6 +1144,28 @@ function connectSSE() {
     }
   });
 
+  function createStatsErrorDOM(serverName, errorMsg) {
+    var container = document.createElement('div');
+    container.className = 'p-4 text-danger';
+
+    var title = document.createElement('div');
+    title.className = 'font-bold mb-1';
+    title.textContent = '⚠ Stats unavailable for ' + (serverName || 'server');
+
+    var error = document.createElement('div');
+    error.className = 'text-xs text-muted';
+    error.textContent = errorMsg || 'Unknown error';
+
+    var retry = document.createElement('div');
+    retry.className = 'text-xs text-muted mt-1';
+    retry.textContent = 'Will retry automatically…';
+
+    container.appendChild(title);
+    container.appendChild(error);
+    container.appendChild(retry);
+    return container;
+  }
+
   // Stats error events (when podman is unreachable/timed out)
   evtSource.addEventListener('stats_error', function(e) {
     try {
@@ -1102,22 +1173,14 @@ function connectSSE() {
       var tableEl = document.getElementById('stats-table');
       if (tableEl) {
         tableEl.classList.add('stats-error');
-        tableEl.innerHTML = '<div class="p-4 text-danger">' +
-          '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
-          (data.server_name || 'server') + '</div>' +
-          '<div class="text-xs text-muted">' + (data.error || 'Unknown error') + '</div>' +
-          '<div class="text-xs text-muted mt-1">Will retry automatically…</div>' +
-          '</div>';
+        tableEl.textContent = '';
+        tableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
       }
       // Also show error in monitoring table
       var monitoringTableEl = document.getElementById('monitoring-stats-table');
       if (monitoringTableEl) {
-        monitoringTableEl.innerHTML = '<div class="p-4 text-danger">' +
-          '<div class="font-bold mb-1">⚠ Stats unavailable for ' +
-          (data.server_name || 'server') + '</div>' +
-          '<div class="text-xs text-muted">' + (data.error || 'Unknown error') + '</div>' +
-          '<div class="text-xs text-muted mt-1">Will retry automatically…</div>' +
-          '</div>';
+        monitoringTableEl.textContent = '';
+        monitoringTableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
       }
     } catch (err) {
       console.error('Stats error parse error:', err);
@@ -1130,12 +1193,15 @@ function connectSSE() {
             var data = JSON.parse(e.data);
             var toast = document.getElementById('status-toast');
             if (toast) {
-                toast.innerHTML = '<div class="toast-msg toast-warning toast-enter">' +
-                    '⚠ ' + data.message + ' (' + data.file_path + ')</div>';
+                toast.textContent = '';
+                var toastMsg = document.createElement('div');
+                toastMsg.className = 'toast-msg toast-warning toast-enter';
+                toastMsg.textContent = '⚠ ' + data.message + ' (' + data.file_path + ')';
+                toast.appendChild(toastMsg);
                 // Auto-dismiss after 8 seconds
                 setTimeout(function() {
                     if (toast.querySelector('.toast-enter')) {
-                        toast.innerHTML = '';
+                        toast.textContent = '';
                     }
                 }, 8000);
             }
@@ -1279,7 +1345,11 @@ window.selectMonitoringServer = function(serverId) {
     // No data yet – show waiting message
     var tableEl = document.getElementById('monitoring-stats-table');
     if (tableEl) {
-      tableEl.innerHTML = '<div class="p-4 text-muted italic">Waiting for stats data...</div>';
+      tableEl.textContent = '';
+      var waitDiv = document.createElement('div');
+      waitDiv.className = 'p-4 text-muted italic';
+      waitDiv.textContent = 'Waiting for stats data...';
+      tableEl.appendChild(waitDiv);
     }
     if (monitoringChart) {
       monitoringChart.data.labels = [];
@@ -1399,7 +1469,11 @@ function populateServerSelector() {
   if (!select) return;
 
   // Clear existing options except the placeholder
-  select.innerHTML = '<option value="">Select a server...</option>';
+  select.textContent = '';
+  var placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Select a server...';
+  select.appendChild(placeholder);
 
   // Add servers from the cached stats data
   Object.keys(lastStatsPerServer).forEach(function(serverId) {
@@ -1608,7 +1682,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     var closeBtn = document.createElement('button');
     closeBtn.className = 'terminal-conn-tab-close';
     closeBtn.setAttribute('aria-label', 'Close ' + label);
-    closeBtn.innerHTML = '&times;';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -1991,10 +2065,24 @@ initResizableHandles();
     var banner = document.createElement('div');
     banner.id = 'reconnect-banner';
     banner.className = 'reconnect-banner';
-    banner.innerHTML =
-        '<span class="reconnect-banner-msg">You had ' + parts.join(' and ') + ' open before the last reload.</span>' +
-        '<button class="btn btn-sm btn-primary" id="reconnect-yes-btn">Reconnect</button>' +
-        '<button class="btn btn-sm btn-secondary" id="reconnect-no-btn">Dismiss</button>';
+
+    var msgSpan = document.createElement('span');
+    msgSpan.className = 'reconnect-banner-msg';
+    msgSpan.textContent = 'You had ' + parts.join(' and ') + ' open before the last reload.';
+
+    var yesBtn = document.createElement('button');
+    yesBtn.className = 'btn btn-sm btn-primary';
+    yesBtn.id = 'reconnect-yes-btn';
+    yesBtn.textContent = 'Reconnect';
+
+    var noBtn = document.createElement('button');
+    noBtn.className = 'btn btn-sm btn-secondary';
+    noBtn.id = 'reconnect-no-btn';
+    noBtn.textContent = 'Dismiss';
+
+    banner.appendChild(msgSpan);
+    banner.appendChild(yesBtn);
+    banner.appendChild(noBtn);
 
     var nav = document.querySelector('.top-nav');
     if (nav) nav.parentNode.insertBefore(banner, nav.nextSibling);
@@ -2027,13 +2115,19 @@ _statsWaitTimeout = setTimeout(function() {
   if (!_statsReceived) {
     var tableEl = document.getElementById('stats-table');
     if (tableEl) {
-      tableEl.innerHTML = '<div class="p-4 text-warning italic">' +
-        'No stats received yet — verify server connectivity.</div>';
+      tableEl.textContent = '';
+      var warningDiv = document.createElement('div');
+      warningDiv.className = 'p-4 text-warning italic';
+      warningDiv.textContent = 'No stats received yet — verify server connectivity.';
+      tableEl.appendChild(warningDiv);
     }
     var monitoringTableEl = document.getElementById('monitoring-stats-table');
     if (monitoringTableEl) {
-      monitoringTableEl.innerHTML = '<div class="p-4 text-warning italic">' +
-        'No stats received yet — verify server connectivity.</div>';
+      monitoringTableEl.textContent = '';
+      var monitoringWarningDiv = document.createElement('div');
+      monitoringWarningDiv.className = 'p-4 text-warning italic';
+      monitoringWarningDiv.textContent = 'No stats received yet — verify server connectivity.';
+      monitoringTableEl.appendChild(monitoringWarningDiv);
     }
   }
 }, 15000);

@@ -120,3 +120,76 @@ def test_update_inspector_activity_log_xss_prevention(page: Page):
     
     xss_confirmed = page.evaluate("window.xssConfirmed")
     assert not xss_confirmed, "XSS vulnerability detected in updateInspectorActivityLog: script executed!"
+
+
+@pytest.mark.e2e
+def test_file_changed_toast_xss_prevention(page: Page):
+    """file_changed event handler must not execute embedded scripts in the message or file path."""
+    # Inject mock EventSource before loading the page
+    page.add_init_script("""
+        window.MockEventSourceListeners = {};
+        window.EventSource = function(url) {
+            this.url = url;
+            this.addEventListener = function(event, callback) {
+                window.MockEventSourceListeners[event] = callback;
+            };
+            this.close = function() {};
+        };
+    """)
+    
+    _goto_dashboard(page)
+    
+    page.evaluate("""() => {
+        window.xssConfirmed = false;
+        // Trigger file_changed event via the mocked EventSource listener
+        const handler = window.MockEventSourceListeners['file_changed'];
+        if (handler) {
+            handler({
+                data: JSON.stringify({
+                    message: "<img src=x onerror='window.xssConfirmed=true'>",
+                    file_path: "test.container"
+                })
+            });
+        }
+    }""")
+    
+    page.wait_for_timeout(500)
+    
+    xss_confirmed = page.evaluate("window.xssConfirmed")
+    assert not xss_confirmed, "XSS vulnerability detected in file_changed toast: script executed!"
+
+
+@pytest.mark.e2e
+def test_stats_error_xss_prevention(page: Page):
+    """stats_error event handler must not execute embedded scripts in server_name or error."""
+    page.add_init_script("""
+        window.MockEventSourceListeners = {};
+        window.EventSource = function(url) {
+            this.url = url;
+            this.addEventListener = function(event, callback) {
+                window.MockEventSourceListeners[event] = callback;
+            };
+            this.close = function() {};
+        };
+    """)
+    
+    _goto_dashboard(page)
+    
+    page.evaluate("""() => {
+        window.xssConfirmed = false;
+        const handler = window.MockEventSourceListeners['stats_error'];
+        if (handler) {
+            handler({
+                data: JSON.stringify({
+                    server_name: "<img src=x onerror='window.xssConfirmed=true'>",
+                    error: "Some connection failure"
+                })
+            });
+        }
+    }""")
+    
+    page.wait_for_timeout(500)
+    
+    xss_confirmed = page.evaluate("window.xssConfirmed")
+    assert not xss_confirmed, "XSS vulnerability detected in stats_error handling: script executed!"
+
