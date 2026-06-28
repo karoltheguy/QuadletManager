@@ -1,0 +1,141 @@
+{
+  "summary": {
+    "enabledPatterns": { "before": 0, "after": 3110 },
+    "enabledTools": { "before": 0, "after": 16 },
+    "issues": { "before": 0, "after": 304 },
+    "analysisRuntime": { "before": null, "after": 67636 }
+  },
+  "toolChanges": [
+    {
+      "toolId": "Biome",
+      "action": "disabled",
+      "reason": "Biome is redundant with ESLint9 and Stylelint, and crashed on V8 string length limits during baseline serialization (3025 issues in 10 files).",
+      "patternsAffected": 211
+    },
+    {
+      "toolId": "Prospector",
+      "action": "disabled",
+      "reason": "Prospector is redundant with Ruff, Pylint, and Bandit, running duplicative subprocesses and producing 998 overlapping issues.",
+      "patternsAffected": 7
+    }
+  ],
+  "patternChanges": [
+    {
+      "patternId": "ESLint9_no-undef",
+      "toolId": "ESLint9",
+      "action": "disabled",
+      "reason": "Client-side JS in static/main.js does not compile with a module builder, leading ESLint to flag standard browser globals (window, document, localStorage) as undefined.",
+      "delta": -464,
+      "parameters": []
+    },
+    {
+      "patternId": "Ruff_S101_assert",
+      "toolId": "Ruff",
+      "action": "disabled",
+      "reason": "assert statements are standard inside tests. Covered in production by Bandit B101.",
+      "delta": -692,
+      "parameters": []
+    },
+    {
+      "patternId": "Ruff_S608_hardcoded-sql-expression",
+      "toolId": "Ruff",
+      "action": "disabled",
+      "reason": "Security deduplication: concern covered by Semgrep pattern Semgrep_python_sql_rule-hardcoded-sql-expression.",
+      "delta": -2,
+      "parameters": []
+    },
+    {
+      "patternId": "Bandit_B608",
+      "toolId": "Bandit",
+      "action": "disabled",
+      "reason": "Security deduplication: concern covered by Semgrep pattern Semgrep_python_sql_rule-hardcoded-sql-expression.",
+      "delta": -2,
+      "parameters": []
+    },
+    {
+      "patternId": "Bandit_B110",
+      "toolId": "Bandit",
+      "action": "disabled",
+      "reason": "Security deduplication: concern covered by Ruff pattern Ruff_S110_try-except-pass.",
+      "delta": -5,
+      "parameters": []
+    },
+    {
+      "patternId": "Ruff_E501_line-too-long",
+      "toolId": "Ruff",
+      "action": "disabled",
+      "reason": "Noise floor: disabled CodeStyle pattern at Minor/Warning severity since Critical/High issues dominate (>50%).",
+      "delta": -473,
+      "parameters": []
+    },
+    {
+      "patternId": "Ruff_W293_blank-line-with-whitespace",
+      "toolId": "Ruff",
+      "action": "disabled",
+      "reason": "Noise floor: disabled CodeStyle pattern at Minor/Warning severity since Critical/High issues dominate (>50%).",
+      "delta": -203,
+      "parameters": []
+    },
+    {
+      "patternId": "Stylelint_color-no-hex",
+      "toolId": "Stylelint",
+      "action": "disabled",
+      "reason": "Noise floor: disabled CodeStyle pattern at Minor/Warning severity since Critical/High issues dominate (>50%).",
+      "delta": -60,
+      "parameters": []
+    },
+    {
+      "patternId": "Stylelint_selector-no-qualifying-type",
+      "toolId": "Stylelint",
+      "action": "disabled",
+      "reason": "Noise floor: disabled CodeStyle pattern at Minor/Warning severity since Critical/High issues dominate (>50%).",
+      "delta": -46,
+      "parameters": []
+    },
+    {
+      "patternId": "Ruff_E402_module-import-not-at-top-of-file",
+      "toolId": "Ruff",
+      "action": "disabled",
+      "reason": "Noise floor: disabled CodeStyle pattern at Minor/Warning severity since Critical/High issues dominate (>50%).",
+      "delta": -25,
+      "parameters": []
+    },
+    {
+      "patternId": "PyLintPython3_W0404",
+      "toolId": "PyLintPython3",
+      "action": "disabled",
+      "reason": "Noise floor: disabled CodeStyle pattern at Minor/Warning severity since Critical/High issues dominate (>50%).",
+      "delta": -10,
+      "parameters": []
+    }
+  ],
+  "fileExclusions": {
+    "global": ["static/xterm.min.js", "static/xterm-addon-fit.umd.min.js", "static/xterm.min.css", ".codacy/**"]
+  },
+  "securityCoverage": {
+    "deduplication": [
+      "Ruff S608 hardcoded-sql-expression disabled — concern covered by Semgrep_python_sql_rule-hardcoded-sql-expression",
+      "Bandit B608 hardcoded-sql-expression disabled — concern covered by Semgrep_python_sql_rule-hardcoded-sql-expression",
+      "Bandit B110 try-except-pass disabled — concern covered by Ruff_S110_try-except-pass"
+    ],
+    "newCoverage": [
+      "Semgrep_python_sql_rule-hardcoded-sql-expression (2 issues)",
+      "ESLint9_@lwc_lwc_no-inner-html (4 issues)",
+      "Semgrep_yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha (5 issues)"
+    ],
+    "noisyButKept": [
+      "ESLint9_security_detect-object-injection (35 issues) — kept per security guardrail"
+    ]
+  },
+  "keyImprovements": [
+    "V8 crash resolved by disabling redundant and noisy Biome tool (211 patterns, 3025 issues).",
+    "Excluded third-party library assets (xterm.js) globally, eliminating 772 noise issues.",
+    "Excluded tests directory from security/complexity linters (Bandit, Semgrep, Trivy, Checkov, Lizard), removing 2076 test-specific noise issues.",
+    "Deduplicated SQL Injection and try-except-pass patterns across Ruff, Bandit, and Semgrep to ensure a single, highly precise source of truth.",
+    "Applied noise floor principles to disable minor code style rules (line too long, trailing whitespace, CSS colors) since critical issues dominate."
+  ],
+  "localConfigTools": [],
+  "codacyYaml": "--- \nexclude_paths:\n  - \"static/xterm.min.js\"\n  - \"static/xterm-addon-fit.umd.min.js\"\n  - \"static/xterm.min.css\"\n  - \".codacy/**\"\nengines:\n  bandit:\n    exclude_paths:\n      - \"tests/**\"\n  semgrep:\n    exclude_paths:\n      - \"tests/**\"\n  trivy:\n    exclude_paths:\n      - \"tests/**\"\n  checkov:\n    exclude_paths:\n      - \"tests/**\"\n  lizard:\n    exclude_paths:\n      - \"tests/**\"\n  eslint9:\n    exclude_paths:\n      - \"static/xterm.min.js\"\n      - \"static/xterm-addon-fit.umd.min.js\"\n",
+  "importResults": null,
+  "cloudVerification": null
+}

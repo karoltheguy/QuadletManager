@@ -1,0 +1,26 @@
+---
+exclude_paths:
+  - "static/xterm.min.js"
+  - "static/xterm-addon-fit.umd.min.js"
+  - "static/xterm.min.css"
+  - ".codacy/**"
+engines:
+  bandit:
+    exclude_paths:
+      - "tests/**"
+  semgrep:
+    exclude_paths:
+      - "tests/**"
+  trivy:
+    exclude_paths:
+      - "tests/**"
+  checkov:
+    exclude_paths:
+      - "tests/**"
+  lizard:
+    exclude_paths:
+      - "tests/**"
+  eslint9:
+    exclude_paths:
+      - "static/xterm.min.js"
+      - "static/xterm-addon-fit.umd.min.js"
