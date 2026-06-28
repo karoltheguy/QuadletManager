@@ -94,7 +94,7 @@ def _inject_prerequisites(
     page: Page,
     stem: str = "myapp",
     server_id: int = 1,
-    server_name: str = "testserver",
+    server_name: str = "Mock Server",
 ) -> None:
     """Set JS globals so connectTerminal() sees a running container, and
     inject a FitAddon stub so the resize handshake fires without CDN access."""
@@ -158,13 +158,13 @@ def test_tab_label_uses_server_name_and_container(page: Page):
     """Tab label is '<server_name>:<container>' format."""
     page.add_init_script(_WS_MOCK_INIT)
     _goto_or_skip(page)
-    _inject_prerequisites(page, stem="myapp", server_id=1, server_name="testserver")
+    _inject_prerequisites(page, stem="myapp", server_id=1, server_name="Mock Server")
     _open_terminal_pane(page)
 
     _click_connect(page)
 
     label = page.locator(".terminal-conn-tab-label").first
-    expect(label).to_have_text("testserver:myapp")
+    expect(label).to_have_text("Mock Server:myapp")
 
 
 @pytest.mark.e2e
@@ -189,7 +189,7 @@ def test_second_container_opens_second_tab(page: Page):
     _goto_or_skip(page)
 
     # First container
-    _inject_prerequisites(page, stem="alpha", server_id=1, server_name="srv")
+    _inject_prerequisites(page, stem="alpha", server_id=1, server_name="Mock Server")
     _open_terminal_pane(page)
     _click_connect(page)
 
@@ -210,7 +210,7 @@ def test_new_tab_is_active(page: Page):
     """The most-recently opened tab carries the is-active class."""
     page.add_init_script(_WS_MOCK_INIT)
     _goto_or_skip(page)
-    _inject_prerequisites(page, stem="alpha", server_id=1, server_name="srv")
+    _inject_prerequisites(page, stem="alpha", server_id=1, server_name="Mock Server")
     _open_terminal_pane(page)
     _click_connect(page)
 
@@ -225,7 +225,7 @@ def test_new_tab_is_active(page: Page):
     active_tabs = page.locator(".terminal-conn-tab.is-active")
     expect(active_tabs).to_have_count(1)
     label = active_tabs.locator(".terminal-conn-tab-label")
-    expect(label).to_have_text("srv:beta")
+    expect(label).to_have_text("Mock Server:beta")
 
 
 @pytest.mark.e2e
