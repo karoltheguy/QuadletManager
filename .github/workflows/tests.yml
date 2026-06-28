@@ -121,7 +121,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: github-${{ matrix.suite }}-test-results
-          path: test-results/${{ matrix.suite }}.xml
+          path: test-results/
 
   # ==========================================
   # FORGEJO RUNNER
@@ -239,4 +239,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: forgejo-${{ matrix.suite }}-test-results
-          path: test-results/${{ matrix.suite }}.xml
+          path: test-results/

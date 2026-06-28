@@ -14,6 +14,7 @@ run.  The async tests therefore start with a clean asyncio state.
 Reference: https://github.com/microsoft/playwright-pytest/issues/289
 """
 import json
+import os
 import tempfile
 import pytest
 from typing import Any, Callable, Dict, Generator, Optional
@@ -142,6 +143,11 @@ def browser(launch_browser: Callable[[], Browser]) -> Generator[Browser, None, N
 def page(context: Any) -> Generator[Any, None, None]:
     page = context.new_page()
 
+    console_logs = []
+    page.on("console", lambda msg: console_logs.append(f"CONSOLE [{msg.type}]: {msg.text}"))
+    page.on("pageerror", lambda err: console_logs.append(f"PAGE ERROR: {err.message}\n{err.stack}"))
+    setattr(page, "_console_logs", console_logs)
+
     # Wrap page.goto to ensure main.js is loaded and executed before the test proceeds
     orig_goto = page.goto
     def robust_goto(*args, **kwargs):
@@ -156,3 +162,52 @@ def page(context: Any) -> Generator[Any, None, None]:
     page.goto = robust_goto
     yield page
     page.close()
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+
+    if rep.when == "call" and rep.failed:
+        if "page" in item.fixturenames:
+            page = item.funcargs.get("page")
+            if page:
+                results_dir = "/home/carol/development/QuadletManager/test-results"
+                try:
+                    os.makedirs(results_dir, exist_ok=True)
+                except Exception as e:
+                    print(f"\n[E2E Artifact] Failed to create directory {results_dir}: {e}")
+                    return
+
+                # Sanitize nodeid to create a safe filename
+                safe_name = item.nodeid.replace("/", "_").replace(":", "_").replace("[", "_").replace("]", "_")
+
+                # 1. Save screenshot
+                screenshot_path = os.path.join(results_dir, f"{safe_name}.png")
+                try:
+                    page.screenshot(path=screenshot_path, full_page=True)
+                    print(f"\n[E2E Artifact] Saved failure screenshot to: {screenshot_path}")
+                except Exception as e:
+                    print(f"\n[E2E Artifact] Failed to save screenshot: {e}")
+
+                # 2. Save HTML source
+                html_path = os.path.join(results_dir, f"{safe_name}.html")
+                try:
+                    html_content = page.content()
+                    with open(html_path, "w", encoding="utf-8") as f:
+                        f.write(html_content)
+                    print(f"[E2E Artifact] Saved HTML source to: {html_path}")
+                except Exception as e:
+                    print(f"\n[E2E Artifact] Failed to save HTML source: {e}")
+
+                # 3. Save console/error logs
+                console_logs = getattr(page, "_console_logs", None)
+                if console_logs is not None:
+                    log_path = os.path.join(results_dir, f"{safe_name}.log")
+                    try:
+                        with open(log_path, "w", encoding="utf-8") as f:
+                            f.write("\n".join(console_logs))
+                        print(f"[E2E Artifact] Saved console logs to: {log_path}")
+                    except Exception as e:
+                        print(f"\n[E2E Artifact] Failed to save console logs: {e}")
