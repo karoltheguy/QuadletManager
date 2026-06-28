@@ -104,6 +104,8 @@ jobs:
             ${{ matrix.xdist_args }} \
             -m "${{ matrix.marker }}" \
             --durations=25 \
+            --cov \
+            --cov-report=xml:test-results/coverage.xml \
             --junit-xml=test-results/${{ matrix.suite }}.xml
 
       - name: Show Docker logs on failure
@@ -222,6 +224,8 @@ jobs:
             ${{ matrix.xdist_args }} \
             -m "${{ matrix.marker }}" \
             --durations=25 \
+            --cov \
+            --cov-report=xml:test-results/coverage.xml \
             --junit-xml=test-results/${{ matrix.suite }}.xml
 
       - name: Show Docker logs on failure
@@ -240,3 +244,24 @@ jobs:
         with:
           name: forgejo-${{ matrix.suite }}-test-results
           path: test-results/
+
+  upload-coverage:
+    name: Upload Coverage to Codacy
+    needs: test-github
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: github-*-test-results
+          path: coverage-reports
+
+      - name: Upload to Codacy
+        uses: codacy/codacy-coverage-reporter-action@v1
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage-reports/**/coverage.xml
