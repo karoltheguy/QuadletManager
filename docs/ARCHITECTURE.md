@@ -380,6 +380,11 @@ if role != "editor":
     raise HTTPException(status_code=403, detail="Viewer role cannot save files.")
 ```
 
+### XSS Prevention
+
+- **DOM-based XSS Mitigation**: Unsafe `.innerHTML` assignments in frontend scripts are forbidden. Dynamic user-controlled or API data is injected securely using browser-native DOM APIs (`document.createElement` and `.textContent`).
+- **Server HTML Response Handling**: Server-rendered HTML fragments (such as response messages or status toasts) are parsed via browser-native `DOMParser`, and their elements are securely extracted and re-assembled using `.textContent` before insertion.
+
 ### Sudo Configuration
 
 For rootful (global) scope operations, the app prepends `sudo` to commands. Remote servers require sudoers configuration:
