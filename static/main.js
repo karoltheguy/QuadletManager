@@ -529,12 +529,15 @@ function updateInspectorActivityLog() {
         })
         .then(function(data) {
             var listEl = activityLog.querySelector('.activity-list');
+            listEl.innerHTML = '';
             if (!data.events || data.events.length === 0) {
-                listEl.innerHTML = '<div class="text-muted italic p-2">No events recorded</div>';
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'text-muted italic p-2';
+                emptyDiv.textContent = 'No events recorded';
+                listEl.appendChild(emptyDiv);
                 return;
             }
 
-            var html = '';
             data.events.forEach(function(event) {
                 var icon = '';
                 switch (event.event_type) {
@@ -548,20 +551,40 @@ function updateInspectorActivityLog() {
                 var relTime = getRelativeTime(event.occurred_at);
                 var triggeredBy = event.triggered_by ? ' by ' + event.triggered_by : '';
 
-                html += '<div class="activity-item">' +
-                    '<span class="activity-icon">' + icon + '</span>' +
-                    '<span class="activity-type">' + escapeHtml(event.event_type) + '</span>' +
-                    '<span class="activity-time">' + escapeHtml(relTime) + '</span>' +
-                    '<span class="activity-user">' + escapeHtml(triggeredBy) + '</span>' +
-                    '</div>';
-            });
+                var itemDiv = document.createElement('div');
+                itemDiv.className = 'activity-item';
 
-            listEl.innerHTML = html;
+                var iconSpan = document.createElement('span');
+                iconSpan.className = 'activity-icon';
+                iconSpan.textContent = icon;
+                itemDiv.appendChild(iconSpan);
+
+                var typeSpan = document.createElement('span');
+                typeSpan.className = 'activity-type';
+                typeSpan.textContent = event.event_type;
+                itemDiv.appendChild(typeSpan);
+
+                var timeSpan = document.createElement('span');
+                timeSpan.className = 'activity-time';
+                timeSpan.textContent = relTime;
+                itemDiv.appendChild(timeSpan);
+
+                var userSpan = document.createElement('span');
+                userSpan.className = 'activity-user';
+                userSpan.textContent = triggeredBy;
+                itemDiv.appendChild(userSpan);
+
+                listEl.appendChild(itemDiv);
+            });
         })
         .catch(function(err) {
             console.error('Error fetching activity:', err);
             var listEl = activityLog.querySelector('.activity-list');
-            listEl.innerHTML = '<div class="text-muted italic p-2">Failed to load activity</div>';
+            listEl.innerHTML = '';
+            var errorDiv = document.createElement('div');
+            errorDiv.className = 'text-muted italic p-2';
+            errorDiv.textContent = 'Failed to load activity';
+            listEl.appendChild(errorDiv);
         });
 }
 
@@ -890,23 +913,42 @@ function renderContainerStatsTable(tableElId, data) {
     var tableEl = document.getElementById(tableElId);
     if (!tableEl) return;
 
+    tableEl.innerHTML = '';
     const containers = data.containers || [];
 
     if (containers.length === 0) {
-        tableEl.innerHTML = '<div class="p-4 text-muted italic">No containers running on ' +
-            escapeHtml(data.server_name || 'server') + '</div>';
+        var emptyDiv = document.createElement('div');
+        emptyDiv.className = 'p-4 text-muted italic';
+        emptyDiv.textContent = 'No containers running on ' + (data.server_name || 'server');
+        tableEl.appendChild(emptyDiv);
         return;
     }
 
-    var html = '<table class="w-full">';
-    html += '<thead><tr class="text-muted border-b">';
-    html += '<th class="text-left p-4">Container</th>';
-    html += '<th class="p-4 text-left">Status</th>';
-    html += '<th class="p-4 text-right">CPU</th>';
-    html += '<th class="p-4 text-right">MEM</th>';
-    html += '<th class="p-4 text-right">NET I/O</th>';
-    html += '</tr></thead><tbody>';
+    var table = document.createElement('table');
+    table.className = 'w-full';
 
+    var thead = document.createElement('thead');
+    var headerRow = document.createElement('tr');
+    headerRow.className = 'text-muted border-b';
+
+    var headers = [
+        { text: 'Container', align: 'left' },
+        { text: 'Status', align: 'left' },
+        { text: 'CPU', align: 'right' },
+        { text: 'MEM', align: 'right' },
+        { text: 'NET I/O', align: 'right' }
+    ];
+
+    headers.forEach(function(h) {
+        var th = document.createElement('th');
+        th.className = (h.align === 'left' ? 'text-left p-4' : 'p-4 text-right');
+        th.textContent = h.text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
     containers.forEach(function(c) {
         var cpuVal = parsePercent(c.cpu);
         var memVal = parsePercent(c.mem);
@@ -916,20 +958,47 @@ function renderContainerStatsTable(tableElId, data) {
         var health = c.health || '';
         var badgeClass = health === '' ? 'running' : health === 'healthy' ? 'healthy' : 'unhealthy';
         var badgeLabel = health === '' ? 'running' : health;
-        var badge = '<span class="stat-badge ' + badgeClass + '">' + escapeHtml(badgeLabel) + '</span>';
 
-        html += '<tr class="border-b">';
-        html += '<td class="text-left p-4 text-accent font-semibold">' + escapeHtml(c.name) + '</td>';
-        html += '<td class="p-4 text-left">' + badge + '</td>';
-        html += '<td class="p-4 text-right ' + cpuClass + '">' + escapeHtml(c.cpu) + '</td>';
-        html += '<td class="p-4 text-right ' + memClass + '">' + escapeHtml(c.mem) + '</td>';
-        html += '<td class="p-4 text-right net-io-cell">' + escapeHtml(c.net_io) + '</td>';
-        html += '</tr>';
+        var tr = document.createElement('tr');
+        tr.className = 'border-b';
+
+        var tdName = document.createElement('td');
+        tdName.className = 'text-left p-4 text-accent font-semibold';
+        tdName.textContent = c.name;
+        tr.appendChild(tdName);
+
+        var tdStatus = document.createElement('td');
+        tdStatus.className = 'p-4 text-left';
+        var badgeSpan = document.createElement('span');
+        badgeSpan.className = 'stat-badge ' + badgeClass;
+        badgeSpan.textContent = badgeLabel;
+        tdStatus.appendChild(badgeSpan);
+        tr.appendChild(tdStatus);
+
+        var tdCpu = document.createElement('td');
+        tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
+        tdCpu.textContent = c.cpu;
+        tr.appendChild(tdCpu);
+
+        var tdMem = document.createElement('td');
+        tdMem.className = 'p-4 text-right' + (memClass ? ' ' + memClass : '');
+        tdMem.textContent = c.mem;
+        tr.appendChild(tdMem);
+
+        var tdNet = document.createElement('td');
+        tdNet.className = 'p-4 text-right net-io-cell';
+        tdNet.textContent = c.net_io;
+        tr.appendChild(tdNet);
+
+        tbody.appendChild(tr);
     });
+    table.appendChild(tbody);
+    tableEl.appendChild(table);
 
-    html += '</tbody></table>';
-    html += '<div class="p-4 text-muted text-right text-xs">' + escapeHtml(data.server_name || '') + '</div>';
-    tableEl.innerHTML = html;
+    var footerDiv = document.createElement('div');
+    footerDiv.className = 'p-4 text-muted text-right text-xs';
+    footerDiv.textContent = data.server_name || '';
+    tableEl.appendChild(footerDiv);
 }
 
 function updateStats(data) {
@@ -2058,23 +2127,51 @@ window.confirmDeleteFile = function(serverId, path, scope) {
     if (existing) existing.remove();
 
     var fileName = path.split('/').pop();
-    var safeFileName = fileName.replace(/[<>&"]/g, function(c) {
-        return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];
-    });
 
     var modal = document.createElement('div');
     modal.id = 'delete-confirm-modal';
     modal.className = 'modal-overlay';
-    modal.innerHTML =
-        '<div class="modal-content">' +
-        '<h2 class="panel-title mb-4">Delete File</h2>' +
-        '<p class="text-sm mb-6">Delete <strong>' + safeFileName + '</strong>? This cannot be undone.</p>' +
-        '<div class="flex justify-end space-x-2">' +
-        '<button class="btn btn-secondary" onclick="document.getElementById(\'delete-confirm-modal\').remove()">Cancel</button>' +
-        '<button class="btn btn-danger" onclick="window.executeDeleteFile(' + serverId + ', ' + JSON.stringify(path) + ', ' + JSON.stringify(scope) + ')">Delete</button>' +
-        '</div></div>';
+
+    var content = document.createElement('div');
+    content.className = 'modal-content';
+
+    var h2 = document.createElement('h2');
+    h2.className = 'panel-title mb-4';
+    h2.textContent = 'Delete File';
+    content.appendChild(h2);
+
+    var p = document.createElement('p');
+    p.className = 'text-sm mb-6';
+    p.textContent = 'Delete ';
+    var strong = document.createElement('strong');
+    strong.textContent = fileName;
+    p.appendChild(strong);
+    p.appendChild(document.createTextNode('? This cannot be undone.'));
+    content.appendChild(p);
+
+    var btnContainer = document.createElement('div');
+    btnContainer.className = 'flex justify-end space-x-2';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', function() {
+        modal.remove();
+    });
+    btnContainer.appendChild(cancelBtn);
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-danger';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', function() {
+        window.executeDeleteFile(serverId, path, scope);
+    });
+    btnContainer.appendChild(deleteBtn);
+
+    content.appendChild(btnContainer);
+    modal.appendChild(content);
     document.body.appendChild(modal);
-  window.setupModalDismissal('delete-confirm-modal');
+    window.setupModalDismissal('delete-confirm-modal');
 };
 
 window.executeDeleteFile = async function(serverId, path, scope) {
@@ -2087,7 +2184,18 @@ window.executeDeleteFile = async function(serverId, path, scope) {
     var html = await response.text();
 
     var toast = document.getElementById('status-toast');
-    if (toast) toast.innerHTML = html;
+    if (toast) {
+        toast.innerHTML = '';
+        var parser = new window.DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var toastMsg = doc.querySelector('.toast-msg');
+        if (toastMsg) {
+            var div = document.createElement('div');
+            div.className = toastMsg.className;
+            div.textContent = toastMsg.textContent;
+            toast.appendChild(div);
+        }
+    }
 
     if (response.headers.get('HX-Trigger') === 'reload-servers') {
         document.body.dispatchEvent(new Event('reload-servers'));
