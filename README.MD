@@ -1,6 +1,7 @@
 # QuadletManager
 
 ![Tests](https://github.com/karoltheguy/QuadletManager/actions/workflows/tests.yml/badge.svg)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/4d71f0a6cbfa466e9c1ae6d98ce2e309)](https://app.codacy.com/gh/karoltheguy/QuadletManager?utm_source=github.com&utm_medium=referral&utm_content=karoltheguy/QuadletManager&utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/karoltheguy/QuadletManager/graph/badge.svg?token=DAR89FXIAK)](https://codecov.io/gh/karoltheguy/QuadletManager)
 
 Manage Podman Quadlets across multiple Linux servers through SSH connections.
