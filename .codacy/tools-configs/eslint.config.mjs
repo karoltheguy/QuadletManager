@@ -1,6 +1,13 @@
+import globals from "globals";
+
 export default [
     {
         files: ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.mjs", "**/*.cjs", "**/*.vue"],
+        languageOptions: {
+            globals: {
+                ...globals.browser
+            }
+        },
         rules: {
           "valid-typeof": ["error", {"requireStringLiterals": false}],
           "use-isnan": ["error", {"enforceForIndexOf": false, "enforceForSwitchCase": true}],
