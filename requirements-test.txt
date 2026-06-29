@@ -10,3 +10,4 @@ coverage
 httpx2
 filelock
 pylint
+eslint>=10.6.0
