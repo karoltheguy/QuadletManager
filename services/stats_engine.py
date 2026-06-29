@@ -41,7 +41,6 @@ def _parse_pct(val) -> float:
 
 async def _record_health_history(server_id: int, containers: list[dict]) -> None:
     """Persist a health snapshot. Pruning is handled by rollup_health_history()."""
-    global _prev_running_by_sid
     now = int(time.time())
 
     current_names = {c['name'] for c in containers}

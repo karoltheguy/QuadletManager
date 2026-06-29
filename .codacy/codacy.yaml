@@ -1,3 +1,6 @@
+exclude_paths:
+    - venv/**
+    - node_modules/**
 runtimes:
     - java@17.0.10
     - node@22.2.0

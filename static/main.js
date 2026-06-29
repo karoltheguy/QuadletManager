@@ -1,3 +1,4 @@
+/* global htmx, Chart, Terminal, closeTerminalTab, connectTerminal, healthHistoryChart, loadMonitorCharts, monitoringChart, openBottomPanel, selectMonitoringServer, switchBottomTab, switchTerminalTab, tailLogsFromPanel */
 // ── Server Collapse ───────────────────────────────────────
 window.toggleServerCollapse = function(serverId) {
     var li = document.querySelector('li[data-server-id="' + serverId + '"]');
@@ -1365,7 +1366,7 @@ function updateMonitoringView(data) {
                     now.getSeconds().toString().padStart(2, '0');
     var windowSec = (window._monitorChartMinutes || 15) * 60;
 
-    function appendToChart(chart, valueKey) {
+    var appendToChart = function(chart, valueKey) {
       if (!chart) return;
       // Build a map of current dataset labels for quick lookup
       var datasetByName = {};
@@ -1462,7 +1463,7 @@ function populateServerSelector() {
     var option = document.createElement('option');
     option.value = serverId;
     option.textContent = data.server_name || ('Server ' + serverId);
-    if (parseInt(serverId) === window.activeServerId) {
+    if (parseInt(serverId, 10) === window.activeServerId) {
       option.selected = true;
     }
     select.appendChild(option);

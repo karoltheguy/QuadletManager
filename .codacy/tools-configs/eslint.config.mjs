@@ -1,5 +1,8 @@
 export default [
     {
+        ignores: ["**/venv/**", "**/node_modules/**", "**/static/xterm.min.js"]
+    },
+    {
         files: ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.mjs", "**/*.cjs", "**/*.vue"],
         languageOptions: {
             globals: {

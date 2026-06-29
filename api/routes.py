@@ -348,7 +348,7 @@ async def fetch_quadlet_tree(request: Request, server_id: int):
         })
     except Exception as e:
         logger.error(f"Error fetching quadlets: {e}")
-        return HTMLResponse(f"<div class='text-red-500 text-xs'>Error loading files</div>")
+        return HTMLResponse("<div class='text-red-500 text-xs'>Error loading files</div>")
 
 @router.get("/api/file/{server_id}", response_class=HTMLResponse)
 async def fetch_file(request: Request, server_id: int, path: str, scope: str, name: str, role: str = Depends(get_current_user_role)):

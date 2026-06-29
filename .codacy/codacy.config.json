@@ -9452,6 +9452,8 @@
     "static/xterm.min.js",
     "static/xterm-addon-fit.umd.min.js",
     "static/xterm.min.css",
-    ".codacy/**"
+    ".codacy/**",
+    "venv/**",
+    "node_modules/**"
   ]
 }
