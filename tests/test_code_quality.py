@@ -59,11 +59,19 @@ def test_no_eslint_object_injection():
     """Verify that there are no ESLint object-injection warnings in static/main.js."""
     import json
     import os
+    import shutil
+    cli_path = shutil.which("codacy-analysis")
+    if not cli_path:
+        fallback = os.path.expanduser("~/.npm-global/bin/codacy-analysis")
+        if os.path.exists(fallback):
+            cli_path = fallback
+        else:
+            pytest.skip("codacy-analysis not found in PATH or ~/.npm-global/bin/")
     output_file = "test_results.json"
     if os.path.exists(output_file):
         os.remove(output_file)
     cmd = [
-        "codacy-analysis",
+        cli_path,
         "analyze",
         "static/main.js",
         "--output-format",
