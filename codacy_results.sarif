@@ -1,0 +1,3644 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolConfigurationNotifications": [],
+          "toolExecutionNotifications": []
+        }
+      ],
+      "results": [
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/main.js"
+                },
+                "region": {
+                  "endColumn": 16,
+                  "endLine": 1465,
+                  "startColumn": 9,
+                  "startLine": 1465
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Always provide a base when using parseInt() functions"
+          },
+          "ruleId": "UseBaseWithParseInt",
+          "ruleIndex": 0
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 38826,
+                  "endLine": 1,
+                  "startColumn": 38450,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "A function should not mix return statements with and without a result."
+          },
+          "ruleId": "ConsistentReturn",
+          "ruleIndex": 1
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 134382,
+                  "endLine": 1,
+                  "startColumn": 134375,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Always provide a base when using parseInt() functions"
+          },
+          "ruleId": "UseBaseWithParseInt",
+          "ruleIndex": 0
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 134399,
+                  "endLine": 1,
+                  "startColumn": 134392,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Always provide a base when using parseInt() functions"
+          },
+          "ruleId": "UseBaseWithParseInt",
+          "ruleIndex": 0
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 134416,
+                  "endLine": 1,
+                  "startColumn": 134409,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Always provide a base when using parseInt() functions"
+          },
+          "ruleId": "UseBaseWithParseInt",
+          "ruleIndex": 0
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 184406,
+                  "endLine": 1,
+                  "startColumn": 184399,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Always provide a base when using parseInt() functions"
+          },
+          "ruleId": "UseBaseWithParseInt",
+          "ruleIndex": 0
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 185887,
+                  "endLine": 1,
+                  "startColumn": 185880,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Always provide a base when using parseInt() functions"
+          },
+          "ruleId": "UseBaseWithParseInt",
+          "ruleIndex": 0
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 132349,
+                  "endLine": 1,
+                  "startColumn": 132347,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.05' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 2
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 132357,
+                  "endLine": 1,
+                  "startColumn": 132355,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.05' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 2
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 132365,
+                  "endLine": 1,
+                  "startColumn": 132363,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.05' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 2
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 132373,
+                  "endLine": 1,
+                  "startColumn": 132371,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.05' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 2
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 135420,
+                  "endLine": 1,
+                  "startColumn": 135419,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.1' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 3
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 135451,
+                  "endLine": 1,
+                  "startColumn": 135450,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.1' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 3
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 135482,
+                  "endLine": 1,
+                  "startColumn": 135481,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.1' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 3
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 135802,
+                  "endLine": 1,
+                  "startColumn": 135801,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.1' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 3
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 135842,
+                  "endLine": 1,
+                  "startColumn": 135841,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.1' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 3
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 135882,
+                  "endLine": 1,
+                  "startColumn": 135881,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.1' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 3
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 126779,
+                  "endLine": 1,
+                  "startColumn": 126778,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.3' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 4
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 126938,
+                  "endLine": 1,
+                  "startColumn": 126937,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.3' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 4
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 77933,
+                  "endLine": 1,
+                  "startColumn": 77932,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.5' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 5
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 80321,
+                  "endLine": 1,
+                  "startColumn": 80320,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.5' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 5
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88863,
+                  "endLine": 1,
+                  "startColumn": 88862,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.5' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 5
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 92838,
+                  "endLine": 1,
+                  "startColumn": 92837,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '.5' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 5
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180127,
+                  "endLine": 1,
+                  "startColumn": 180118,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '1073741824' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 6
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180625,
+                  "endLine": 1,
+                  "startColumn": 180616,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '1073741824' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 6
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180399,
+                  "endLine": 1,
+                  "startColumn": 180390,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '1073741825' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 7
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180650,
+                  "endLine": 1,
+                  "startColumn": 180641,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '1073741825' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 7
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179949,
+                  "endLine": 1,
+                  "startColumn": 179941,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '134217728' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 8
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180172,
+                  "endLine": 1,
+                  "startColumn": 180164,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '134217728' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 8
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180232,
+                  "endLine": 1,
+                  "startColumn": 180224,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '134217729' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 9
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180249,
+                  "endLine": 1,
+                  "startColumn": 180241,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '134217729' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 9
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88084,
+                  "endLine": 1,
+                  "startColumn": 88077,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88182,
+                  "endLine": 1,
+                  "startColumn": 88175,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88366,
+                  "endLine": 1,
+                  "startColumn": 88359,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88458,
+                  "endLine": 1,
+                  "startColumn": 88451,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180462,
+                  "endLine": 1,
+                  "startColumn": 180455,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180525,
+                  "endLine": 1,
+                  "startColumn": 180518,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180777,
+                  "endLine": 1,
+                  "startColumn": 180770,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180831,
+                  "endLine": 1,
+                  "startColumn": 180824,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777215' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 10
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88535,
+                  "endLine": 1,
+                  "startColumn": 88528,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777216' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 11
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88882,
+                  "endLine": 1,
+                  "startColumn": 88875,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777216' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 11
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179738,
+                  "endLine": 1,
+                  "startColumn": 179731,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777216' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 11
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179789,
+                  "endLine": 1,
+                  "startColumn": 179782,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777216' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 11
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179840,
+                  "endLine": 1,
+                  "startColumn": 179833,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777224' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 12
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179893,
+                  "endLine": 1,
+                  "startColumn": 179886,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '16777224' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 12
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180423,
+                  "endLine": 1,
+                  "startColumn": 180414,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '2147483647' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 13
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180150,
+                  "endLine": 1,
+                  "startColumn": 180141,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '2147483648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 14
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179993,
+                  "endLine": 1,
+                  "startColumn": 179985,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '268435456' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 15
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180298,
+                  "endLine": 1,
+                  "startColumn": 180290,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '268435457' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 16
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88549,
+                  "endLine": 1,
+                  "startColumn": 88542,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '33554432' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 17
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88896,
+                  "endLine": 1,
+                  "startColumn": 88889,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '33554432' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 17
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 124282,
+                  "endLine": 1,
+                  "startColumn": 124273,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '4294967117' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 18
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88044,
+                  "endLine": 1,
+                  "startColumn": 88037,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 19
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88142,
+                  "endLine": 1,
+                  "startColumn": 88135,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 19
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88377,
+                  "endLine": 1,
+                  "startColumn": 88370,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 19
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88417,
+                  "endLine": 1,
+                  "startColumn": 88410,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 19
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 88605,
+                  "endLine": 1,
+                  "startColumn": 88598,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 19
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 89078,
+                  "endLine": 1,
+                  "startColumn": 89071,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331648' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 19
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179723,
+                  "endLine": 1,
+                  "startColumn": 179716,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331904' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 20
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179774,
+                  "endLine": 1,
+                  "startColumn": 179767,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331904' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 20
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179825,
+                  "endLine": 1,
+                  "startColumn": 179818,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331904' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 20
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179878,
+                  "endLine": 1,
+                  "startColumn": 179871,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '50331904' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 20
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180083,
+                  "endLine": 1,
+                  "startColumn": 180075,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '536870912' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 21
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180351,
+                  "endLine": 1,
+                  "startColumn": 180343,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '536870913' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 22
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 179970,
+                  "endLine": 1,
+                  "startColumn": 179963,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108864' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 23
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180104,
+                  "endLine": 1,
+                  "startColumn": 180097,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108864' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 23
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180447,
+                  "endLine": 1,
+                  "startColumn": 180440,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108864' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 23
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180510,
+                  "endLine": 1,
+                  "startColumn": 180503,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108864' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 23
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180762,
+                  "endLine": 1,
+                  "startColumn": 180755,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108864' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 23
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180816,
+                  "endLine": 1,
+                  "startColumn": 180809,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108864' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 23
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180273,
+                  "endLine": 1,
+                  "startColumn": 180266,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108865' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 24
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 180374,
+                  "endLine": 1,
+                  "startColumn": 180367,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The numeric literal '67108865' will have at different value at runtime."
+          },
+          "ruleId": "InnaccurateNumericLiteral",
+          "ruleIndex": 24
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 133098,
+                  "endLine": 1,
+                  "startColumn": 133082,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Use ===/!== to compare with true/false or Numbers"
+          },
+          "ruleId": "EqualComparison",
+          "ruleIndex": 25
+        },
+        {
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/home/carol/development/QuadletManager/static/xterm.min.js"
+                },
+                "region": {
+                  "endColumn": 182183,
+                  "endLine": 1,
+                  "startColumn": 182178,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Use ===/!== to compare with true/false or Numbers"
+          },
+          "ruleId": "EqualComparison",
+          "ruleIndex": 25
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://pmd.github.io/pmd/",
+          "name": "PMD",
+          "rules": null,
+          "version": "6.55.0"
+        }
+      }
+    },
+    {
+      "results": [],
+      "tool": {
+        "driver": {
+          "informationUri": "https://pylint.org",
+          "name": "Pylint",
+          "rules": null,
+          "version": "3.3.6"
+        }
+      }
+    },
+    {
+      "columnKind": "utf16CodeUnits",
+      "originalUriBaseIds": {
+        "ROOTPATH": {
+          "uri": "file:///home/carol/development/QuadletManager/"
+        }
+      },
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "message": {
+                "text": "package-lock.json: @modelcontextprotocol/sdk@1.25.2"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package-lock.json",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "endColumn": 1,
+                  "endLine": 80,
+                  "startColumn": 1,
+                  "startLine": 42
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Package: @modelcontextprotocol/sdk\nInstalled Version: 1.25.2\nVulnerability CVE-2026-25536\nSeverity: HIGH\nFixed Version: 1.26.0\nLink: [CVE-2026-25536](https://avd.aquasec.com/nvd/cve-2026-25536)"
+          },
+          "ruleId": "CVE-2026-25536",
+          "ruleIndex": 0
+        }
+      ],
+      "tool": {
+        "driver": {
+          "fullName": "Trivy Vulnerability Scanner",
+          "informationUri": "https://github.com/aquasecurity/trivy",
+          "name": "Trivy",
+          "rules": null,
+          "version": "0.70.0"
+        }
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "location": {
+            "uri": "file:///home/carol/development/QuadletManager/.codacy/tools-configs/eslint.config.mjs"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/carol/development/QuadletManager/static/main.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/carol/development/QuadletManager/static/xterm-addon-fit.umd.min.js"
+          }
+        }
+      ],
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "index": 1,
+                  "uri": "file:///home/carol/development/QuadletManager/static/main.js"
+                },
+                "region": {
+                  "endColumn": 6,
+                  "endLine": 1403,
+                  "startColumn": 5,
+                  "startLine": 1368
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Move function declaration to function body root."
+          },
+          "ruleId": "no-inner-declarations",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "index": 2,
+                  "uri": "file:///home/carol/development/QuadletManager/static/xterm-addon-fit.umd.min.js"
+                },
+                "region": {
+                  "endColumn": 72,
+                  "endLine": 1,
+                  "startColumn": 66,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "'module' is not defined."
+          },
+          "ruleId": "no-undef",
+          "ruleIndex": 1
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "index": 2,
+                  "uri": "file:///home/carol/development/QuadletManager/static/xterm-addon-fit.umd.min.js"
+                },
+                "region": {
+                  "endColumn": 118,
+                  "endLine": 1,
+                  "startColumn": 112,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "'define' is not defined."
+          },
+          "ruleId": "no-undef",
+          "ruleIndex": 1
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "index": 2,
+                  "uri": "file:///home/carol/development/QuadletManager/static/xterm-addon-fit.umd.min.js"
+                },
+                "region": {
+                  "endColumn": 129,
+                  "endLine": 1,
+                  "startColumn": 123,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "'define' is not defined."
+          },
+          "ruleId": "no-undef",
+          "ruleIndex": 1
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "index": 2,
+                  "uri": "file:///home/carol/development/QuadletManager/static/xterm-addon-fit.umd.min.js"
+                },
+                "region": {
+                  "endColumn": 168,
+                  "endLine": 1,
+                  "startColumn": 161,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "'exports' is not defined."
+          },
+          "ruleId": "no-undef",
+          "ruleIndex": 1
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "index": 2,
+                  "uri": "file:///home/carol/development/QuadletManager/static/xterm-addon-fit.umd.min.js"
+                },
+                "region": {
+                  "endColumn": 202,
+                  "endLine": 1,
+                  "startColumn": 198,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "'self' is not defined."
+          },
+          "ruleId": "no-undef",
+          "ruleIndex": 1
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://eslint.org",
+          "name": "ESLint",
+          "rules": null,
+          "version": "8.57.0"
+        }
+      }
+    },
+    {
+      "results": [
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "conftest.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 168
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method pytest_runtest_makereport has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "test_bottom_panel_align.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 53
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method handle_starttag has a cyclomatic complexity of 17 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "database.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method init_db has 142 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "stats_engine.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 72
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method rollup_health_history has 63 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "stats_engine.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 165
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method normalize_container_stats has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "stats_engine.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 188
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _fetch_scope_stats has 52 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "stats_engine.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 188
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _fetch_scope_stats has a cyclomatic complexity of 16 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "stats_engine.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 260
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method fetch_server_stats has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "ssh_manager.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 77
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _run_with_timeout has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _handleChar has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _handleMouseMove has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _askForLink has a cyclomatic complexity of 13 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _checkLinkProviderResult has a cyclomatic complexity of 13 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _handleNewLink has a cyclomatic complexity of 17 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method provideLinks has a cyclomatic complexity of 20 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _handleColorEvent has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method open has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method i has a cyclomatic complexity of 17 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method bindMouse has a cyclomatic complexity of 33 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 15 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _registerBufferChangeListeners has a cyclomatic complexity of 14 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 25 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method constructor has 10 parameters (limit is 8)"
+          },
+          "ruleId": "Lizard_parameter-count-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method createRow has a cyclomatic complexity of 87 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method createRow has 10 parameters (limit is 8)"
+          },
+          "ruleId": "Lizard_parameter-count-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _applyMinimumContrast has a cyclomatic complexity of 12 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method t.DomRendererRowFactory has a cyclomatic complexity of 11 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method getJoinedCharacters has a cyclomatic complexity of 13 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _stringRangesToCellRanges has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method constructor has 9 parameters (limit is 8)"
+          },
+          "ruleId": "Lizard_parameter-count-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _areCoordsInSelection has a cyclomatic complexity of 12 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method shouldForceSelection has a cyclomatic complexity of 19 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method _handleMouseMove has a cyclomatic complexity of 51 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "xterm.min.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method v has a cyclomatic complexity of 18 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 32
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 142
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has 497 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 716
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method buildBarChartConfig has 71 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1001
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 11 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1073
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1211
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method window.switchTab has a cyclomatic complexity of 14 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1294
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method window.selectMonitoringServer has a cyclomatic complexity of 15 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1529
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method window.toggleBottomPanel has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1594
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method window.connectTerminal has a cyclomatic complexity of 12 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1649
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method createTerminalTab has 53 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1772
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method window.closeTerminalTab has a cyclomatic complexity of 13 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1832
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 12 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 2034
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method (anonymous) has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 276
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method api_overview has 52 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 276
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method api_overview has a cyclomatic complexity of 14 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 384
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method save_file has 58 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 740
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method settings_reorder_servers has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1052
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method settings_update_theme_colors has a cyclomatic complexity of 9 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sockets.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 38
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method stream_logs_over_websocket has a cyclomatic complexity of 11 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sockets.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 148
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method exec_terminal_over_websocket.write_input has a cyclomatic complexity of 12 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sockets.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 91
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method exec_terminal_over_websocket has 64 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sockets.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 91
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method exec_terminal_over_websocket has a cyclomatic complexity of 16 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "import_servers.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method main has 70 lines of code (limit is 50)"
+          },
+          "ruleId": "Lizard_nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "import_servers.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method main has a cyclomatic complexity of 10 (limit is 8)"
+          },
+          "ruleId": "Lizard_ccn-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "test_rbac.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 0
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method ./tests/test_rbac.py has 511 file-nloc (limit is 500)"
+          },
+          "ruleId": "Lizard_file-nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "main.js"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 0
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method ./static/main.js has 2081 file-nloc (limit is 500)"
+          },
+          "ruleId": "Lizard_file-nloc-medium"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes.py"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 0
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Method ./api/routes.py has 1107 file-nloc (limit is 500)"
+          },
+          "ruleId": "Lizard_file-nloc-medium"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/terryyin/lizard",
+          "name": "Lizard",
+          "rules": null,
+          "version": "1.17.10"
+        }
+      }
+    },
+    {
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolExecutionNotifications": [
+            {
+              "descriptor": {
+                "id": "Syntax error"
+              },
+              "level": "warning",
+              "message": {
+                "text": "Syntax error at line .github/workflows/tests.yml:104:\n When parsing a snippet as Bash for metavariable-pattern in rule 'codacy.tools-configs.yaml.github-actions.security.curl-eval.curl-eval', `{ matrix.marker` was unexpected"
+              }
+            },
+            {
+              "descriptor": {
+                "id": "Syntax error"
+              },
+              "level": "warning",
+              "message": {
+                "text": "Syntax error at line .github/workflows/tests.yml:224:\n When parsing a snippet as Bash for metavariable-pattern in rule 'codacy.tools-configs.yaml.github-actions.security.curl-eval.curl-eval', `{ matrix.marker` was unexpected"
+              }
+            },
+            {
+              "descriptor": {
+                "id": "Syntax error"
+              },
+              "level": "warning",
+              "message": {
+                "text": "Syntax error at line lizard_results.json:1:\n `===` was unexpected"
+              }
+            }
+          ]
+        }
+      ],
+      "results": [
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "afc724a5ef69d6e850d39a93e3c82937a910f11dcdfabebde0a0373259bd534ec630173b8960af405980cfa494106a4bc055d5f0b000f8ff01e577cbc3469410_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/container-build.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 42,
+                  "endLine": 30,
+                  "snippet": {
+                    "text": "        uses: docker/setup-qemu-action@v3"
+                  },
+                  "startColumn": 9,
+                  "startLine": 30
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA. Pinning an action to a full length commit SHA is currently the only way to use an action as an immutable release. Pinning to a particular SHA helps mitigate the risk of a bad actor adding a backdoor to the action's repository, as they would need to generate a SHA-1 collision for a valid Git object payload."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "213878de66604967ebacc059d7b72e4686f998ff852b71512e408b1a1cc87ecfb77d67872534ac211a50cc70bc65ea671db1066bad36f9a637d0a2522726b48b_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/container-build.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 44,
+                  "endLine": 33,
+                  "snippet": {
+                    "text": "        uses: docker/setup-buildx-action@v3"
+                  },
+                  "startColumn": 9,
+                  "startLine": 33
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA. Pinning an action to a full length commit SHA is currently the only way to use an action as an immutable release. Pinning to a particular SHA helps mitigate the risk of a bad actor adding a backdoor to the action's repository, as they would need to generate a SHA-1 collision for a valid Git object payload."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "90e464c92cfd6b6659670d91d121c4292bddd523f34aad1f1229899ed0d6f8a4edaceb46e9c808c1ac2119237a2f95eec8632b634a5f39572fe040e3c7d66c78_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/container-build.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 37,
+                  "endLine": 37,
+                  "snippet": {
+                    "text": "        uses: docker/login-action@v3"
+                  },
+                  "startColumn": 9,
+                  "startLine": 37
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA. Pinning an action to a full length commit SHA is currently the only way to use an action as an immutable release. Pinning to a particular SHA helps mitigate the risk of a bad actor adding a backdoor to the action's repository, as they would need to generate a SHA-1 collision for a valid Git object payload."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "3653c4de41563aaade1e333b1258cd69457af33382b64fff53714e30cc892d7545388d2eb40108e5ba80c2bc0e14942993fa139743bc42190dd8279443d9a10d_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/container-build.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 40,
+                  "endLine": 45,
+                  "snippet": {
+                    "text": "        uses: docker/metadata-action@v5"
+                  },
+                  "startColumn": 9,
+                  "startLine": 45
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA. Pinning an action to a full length commit SHA is currently the only way to use an action as an immutable release. Pinning to a particular SHA helps mitigate the risk of a bad actor adding a backdoor to the action's repository, as they would need to generate a SHA-1 collision for a valid Git object payload."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "382882f8a62132e79d0f5c89aff224546dc2c5f677f71e85fcadd020c293cb508c2a480dd3cf26e60711efc437080cf7cba8c8ac0845f241b60499345002cb2d_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/container-build.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 42,
+                  "endLine": 57,
+                  "snippet": {
+                    "text": "        uses: docker/build-push-action@v6"
+                  },
+                  "startColumn": 9,
+                  "startLine": 57
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA. Pinning an action to a full length commit SHA is currently the only way to use an action as an immutable release. Pinning to a particular SHA helps mitigate the risk of a bad actor adding a backdoor to the action's repository, as they would need to generate a SHA-1 collision for a valid Git object payload."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "d90398ac4b01324efe24a1650a663ab2e041ae3241da7db714f1463c372c1c7373947cae1e8fabbd6ce8b00909f13b3902ee92be567e07159bb1417655f61977_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/tests.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 56,
+                  "endLine": 271,
+                  "snippet": {
+                    "text": "        uses: codacy/codacy-coverage-reporter-action@v1"
+                  },
+                  "startColumn": 9,
+                  "startLine": 271
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA. Pinning an action to a full length commit SHA is currently the only way to use an action as an immutable release. Pinning to a particular SHA helps mitigate the risk of a bad actor adding a backdoor to the action's repository, as they would need to generate a SHA-1 collision for a valid Git object payload."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "4ae74c37d967d468a4de626f2dbd0e9dda0c8a66a804328f181047c899b103379e6c93e8fe626da84f6a36340defcefcd076ea97936dd833149919a824eddfe8_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Dockerfile",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 67,
+                  "endLine": 33,
+                  "snippet": {
+                    "text": "CMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]"
+                  },
+                  "startColumn": 1,
+                  "startLine": 33
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "By not specifying a USER, a program in the container may run as 'root'. This is a security hazard. If an attacker can control a process running as root, they may have control over the container. Ensure that the last USER in a Dockerfile is a USER other than 'root'."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.dockerfile.security.missing-user.missing-user"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "e321919524ffc1f67df690a6ffdd07c249f12bfcd6d405799e59b53939d0c04ea864737b61012caa8627ac25e26ec9f9292fa85416851f1a9669b9329bf9664f_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "api/routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 18,
+                  "endLine": 1043,
+                  "snippet": {
+                    "text": "                await db.execute(\n                    f\"UPDATE user_themes SET {', '.join(updates)} WHERE id=? AND user_id=?\", params\n                )"
+                  },
+                  "startColumn": 23,
+                  "startLine": 1041
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection. In order to execute raw query safely, prepared statement should be used. SQLAlchemy provides TextualSQL to easily used prepared statement with named parameters. For complex SQL composition, use SQL Expression Language or Schema Definition Language. In most cases, SQLAlchemy ORM will be a better option."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "807c075917e19d8d244d113b3690048b17855fcbe5a1addc811f3f9a6cd7f527378253771be7065c5e4ff64dc8b3fbd6fc88b39328b649a112a4b7ff51f00d0c_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "api/routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 18,
+                  "endLine": 1043,
+                  "snippet": {
+                    "text": "                await db.execute(\n                    f\"UPDATE user_themes SET {', '.join(updates)} WHERE id=? AND user_id=?\", params\n                )"
+                  },
+                  "startColumn": 23,
+                  "startLine": 1041
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "SQL Injection is a critical vulnerability that can lead to data or system compromise. By\ndynamically generating SQL query strings, user input may be able to influence the logic of\nthe SQL statement. This could lead to an adversary accessing information they should\nnot have access to, or in some circumstances, being able to execute OS functionality or code.\n\nReplace all dynamically generated SQL queries with parameterized queries. In situations where\ndynamic queries must be created, never use direct user input, but instead use a map or\ndictionary of valid values and resolve them using a user supplied key.\n\nFor example, some database drivers do not allow parameterized queries for `\u003e` or `\u003c` comparison\noperators. In these cases, do not use a user supplied `\u003e` or `\u003c` value, but rather have the\nuser\nsupply a `gt` or `lt` value. The alphabetical values are then used to look up the `\u003e` and `\u003c`\nvalues to be used in the construction of the dynamic query. The same goes for other queries\nwhere\ncolumn or table names are required but cannot be parameterized.\n\nExample using `PreparedStatement` queries:\n```\nimport sqlite3\n\n# Create a new database (in memory)\ncon = sqlite3.connect(\":memory:\")\n# Get a cursor from the connection\ncur = con.cursor()\n# Create a tuple of the value to be used in the parameterized query\nparams = ('user-input',)\n# execute the statement, passing in the params for the value\ncur.execute(\"select name from sqlite_master where name = ?\", params)\n# work with the result\nresult = cur.fetchall()\n```\n\nFor more information on SQL Injection see OWASP:\nhttps://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html\n"
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.python_sql_rule-hardcoded-sql-expression"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "e321919524ffc1f67df690a6ffdd07c249f12bfcd6d405799e59b53939d0c04ea864737b61012caa8627ac25e26ec9f9292fa85416851f1a9669b9329bf9664f_1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "api/routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 10,
+                  "endLine": 1087,
+                  "snippet": {
+                    "text": "        await db.execute(\n            f\"UPDATE user_themes SET {col}=?, updated_at=? WHERE id=? AND user_id=?\",\n            (json.dumps(overrides), int(time.time()), theme_id, user_id),\n        )"
+                  },
+                  "startColumn": 15,
+                  "startLine": 1084
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection. In order to execute raw query safely, prepared statement should be used. SQLAlchemy provides TextualSQL to easily used prepared statement with named parameters. For complex SQL composition, use SQL Expression Language or Schema Definition Language. In most cases, SQLAlchemy ORM will be a better option."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "807c075917e19d8d244d113b3690048b17855fcbe5a1addc811f3f9a6cd7f527378253771be7065c5e4ff64dc8b3fbd6fc88b39328b649a112a4b7ff51f00d0c_1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "api/routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 10,
+                  "endLine": 1087,
+                  "snippet": {
+                    "text": "        await db.execute(\n            f\"UPDATE user_themes SET {col}=?, updated_at=? WHERE id=? AND user_id=?\",\n            (json.dumps(overrides), int(time.time()), theme_id, user_id),\n        )"
+                  },
+                  "startColumn": 15,
+                  "startLine": 1084
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "SQL Injection is a critical vulnerability that can lead to data or system compromise. By\ndynamically generating SQL query strings, user input may be able to influence the logic of\nthe SQL statement. This could lead to an adversary accessing information they should\nnot have access to, or in some circumstances, being able to execute OS functionality or code.\n\nReplace all dynamically generated SQL queries with parameterized queries. In situations where\ndynamic queries must be created, never use direct user input, but instead use a map or\ndictionary of valid values and resolve them using a user supplied key.\n\nFor example, some database drivers do not allow parameterized queries for `\u003e` or `\u003c` comparison\noperators. In these cases, do not use a user supplied `\u003e` or `\u003c` value, but rather have the\nuser\nsupply a `gt` or `lt` value. The alphabetical values are then used to look up the `\u003e` and `\u003c`\nvalues to be used in the construction of the dynamic query. The same goes for other queries\nwhere\ncolumn or table names are required but cannot be parameterized.\n\nExample using `PreparedStatement` queries:\n```\nimport sqlite3\n\n# Create a new database (in memory)\ncon = sqlite3.connect(\":memory:\")\n# Get a cursor from the connection\ncur = con.cursor()\n# Create a tuple of the value to be used in the parameterized query\nparams = ('user-input',)\n# execute the statement, passing in the params for the value\ncur.execute(\"select name from sqlite_master where name = ?\", params)\n# work with the result\nresult = cur.fetchall()\n```\n\nFor more information on SQL Injection see OWASP:\nhttps://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html\n"
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.python_sql_rule-hardcoded-sql-expression"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "8f4a22e154c34ac9de6eb99b155fb468910df352abca2cf7c6ac26025d6f84239b3854b7702b13ddebce73e06a0b9c1d19c20f8bc2fc4d7f645cffc60d4c5e52_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "docker-compose.test.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 21,
+                  "endLine": 9,
+                  "snippet": {
+                    "text": "    privileged: true"
+                  },
+                  "startColumn": 17,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Service 'remote-systemd' is running in privileged mode. This grants the container the equivalent of root capabilities on the host machine. This can lead to container escapes, privilege escalation, and other security concerns. Remove the 'privileged' key to disable this capability."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.yaml.docker-compose.security.privileged-service.privileged-service"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "f0c88ccea5fc15bcd0f0499bd35e8c4dbcac8ef2e75922ef4eaca7e013081e4f956a86694bb66bab92ba44e3ab31f12fadf2894dfabfcdeedf90c20d512c69e6_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "static/main.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 66,
+                  "endLine": 871,
+                  "snippet": {
+                    "text": "  fetch('/api/health/history/' + serverId + '?minutes=' + minutes)"
+                  },
+                  "startColumn": 9,
+                  "startLine": 871
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "This application allows user-controlled URLs to be passed directly to HTTP client libraries. \nThis can result in Server-Side Request Forgery (SSRF).\nSSRF refers to an attack where the attacker can abuse functionality on \nthe server to force it to make requests to other internal systems within your \ninfrastructure that are not directly exposed to the internet. \nThis allows the attacker to access internal resources they do not have direct access to.\n\nSome risks of SSRF are:\n\n- Access and manipulation of internal databases, APIs, or administrative panels\n- Ability to scan internal network architecture and services\n- Can be used to pivot attacks into the internal network\n- Circumvent network segregation and firewall rules\n\nTo avoid this, try using hardcoded HTTP request calls or a whitelisting object to \ncheck whether the user input is trying to access allowed resources or not.\n\nHere is an example:\n```\nvar whitelist = [\n  \"https://example.com\", \n  \"https://example.com/sample\"\n]\n\napp.get('/ssrf/node-ssrf/axios/safe/3', function (req, res) {\n  if(whitelist.includes(req.query.url)){\n      axios.get(url, {})\n          .then(function (response) {\n              console.log(response);\n          })\n          .catch(function (response) {\n              console.log(response);  \n          })\n  }\n});\n``` \nFor more information on SSRF see OWASP:\nhttps://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html\n"
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.rules_lgpl_javascript_ssrf_rule-node-ssrf"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "140e52f72933abb7857b9bdfb14124bdce03a4f0f46ad64d0af5233606c3251d12264f04beaaef4307b40a09a9cf2e7365b02bcfdcbff280685b56ab5bc8263c_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "static/main.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 35,
+                  "endLine": 2238,
+                  "snippet": {
+                    "text": "    var response = await fetch(url, { method: 'DELETE' });"
+                  },
+                  "startColumn": 32,
+                  "startLine": 2238
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "This application allows user-controlled URLs to be passed directly to HTTP client libraries. \nThis can result in Server-Side Request Forgery (SSRF).\nSSRF refers to an attack where the attacker can abuse functionality on \nthe server to force it to make requests to other internal systems within your \ninfrastructure that are not directly exposed to the internet. \nThis allows the attacker to access internal resources they do not have direct access to.\n\nSome risks of SSRF are:\n\n- Access and manipulation of internal databases, APIs, or administrative panels\n- Ability to scan internal network architecture and services\n- Can be used to pivot attacks into the internal network\n- Circumvent network segregation and firewall rules\n\nTo avoid this, try using hardcoded HTTP request calls or a whitelisting object to \ncheck whether the user input is trying to access allowed resources or not.\n\nHere is an example:\n```\nvar whitelist = [\n  \"https://example.com\", \n  \"https://example.com/sample\"\n]\n\napp.get('/ssrf/node-ssrf/axios/safe/3', function (req, res) {\n  if(whitelist.includes(req.query.url)){\n      axios.get(url, {})\n          .then(function (response) {\n              console.log(response);\n          })\n          .catch(function (response) {\n              console.log(response);  \n          })\n  }\n});\n``` \nFor more information on SSRF see OWASP:\nhttps://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html\n"
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.rules_lgpl_javascript_ssrf_rule-node-ssrf"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "1ec201abe567027454d6080172fe8620e8ba774522732fd026bb9c56e88b7d2c50ab0fba3da4d6f73d5f02ddb89a1df7ea68ccf39a40ecdf5d95137528e95418_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "templates/dashboard.html",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 120,
+                  "endLine": 266,
+                  "snippet": {
+                    "text": "                          placeholder=\"-----BEGIN OPENSSH PRIVATE KEY-----\u0026#10;...\u0026#10;-----END OPENSSH PRIVATE KEY-----\"\u003e\u003c/textarea\u003e"
+                  },
+                  "startColumn": 40,
+                  "startLine": 266
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "A gitleaks private-key was detected which attempts to identify hard-coded credentials. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.generic.secrets.gitleaks.private-key.private-key"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "a66a32ac03e1fb849e7e45f568f5a81f1fa600b1ab1ff18e61a3f8763d495c369d378db751b97438d5e7522ed545eea94ae37fd94457a73a2d0b84619d450d82_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "templates/partials/editor_pane.html",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 55,
+                  "endLine": 68,
+                  "snippet": {
+                    "text": "                    value: `{{ safe_content | safe }}`,"
+                  },
+                  "startColumn": 28,
+                  "startLine": 68
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Detected template variable interpolation in a JavaScript template string. This is potentially vulnerable to cross-site scripting (XSS) attacks because a malicious actor has control over JavaScript but without the need to use escaped characters. Instead, obtain this variable outside of the template string and ensure your template is properly escaped."
+          },
+          "properties": {},
+          "ruleId": "codacy.tools-configs.go.lang.security.audit.xss.no-interpolation-js-template-string.no-interpolation-js-template-string"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "Opengrep OSS",
+          "rules": null,
+          "semanticVersion": "1.16.4"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}
