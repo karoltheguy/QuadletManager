@@ -78,10 +78,24 @@ _WS_MOCK_INIT = """
 })();
 """
 
+# Block live SSE so stats_update events cannot overwrite the mock
+# runningContainersBySid data injected by _inject_prerequisites.
+_SSE_MOCK_INIT = """
+(function () {
+    window.EventSource = function (url) {
+        this.url = url;
+        this.readyState = 0; // CONNECTING
+        this.addEventListener = function () {};
+        this.close = function () {};
+    };
+})();
+"""
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _goto_or_skip(page: Page) -> None:
+    page.add_init_script(_SSE_MOCK_INIT)
     try:
         page.goto("http://localhost:8000/")
     except Exception:
