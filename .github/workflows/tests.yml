@@ -248,7 +248,7 @@ jobs:
   upload-coverage:
     name: Upload Coverage to Codacy
     needs: test-github
-    if: ${{ github.server_url == 'https://github.com' && (needs.test-github.result == 'success' || needs.test-github.result == 'failure') }}
+    if: ${{ always() && github.server_url == 'https://github.com' && (needs.test-github.result == 'success' || needs.test-github.result == 'failure') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -259,6 +259,13 @@ jobs:
         with:
           pattern: github-*-test-results
           path: coverage-reports
+
+      - name: List downloaded coverage files
+        run: |
+          echo "=== Downloaded coverage reports ==="
+          find coverage-reports -name "coverage.xml" -type f || echo "No coverage.xml files found"
+          echo "=== All downloaded files ==="
+          find coverage-reports -type f
 
       - name: Upload to Codacy
         uses: codacy/codacy-coverage-reporter-action@v1
