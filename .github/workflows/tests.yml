@@ -248,7 +248,7 @@ jobs:
   upload-coverage:
     name: Upload Coverage to Codacy
     needs: test-github
-    if: ${{ github.server_url == 'https://github.com' }}
+    if: ${{ github.server_url == 'https://github.com' && (needs.test-github.result == 'success' || needs.test-github.result == 'failure') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
