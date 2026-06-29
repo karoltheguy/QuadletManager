@@ -236,14 +236,15 @@ function el(tag, attrs, children) {
     var element = document.createElement(tag);
     if (attrs) {
         Object.keys(attrs).forEach(function(k) {
+            var val = Reflect.get(attrs, k);
             if (k === 'className') {
-                element.className = attrs[k];
-            } else if (k === 'style' && typeof attrs[k] === 'object') {
-                Object.keys(attrs[k]).forEach(function(sk) {
-                    element.style[sk] = attrs[k][sk];
+                element.className = val;
+            } else if (k === 'style' && typeof val === 'object') {
+                Object.keys(val).forEach(function(sk) {
+                    Reflect.set(element.style, sk, Reflect.get(val, sk));
                 });
             } else {
-                element.setAttribute(k, attrs[k]);
+                element.setAttribute(k, val);
             }
         });
     }
@@ -272,9 +273,9 @@ function sendNotification(title, body) {
 }
 
 function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
-    delete pendingStarts[watchId];
+    Reflect.deleteProperty(pendingStarts, watchId);
     
-    var running = runningContainersBySid[serverId] || new Set();
+    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
     var isRunning = false;
     running.forEach(function(name) {
         if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
@@ -293,10 +294,10 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
                 var doc = new window.DOMParser().parseFromString(html, 'text/html');
                 var lines = doc.body.textContent.split('\n');
                 var errorMsg = 'Unknown error';
-                for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i].trim();
-                    if (line.indexOf('Failed') !== -1 || line.indexOf('failed with') !== -1 || line.indexOf('error') !== -1) {
-                        errorMsg = line;
+                for (var line of lines) {
+                    var trimmed = line.trim();
+                    if (trimmed.indexOf('Failed') !== -1 || trimmed.indexOf('failed with') !== -1 || trimmed.indexOf('error') !== -1) {
+                        errorMsg = trimmed;
                         break;
                     }
                 }
@@ -338,15 +339,16 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
             manualStops.add(watchId);
         } else if (action === 'start' || action === 'restart') {
             manualStops.delete(watchId);
-            if (pendingStarts[watchId]) clearTimeout(pendingStarts[watchId].timer);
-            pendingStarts[watchId] = {
+            var pending = Reflect.get(pendingStarts, watchId);
+            if (pending) clearTimeout(pending.timer);
+            Reflect.set(pendingStarts, watchId, {
                 unit: unitName,
                 serverId: serverId,
                 scope: scope,
                 timer: setTimeout(function() {
                     checkQuadletStartup(watchId, stem, serverId, unitName, scope);
                 }, 5000)
-            };
+            });
         }
     }
 });
@@ -484,8 +486,8 @@ function updateInspectorStatsCard() {
         return;
     }
 
-    var serverStats = lastStatsPerServer[serverId];
-    var running = runningContainersBySid[serverId] || new Set();
+    var serverStats = Reflect.get(lastStatsPerServer, serverId);
+    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
 
     // Find matching container in stats data
     var matched = null;
@@ -643,8 +645,9 @@ window.setActiveServer = function(serverId) {
     if (window.activeServerId === serverId) return;
     window.activeServerId = serverId;
     // Re-render immediately with cached data for this server, if we have it.
-    if (lastStatsPerServer[serverId]) {
-        updateStats(lastStatsPerServer[serverId]);
+    var cached = Reflect.get(lastStatsPerServer, serverId);
+    if (cached) {
+        updateStats(cached);
         applyStatusDots(serverId);
     } else {
         // No data yet for this server – show a waiting message.
@@ -675,12 +678,12 @@ window.setActiveServer = function(serverId) {
  * @param {number} serverId
  */
 function applyStatusDots(serverId) {
-    var running = runningContainersBySid[serverId] || new Set();
-    var serverStats = lastStatsPerServer[serverId];
+    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
+    var serverStats = Reflect.get(lastStatsPerServer, serverId);
     var containersByName = {};
     if (serverStats) {
         (serverStats.containers || []).forEach(function(c) {
-            containersByName[(c.name || '').toLowerCase()] = c;
+            Reflect.set(containersByName, (c.name || '').toLowerCase(), c);
         });
     }
 
@@ -692,7 +695,8 @@ function applyStatusDots(serverId) {
         running.forEach(function(name) {
             if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
                 isRunning = true;
-                if (containersByName[name]) matchedContainer = containersByName[name];
+                var matched = Reflect.get(containersByName, name);
+                if (matched) matchedContainer = matched;
             }
         });
         dot.classList.remove('dot-running', 'dot-stopped', 'dot-failed');
@@ -900,11 +904,14 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
       var cpuDatasets = data.map(function(c, i) {
         var byTs = {};
-        c.history.forEach(function(p) { byTs[p.ts] = p.cpu !== null ? p.cpu : null; });
+        c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.cpu !== null ? p.cpu : null); });
         var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
         return {
           label: c.container_name,
-          data: tsSorted.map(function(ts) { return byTs[ts] !== undefined ? byTs[ts] : null; }),
+          data: tsSorted.map(function(ts) {
+            var val = Reflect.get(byTs, ts);
+            return val !== undefined ? val : null;
+          }),
           borderColor: color,
           backgroundColor: color.replace('1)', '0.08)'),
           borderWidth: 1.5,
@@ -916,11 +923,14 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
       var memDatasets = data.map(function(c, i) {
         var byTs = {};
-        c.history.forEach(function(p) { byTs[p.ts] = p.mem !== null ? p.mem : null; });
+        c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.mem !== null ? p.mem : null); });
         var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
         return {
           label: c.container_name,
-          data: tsSorted.map(function(ts) { return byTs[ts] !== undefined ? byTs[ts] : null; }),
+          data: tsSorted.map(function(ts) {
+            var val = Reflect.get(byTs, ts);
+            return val !== undefined ? val : null;
+          }),
           borderColor: color,
           backgroundColor: color.replace('1)', '0.08)'),
           borderWidth: 1.5,
@@ -1068,21 +1078,21 @@ function connectSSE() {
       if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
 
       // Cache the latest data for this server so we can switch to it instantly.
-      lastStatsPerServer[data.server_id] = data;
+      Reflect.set(lastStatsPerServer, data.server_id, data);
 
-      var oldSet = runningContainersBySid[data.server_id] || new Set();
+      var oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
 
       // Build / refresh the running-set for this server.
       var runningSet = new Set();
       (data.containers || []).forEach(function(c) {
         runningSet.add((c.name || '').toLowerCase());
       });
-      runningContainersBySid[data.server_id] = runningSet;
+      Reflect.set(runningContainersBySid, data.server_id, runningSet);
 
       // Accumulate all ever-seen containers for this server (used by summary strip).
-      var allSeen = allSeenContainersBySid[data.server_id] || new Set();
+      var allSeen = Reflect.get(allSeenContainersBySid, data.server_id) || new Set();
       runningSet.forEach(function(name) { allSeen.add(name); });
-      allSeenContainersBySid[data.server_id] = allSeen;
+      Reflect.set(allSeenContainersBySid, data.server_id, allSeen);
 
       // Detect spontaneously stopped containers
       oldSet.forEach(function(oldName) {
@@ -1313,8 +1323,9 @@ window.selectMonitoringServer = function(serverId) {
   window.activeServerId = numId;
 
   // Re-render with cached data for this server
-  if (lastStatsPerServer[numId]) {
-    updateMonitoringView(lastStatsPerServer[numId]);
+  var cached = Reflect.get(lastStatsPerServer, numId);
+  if (cached) {
+    updateMonitoringView(cached);
     loadMonitorCharts(window._monitorChartMinutes || 15);
   } else {
     // No data yet – show waiting message
@@ -1402,8 +1413,9 @@ function updateMonitoringView(data) {
 function applyContainerFilter(value) {
   monitorContainerFilter = (value || '').toLowerCase().trim();
   var serverId = window._monitoringServerId;
-  if (serverId && lastStatsPerServer[serverId]) {
-    updateMonitoringView(lastStatsPerServer[serverId]);
+  var cached = Reflect.get(lastStatsPerServer, serverId);
+  if (serverId && cached) {
+    updateMonitoringView(cached);
   }
 }
 window.applyContainerFilter = applyContainerFilter;
@@ -1411,7 +1423,7 @@ window.applyContainerFilter = applyContainerFilter;
 function updateSummaryStrip(data) {
   var containers = data.containers || [];
   var serverId = data.server_id;
-  var allSeen = allSeenContainersBySid[serverId] || new Set();
+  var allSeen = Reflect.get(allSeenContainersBySid, serverId) || new Set();
 
   var running = containers.length;
   var total = Math.max(allSeen.size, running);
@@ -1446,7 +1458,7 @@ function populateServerSelector() {
 
   // Add servers from the cached stats data
   Object.keys(lastStatsPerServer).forEach(function(serverId) {
-    var data = lastStatsPerServer[serverId];
+    var data = Reflect.get(lastStatsPerServer, serverId);
     var option = document.createElement('option');
     option.value = serverId;
     option.textContent = data.server_name || ('Server ' + serverId);
@@ -1464,7 +1476,8 @@ function populateServerSelector() {
     } catch {
       // Ignore localStorage restrictions
     }
-    if (savedServer && lastStatsPerServer[savedServer]) {
+    var cachedSaved = Reflect.get(lastStatsPerServer, savedServer);
+    if (savedServer && cachedSaved) {
       select.value = savedServer;
       selectMonitoringServer(savedServer);
     }
@@ -1587,7 +1600,7 @@ window.connectTerminal = function() {
         return;
     }
 
-    var running = runningContainersBySid[serverId] || new Set();
+    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
     var isRunning = false;
     var actualContainerName = null;
 
@@ -1634,7 +1647,8 @@ window.connectTerminal = function() {
 };
 
 function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
-    var serverName = (lastStatsPerServer[serverId] && lastStatsPerServer[serverId].server_name)
+    var cached = Reflect.get(lastStatsPerServer, serverId);
+    var serverName = (cached && cached.server_name)
         || ('srv-' + serverId);
     var label = serverName + ':' + containerName;
 
