@@ -1,50 +1,6 @@
 export default [
     {
-        ignores: ["**/venv/**", "**/node_modules/**", "**/static/xterm.min.js"]
-    },
-    {
         files: ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.mjs", "**/*.cjs", "**/*.vue"],
-        languageOptions: {
-            globals: {
-                // Browser Globals
-                window: "readonly",
-                document: "readonly",
-                localStorage: "readonly",
-                setTimeout: "readonly",
-                clearTimeout: "readonly",
-                console: "readonly",
-                fetch: "readonly",
-                Event: "readonly",
-                WebSocket: "readonly",
-                Notification: "readonly",
-                URLSearchParams: "readonly",
-                EventSource: "readonly",
-                getComputedStyle: "readonly",
-                parseInt: "readonly",
-
-                // Project-Specific & External Globals
-                htmx: "readonly",
-                Chart: "readonly",
-                Terminal: "readonly",
-                require: "readonly",
-                runningContainersBySid: "writable",
-                statsChart: "writable",
-                cpuHistoryChart: "writable",
-                memHistoryChart: "writable",
-                monitoringChart: "writable",
-                healthHistoryChart: "writable",
-                switchBottomTab: "writable",
-                openBottomPanel: "writable",
-                loadMonitorCharts: "writable",
-                applyChartTheme: "writable",
-                selectMonitoringServer: "writable",
-                switchTerminalTab: "writable",
-                closeTerminalTab: "writable",
-                tailLogsFromPanel: "writable",
-                connectTerminal: "writable",
-                monaco: "readonly"
-            }
-        },
         rules: {
           "valid-typeof": ["error", {"requireStringLiterals": false}],
           "use-isnan": ["error", {"enforceForIndexOf": false, "enforceForSwitchCase": true}],
