@@ -30,23 +30,28 @@ function restoreServerCollapseStates() {
     });
 }
 
-document.addEventListener('keydown', function(e) {
+function handleServerCollapseKey(e, li, sid) {
+    var key = e.key;
+    if (key === 'ArrowLeft' && !li.classList.contains('is-collapsed')) {
+        e.preventDefault();
+        window.toggleServerCollapse(sid);
+    } else if (key === 'ArrowRight' && li.classList.contains('is-collapsed')) {
+        e.preventDefault();
+        window.toggleServerCollapse(sid);
+    } else if (key === 'Enter' || key === ' ') {
+        e.preventDefault();
+        window.toggleServerCollapse(sid);
+    }
+}
+
+function handleGlobalKeydown(e) {
     var toggle = e.target.closest('.server-row-toggle');
     if (!toggle) return;
     var li = toggle.closest('li[data-server-id]');
     if (!li) return;
-    var sid = li.dataset.serverId;
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        if (!li.classList.contains('is-collapsed')) window.toggleServerCollapse(sid);
-    } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        if (li.classList.contains('is-collapsed')) window.toggleServerCollapse(sid);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        window.toggleServerCollapse(sid);
-    }
-});
+    handleServerCollapseKey(e, li, li.dataset.serverId);
+}
+document.addEventListener('keydown', handleGlobalKeydown);
 
 // ── Profile Menu ─────────────────────────────────────────
 function toggleProfileMenu(event) {
@@ -140,7 +145,7 @@ document.addEventListener('change', function(e) {
         if (txt) txt.value = e.target.value;
     }
 });
-document.addEventListener('input', function(e) {
+function handleGlobalInput(e) {
     if (!e.target.classList.contains('hex-input')) return;
     var val = e.target.value;
     if (/^#[0-9a-fA-F]{6}$/.test(val)) {
@@ -150,7 +155,8 @@ document.addEventListener('input', function(e) {
     } else {
         e.target.style.outline = '2px solid red';
     }
-});
+}
+document.addEventListener('input', handleGlobalInput);
 
 // ── Theme-updated HTMX trigger ────────────────────────────────────────────────
 document.body.addEventListener('theme-updated', function() {
@@ -959,6 +965,58 @@ function parsePercent(val) {
     return parseFloat(val) || 0;
 }
 
+function getPercentClass(val) {
+    if (val >= 80) return 'cell-danger';
+    if (val >= 60) return 'cell-warn';
+    return '';
+}
+
+function getHealthBadgeInfo(health) {
+    var h = health || '';
+    if (h === '') return { badgeClass: 'running', label: 'running' };
+    if (h === 'healthy') return { badgeClass: 'healthy', label: h };
+    return { badgeClass: 'unhealthy', label: h };
+}
+
+function renderContainerRow(c) {
+    var cpuClass = getPercentClass(parsePercent(c.cpu));
+    var memClass = getPercentClass(parsePercent(c.mem));
+    var badgeInfo = getHealthBadgeInfo(c.health);
+
+    var tr = document.createElement('tr');
+    tr.className = 'border-b';
+
+    var tdName = document.createElement('td');
+    tdName.className = 'text-left p-4 text-accent font-semibold';
+    tdName.textContent = c.name;
+    tr.appendChild(tdName);
+
+    var tdStatus = document.createElement('td');
+    tdStatus.className = 'p-4 text-left';
+    var badgeSpan = document.createElement('span');
+    badgeSpan.className = 'stat-badge ' + badgeInfo.badgeClass;
+    badgeSpan.textContent = badgeInfo.label;
+    tdStatus.appendChild(badgeSpan);
+    tr.appendChild(tdStatus);
+
+    var tdCpu = document.createElement('td');
+    tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
+    tdCpu.textContent = c.cpu;
+    tr.appendChild(tdCpu);
+
+    var tdMem = document.createElement('td');
+    tdMem.className = 'p-4 text-right' + (memClass ? ' ' + memClass : '');
+    tdMem.textContent = c.mem;
+    tr.appendChild(tdMem);
+
+    var tdNet = document.createElement('td');
+    tdNet.className = 'p-4 text-right net-io-cell';
+    tdNet.textContent = c.net_io;
+    tr.appendChild(tdNet);
+
+    return tr;
+}
+
 function renderContainerStatsTable(tableElId, data) {
     var tableEl = document.getElementById(tableElId);
     if (!tableEl) return;
@@ -1000,46 +1058,7 @@ function renderContainerStatsTable(tableElId, data) {
 
     var tbody = document.createElement('tbody');
     containers.forEach(function(c) {
-        var cpuVal = parsePercent(c.cpu);
-        var memVal = parsePercent(c.mem);
-        var cpuClass = cpuVal >= 80 ? 'cell-danger' : cpuVal >= 60 ? 'cell-warn' : '';
-        var memClass = memVal >= 80 ? 'cell-danger' : memVal >= 60 ? 'cell-warn' : '';
-
-        var health = c.health || '';
-        var badgeClass = health === '' ? 'running' : health === 'healthy' ? 'healthy' : 'unhealthy';
-        var badgeLabel = health === '' ? 'running' : health;
-
-        var tr = document.createElement('tr');
-        tr.className = 'border-b';
-
-        var tdName = document.createElement('td');
-        tdName.className = 'text-left p-4 text-accent font-semibold';
-        tdName.textContent = c.name;
-        tr.appendChild(tdName);
-
-        var tdStatus = document.createElement('td');
-        tdStatus.className = 'p-4 text-left';
-        var badgeSpan = document.createElement('span');
-        badgeSpan.className = 'stat-badge ' + badgeClass;
-        badgeSpan.textContent = badgeLabel;
-        tdStatus.appendChild(badgeSpan);
-        tr.appendChild(tdStatus);
-
-        var tdCpu = document.createElement('td');
-        tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
-        tdCpu.textContent = c.cpu;
-        tr.appendChild(tdCpu);
-
-        var tdMem = document.createElement('td');
-        tdMem.className = 'p-4 text-right' + (memClass ? ' ' + memClass : '');
-        tdMem.textContent = c.mem;
-        tr.appendChild(tdMem);
-
-        var tdNet = document.createElement('td');
-        tdNet.className = 'p-4 text-right net-io-cell';
-        tdNet.textContent = c.net_io;
-        tr.appendChild(tdNet);
-
+        var tr = renderContainerRow(c);
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -1066,84 +1085,80 @@ function updateStats(data) {
 }
 
 
+function isManualStop(serverId, oldName) {
+  var wasManual = false;
+  manualStops.forEach(function(manualKey) {
+    var parts = manualKey.split(':');
+    var mServerId = parseInt(parts[0], 10);
+    var mStem = parts[1];
+    if (mServerId === serverId && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
+      wasManual = true;
+    }
+  });
+  return wasManual;
+}
+
+function detectUnexpectedlyStopped(serverId, oldSet, runningSet) {
+  oldSet.forEach(function(oldName) {
+    if (!runningSet.has(oldName)) {
+      if (!isManualStop(serverId, oldName)) {
+        sendNotification('Alert', 'Quadlet container ' + oldName + ' stopped or failed unexpectedly');
+      }
+    }
+  });
+}
+
+function handleStatsUpdate(e) {
+  try {
+    var data = JSON.parse(e.data);
+    _statsReceived = true;
+    if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
+
+    Reflect.set(lastStatsPerServer, data.server_id, data);
+
+    var oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
+
+    var runningSet = new Set();
+    (data.containers || []).forEach(function(c) {
+      runningSet.add((c.name || '').toLowerCase());
+    });
+    Reflect.set(runningContainersBySid, data.server_id, runningSet);
+
+    var allSeen = Reflect.get(allSeenContainersBySid, data.server_id) || new Set();
+    runningSet.forEach(function(name) { allSeen.add(name); });
+    Reflect.set(allSeenContainersBySid, data.server_id, allSeen);
+
+    detectUnexpectedlyStopped(data.server_id, oldSet, runningSet);
+
+    applyStatusDots(data.server_id);
+
+    if (data.server_id === window._selectedContainerServerId) {
+      updateInspectorStatsCard();
+    }
+
+    if (window.activeServerId === null) {
+      window.activeServerId = data.server_id;
+    }
+
+    populateServerSelector();
+
+    if (data.server_id !== window.activeServerId) return;
+
+    var tableEl = document.getElementById('stats-table');
+    if (tableEl) tableEl.classList.remove('stats-error');
+    updateStats(data);
+    updateMonitoringView(data);
+  } catch (err) {
+    console.error('Stats parse error:', err);
+  }
+}
+
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
   var evtSource = new EventSource('/api/events');
 
   // Stats updates (every 5s from stats_engine)
-  evtSource.addEventListener('stats_update', function(e) {
-    try {
-      var data = JSON.parse(e.data);
-      // Mark that we have received at least one update
-      _statsReceived = true;
-      if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
-
-      // Cache the latest data for this server so we can switch to it instantly.
-      Reflect.set(lastStatsPerServer, data.server_id, data);
-
-      var oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
-
-      // Build / refresh the running-set for this server.
-      var runningSet = new Set();
-      (data.containers || []).forEach(function(c) {
-        runningSet.add((c.name || '').toLowerCase());
-      });
-      Reflect.set(runningContainersBySid, data.server_id, runningSet);
-
-      // Accumulate all ever-seen containers for this server (used by summary strip).
-      var allSeen = Reflect.get(allSeenContainersBySid, data.server_id) || new Set();
-      runningSet.forEach(function(name) { allSeen.add(name); });
-      Reflect.set(allSeenContainersBySid, data.server_id, allSeen);
-
-      // Detect spontaneously stopped containers
-      oldSet.forEach(function(oldName) {
-          if (!runningSet.has(oldName)) {
-              var wasManual = false;
-              manualStops.forEach(function(manualKey) {
-                  var parts = manualKey.split(':');
-                  var mServerId = parseInt(parts[0], 10);
-                  var mStem = parts[1];
-                  if (mServerId === data.server_id && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
-                      wasManual = true;
-                  }
-              });
-              if (!wasManual) {
-                  sendNotification('Alert', 'Quadlet container ' + oldName + ' stopped or failed unexpectedly');
-              }
-          }
-      });
-
-      // Update status dots for this server regardless of which server
-      // is "active" in the inspector – every server's tree is visible.
-      applyStatusDots(data.server_id);
-
-      // Update inspector stats card if this server's container is selected.
-      if (data.server_id === window._selectedContainerServerId) {
-        updateInspectorStatsCard();
-      }
-
-      // Auto-select the first server that reports in if nothing is selected yet.
-      if (window.activeServerId === null) {
-        window.activeServerId = data.server_id;
-      }
-
-      // Update server selector with new data
-      populateServerSelector();
-
-      // Only update the chart for the currently active server.
-      if (data.server_id !== window.activeServerId) return;
-
-      // Clear any error state when we successfully receive stats
-      var tableEl = document.getElementById('stats-table');
-      if (tableEl) tableEl.classList.remove('stats-error');
-      updateStats(data);
-      
-      // Also update monitoring view if it exists
-      updateMonitoringView(data);
-    } catch (err) {
-      console.error('Stats parse error:', err);
-    }
-  });
+  evtSource.addEventListener('stats_update', handleStatsUpdate);
 
   function createStatsErrorDOM(serverName, errorMsg) {
     return el('div', { className: 'p-4 text-danger' }, [
