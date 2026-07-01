@@ -1629,6 +1629,26 @@ window.switchBottomTab = function(pane) {
     }
 };
 
+function findActualRunningContainerName(running, stem) {
+    var actualName = null;
+    running.forEach(function(name) {
+        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+            actualName = name;
+        }
+    });
+    return actualName;
+}
+
+function getTerminalShellCommand() {
+    var shellSelect = document.getElementById('terminal-shell-select');
+    var shell = shellSelect ? shellSelect.value : 'bash';
+    if (shell === 'custom') {
+        var customInput = document.getElementById('terminal-custom-cmd-input');
+        return (customInput ? customInput.value.trim() : '') || 'bash';
+    }
+    return shell;
+}
+
 window.connectTerminal = function() {
     var stem = window._selectedContainerStem;
     var serverId = window._selectedContainerServerId;
@@ -1639,23 +1659,14 @@ window.connectTerminal = function() {
     }
 
     var running = Reflect.get(runningContainersBySid, serverId) || new Set();
-    var isRunning = false;
-    var actualContainerName = null;
+    var actualContainerName = findActualRunningContainerName(running, stem);
 
-    running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
-            isRunning = true;
-            actualContainerName = name;
-        }
-    });
-
-    if (!isRunning) {
+    if (!actualContainerName) {
         showTerminalMessage('Container must be running to open a terminal.');
         return;
     }
 
-    var containerName = actualContainerName || stem;
-    var tabKey = serverId + ':' + containerName;
+    var tabKey = serverId + ':' + actualContainerName;
 
     // Already open → just switch to it
     if (window._terminalTabs.has(tabKey)) {
@@ -1664,23 +1675,15 @@ window.connectTerminal = function() {
         return;
     }
 
-    var shellSelect = document.getElementById('terminal-shell-select');
-    var shell = shellSelect ? shellSelect.value : 'bash';
-    var cmd = shell;
-
-    if (shell === 'custom') {
-        var customInput = document.getElementById('terminal-custom-cmd-input');
-        cmd = (customInput ? customInput.value.trim() : '') || 'bash';
-        if (!cmd) {
-            showTerminalMessage('Enter a command first.');
-            return;
-        }
+    var cmd = getTerminalShellCommand();
+    if (!cmd) {
+        showTerminalMessage('Enter a command first.');
+        return;
     }
 
     openBottomPanel('terminal');
-
     loadFitAddon(function() {
-        createTerminalTab(tabKey, serverId, containerName, cmd, scope);
+        createTerminalTab(tabKey, serverId, actualContainerName, cmd, scope);
     });
 };
 
