@@ -1108,27 +1108,33 @@ function detectUnexpectedlyStopped(serverId, oldSet, runningSet) {
   });
 }
 
+function cacheServerStats(data) {
+  Reflect.set(lastStatsPerServer, data.server_id, data);
+
+  var oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
+
+  var runningSet = new Set();
+  (data.containers || []).forEach(function(c) {
+    runningSet.add((c.name || '').toLowerCase());
+  });
+  Reflect.set(runningContainersBySid, data.server_id, runningSet);
+
+  var allSeen = Reflect.get(allSeenContainersBySid, data.server_id) || new Set();
+  runningSet.forEach(function(name) { allSeen.add(name); });
+  Reflect.set(allSeenContainersBySid, data.server_id, allSeen);
+
+  return { oldSet: oldSet, runningSet: runningSet };
+}
+
 function handleStatsUpdate(e) {
   try {
     var data = JSON.parse(e.data);
     _statsReceived = true;
     if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
 
-    Reflect.set(lastStatsPerServer, data.server_id, data);
+    var sets = cacheServerStats(data);
 
-    var oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
-
-    var runningSet = new Set();
-    (data.containers || []).forEach(function(c) {
-      runningSet.add((c.name || '').toLowerCase());
-    });
-    Reflect.set(runningContainersBySid, data.server_id, runningSet);
-
-    var allSeen = Reflect.get(allSeenContainersBySid, data.server_id) || new Set();
-    runningSet.forEach(function(name) { allSeen.add(name); });
-    Reflect.set(allSeenContainersBySid, data.server_id, allSeen);
-
-    detectUnexpectedlyStopped(data.server_id, oldSet, runningSet);
+    detectUnexpectedlyStopped(data.server_id, sets.oldSet, sets.runningSet);
 
     applyStatusDots(data.server_id);
 
