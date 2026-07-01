@@ -1230,46 +1230,52 @@ function connectSSE() {
 let _statsReceived = false;
 let _statsWaitTimeout = null;
 
-window.switchTab = function(tabId) {
-localStorage.setItem('qm-active-tab', tabId);
-document.body.className = 'view-' + tabId;
-// Restore inspector-expanded class on containers tab if persisted
-if (tabId === 'containers' && localStorage.getItem('qm-inspector-expanded') === 'true') {
-document.body.classList.add('inspector-expanded');
-}
-syncInspectorToggleBtn();
-document.querySelectorAll('.nav-item').forEach(function(btn) {
-if (btn.innerText.toLowerCase() === tabId) {
-btn.classList.add('active');
-} else {
-btn.classList.remove('active');
-}
-});
-// Refresh SSH key dropdown when entering the settings view (Servers is the default section)
-if (tabId === 'settings') {
-refreshSshKeyDropdown();
-}
-// Show/restore bottom panel when entering containers view
-if (tabId === 'containers') {
-var panelOpen = localStorage.getItem('qm-bottom-panel-open');
-if (panelOpen !== '0') {
-openBottomPanel();
-}
-// Restore bottom-panel-expanded body class if panel is expanded (Issue #98)
-var panel = document.getElementById('bottom-panel');
-if (panel && panel.classList.contains('is-expanded')) {
-document.body.classList.add('bottom-panel-expanded');
-}
-}
-  // Trigger resize for Monaco
-  if (tabId === 'containers' && window.editor) {
+function handleContainersTabActivation() {
+  if (localStorage.getItem('qm-inspector-expanded') === 'true') {
+    document.body.classList.add('inspector-expanded');
+  }
+  var panelOpen = localStorage.getItem('qm-bottom-panel-open');
+  if (panelOpen !== '0') {
+    openBottomPanel();
+  }
+  var panel = document.getElementById('bottom-panel');
+  if (panel && panel.classList.contains('is-expanded')) {
+    document.body.classList.add('bottom-panel-expanded');
+  }
+  if (window.editor) {
     window.editor.layout();
   }
-  // Trigger resize for monitoring charts
-  if (tabId === 'monitor') {
-    if (cpuHistoryChart) cpuHistoryChart.resize();
-    if (memHistoryChart) memHistoryChart.resize();
-    loadMonitorCharts(window._monitorChartMinutes || 15);
+}
+
+function handleMonitorTabActivation() {
+  if (cpuHistoryChart) cpuHistoryChart.resize();
+  if (memHistoryChart) memHistoryChart.resize();
+  loadMonitorCharts(window._monitorChartMinutes || 15);
+}
+
+function updateNavItemActive(tabId) {
+  document.querySelectorAll('.nav-item').forEach(function(btn) {
+    if (btn.innerText.toLowerCase() === tabId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+window.switchTab = function(tabId) {
+  localStorage.setItem('qm-active-tab', tabId);
+  document.body.className = 'view-' + tabId;
+  syncInspectorToggleBtn();
+  updateNavItemActive(tabId);
+
+  if (tabId === 'settings') {
+    refreshSshKeyDropdown();
+  } else if (tabId === 'containers') {
+    // Restores bottom-panel-expanded body class if panel is expanded
+    handleContainersTabActivation();
+  } else if (tabId === 'monitor') {
+    handleMonitorTabActivation();
   }
 };
 
@@ -1313,44 +1319,20 @@ window.toggleInspectorExpand = function() {
 };
 
 // ── Monitoring Server Selector ────────────────────────────
-window.selectMonitoringServer = function(serverId) {
-  try {
-    localStorage.setItem('qm-monitor-server', serverId ? String(serverId) : '');
-  } catch {
-    // Ignore localStorage restrictions
-  }
-  var numId = parseInt(serverId, 10);
-  var emptyEl = document.getElementById('monitoring-empty-state');
-  var contentEl = document.getElementById('monitoring-content');
+function showMonitoringEmptyState(emptyEl, contentEl) {
+  if (emptyEl) emptyEl.style.display = '';
+  if (contentEl) contentEl.style.display = 'none';
+  var barEl = document.getElementById('monitor-stat-bar');
+  if (barEl) barEl.style.display = 'none';
+  window._monitoringServerId = null;
+}
 
-  if (!numId) {
-    if (emptyEl) emptyEl.style.display = '';
-    if (contentEl) contentEl.style.display = 'none';
-    var barEl = document.getElementById('monitor-stat-bar');
-    if (barEl) barEl.style.display = 'none';
-    window._monitoringServerId = null;
-    return;
-  }
-
-  if (emptyEl) emptyEl.style.display = 'none';
-  if (contentEl) contentEl.style.display = '';
-
-  // Reset filter when switching servers.
-  window._monitoringServerId = numId;
-  monitorContainerFilter = '';
-  var filterInput = document.getElementById('monitor-container-filter');
-  if (filterInput) filterInput.value = '';
-
-  if (window.activeServerId === numId) return;
-  window.activeServerId = numId;
-
-  // Re-render with cached data for this server
+function renderMonitoringServerStats(numId) {
   var cached = Reflect.get(lastStatsPerServer, numId);
   if (cached) {
     updateMonitoringView(cached);
     loadMonitorCharts(window._monitorChartMinutes || 15);
   } else {
-    // No data yet – show waiting message
     var tableEl = document.getElementById('monitoring-stats-table');
     if (tableEl) {
       tableEl.textContent = '';
@@ -1363,6 +1345,35 @@ window.selectMonitoringServer = function(serverId) {
       monitoringChart.update();
     }
   }
+}
+
+window.selectMonitoringServer = function(serverId) {
+  try {
+    localStorage.setItem('qm-monitor-server', serverId ? String(serverId) : '');
+  } catch {
+    // Ignore localStorage restrictions
+  }
+  var numId = parseInt(serverId, 10);
+  var emptyEl = document.getElementById('monitoring-empty-state');
+  var contentEl = document.getElementById('monitoring-content');
+
+  if (!numId) {
+    showMonitoringEmptyState(emptyEl, contentEl);
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = '';
+
+  window._monitoringServerId = numId;
+  monitorContainerFilter = '';
+  var filterInput = document.getElementById('monitor-container-filter');
+  if (filterInput) filterInput.value = '';
+
+  if (window.activeServerId === numId) return;
+  window.activeServerId = numId;
+
+  renderMonitoringServerStats(numId);
 };
 
 function updateMonitoringView(data) {
@@ -1548,6 +1559,15 @@ window.openBottomPanel = function(tab) {
     }
 };
 
+function fitActiveTerminal() {
+    var key = window._activeTerminalTabKey;
+    if (!key) return;
+    var session = window._terminalTabs.get(key);
+    if (session && session.fitAddon) {
+        session.fitAddon.fit();
+    }
+}
+
 window.toggleBottomPanel = function() {
     var panel = document.getElementById('bottom-panel');
     if (!panel) return;
@@ -1558,11 +1578,7 @@ window.toggleBottomPanel = function() {
     if (handle) handle.classList.toggle('hidden', isCollapsed);
     localStorage.setItem('qm-bottom-panel-open', isCollapsed ? '0' : '1');
     if (!isCollapsed) {
-        var key = window._activeTerminalTabKey;
-        if (key) {
-            var session = window._terminalTabs.get(key);
-            if (session && session.fitAddon) session.fitAddon.fit();
-        }
+        fitActiveTerminal();
     }
 };
 
@@ -1791,24 +1807,23 @@ window.switchTerminalTab = function(key) {
     }
 };
 
-window.closeTerminalTab = function(key) {
-    var session = window._terminalTabs.get(key);
-    if (!session) return;
-
+function disposeTerminalSession(session) {
     if (session.ws && session.ws.readyState !== WebSocket.CLOSED) {
         session.ws.close();
     }
     try { session.term.dispose(); } catch { /* xterm may throw if initialized on a hidden element */ }
+}
 
+function removeTerminalDOM(session) {
     if (session.tabEl && session.tabEl.parentNode) {
         session.tabEl.parentNode.removeChild(session.tabEl);
     }
     if (session.paneEl && session.paneEl.parentNode) {
         session.paneEl.parentNode.removeChild(session.paneEl);
     }
+}
 
-    window._terminalTabs.delete(key);
-
+function handleClosedTabFallback(key) {
     if (window._terminalTabs.size === 0) {
         var tabsEl = document.getElementById('terminal-conn-tabs');
         if (tabsEl) tabsEl.classList.remove('has-tabs');
@@ -1818,6 +1833,17 @@ window.closeTerminalTab = function(key) {
     } else if (window._activeTerminalTabKey === key) {
         switchTerminalTab(window._terminalTabs.keys().next().value);
     }
+}
+
+window.closeTerminalTab = function(key) {
+    var session = window._terminalTabs.get(key);
+    if (!session) return;
+
+    disposeTerminalSession(session);
+    removeTerminalDOM(session);
+
+    window._terminalTabs.delete(key);
+    handleClosedTabFallback(key);
 };
 
 window.disconnectTerminal = function() {
