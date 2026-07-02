@@ -1,0 +1,102 @@
+{
+  "summary": {
+    "languageCount": 11,
+    "fileCount": 139,
+    "enabledPatterns": { "before": 2081, "after": 2537 },
+    "enabledTools": { "before": 14, "after": 16 },
+    "issues": { "before": 53, "after": 58 },
+    "issuesByCategory": {
+      "BestPractice": { "before": 4, "after": 4 },
+      "Complexity": { "before": 26, "after": 25 },
+      "ErrorProne": { "before": 2, "after": 1 },
+      "Security": { "before": 21, "after": 23 },
+      "CodeStyle": { "before": 0, "after": 5 }
+    },
+    "issuesBySeverity": {
+      "Critical": { "before": 6, "after": 6 },
+      "High": { "before": 10, "after": 11 },
+      "Medium": { "before": 33, "after": 32 },
+      "Minor": { "before": 4, "after": 9 }
+    }
+  },
+  "toolChanges": [
+    {
+      "toolName": "PMD",
+      "action": "disabled",
+      "reason": "Java-focused linter (103 patterns) on a repository with no Java code — confirmed 0 issues at baseline. Pure wrong-stack noise; replaced in coverage by PMD7's much smaller, actually-relevant ruleset.",
+      "patternsAffected": 103
+    },
+    {
+      "toolName": "ESLint",
+      "action": "disabled",
+      "reason": "Legacy ESLint 8 (.eslintrc-style). Project's package.json declares eslint ^10.6.0, and there is no .eslintrc/.eslintrc.* in the repo, so ESLint9 (flat-config, closer version match) supersedes it. Kept only ESLint9 to avoid running two overlapping JS/TS linters.",
+      "patternsAffected": 166
+    },
+    {
+      "toolName": "Prospector",
+      "action": "disabled",
+      "reason": "Duplicative Python meta-linter wrapper — its findings (bandit/pycodestyle/mccabe checks) overlap with the standalone Bandit and Pylint tools already enabled. Only unique output was a single mccabe complexity hit, already covered by Lizard.",
+      "patternsAffected": 4
+    },
+    {
+      "toolName": "Ruff",
+      "action": "enabled",
+      "reason": "New tool added for Python (fast, modern linter) as part of the stack-tailored config. Note: the repo has a committed .codacy/generated/Ruff/ruff.toml, so Codacy Cloud runs this tool in Configuration File mode — only 3 patterns are actually cloud-managed; the rest are governed by that file (see conflicts).",
+      "patternsAffected": 87
+    },
+    {
+      "toolName": "ESLint9",
+      "action": "enabled",
+      "reason": "Flat-config ESLint matching the project's actual eslint devDependency version. Same Configuration File caveat as Ruff applies: the repo has a committed .codacy/tools-configs/eslint.config.mjs, so only 3 patterns are cloud-managed.",
+      "patternsAffected": 194
+    },
+    {
+      "toolName": "Spectral",
+      "action": "enabled",
+      "reason": "New tool for YAML/JSON schema linting, part of the stack-tailored auto config.",
+      "patternsAffected": 45
+    },
+    {
+      "toolName": "Checkov",
+      "action": "enabled",
+      "reason": "New Infrastructure-as-Code security scanner covering the repo's Dockerfile and YAML/compose files — expands security coverage into IaC misconfigurations, an area the prior 14-tool config had no dedicated tool for.",
+      "patternsAffected": 1208
+    },
+    {
+      "toolName": "PMD7",
+      "action": "enabled",
+      "reason": "Newer PMD engine, but only 4 patterns actually apply to this stack (1 ECMAScript error-prone rule, 1 XML rule; the other 2 are Maven/pom-specific and irrelevant but harmless at 0 matches). Replaces the old Java-heavy PMD tool.",
+      "patternsAffected": 4
+    }
+  ],
+  "patternChanges": [
+    {
+      "patternId": "Ruff_E402_module-import-not-at-top-of-file",
+      "toolName": "Ruff",
+      "action": "updated",
+      "reason": "Attempted to disable (Info severity, pure CodeStyle, 5 instances of intentional late imports in main.py/script_stats.py) but rejected with 409 — Ruff runs in Configuration File mode for this repo. See conflicts.",
+      "deltaIssues": 5,
+      "parameters": []
+    }
+  ],
+  "recommendedPathsToIgnore": [],
+  "keyImprovements": [
+    "Removed 3 tools that were pure noise or redundant: PMD (103 Java-only patterns, 0 relevant issues on this Python/JS repo), legacy ESLint 8 (166 patterns, superseded by ESLint9 which matches the project's actual eslint ^10.6.0 dependency), and Prospector (4 patterns duplicating Bandit/Pylint/Lizard findings).",
+      "Trimmed Semgrep from 1605 to 895 enabled patterns by removing ~710 patterns for languages entirely absent from the repo (Java, Ruby, Go, Scala, Kotlin, C#, PHP, Rust, Clojure, Swift, Elixir, Apex) — zero issue-count impact since none of those ever matched, but a large reduction in scan surface and future noise risk.",
+    "Added Checkov (IaC security scanner) for the repo's Dockerfile/YAML — genuinely new security coverage the prior config lacked.",
+    "4 new legitimate JavaScript/JSON Security findings surfaced from Semgrep's expanded selection (incomplete sanitization before use, insecure Object.assign, insecure WebSocket usage, risky npm dependency version ranges) — kept per security-caution guidance rather than cut just to shrink the headline count.",
+    "This pass was only possible because the repo's 'Default coding standard' was unlinked mid-session — before that, every one of the 14 previously-enabled tools and their patterns were locked (enabledBy the standard), and all repo-level changes would have been rejected with 409."
+  ],
+  "conflicts": [
+    {
+      "toolName": "Ruff",
+      "conflict": "ConfigurationFile",
+      "reason": "Repo has a committed .codacy/generated/Ruff/ruff.toml, so Codacy Cloud defers to it instead of cloud-managed patterns. Blocked attempt: disabling Ruff_E402_module-import-not-at-top-of-file (5 Info-severity CodeStyle issues). To reduce this noise, edit ruff.toml directly (or remove it from the repo if it isn't meant to be authoritative) rather than through Codacy."
+    },
+    {
+      "toolName": "ESLint9",
+      "conflict": "ConfigurationFile",
+      "reason": "Repo has a committed .codacy/tools-configs/eslint.config.mjs, so Codacy Cloud defers to it instead of cloud-managed patterns; only 3 patterns remain cloud-configurable. No noise was found needing changes here this pass, but any future ESLint9 pattern tuning must go through that file, not the Codacy UI/API."
+    }
+  ]
+}

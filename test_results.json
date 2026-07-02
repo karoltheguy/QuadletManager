@@ -1,15 +1,15 @@
 {
   "metadata": {
-    "startedAt": "2026-06-30T02:04:00.024Z",
-    "completedAt": "2026-06-30T02:04:36.292Z",
-    "durationMs": 36268,
+    "startedAt": "2026-07-01T19:13:16.994Z",
+    "completedAt": "2026-07-01T19:13:41.613Z",
+    "durationMs": 24619,
     "repositoryRoot": "/home/carol/development/QuadletManager",
     "executionMode": "standard",
     "phaseTimings": {
-      "availabilityMs": 6358,
-      "fileDiscoveryMs": 17,
-      "fileRoutingMs": 6,
-      "toolExecutionMs": 29618,
+      "availabilityMs": 2647,
+      "fileDiscoveryMs": 12,
+      "fileRoutingMs": 11,
+      "toolExecutionMs": 21771,
       "installMs": 0
     }
   },
@@ -152,14 +152,14 @@
       }
     ],
     "unavailable": [],
-    "checkedAt": "2026-06-30T02:04:06.648Z"
+    "checkedAt": "2026-07-01T19:13:19.814Z"
   },
   "issues": [
     {
       "filePath": "static/main.js",
       "patternId": "Semgrep_javascript.lang.security.audit.incomplete-sanitization.incomplete-sanitization",
       "toolId": "Semgrep",
-      "line": 957,
+      "line": 963,
       "column": 27,
       "endColumn": 47,
       "message": "`val.replace` method will only replace the first occurrence when used with a string argument ('%'). If this method is used for escaping of dangerous data then there is a possibility for a bypass. Try to use sanitization library instead or use a Re...",
@@ -171,7 +171,7 @@
       "filePath": "static/main.js",
       "patternId": "Semgrep_javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket",
       "toolId": "Semgrep",
-      "line": 2294,
+      "line": 2344,
       "column": 72,
       "endColumn": 77,
       "message": "Insecure WebSocket Detected. WebSocket Secure (wss) should be used for all WebSocket connections.",
@@ -183,7 +183,7 @@
       "filePath": "static/main.js",
       "patternId": "ESLint9_@lwc_lwc_no-inner-html",
       "toolId": "ESLint9",
-      "line": 573,
+      "line": 579,
       "column": 20,
       "endColumn": 29,
       "message": "Using 'innerHTML/outputHTML/insertAdjacentHTML' is not allowed",
@@ -195,7 +195,7 @@
       "filePath": "static/main.js",
       "patternId": "ESLint9_@lwc_lwc_no-inner-html",
       "toolId": "ESLint9",
-      "line": 624,
+      "line": 630,
       "column": 20,
       "endColumn": 29,
       "message": "Using 'innerHTML/outputHTML/insertAdjacentHTML' is not allowed",
@@ -207,7 +207,7 @@
       "filePath": "static/main.js",
       "patternId": "ESLint9_@lwc_lwc_no-inner-html",
       "toolId": "ESLint9",
-      "line": 966,
+      "line": 1024,
       "column": 13,
       "endColumn": 22,
       "message": "Using 'innerHTML/outputHTML/insertAdjacentHTML' is not allowed",
@@ -219,7 +219,7 @@
       "filePath": "static/main.js",
       "patternId": "ESLint9_@lwc_lwc_no-inner-html",
       "toolId": "ESLint9",
-      "line": 2244,
+      "line": 2294,
       "column": 15,
       "endColumn": 24,
       "message": "Using 'innerHTML/outputHTML/insertAdjacentHTML' is not allowed",
@@ -229,12 +229,12 @@
     },
     {
       "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
+      "patternId": "Lizard_nloc-medium",
       "toolId": "Lizard",
-      "line": 33,
+      "line": 148,
       "column": 1,
-      "endLine": 49,
-      "message": "(anonymous) has a cyclomatic complexity of 9 (threshold: 8)",
+      "endLine": 646,
+      "message": "handleGlobalInput has a NLOC of 498 (threshold: 50)",
       "lineContent": "",
       "category": "Complexity",
       "severity": "Warning"
@@ -243,21 +243,9 @@
       "filePath": "static/main.js",
       "patternId": "Lizard_nloc-medium",
       "toolId": "Lizard",
-      "line": 143,
+      "line": 723,
       "column": 1,
-      "endLine": 640,
-      "message": "(anonymous) has a NLOC of 497 (threshold: 50)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_nloc-medium",
-      "toolId": "Lizard",
-      "line": 717,
-      "column": 1,
-      "endLine": 787,
+      "endLine": 793,
       "message": "buildBarChartConfig has a NLOC of 71 (threshold: 50)",
       "lineContent": "",
       "category": "Complexity",
@@ -265,83 +253,11 @@
     },
     {
       "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1002,
-      "column": 1,
-      "endLine": 1044,
-      "message": "(anonymous) has a cyclomatic complexity of 11 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1074,
-      "column": 1,
-      "endLine": 1146,
-      "message": "(anonymous) has a cyclomatic complexity of 10 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1212,
-      "column": 1,
-      "endLine": 1253,
-      "message": "window.switchTab has a cyclomatic complexity of 14 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1295,
-      "column": 1,
-      "endLine": 1345,
-      "message": "window.selectMonitoringServer has a cyclomatic complexity of 15 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1530,
-      "column": 1,
-      "endLine": 1546,
-      "message": "window.toggleBottomPanel has a cyclomatic complexity of 9 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1595,
-      "column": 1,
-      "endLine": 1648,
-      "message": "window.connectTerminal has a cyclomatic complexity of 13 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
       "patternId": "Lizard_nloc-medium",
       "toolId": "Lizard",
-      "line": 1650,
+      "line": 1690,
       "column": 1,
-      "endLine": 1755,
+      "endLine": 1795,
       "message": "createTerminalTab has a NLOC of 54 (threshold: 50)",
       "lineContent": "",
       "category": "Complexity",
@@ -351,21 +267,9 @@
       "filePath": "static/main.js",
       "patternId": "Lizard_ccn-medium",
       "toolId": "Lizard",
-      "line": 1773,
+      "line": 1883,
       "column": 1,
-      "endLine": 1800,
-      "message": "window.closeTerminalTab has a cyclomatic complexity of 13 (threshold: 8)",
-      "lineContent": "",
-      "category": "Complexity",
-      "severity": "Warning"
-    },
-    {
-      "filePath": "static/main.js",
-      "patternId": "Lizard_ccn-medium",
-      "toolId": "Lizard",
-      "line": 1833,
-      "column": 1,
-      "endLine": 1841,
+      "endLine": 1891,
       "message": "(anonymous) has a cyclomatic complexity of 12 (threshold: 8)",
       "lineContent": "",
       "category": "Complexity",
@@ -375,9 +279,9 @@
       "filePath": "static/main.js",
       "patternId": "Lizard_ccn-medium",
       "toolId": "Lizard",
-      "line": 2035,
+      "line": 2085,
       "column": 1,
-      "endLine": 2078,
+      "endLine": 2128,
       "message": "(anonymous) has a cyclomatic complexity of 9 (threshold: 8)",
       "lineContent": "",
       "category": "Complexity",
@@ -389,7 +293,7 @@
       "toolId": "Lizard",
       "line": 1,
       "column": 1,
-      "message": "File has 2081 lines of code (threshold: 500)",
+      "message": "File has 2138 lines of code (threshold: 500)",
       "lineContent": "",
       "category": "Complexity",
       "severity": "Warning"
@@ -441,7 +345,7 @@
       "status": "success",
       "issueCount": 0,
       "errorCount": 0,
-      "durationMs": 14964,
+      "durationMs": 8357,
       "filesAnalyzed": 1
     },
     {
@@ -449,7 +353,7 @@
       "status": "success",
       "issueCount": 2,
       "errorCount": 0,
-      "durationMs": 10081,
+      "durationMs": 10112,
       "filesAnalyzed": 1
     },
     {
@@ -457,15 +361,15 @@
       "status": "success",
       "issueCount": 4,
       "errorCount": 1,
-      "durationMs": 3106,
+      "durationMs": 1997,
       "filesAnalyzed": 1
     },
     {
       "toolId": "Lizard",
       "status": "success",
-      "issueCount": 14,
+      "issueCount": 6,
       "errorCount": 0,
-      "durationMs": 125,
+      "durationMs": 115,
       "filesAnalyzed": 1
     },
     {
@@ -473,7 +377,7 @@
       "status": "success",
       "issueCount": 0,
       "errorCount": 4,
-      "durationMs": 1327,
+      "durationMs": 1185,
       "filesAnalyzed": 1
     }
   ],
@@ -539,17 +443,6 @@
         "categoryLabel": "Complexity",
         "patterns": [
           {
-            "patternId": "Lizard_ccn-medium",
-            "title": "Enforce Medium Cyclomatic Complexity Threshold",
-            "toolId": "Lizard",
-            "toolDisplayName": "Lizard",
-            "category": "Complexity",
-            "severity": "Warning",
-            "issueCount": 10,
-            "fileCount": 1,
-            "noisy": false
-          },
-          {
             "patternId": "Lizard_nloc-medium",
             "title": "Enforce Medium Number of Lines of Code (NLOC) Limit",
             "toolId": "Lizard",
@@ -557,6 +450,17 @@
             "category": "Complexity",
             "severity": "Warning",
             "issueCount": 3,
+            "fileCount": 1,
+            "noisy": false
+          },
+          {
+            "patternId": "Lizard_ccn-medium",
+            "title": "Enforce Medium Cyclomatic Complexity Threshold",
+            "toolId": "Lizard",
+            "toolDisplayName": "Lizard",
+            "category": "Complexity",
+            "severity": "Warning",
+            "issueCount": 2,
             "fileCount": 1,
             "noisy": false
           },
@@ -572,11 +476,11 @@
             "noisy": false
           }
         ],
-        "totalIssues": 14,
+        "totalIssues": 6,
         "totalPatterns": 3
       }
     ],
-    "totalIssues": 20,
+    "totalIssues": 12,
     "totalPatterns": 6,
     "noisyPatternCount": 0,
     "noisyThreshold": 500
