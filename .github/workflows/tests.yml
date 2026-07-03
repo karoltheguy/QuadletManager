@@ -17,6 +17,8 @@ jobs:
     name: GitHub / ${{ matrix.suite }}
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     strategy:
       fail-fast: false
@@ -105,6 +107,7 @@ jobs:
           '
 
       - name: Run ${{ matrix.suite }} tests
+        id: run_tests
         env:
           QUADLET_MASTER_KEY: ${{ env.QUADLET_MASTER_KEY }}
         run: |
@@ -134,6 +137,51 @@ jobs:
         with:
           name: github-${{ matrix.suite }}-test-results
           path: test-results/
+
+      - name: Update badge
+        if: ${{ always() && github.ref == 'refs/heads/main' && contains(fromJson('["unit","integration","e2e"]'), matrix.suite) }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUITE: ${{ matrix.suite }}
+          OUTCOME: ${{ steps.run_tests.outcome }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$OUTCOME" = "success" ]; then
+            COLOR="brightgreen"; MESSAGE="passing"
+          elif [ "$OUTCOME" = "failure" ]; then
+            COLOR="red"; MESSAGE="failing"
+          else
+            COLOR="lightgrey"; MESSAGE="unknown"
+          fi
+
+          JSON=$(jq -n --arg label "$SUITE" --arg message "$MESSAGE" --arg color "$COLOR" \
+            '{schemaVersion:1, label:$label, message:$message, color:$color}')
+          CONTENT_B64=$(printf '%s' "$JSON" | base64 -w0)
+          API="https://api.github.com/repos/${REPO}/contents/${SUITE}.json"
+
+          for i in 1 2 3 4 5; do
+            SHA=$(curl -sf -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
+              "${API}?ref=badges" | jq -r '.sha // empty' || true)
+
+            BODY=$(jq -n --arg message "Update ${SUITE} badge" --arg content "$CONTENT_B64" --arg branch "badges" --arg sha "$SHA" \
+              'if $sha == "" then {message:$message, content:$content, branch:$branch} else {message:$message, content:$content, branch:$branch, sha:$sha} end')
+
+            HTTP_CODE=$(curl -s -o /tmp/badge-resp.json -w "%{http_code}" -X PUT \
+              -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
+              "${API}" -d "$BODY")
+
+            if [ "$HTTP_CODE" -lt 300 ]; then
+              echo "Badge updated (attempt $i)"
+              break
+            fi
+
+            echo "Attempt $i failed with HTTP $HTTP_CODE, retrying..."
+            cat /tmp/badge-resp.json
+            if [ "$i" -eq 5 ]; then
+              echo "::warning::Failed to update ${SUITE} badge after 5 attempts"
+            fi
+            sleep $((i * 2))
+          done
 
   # ==========================================
   # FORGEJO RUNNER
