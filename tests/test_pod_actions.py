@@ -210,6 +210,30 @@ async def test_pod_action_rejects_invalid_action():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
+async def test_pod_action_invalid_action_escapes_html():
+    """Reflecting an invalid action back to the client must escape HTML (CWE-79)."""
+    from api.routes import api_pod_action
+
+    mock_request = MagicMock()
+    malicious_action = '<script>alert(1)</script>'
+    response = await api_pod_action(
+        request=mock_request,
+        server_id=1,
+        action=malicious_action,
+        pod_name='kestra',
+        scope='global',
+        role='editor'
+    )
+    assert response.status_code == 400
+    body = response.body.decode()
+    assert '<script>' not in body, \
+        f"Response must not reflect raw <script> tag, got: {body}"
+    assert '&lt;script&gt;' in body, \
+        f"Expected escaped script tag in response, got: {body}"
+
+
+@pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @pytest.mark.unit
 async def test_pod_action_user_scope_no_sudo(mock_exec):

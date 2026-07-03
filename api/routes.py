@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse,
 from typing import Optional
 from fastapi.templating import Jinja2Templates
 import hashlib
+import html
 from argon2 import PasswordHasher, exceptions
 import json
 import re
@@ -521,7 +522,7 @@ async def api_pod_action(
         return HTMLResponse("Permission denied", status_code=403)
 
     if action not in ("start", "stop", "restart"):
-        return HTMLResponse(f"Invalid pod action: {action}", status_code=400)
+        return HTMLResponse(f"Invalid pod action: {html.escape(action)}", status_code=400)
 
     use_sudo = (scope == 'global')
     safe_pod_name = shlex.quote(pod_name)
