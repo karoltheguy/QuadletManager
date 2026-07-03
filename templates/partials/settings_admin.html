@@ -1,0 +1,17 @@
+<div id="admin-root">
+  <div class="form-row">
+    <label class="form-label">Session duration</label>
+    <select class="form-control" name="session_duration_seconds"
+            hx-put="/api/settings/session-duration"
+            hx-target="#admin-root"
+            hx-swap="outerHTML"
+            hx-include="this">
+      {% for seconds, label in duration_choices %}
+      <option value="{{ seconds }}" {% if seconds == current_seconds %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if saved %}
+  <p class="text-success">Session duration updated.</p>
+  {% endif %}
+</div>

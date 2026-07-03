@@ -36,6 +36,14 @@ SESSION_SECRET = secrets.token_hex(32)
 
 SESSION_DURATION_SETTING_KEY = "session_duration_seconds"
 SESSION_DURATION_CHOICES = (3600, 86400, 604800, 2592000, 7776000, 31536000)  # 1h/1d/1wk/1mo/3mo/1yr
+SESSION_DURATION_LABELS = (
+    (3600, "1 hour"),
+    (86400, "1 day"),
+    (604800, "1 week"),
+    (2592000, "1 month"),
+    (7776000, "3 months"),
+    (31536000, "1 year"),
+)
 
 # Mutable at runtime via PUT /api/settings/session-duration; seeded from config.yaml's
 # session_timeout (or its 3600 default) until a value is persisted to the settings table.
@@ -782,9 +790,25 @@ async def settings_reorder_servers(
     return response
 
 
-# ── General Settings ──────────────────────────────────────
+# ── Admin Settings ─────────────────────────────────────────
+@router.get("/api/settings/session-duration", response_class=HTMLResponse)
+async def settings_get_session_duration(
+    request: Request,
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+
+    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+        "current_seconds": _session_duration_seconds,
+        "duration_choices": SESSION_DURATION_LABELS,
+        "saved": False,
+    })
+
+
 @router.put("/api/settings/session-duration", response_class=HTMLResponse)
 async def settings_update_session_duration(
+    request: Request,
     session_duration_seconds: int = Form(...),
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
@@ -795,7 +819,11 @@ async def settings_update_session_duration(
         raise HTTPException(status_code=400, detail="Invalid session duration.")
 
     await _persist_session_duration(session_duration_seconds)
-    return HTMLResponse("<p class='text-success'>Session duration updated.</p>")
+    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+        "current_seconds": _session_duration_seconds,
+        "duration_choices": SESSION_DURATION_LABELS,
+        "saved": True,
+    })
 
 
 # ── User Management ───────────────────────────────────────

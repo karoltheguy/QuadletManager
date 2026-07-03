@@ -176,6 +176,12 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           Themes
         </button>
+        {% if is_admin %}
+        <button class="settings-sidenav-item" data-section="admin" onclick="showSettingsSection('admin')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+          Admin
+        </button>
+        {% endif %}
       </nav>
 
       <div id="settings-sidenav-resize-handle" class="resize-handle" aria-hidden="true"></div>
@@ -348,10 +354,25 @@
           </div>
         </div>
 
+        <!-- ADMIN (admin only) -->
+        {% if is_admin %}
+        <div class="settings-group" data-group="admin" style="display:none">
+          <div class="settings-section full-width">
+            <h3 class="section-title mb-4">Instance Settings</h3>
+            <div id="admin-root"
+                 hx-get="/api/settings/session-duration"
+                 hx-trigger="load"
+                 hx-swap="outerHTML">
+              <p class="text-muted">Loading...</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
       </div><!-- /.settings-main -->
     </div><!-- /.settings-layout -->
   </div>
-        
+
         <div id="editor-pane" class="main-content">
             <div class="header-bar">
                 <h2 class="panel-title">Editor</h2>

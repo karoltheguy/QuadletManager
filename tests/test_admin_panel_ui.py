@@ -200,6 +200,22 @@ def test_viewer_non_admin_does_not_see_admin_sections():
     assert 'hx-post="/api/keys"' not in html
 
 
+@pytest.mark.unit
+def test_admin_sees_admin_tab_and_session_duration_section():
+    """Admin users must see the Admin sidenav tab and session duration control (issue #124)."""
+    html = _render_dashboard(is_admin=True, user_role='editor')
+    assert 'data-section="admin"' in html
+    assert 'hx-get="/api/settings/session-duration"' in html
+
+
+@pytest.mark.unit
+def test_non_admin_does_not_see_admin_tab_or_session_duration_section():
+    """Non-admin users must NOT see the Admin sidenav tab or session duration control."""
+    html = _render_dashboard(is_admin=False, user_role='editor')
+    assert 'data-section="admin"' not in html
+    assert 'hx-get="/api/settings/session-duration"' not in html
+
+
 # =============================================================================
 # settings_servers partial: Remove button visibility
 # =============================================================================

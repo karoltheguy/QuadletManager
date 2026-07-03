@@ -97,6 +97,16 @@ def test_session_duration_requires_admin(client):
 
 
 @pytest.mark.unit
+def test_session_duration_get_requires_admin(client):
+    cookie = _login(client, is_admin=False)
+    response = client.get(
+        "/api/settings/session-duration",
+        cookies={"qm_session": cookie},
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.unit
 def test_session_duration_rejects_invalid_value(client):
     cookie = _login(client, is_admin=True)
     response = client.put(
