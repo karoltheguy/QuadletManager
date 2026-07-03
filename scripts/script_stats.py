@@ -1,8 +1,11 @@
 import asyncio
 import logging
+import os
 import sys
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.stats_engine import fetch_server_stats
 from core.events_manager import publisher

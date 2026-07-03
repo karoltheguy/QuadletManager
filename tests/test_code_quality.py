@@ -9,10 +9,10 @@ def test_code_quality_pylint():
     """
     target_paths = [
         "services/systemd_manager.py",
-        "script_ssh.py",
+        "scripts/script_ssh.py",
         "services/sync_engine.py",
         "api/routes.py",
-        "import_servers.py",
+        "scripts/import_servers.py",
         "tests/",
     ]
     

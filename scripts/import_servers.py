@@ -2,6 +2,9 @@ import asyncio
 import json
 import subprocess
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.database import get_db_connection
 from core.crypto import encrypt_private_key

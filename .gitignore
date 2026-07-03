@@ -21,4 +21,8 @@ node_modules/
 .github/instructions/codacy.instructions.md
 test-results/
 test_results.json
+.coverage
+codacy_results.sarif
+lizard_results.json
+lizard_results.sarif
 
