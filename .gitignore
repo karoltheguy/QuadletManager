@@ -25,4 +25,5 @@ test_results.json
 codacy_results.sarif
 lizard_results.json
 lizard_results.sarif
+coverage/lcov.info
 
