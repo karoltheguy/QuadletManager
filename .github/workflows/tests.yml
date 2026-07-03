@@ -190,6 +190,8 @@ jobs:
     name: Forgejo / ${{ matrix.suite }}
     if: ${{ github.server_url != 'https://github.com' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     container:
       image: ghcr.io/catthehacker/ubuntu:act-latest
@@ -318,6 +320,8 @@ jobs:
     needs: test-github
     if: ${{ always() && github.server_url == 'https://github.com' && (needs.test-github.result == 'success' || needs.test-github.result == 'failure') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
