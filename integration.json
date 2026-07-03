@@ -1,1 +1,6 @@
-{"schemaVersion":1,"label":"integration","message":"pending","color":"lightgrey"}
+{
+  "schemaVersion": 1,
+  "label": "integration",
+  "message": "passing",
+  "color": "brightgreen"
+}
