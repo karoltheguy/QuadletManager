@@ -1,6 +1,5 @@
 # QuadletManager
 
-![Tests](https://github.com/karoltheguy/QuadletManager/actions/workflows/tests.yml/badge.svg)
 ![Unit Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/karoltheguy/QuadletManager/badges/unit.json)
 ![Integration Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/karoltheguy/QuadletManager/badges/integration.json)
 ![E2E Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/karoltheguy/QuadletManager/badges/e2e.json)
