@@ -79,7 +79,8 @@ def test_api_systemctl_status_exception(client):
         mock_action.side_effect = Exception("Status Error")
         response = client.get("/api/systemctl/status/1?unit=test&scope=user", follow_redirects=False)
         assert response.status_code == 200
-        assert "Status Error" in response.text
+        assert "Status Error" not in response.text
+        assert "Failed to get status" in response.text
 
 @pytest.mark.unit
 def test_api_systemctl_post_exception(client):
@@ -88,6 +89,7 @@ def test_api_systemctl_post_exception(client):
         # Action needs to be start/stop/restart/status, role is editor by default for TestClient if we mock it? Wait, we're not mocking auth here, but TestClient with dev_auto_login=True uses 'editor'.
         response = client.post("/api/systemctl/1", params={"action": "start", "unit": "test", "scope": "user"}, follow_redirects=False)
         assert response.status_code == 200
+        assert "Action Error" not in response.text
         assert "Action failed" in response.text
 
 @pytest.mark.unit
@@ -96,6 +98,7 @@ def test_api_pod_action_exception(client):
         mock_exec.side_effect = Exception("Pod Error")
         response = client.post("/api/pod-action/1", params={"action": "start", "pod_name": "test", "scope": "user"}, follow_redirects=False)
         assert response.status_code == 200
+        assert "Pod Error" not in response.text
         assert "Pod action failed" in response.text
 
 @pytest.mark.unit
@@ -104,6 +107,7 @@ def test_api_activity_exception(client):
         mock_act.side_effect = Exception("Activity Error")
         response = client.get("/api/activity/1?container=test", follow_redirects=False)
         assert response.status_code == 500
+        assert "Activity Error" not in response.text
         assert "Failed to fetch activity" in response.text
 
 @pytest.mark.unit

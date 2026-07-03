@@ -48,7 +48,8 @@ async def test_systemctl_action_failure_not_allowed(mock_pool):
 async def test_systemctl_action_failure_allowed(mock_pool):
     mock_pool.execute_command.side_effect = Exception("ssh failed")
     res = await systemctl_action(1, "start", "nginx.service", allow_failure=True)
-    assert "(warning: ssh failed)" in res
+    assert "ssh failed" not in res
+    assert "(warning:" in res
 
 @pytest.mark.asyncio
 @pytest.mark.unit

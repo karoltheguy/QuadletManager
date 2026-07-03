@@ -480,7 +480,8 @@ async def api_systemctl_status(server_id: int, unit: str, scope: str):
         output = await systemctl_action(server_id, "status", unit, scope)
         return HTMLResponse(output)
     except Exception as e:
-        return HTMLResponse(str(e))
+        logger.error(f"Error fetching systemctl status: {e}")
+        return HTMLResponse("Failed to get status")
 
 @router.post("/api/systemctl/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_post(
@@ -507,7 +508,8 @@ async def api_systemctl_post(
 
         return HTMLResponse(output)
     except Exception as e:
-        return HTMLResponse(f"Action failed: {str(e)}")
+        logger.error(f"Systemctl action '{action}' failed: {e}")
+        return HTMLResponse("Action failed")
 
 @router.post("/api/pod-action/{server_id}", response_class=HTMLResponse)
 async def api_pod_action(
@@ -538,7 +540,8 @@ async def api_pod_action(
 
         return HTMLResponse(output)
     except Exception as e:
-        return HTMLResponse(f"Pod action failed: {str(e)}")
+        logger.error(f"Pod action '{action}' failed: {e}")
+        return HTMLResponse("Pod action failed")
 
 @router.get("/api/events")
 async def sse_events(request: Request):
@@ -552,7 +555,8 @@ async def get_activity(server_id: int, container: str, limit: int = 10, role: st
         events = await get_container_activity(server_id, container, limit=limit)
         return {"events": events}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch activity: {str(e)}")
+        logger.error(f"Failed to fetch activity: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch activity")
 
 @router.get("/api/modal/new", response_class=HTMLResponse)
 async def new_file_modal(request: Request, server_id: int | None = None, role: str = Depends(get_current_user_role)):

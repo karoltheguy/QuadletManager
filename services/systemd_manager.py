@@ -35,7 +35,7 @@ async def systemctl_action(server_id: int, action: str, unit_name: str, scope: s
     except Exception as e:
         if allow_failure:
             logger.warning(f"Systemctl action '{action}' finished with non-zero exit (allow_failure=True): {e}")
-            return f"(warning: {e})"
+            return "(warning: action did not complete cleanly, see server logs)"
         logger.error(f"Systemctl action failed: {e}")
         # Re-raise to let the API handle the HTTP 500
         raise
