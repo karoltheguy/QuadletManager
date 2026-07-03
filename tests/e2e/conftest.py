@@ -45,9 +45,12 @@ def seed_e2e_database_if_empty():
             if in_docker:
                 subprocess.run(docker_compose_cmd + ["exec", "-T", "quadlet-manager", "python", "scripts/seed_test_db.py"], check=False)
             else:
-                # Fallback to local python execution for local testing
+                # Fallback to local python execution for local testing.
+                # Must match core/database.py's DATABASE_PATH default, since the
+                # locally-running app was not started with Docker's /data layout.
                 script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/seed_test_db.py"))
-                subprocess.run(["python", script_path], check=False)
+                seed_env = {**os.environ, "QUADLET_DB_PATH": os.environ.get("QUADLET_DB_PATH", "quadlets.db")}
+                subprocess.run(["python", script_path], check=False, env=seed_env)
     except ImportError:
         # Fallback if filelock isn't available
         try:
@@ -55,7 +58,8 @@ def seed_e2e_database_if_empty():
                 subprocess.run(docker_compose_cmd + ["exec", "-T", "quadlet-manager", "python", "scripts/seed_test_db.py"], check=False)
             else:
                 script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/seed_test_db.py"))
-                subprocess.run(["python", script_path], check=False)
+                seed_env = {**os.environ, "QUADLET_DB_PATH": os.environ.get("QUADLET_DB_PATH", "quadlets.db")}
+                subprocess.run(["python", script_path], check=False, env=seed_env)
         except Exception:
             pass
     except Exception:
