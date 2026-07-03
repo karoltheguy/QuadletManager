@@ -16,7 +16,7 @@ def client():
 @pytest.fixture
 def mock_db_login():
     with patch("api.routes.get_db_connection") as mock_conn:
-        pwd_hash = hashlib.sha256(b"password123").hexdigest()
+        pwd_hash = PasswordHasher().hash("password123")
         
         class MockCursor:
             async def __aenter__(self):
@@ -112,12 +112,12 @@ def test_invalid_session_cookie(client):
     assert resp.headers["location"] == "/login"
 
 @pytest.mark.unit
-def test_login_upgrades_sha256_to_argon2(client, mock_db_login):
-    # The mock_db_login sets up a user with a SHA256 hash.
-    # When this user logs in successfully, the application should upgrade the hash to Argon2.
+def test_login_rejects_legacy_sha256_hash(client):
+    # A user row still holding a legacy SHA256 hash (pre-Argon2 migration) must be
+    # rejected, not silently upgraded — the SHA256 fallback has been removed.
     with patch("api.routes.get_db_connection") as mock_conn:
         pwd_hash = hashlib.sha256(b"password123").hexdigest()
-        
+
         class MockCursor:
             async def __aenter__(self):
                 return self
@@ -132,30 +132,21 @@ def test_login_upgrades_sha256_to_argon2(client, mock_db_login):
 
         mock_cursor = MockCursor()
         mock_db = MagicMock()
-        
+
         def _mock_execute(query, *args):
-            # Store the query for assertion later
             mock_db.last_query = query
             mock_db.last_args = args
             return mock_cursor
-            
+
         mock_db.execute = MagicMock(side_effect=_mock_execute)
         mock_db.commit = AsyncMock()
-        
+
         @asynccontextmanager
         async def _mock_conn():
             yield mock_db
-            
+
         mock_conn.side_effect = _mock_conn
-        
+
         response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
-        assert response.status_code == 303
-        
-        # Verify that an UPDATE query was executed
-        assert hasattr(mock_db, "last_query")
-        assert "UPDATE users SET password_hash" in mock_db.last_query
-        
-        # Verify the new hash is a valid Argon2 hash
-        new_hash = mock_db.last_args[0][0]
-        ph = PasswordHasher()
-        assert ph.verify(new_hash, "password123")
+        assert response.status_code == 401
+        assert "Invalid username or password" in response.text

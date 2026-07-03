@@ -225,34 +225,17 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     
     ph = PasswordHasher()
     credentials_valid = False
-    needs_upgrade = False
-    
+
     try:
         ph.verify(stored_hash, password)
         credentials_valid = True
-    except exceptions.VerifyMismatchError:
+    except (exceptions.VerifyMismatchError, exceptions.InvalidHashError):
         pass
-    except exceptions.InvalidHashError:
-        # Fallback to legacy SHA256
-        current_hash = hashlib.sha256(password.encode()).hexdigest()
-        if secrets.compare_digest(current_hash, stored_hash):
-            credentials_valid = True
-            needs_upgrade = True
 
     if not credentials_valid:
         return templates.TemplateResponse(request, "login.html", {
             "error": "Invalid username or password"
         }, status_code=401)
-        
-    if needs_upgrade:
-        # Upgrade hash in database
-        new_hash = ph.hash(password)
-        async with get_db_connection() as update_db:
-            await update_db.execute(
-                "UPDATE users SET password_hash = ? WHERE username = ?",
-                (new_hash, username)
-            )
-            await update_db.commit()
 
     # Credentials valid – set session cookie and redirect to dashboard
     response = RedirectResponse(url="/", status_code=303)
