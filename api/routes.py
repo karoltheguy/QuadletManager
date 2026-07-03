@@ -33,7 +33,13 @@ templates = Jinja2Templates(directory="templates")
 # ── Session Configuration ─────────────────────────────────
 # Secret key for signing session cookies
 SESSION_SECRET = secrets.token_hex(32)
-SESSION_MAX_AGE = 3600  # 1 hour
+
+SESSION_DURATION_SETTING_KEY = "session_duration_seconds"
+SESSION_DURATION_CHOICES = (3600, 86400, 604800, 2592000, 7776000, 31536000)  # 1h/1d/1wk/1mo/3mo/1yr
+
+# Mutable at runtime via PUT /api/settings/session-duration; seeded from config.yaml's
+# session_timeout (or its 3600 default) until a value is persisted to the settings table.
+_session_duration_seconds = global_config.session_timeout
 
 serializer = URLSafeTimedSerializer(SESSION_SECRET)
 
@@ -48,9 +54,35 @@ def _create_session_cookie(username: str, role: str, is_admin: bool = False) -> 
 def _read_session_cookie(cookie_value: str) -> dict | None:
     """Read and validate a signed session cookie. Returns None if invalid."""
     try:
-        return serializer.loads(cookie_value, max_age=SESSION_MAX_AGE)
+        return serializer.loads(cookie_value, max_age=_session_duration_seconds)
     except (BadSignature, SignatureExpired):
         return None
+
+
+async def _load_session_duration_from_db() -> None:
+    """Hydrate the in-memory session duration from the persisted setting, if any."""
+    global _session_duration_seconds
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT value FROM settings WHERE key = ?", (SESSION_DURATION_SETTING_KEY,)
+        ) as cursor:
+            row = await cursor.fetchone()
+    if row:
+        _session_duration_seconds = int(row[0])
+
+
+async def _persist_session_duration(seconds: int) -> None:
+    """Persist the session duration to the settings table and update the in-memory value."""
+    global _session_duration_seconds
+    async with get_db_connection() as db:
+        async with db.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (SESSION_DURATION_SETTING_KEY, str(seconds)),
+        ):
+            pass
+        await db.commit()
+    _session_duration_seconds = seconds
 
 
 async def _get_session(request: Request) -> dict:
@@ -227,7 +259,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     response.set_cookie(
         key=COOKIE_NAME,
         value=_create_session_cookie(username, role, is_admin),
-        max_age=SESSION_MAX_AGE,
+        max_age=_session_duration_seconds,
         httponly=True,
         samesite="lax",
     )
@@ -765,6 +797,22 @@ async def settings_reorder_servers(
     response = await settings_list_servers(request, role, is_admin=True)
     response.headers["HX-Trigger"] = "reload-servers"
     return response
+
+
+# ── General Settings ──────────────────────────────────────
+@router.put("/api/settings/session-duration", response_class=HTMLResponse)
+async def settings_update_session_duration(
+    session_duration_seconds: int = Form(...),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    if session_duration_seconds not in SESSION_DURATION_CHOICES:
+        raise HTTPException(status_code=400, detail="Invalid session duration.")
+
+    await _persist_session_duration(session_duration_seconds)
+    return HTMLResponse("<p class='text-success'>Session duration updated.</p>")
 
 
 # ── User Management ───────────────────────────────────────
