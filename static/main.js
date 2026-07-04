@@ -960,7 +960,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
 function parsePercent(val) {
     if (typeof val === 'string') {
-        return parseFloat(val.replace('%', '')) || 0;
+        return parseFloat(val.replace(/%/g, '')) || 0;
     }
     return parseFloat(val) || 0;
 }
@@ -1388,7 +1388,7 @@ function updateMonitoringView(data) {
       })
     : allContainers;
 
-  var filteredData = Object.assign({}, data, { containers: containers });
+  var filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers };
 
   // Append the latest SSE data point to the live time-series charts.
   if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
@@ -2341,6 +2341,10 @@ window.toggleLogs = function(serverId, unitName, scope) {
     if (btn) btn.innerText = 'Stop Logs';
     if (btn) { btn.classList.remove('btn-primary'); btn.classList.add('is-tailing'); }
 
+    // ws:// fallback is intentional: this app supports non-TLS deployments (e.g. internal
+    // networks) with no reverse proxy/cert in front of it. Forcing wss:// unconditionally
+    // would break log streaming for those setups since there's no TLS to terminate against.
+    // Accepted risk for non-TLS deployments — see #161.
     const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
     _currentLogMeta = { serverId: serverId, unitName: unitName, scope: scope };
     currentLogSocket = new WebSocket(wsUrl);
