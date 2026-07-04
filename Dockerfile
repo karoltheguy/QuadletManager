@@ -21,7 +21,9 @@ COPY services/ services/
 COPY templates/ templates/
 COPY static/ static/
 
-RUN mkdir -p /data
+RUN mkdir -p /data && \
+    groupadd -r appuser && useradd -r -g appuser -d /app appuser && \
+    chown -R appuser:appuser /app /data
 
 ENV QUADLET_CONFIG_PATH=/data/config.yaml
 ENV QUADLET_DB_PATH=/data/quadlets.db
@@ -29,5 +31,7 @@ ENV QUADLET_DB_PATH=/data/quadlets.db
 EXPOSE 8000
 
 VOLUME /data
+
+USER appuser
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

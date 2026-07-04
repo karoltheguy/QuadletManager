@@ -6,6 +6,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test.systemd
+    # privileged is required here: this container boots real systemd as PID 1
+    # (jrei/systemd-ubuntu) to simulate a remote host for integration tests, which
+    # needs elevated cgroup/mount-namespace access to function. Test-only, never
+    # exposed to untrusted input, never runs in production. Accepted risk — see #159.
     privileged: true
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
