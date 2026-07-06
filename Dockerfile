@@ -24,7 +24,12 @@ COPY static/ static/
 
 RUN mkdir -p /data && \
     groupadd -r appuser && useradd -r -g appuser -d /app appuser && \
-    chown -R appuser:appuser /app /data
+    chown -R appuser:appuser /app /data && \
+    apt-get update && apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
@@ -35,6 +40,8 @@ EXPOSE 8000
 
 VOLUME /data
 
-USER appuser
-
+# Container starts as root so the entrypoint can fix /data ownership on
+# volumes left over from older images, then drops to appuser via gosu
+# before the app itself ever runs. See #162.
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
