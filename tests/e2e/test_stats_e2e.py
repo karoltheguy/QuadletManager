@@ -45,7 +45,12 @@ def test_stats_update_received(page: Page):
 
 @pytest.mark.e2e
 def test_log_streaming_ui(page: Page):
-    """Test that clicking Tail Logs changes button state and activates log streaming"""
+    """Test that clicking Tail Logs opens a log chip and streams content into its pane.
+
+    Issue #123: the header button is create-or-switch only (mirrors the terminal
+    Connect button) — it no longer toggles to "Stop Logs". Stopping a tail is done
+    by closing its chip in the shared sessions strip.
+    """
     try:
         page.goto("http://localhost:8000/")
     except Exception:
@@ -71,24 +76,22 @@ def test_log_streaming_ui(page: Page):
     btn = page.locator("#toggle-logs-btn")
     expect(btn).to_have_text("Tail Logs")
 
-    # Click Tail Logs — this also opens the bottom log panel
+    # Click Tail Logs — this also opens the bottom log panel and creates a chip
     btn.click()
 
-    # Button text should change to "Stop Logs"
-    expect(btn).to_have_text("Stop Logs")
+    expect(page.locator(".log-conn-tab")).to_have_count(1)
+    expect(btn).to_have_text("Tail Logs")
 
-    # Log output is written to #log-stream (inside the bottom panel)
-    # Wait for it to contain something beyond "Waiting for log output..."
-    log_div = page.locator("#log-stream")
+    # Log output streams into the active tab's .log-stream pane.
+    # Wait for it to contain something beyond "Connecting to log stream..."
     page.wait_for_function(
-        "document.querySelector('#log-stream') && "
-        "document.querySelector('#log-stream').textContent.trim() !== '' && "
-        "document.querySelector('#log-stream').textContent !== 'Waiting for log output...'",
+        "document.querySelector('.log-tab-pane:not(.hidden) .log-stream') && "
+        "document.querySelector('.log-tab-pane:not(.hidden) .log-stream').textContent.trim() !== '' && "
+        "document.querySelector('.log-tab-pane:not(.hidden) .log-stream').textContent !== 'Connecting to log stream...'",
         timeout=5000,
     )
 
-    # Click Stop Logs
-    btn.click()
-    expect(btn).to_have_text("Tail Logs")
-    # stopLogs() appends "--- Stopped ---" to #log-stream
-    expect(log_div).to_contain_text("--- Stopped ---")
+    # Close the chip — this stops the underlying WebSocket.
+    page.locator(".log-conn-tab-close").click()
+    expect(page.locator(".log-conn-tab")).to_have_count(0, timeout=5000)
+    expect(page.locator("#log-empty-hint")).to_be_visible()

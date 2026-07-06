@@ -1524,6 +1524,15 @@ function loadFitAddon(callback) {
     callback();
 }
 
+// Sessions strip (#terminal-conn-tabs) is shared by terminal and log chips, so its
+// .has-tabs visibility must reflect both maps, not just whichever kind changed.
+function refreshSessionsStripVisibility() {
+    var tabsEl = document.getElementById('terminal-conn-tabs');
+    if (!tabsEl) return;
+    var hasAny = window._terminalTabs.size > 0 || window._logTabs.size > 0;
+    tabsEl.classList.toggle('has-tabs', hasAny);
+}
+
 function hideTerminalSection() {
     // Terminals are user-managed; auto-closing on deselect removed.
 }
@@ -1828,14 +1837,13 @@ function removeTerminalDOM(session) {
 
 function handleClosedTabFallback(key) {
     if (window._terminalTabs.size === 0) {
-        var tabsEl = document.getElementById('terminal-conn-tabs');
-        if (tabsEl) tabsEl.classList.remove('has-tabs');
         var hint = document.getElementById('terminal-empty-hint');
         if (hint) hint.style.display = '';
         window._activeTerminalTabKey = null;
     } else if (window._activeTerminalTabKey === key) {
         switchTerminalTab(window._terminalTabs.keys().next().value);
     }
+    refreshSessionsStripVisibility();
 }
 
 window.closeTerminalTab = function(key) {
@@ -2089,12 +2097,12 @@ initResizableHandles();
     } catch {
         // Ignore localStorage restrictions or parsing errors
     }
-    if (!pending || (pending.terminals.length === 0 && !pending.logTail)) return;
+    if (!pending || (pending.terminals.length === 0 && (!pending.logTails || pending.logTails.length === 0))) return;
     localStorage.removeItem('qm-pending-reconnect');
 
     var parts = [];
     if (pending.terminals.length > 0) parts.push(pending.terminals.length + ' terminal' + (pending.terminals.length > 1 ? 's' : ''));
-    if (pending.logTail) parts.push('1 log tail');
+    if (pending.logTails && pending.logTails.length > 0) parts.push(pending.logTails.length + ' log tail' + (pending.logTails.length > 1 ? 's' : ''));
 
     var banner = el('div', { id: 'reconnect-banner', className: 'reconnect-banner' }, [
         el('span', { className: 'reconnect-banner-msg' }, 'You had ' + parts.join(' and ') + ' open before the last reload.'),
@@ -2111,8 +2119,13 @@ initResizableHandles();
 
     document.getElementById('reconnect-yes-btn').addEventListener('click', function() {
         banner.remove();
-        if (pending.logTail) {
-            window.toggleLogs(pending.logTail.serverId, pending.logTail.unitName, pending.logTail.scope);
+        if (pending.logTails && pending.logTails.length > 0) {
+            openBottomPanel('logs');
+            pending.logTails.forEach(function(l) {
+                if (!window._logTabs.has(l.tabKey)) {
+                    createLogTab(l.tabKey, l.serverId, l.unitName, l.scope);
+                }
+            });
         }
         if (pending.terminals.length > 0) {
             openBottomPanel('terminal');
@@ -2309,88 +2322,165 @@ window.executeDeleteFile = async function(serverId, path, scope) {
 };
 
 // ── Real-time Logs WebSocket ─────────────────────────────
-let currentLogSocket = null;
-let _currentLogMeta = null;  // { serverId, unitName, scope } while a tail is active
+window._logTabs = new Map();   // tabKey → { ws, logDiv, tabEl, paneEl, serverId, unitName, scope }
+window._activeLogTabKey = null;
+
+function showLogMessage(msg) {
+    var hint = document.getElementById('log-empty-hint');
+    if (hint) {
+        hint.textContent = msg;
+        hint.style.display = '';
+        setTimeout(function() {
+            if (hint.textContent === msg) {
+                hint.textContent = 'Click "Tail Logs" to start streaming a container\'s logs';
+            }
+        }, 3000);
+    }
+}
 
 window.tailLogsFromPanel = function() {
     var stem = window._selectedContainerStem;
     var serverId = window._selectedContainerServerId;
     var scope = window._selectedContainerScope || 'global';
     if (!stem || !serverId) {
-        var logDiv = document.getElementById('log-stream');
-        if (logDiv) logDiv.textContent = 'Select a container from the sidebar first.';
-        return;
-    }
-    window.toggleLogs(serverId, stem + '.service', scope);
-};
-
-window.toggleLogs = function(serverId, unitName, scope) {
-    let logDiv = document.getElementById('log-stream');
-    let btn = document.getElementById('toggle-logs-btn');
-
-    if (currentLogSocket) {
-        stopLogs();
+        showLogMessage('Select a container from the sidebar first.');
         return;
     }
 
-    // Open bottom panel to logs tab
+    var unitName = stem + '.service';
+    var tabKey = 'log:' + serverId + ':' + unitName;
+
     openBottomPanel('logs');
 
-    if (logDiv) logDiv.textContent = 'Connecting to log stream...\n';
+    // Already open → just switch to it, mirroring connectTerminal's dedupe-and-switch.
+    if (window._logTabs.has(tabKey)) {
+        switchLogTab(tabKey);
+        return;
+    }
 
-    if (btn) btn.innerText = 'Stop Logs';
-    if (btn) { btn.classList.remove('btn-primary'); btn.classList.add('is-tailing'); }
+    createLogTab(tabKey, serverId, unitName, scope);
+};
 
+function createLogTab(tabKey, serverId, unitName, scope) {
+    var cached = Reflect.get(lastStatsPerServer, serverId);
+    var serverName = (cached && cached.server_name) || ('srv-' + serverId);
+    var label = serverName + ':' + unitName.replace(/\.service$/, '');
+
+    // ── Chip ──────────────────────────────────────
+    var tabEl = document.createElement('button');
+    tabEl.className = 'log-conn-tab';
+    tabEl.dataset.key = tabKey;
+    tabEl.setAttribute('title', label);
+
+    var labelSpan = document.createElement('span');
+    labelSpan.className = 'log-conn-tab-label';
+    labelSpan.textContent = label;
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'log-conn-tab-close';
+    closeBtn.setAttribute('aria-label', 'Close ' + label);
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeLogTab(tabKey);
+    });
+
+    tabEl.appendChild(labelSpan);
+    tabEl.appendChild(closeBtn);
+    tabEl.addEventListener('click', function() { switchLogTab(tabKey); });
+
+    var tabsEl = document.getElementById('terminal-conn-tabs');
+    if (tabsEl) {
+        tabsEl.appendChild(tabEl);
+        tabsEl.classList.add('has-tabs');
+    }
+
+    // ── Log pane ──────────────────────────────────
+    var paneEl = document.createElement('div');
+    paneEl.className = 'log-tab-pane hidden';
+    paneEl.dataset.key = tabKey;
+
+    var logDiv = document.createElement('div');
+    logDiv.className = 'log-stream';
+    logDiv.textContent = 'Connecting to log stream...\n';
+    paneEl.appendChild(logDiv);
+
+    var bodyEl = document.getElementById('log-tabs-body');
+    if (bodyEl) bodyEl.appendChild(paneEl);
+
+    var hint = document.getElementById('log-empty-hint');
+    if (hint) hint.style.display = 'none';
+
+    window._logTabs.set(tabKey, { logDiv: logDiv, tabEl: tabEl, paneEl: paneEl, serverId: serverId, unitName: unitName, scope: scope });
+    switchLogTab(tabKey);
+
+    // ── WebSocket ───────────────────────────────────────
     // ws:// fallback is intentional: this app supports non-TLS deployments (e.g. internal
     // networks) with no reverse proxy/cert in front of it. Forcing wss:// unconditionally
     // would break log streaming for those setups since there's no TLS to terminate against.
     // Accepted risk for non-TLS deployments — see #161.
-    const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
-    _currentLogMeta = { serverId: serverId, unitName: unitName, scope: scope };
-    currentLogSocket = new WebSocket(wsUrl);
+    var wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
+    var ws = new WebSocket(wsUrl);
 
-    currentLogSocket.onmessage = function(event) {
-        if (logDiv) {
-            logDiv.appendChild(document.createTextNode(event.data));
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
+    ws.onmessage = function(event) {
+        logDiv.appendChild(document.createTextNode(event.data));
+        logDiv.scrollTop = logDiv.scrollHeight;
     };
 
-    currentLogSocket.onclose = function() {
-        if (currentLogSocket) {
-            if (logDiv) logDiv.textContent += '\n--- Log stream disconnected ---\n';
-            currentLogSocket = null;
-            if (btn) btn.innerText = 'Tail Logs';
-            if (btn) { btn.classList.remove('is-tailing'); btn.classList.add('btn-primary'); }
-        }
+    ws.onclose = function() {
+        logDiv.appendChild(document.createTextNode('\n--- Log stream disconnected ---\n'));
+        tabEl.classList.add('is-disconnected');
     };
 
-    currentLogSocket.onerror = function(err) {
+    ws.onerror = function(err) {
         console.error('WebSocket Error:', err);
-        if (logDiv) logDiv.textContent += '\n--- Error connecting to log stream ---\n';
+        logDiv.appendChild(document.createTextNode('\n--- Error connecting to log stream ---\n'));
     };
+
+    window._logTabs.set(tabKey, { ws: ws, logDiv: logDiv, tabEl: tabEl, paneEl: paneEl, serverId: serverId, unitName: unitName, scope: scope });
+}
+
+window.switchLogTab = function(key) {
+    window._activeLogTabKey = key;
+
+    document.querySelectorAll('.log-conn-tab').forEach(function(el) {
+        el.classList.toggle('is-active', el.dataset.key === key);
+    });
+    document.querySelectorAll('.log-tab-pane').forEach(function(el) {
+        el.classList.toggle('hidden', el.dataset.key !== key);
+    });
 };
 
-function stopLogs() {
-    if (currentLogSocket) {
-        currentLogSocket.send('STOP');
-        currentLogSocket.close();
-        currentLogSocket = null;
-        _currentLogMeta = null;
+function handleClosedLogTabFallback(key) {
+    if (window._logTabs.size === 0) {
+        var hint = document.getElementById('log-empty-hint');
+        if (hint) hint.style.display = '';
+        window._activeLogTabKey = null;
+    } else if (window._activeLogTabKey === key) {
+        switchLogTab(window._logTabs.keys().next().value);
     }
-    var btn = document.getElementById('toggle-logs-btn');
-    if (btn) {
-        btn.innerText = 'Tail Logs';
-        btn.classList.remove('is-tailing');
-        btn.classList.add('btn-primary');
-    }
-    var logDiv = document.getElementById('log-stream');
-    if (logDiv) logDiv.textContent += '\n--- Stopped ---\n';
+    refreshSessionsStripVisibility();
 }
+
+window.closeLogTab = function(key) {
+    var session = window._logTabs.get(key);
+    if (!session) return;
+
+    if (session.ws && session.ws.readyState !== WebSocket.CLOSED) {
+        session.ws.send('STOP');
+        session.ws.close();
+    }
+    if (session.tabEl && session.tabEl.parentNode) session.tabEl.parentNode.removeChild(session.tabEl);
+    if (session.paneEl && session.paneEl.parentNode) session.paneEl.parentNode.removeChild(session.paneEl);
+
+    window._logTabs.delete(key);
+    handleClosedLogTabFallback(key);
+};
 
 // ── Session Save / Reload / Reconnect ────────────────────
 function saveActiveSessionsToStorage() {
-    var sessions = { terminals: [], logTail: null };
+    var sessions = { terminals: [], logTails: [] };
     window._terminalTabs.forEach(function(session, tabKey) {
         if (session.serverId && session.containerName) {
             sessions.terminals.push({
@@ -2402,10 +2492,15 @@ function saveActiveSessionsToStorage() {
             });
         }
     });
-    if (_currentLogMeta) {
-        sessions.logTail = _currentLogMeta;
-    }
-    if (sessions.terminals.length > 0 || sessions.logTail) {
+    window._logTabs.forEach(function(session, tabKey) {
+        sessions.logTails.push({
+            tabKey: tabKey,
+            serverId: session.serverId,
+            unitName: session.unitName,
+            scope: session.scope || 'global'
+        });
+    });
+    if (sessions.terminals.length > 0 || sessions.logTails.length > 0) {
         try {
             localStorage.setItem('qm-pending-reconnect', JSON.stringify(sessions));
         } catch {
@@ -2421,7 +2516,7 @@ function saveActiveSessionsToStorage() {
 }
 
 function _beforeunloadHandler(e) {
-    if (window._terminalTabs.size > 0 || currentLogSocket) {
+    if (window._terminalTabs.size > 0 || window._logTabs.size > 0) {
         e.preventDefault();
         e.returnValue = '';
     }

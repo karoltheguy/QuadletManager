@@ -1287,23 +1287,6 @@ ul { list-style: none; }
     font-size: 0.8rem;
 }
 
-/* Tail Logs active/tailing state */
-#toggle-logs-btn.is-tailing {
-    background-color: var(--brand-primary);
-    border-color: var(--brand-primary);
-    color: #fff;
-}
-#toggle-logs-btn.is-tailing::before {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: #4ade80;
-    margin-right: 5px;
-    vertical-align: middle;
-    animation: pulse-dot 1.4s ease-in-out infinite;
-}
 @keyframes pulse-dot {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.4; transform: scale(0.85); }
@@ -2347,6 +2330,23 @@ body.view-settings #bottom-panel-resize-handle { display: none !important; }
     max-width: 220px;
 }
 
+/* Accent dot distinguishing an active terminal connection */
+.terminal-conn-tab::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #4ade80;
+    flex-shrink: 0;
+    animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.terminal-conn-tab.is-disconnected::before {
+    background-color: var(--text-muted);
+    animation: none;
+}
+
 .terminal-conn-tab:hover {
     color: var(--text-primary);
     background: var(--bg-surface);
@@ -2433,6 +2433,103 @@ body.view-settings #bottom-panel-resize-handle { display: none !important; }
     font-size: 0.83rem;
     font-style: italic;
     padding: 1rem;
+}
+
+/* ── Multi-tab log connection tabs (mirrors terminal-conn-tab*) ── */
+
+.log-conn-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.8rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--bg-element);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    white-space: nowrap;
+    max-width: 220px;
+}
+
+/* Distinguishes a log chip from a terminal chip at a glance */
+.log-conn-tab::before {
+    content: '▤';
+    font-size: 0.7rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.log-conn-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-raised-sm);
+}
+
+.log-conn-tab.is-active {
+    color: var(--brand-primary);
+    background: var(--bg-base);
+    box-shadow: var(--shadow-inset);
+}
+
+/* Dim disconnected log tabs (WS closed, e.g. underlying unit stopped) */
+.log-conn-tab.is-disconnected {
+    opacity: 0.6;
+}
+
+.log-conn-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.log-conn-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.45;
+    padding: 0;
+    flex-shrink: 0;
+    transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.log-conn-tab-close:hover {
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.18);
+    color: var(--danger);
+}
+
+/* Container that holds all per-tab log stream divs */
+.log-tabs-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Each per-tab log stream wrapper */
+.log-tab-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.log-tab-pane.hidden {
+    display: none;
 }
 
 
