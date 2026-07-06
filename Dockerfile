@@ -15,6 +15,7 @@ COPY --from=builder /install /usr/local
 
 COPY main.py .
 COPY requirements.txt .
+COPY VERSION .
 COPY api/ api/
 COPY core/ core/
 COPY services/ services/
@@ -25,6 +26,8 @@ RUN mkdir -p /data && \
     groupadd -r appuser && useradd -r -g appuser -d /app appuser && \
     chown -R appuser:appuser /app /data
 
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
 ENV QUADLET_CONFIG_PATH=/data/config.yaml
 ENV QUADLET_DB_PATH=/data/quadlets.db
 

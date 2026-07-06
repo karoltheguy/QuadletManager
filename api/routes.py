@@ -23,6 +23,7 @@ from core.events_manager import publisher
 from services.container_events import record_container_event, get_container_activity
 import logging
 from core.config_loader import global_config
+from core.version import get_version
 
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import secrets
@@ -283,6 +284,7 @@ async def dashboard_view(
         "active_theme_mode_pref": active_theme["mode_pref"],
         "active_theme_light": active_theme["light"],
         "active_theme_dark": active_theme["dark"],
+        "app_version": get_version(),
     })
 
 @router.get("/api/servers", response_class=HTMLResponse)

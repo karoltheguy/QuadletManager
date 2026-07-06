@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from core.database import init_db
 from core.crypto import ensure_master_key
+from core.version import get_version
 from services.sync_engine import polling_engine_loop
 from services.stats_engine import stats_engine_loop
 from services.container_events import container_events_cleanup_loop
@@ -25,7 +26,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting QuadletManager backend...")
+    logger.info(f"Starting QuadletManager backend... (version {get_version()})")
     
     # 1. Initialize SQLite schema
     await init_db()
