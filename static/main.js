@@ -1,4 +1,4 @@
-/* global htmx, Chart, Terminal, closeTerminalTab, connectTerminal, healthHistoryChart, loadMonitorCharts, monitoringChart, openBottomPanel, selectMonitoringServer, switchBottomTab, switchTerminalTab, tailLogsFromPanel, require */
+/* global htmx, Chart, Terminal, closeLogTab, closeTerminalTab, connectTerminal, healthHistoryChart, loadMonitorCharts, monitoringChart, openBottomPanel, selectMonitoringServer, switchBottomTab, switchLogTab, switchTerminalTab, tailLogsFromPanel, require */
 // ── Server Collapse ───────────────────────────────────────
 window.toggleServerCollapse = function(serverId) {
     var li = document.querySelector('li[data-server-id="' + serverId + '"]');
