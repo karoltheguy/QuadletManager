@@ -594,6 +594,7 @@ poll_frequency: 10
 | `QUADLET_CONFIG_PATH` | Path to config YAML file (default: `config.yaml`) |
 | `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `APP_VERSION` | App version string; baked into container images at build time (see below), falls back to [`VERSION`](../VERSION)`+dev` for local runs |
 
 ### Running the Application
 
@@ -625,6 +626,10 @@ systemctl --user start quadletmanager
 ```
 
 **Dockerfile** ([`Dockerfile`](Dockerfile)): Multi-stage build with `python:3.12-slim`. Stage 1 installs dependencies, stage 2 copies only the app code and installed packages.
+
+### Versioning
+
+The base semver lives in [`VERSION`](../VERSION) and is bumped manually on meaningful releases. CI (`container-build.yml`) appends `+build.{{ github.run_number }}` to it as semver build metadata and passes the result into the image via the `APP_VERSION` build arg, so every published build carries a distinct, traceable version — surfaced in startup logs and the dashboard's profile menu via `core/version.py::get_version()`. Build numbers can have gaps (CI runs on PRs too, though only non-PR events publish an image); this is accepted since each number still maps to one inspectable Actions run.
 
 ---
 
