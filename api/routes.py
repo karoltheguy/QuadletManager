@@ -299,7 +299,7 @@ async def api_servers(request: Request, role: str = Depends(get_current_user_rol
     })
 
 @router.get("/api/overview", response_class=HTMLResponse)
-async def api_overview(request: Request):
+async def api_overview(request: Request, role: str = Depends(get_current_user_role)):
     """Return the fleet-level overview partial for HTMX polling."""
     async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers") as cursor:
@@ -359,7 +359,7 @@ async def api_overview(request: Request):
 
 
 @router.get("/api/quadlets/{server_id}", response_class=HTMLResponse)
-async def fetch_quadlet_tree(request: Request, server_id: int):
+async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depends(get_current_user_role)):
     try:
         async with get_db_connection() as db:
             async with db.execute(
@@ -477,7 +477,7 @@ async def save_file(
         })
 
 @router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
-async def api_systemctl_status(server_id: int, unit: str, scope: str):
+async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str = Depends(get_current_user_role)):
     try:
         output = await systemctl_action(server_id, "status", unit, scope)
         return HTMLResponse(output)
@@ -546,7 +546,7 @@ async def api_pod_action(
         return HTMLResponse("Pod action failed")
 
 @router.get("/api/events")
-async def sse_events(request: Request):
+async def sse_events(request: Request, role: str = Depends(get_current_user_role)):
     return StreamingResponse(publisher.event_generator(request), media_type="text/event-stream")
 
 @router.get("/api/activity/{server_id}")
@@ -620,7 +620,7 @@ async def create_new_quadlet(
         })
 
 @router.get("/api/health/history/{server_id}")
-async def api_health_history(server_id: int, minutes: int = 60):
+async def api_health_history(server_id: int, minutes: int = 60, role: str = Depends(get_current_user_role)):
     """Return per-container health history for the last N minutes."""
     cutoff = int(time.time()) - minutes * 60
     async with get_db_connection() as db:
@@ -1265,7 +1265,7 @@ async def settings_active_css(user_id: int = Depends(get_current_user_id)):
 
 # ── SSH Key Management ────────────────────────────────────
 @router.get("/api/keys/options", response_class=HTMLResponse)
-async def api_keys_options(request: Request):
+async def api_keys_options(request: Request, role: str = Depends(get_current_user_role)):
     """Return <option> elements for SSH key dropdown."""
     async with get_db_connection() as db:
         async with db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
