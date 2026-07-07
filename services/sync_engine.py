@@ -2,6 +2,7 @@ import asyncio
 import logging
 from core.database import get_db_connection
 from services.ssh_manager import pool
+from services.remote_fs import is_global_scope
 from core.events_manager import publisher
 
 logger = logging.getLogger("quadlet-manager.sync")
@@ -23,7 +24,7 @@ async def check_quadlets():
             
     for q in quadlets:
         try:
-            use_sudo = (q['scope'] == 'global')
+            use_sudo = is_global_scope(q['scope'])
             stat_cmd = f"stat -c %Y {q['file_path']}"
             
             # Fetch remote mtime

@@ -2,11 +2,13 @@ import os
 import logging
 from typing import List, Dict
 from services.ssh_manager import pool
+from services.remote_fs import GLOBAL_QUADLET_DIR, USER_QUADLET_DIR
 
 logger = logging.getLogger("quadlet-manager.scanner")
 
-GLOBAL_DIR = "/etc/containers/systemd"
-USER_DIR = "~/.config/containers/systemd"
+# Backwards-compatible aliases for the shared scope directory constants.
+GLOBAL_DIR = GLOBAL_QUADLET_DIR
+USER_DIR = USER_QUADLET_DIR
 
 async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict]:
     """Uses SSH to run `find` and lists files in the given directory."""
