@@ -353,6 +353,12 @@ erDiagram
 - **Session Management**: Signed cookies using `itsdangerous.URLSafeTimedSerializer`
 - **Password Hashing**: SHA-256 (to be upgraded to bcrypt/argon2)
 - **Session Timeout**: Configurable (default: 1 hour)
+- **Per-Route Enforcement**: Every HTTP route under `/api` must declare an
+  auth-enforcing dependency (`get_current_user_role`, `get_current_user_is_admin`,
+  `get_current_user_id`, or `get_current_username`); WebSocket handlers
+  authenticate via `_authenticate_websocket`. This invariant is enforced by
+  `tests/test_api_auth_sweep.py`, which introspects the router and fails on any
+  `/api` route without one of these dependencies.
 
 ### SSH Key Protection
 
