@@ -32,6 +32,22 @@ async def test_systemctl_action_user(mock_pool):
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+async def test_systemctl_action_rejects_injection(mock_pool):
+    with pytest.raises(ValueError, match="Invalid unit name"):
+        await systemctl_action(1, "status", "nginx.service; rm -rf /", scope="user")
+    mock_pool.execute_command.assert_not_called()
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_systemctl_action_quotes_template_instance(mock_pool):
+    mock_pool.execute_command.return_value = "success"
+    await systemctl_action(1, "status", "foo@bar.service", scope="user")
+    mock_pool.execute_command.assert_called_once_with(
+        1, "systemctl --user status foo@bar.service", use_sudo=False
+    )
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 async def test_systemctl_action_daemon_reload(mock_pool):
     await systemctl_action(1, "daemon-reload", "")
     mock_pool.execute_command.assert_called_once_with(1, "systemctl daemon-reload", use_sudo=True)
