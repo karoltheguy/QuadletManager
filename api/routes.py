@@ -982,14 +982,10 @@ _DEFAULT_COLORS_LIGHT = {
 }
 
 
-async def _require_owned_theme(db, theme_id: int, user_id: int, columns: str = "id"):
-    """Return the requested columns of a theme owned by the user, or raise 404.
-
-    ``columns`` is an internal literal (never user input), so interpolating it
-    into the query is safe.
-    """
+async def _require_owned_theme(db, theme_id: int, user_id: int):
+    """Return the (id, is_active) row of a theme owned by the user, or raise 404."""
     row = await (await db.execute(
-        f"SELECT {columns} FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+        "SELECT id, is_active FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
     )).fetchone()
     if not row:
         raise HTTPException(status_code=404)
@@ -1206,8 +1202,8 @@ async def settings_delete_theme(
     user_id: int = Depends(get_current_user_id),
 ):
     async with get_db_connection() as db:
-        row = await _require_owned_theme(db, theme_id, user_id, columns="is_active")
-        if row[0]:
+        row = await _require_owned_theme(db, theme_id, user_id)
+        if row[1]:
             raise HTTPException(status_code=400, detail="Cannot delete the active theme.")
         await db.execute("DELETE FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id))
         await db.commit()
