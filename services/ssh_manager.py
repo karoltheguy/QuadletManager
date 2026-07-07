@@ -102,16 +102,16 @@ class SSHConnectionPool:
             # the SSH channel open and making uvicorn loop on shutdown.
             try:
                 process.kill()
-            except Exception:
-                pass
+            except Exception as cleanup_exc:
+                logger.debug(f"Failed to kill remote process on server {server_id}: {cleanup_exc}")
             try:
                 process.close()
-            except Exception:
-                pass
+            except Exception as cleanup_exc:
+                logger.debug(f"Failed to close remote process on server {server_id}: {cleanup_exc}")
             if isinstance(exc, asyncio.CancelledError):
                 raise  # Let cancellation propagate normally so shutdown works
             logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
-            raise Exception(f"Command timed out after {timeout}s: {command}")
+            raise Exception(f"Command timed out after {timeout}s: {command}") from exc
 
     async def _reconnect_and_retry(self, server_id: int, command: str, timeout: float, reason: str) -> str:
         """Drop the cached connection, reconnect, and retry the command once."""
@@ -120,8 +120,8 @@ class SSHConnectionPool:
         if old_conn:
             try:
                 old_conn.close()
-            except Exception:
-                pass
+            except Exception as close_exc:
+                logger.debug(f"Failed to close stale connection for server {server_id}: {close_exc}")
         conn = await self.get_connection(server_id)
         return await self._run_with_timeout(conn, command, timeout, server_id)
 
@@ -140,7 +140,7 @@ class SSHConnectionPool:
             return await self._run_with_timeout(conn, command, timeout, server_id)
         except asyncssh.ProcessError as exc:
             logger.error(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
-            raise Exception(f"Command execution failed: {exc.stderr}")
+            raise Exception(f"Command execution failed: {exc.stderr}") from exc
         except asyncssh.ChannelOpenError:
             # The SSH connection is alive at the TCP level but the server
             # refused to open a new session channel (e.g. stale connection,

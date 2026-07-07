@@ -39,12 +39,15 @@ class AppConfig:
         try:
             with open(config_path, "r") as f:
                 data = yaml.safe_load(f) or {}
-                
+
             self._apply_config_data(data)
-                
+
             logger.info("Loaded configuration from config.yaml.")
-                
-        except Exception as e:
-            logger.error(f"Failed to load {config_path}: {e}")
+
+        except (OSError, yaml.YAMLError, ValueError, TypeError) as e:
+            # Expected failures (missing/unreadable file, malformed YAML, bad
+            # value types): log and fall back to environment defaults.
+            # Anything else is unexpected and must not be silently swallowed.
+            logger.error(f"Failed to load {config_path}: {e}. Falling back to environment defaults.")
 
 global_config = AppConfig()
