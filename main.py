@@ -74,8 +74,6 @@ async def redirect_on_auth(request: Request, exc: HTTPException):
     )
 
 # Mock static files mount to prevent startup crash if missing
-import os
-os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(web_router)
