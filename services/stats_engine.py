@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import shlex
 import time
 from collections import namedtuple
 from core.database import get_db_connection
@@ -231,7 +232,7 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
         if not running_names:
             return []
 
-        names_arg = " ".join(running_names)
+        names_arg = " ".join(shlex.quote(n) for n in running_names)
         cmd = f"{stats_prefix} --no-stream --format json {names_arg}"
         stats_json_str = await pool.execute_command(
             server_id, cmd, timeout=STATS_CMD_TIMEOUT,

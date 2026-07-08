@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shlex
 from core.database import get_db_connection
 from services.ssh_manager import pool
 from services.remote_fs import is_global_scope
@@ -15,6 +16,13 @@ async def parse_mtime(stdout: str) -> int:
     except ValueError:
         return 0
 
+def _quote_remote_path(path: str) -> str:
+    """Quote a remote path for safe shell use while preserving a leading ~/
+    so the remote shell still performs tilde (home directory) expansion."""
+    if path.startswith("~/"):
+        return "~/" + shlex.quote(path[2:])
+    return shlex.quote(path)
+
 async def check_quadlets():
     """Polls all registered quadlets to see if the remote file has been modified."""
     async with get_db_connection() as db:
@@ -25,7 +33,7 @@ async def check_quadlets():
     for q in quadlets:
         try:
             use_sudo = is_global_scope(q['scope'])
-            stat_cmd = f"stat -c %Y {q['file_path']}"
+            stat_cmd = f"stat -c %Y {_quote_remote_path(q['file_path'])}"
             
             # Fetch remote mtime
             mtime_str = await pool.execute_command(q['server_id'], stat_cmd, use_sudo=use_sudo)

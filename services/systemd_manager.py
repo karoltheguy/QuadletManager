@@ -1,9 +1,15 @@
 import logging
+import re
+import shlex
 from services.ssh_manager import pool
 from services.remote_fs import is_global_scope
 
 
 logger = logging.getLogger("quadlet-manager.systemd")
+
+# Allowlist for systemd unit names (supports template instances like foo@bar.service).
+# Anything outside this set is rejected before the value ever reaches a shell.
+_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9_@\-\.:\\]+$")
 
 async def systemctl_action(server_id: int, action: str, unit_name: str, scope: str = 'global', allow_failure: bool = False):
     """
@@ -28,7 +34,9 @@ async def systemctl_action(server_id: int, action: str, unit_name: str, scope: s
         
     cmd = f"{cmd_prefix} {action}"
     if action != 'daemon-reload' and unit_name:
-        cmd += f" {unit_name}"
+        if not _UNIT_NAME_RE.match(unit_name):
+            raise ValueError(f"Invalid unit name: {unit_name!r}")
+        cmd += f" {shlex.quote(unit_name)}"
 
     try:
         logger.info(f"Running '{cmd}' on server_id={server_id} (sudo={use_sudo})")
