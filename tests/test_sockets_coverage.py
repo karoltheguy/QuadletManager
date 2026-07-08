@@ -7,7 +7,7 @@ cleanup paths in the ``finally`` blocks.
 import asyncio
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 from fastapi import WebSocket, WebSocketDisconnect
 
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
@@ -182,7 +182,12 @@ async def test_exec_terminal_input_edge_cases(mock_websocket, monkeypatch):
         mock_websocket, server_id=1, container_name="ctr"
     )
 
-    assert process.stdin.write.called
+    # Empty input is skipped; malformed JSON and normal input are forwarded
+    # verbatim (encoded) to stdin.
+    assert process.stdin.write.call_args_list == [
+        call(b"{not json"),
+        call(b"ls\n"),
+    ]
 
 
 @pytest.mark.asyncio
