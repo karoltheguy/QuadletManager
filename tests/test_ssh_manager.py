@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from services.ssh_manager import SSHConnectionPool
+from services.ssh_manager import SSHConnectionPool, SSHCommandError, SSHTimeoutError
 import asyncssh
 from contextlib import asynccontextmanager
 
@@ -79,8 +79,10 @@ async def test_execute_command_process_error(pool):
 
     with patch.object(pool, "get_connection", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_conn
-        with pytest.raises(Exception, match="Command execution failed: error"):
+        with pytest.raises(SSHCommandError, match="Command execution failed: error") as exc_info:
             await pool.execute_command(1, "ls")
+        assert exc_info.value.exit_status == 1
+        assert exc_info.value.stderr == "error"
 
 @pytest.mark.asyncio
 @pytest.mark.unit
@@ -95,7 +97,7 @@ async def test_execute_command_timeout(pool):
 
     with patch.object(pool, "get_connection", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_conn
-        with pytest.raises(Exception, match="Command timed out"):
+        with pytest.raises(SSHTimeoutError, match="Command timed out"):
             await pool.execute_command(1, "ls", timeout=0.01)
         mock_process.kill.assert_called_once()
         mock_process.close.assert_called_once()

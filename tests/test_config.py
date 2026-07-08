@@ -47,6 +47,36 @@ class TestConfigLoader(unittest.TestCase):
         # Default dev_auto_login follows DEV_AUTO_LOGIN env
         self.assertFalse(config.dev_auto_login)
 
+    @pytest.mark.unit
+    def test_malformed_yaml_falls_back_to_env_defaults(self):
+        # Overwrite the config file with invalid YAML
+        with open(self.config_path, "w") as f:
+            f.write("master_key: [unclosed\n\t bad: indent")
+
+        os.environ["QUADLET_MASTER_KEY"] = "env_fallback_key"
+
+        from core.config_loader import AppConfig
+        with self.assertLogs("quadlet-manager.config", level="ERROR") as logs:
+            config = AppConfig()
+
+        self.assertEqual(config.master_key, "env_fallback_key")
+        self.assertEqual(config.poll_frequency, 10)  # Default
+        self.assertEqual(config.session_timeout, 3600)  # Default
+        self.assertTrue(any("Failed to load" in msg for msg in logs.output))
+
+    @pytest.mark.unit
+    def test_invalid_value_type_falls_back_to_env_defaults(self):
+        # Valid YAML but a value that fails int() conversion
+        with open(self.config_path, "w") as f:
+            yaml.dump({"session_timeout": "not-a-number"}, f)
+
+        from core.config_loader import AppConfig
+        with self.assertLogs("quadlet-manager.config", level="ERROR") as logs:
+            config = AppConfig()
+
+        self.assertEqual(config.session_timeout, 3600)  # Default
+        self.assertTrue(any("Failed to load" in msg for msg in logs.output))
+
     def tearDown(self):
         self.test_dir.cleanup()
         if "QUADLET_CONFIG_PATH" in os.environ:
