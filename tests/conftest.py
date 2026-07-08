@@ -10,8 +10,17 @@ def _server_is_up(host: str = "localhost", port: int = 8000) -> bool:
         return False
 
 
-def pytest_collection_modifyitems(items):
-    """Skip Playwright (page-fixture) tests when the app server is not reachable."""
+def pytest_collection_modifyitems(config, items):
+    """Skip Playwright (page-fixture) tests when the app server is not reachable,
+    and skip the local-only code quality checks unless targeted explicitly."""
+    if not any("test_code_quality" in arg for arg in config.args):
+        skip_quality = pytest.mark.skip(
+            reason="Local-only check; run with: pytest tests/test_code_quality.py"
+        )
+        for item in items:
+            if item.fspath.basename == "test_code_quality.py":
+                item.add_marker(skip_quality)
+
     if _server_is_up():
         return
 
