@@ -2,6 +2,7 @@ import logging
 import re
 import shlex
 from services.ssh_manager import pool
+from services.remote_fs import is_global_scope
 
 
 logger = logging.getLogger("quadlet-manager.systemd")
@@ -26,7 +27,7 @@ async def systemctl_action(server_id: int, action: str, unit_name: str, scope: s
     if action not in allowed_actions:
         raise ValueError(f"Invalid systemctl action: {action}")
         
-    use_sudo = (scope == 'global')
+    use_sudo = is_global_scope(scope)
     cmd_prefix = "systemctl"
     if scope == 'user':
         cmd_prefix = "systemctl --user"

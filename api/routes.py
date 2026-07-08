@@ -16,6 +16,7 @@ from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
+from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
 from services.sync_engine import parse_mtime
@@ -31,6 +32,15 @@ import secrets
 logger = logging.getLogger("quadlet-manager.routes")
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
+
+def _toast(request: Request, color: str, message: str, status_output=None) -> HTMLResponse:
+    """Render the shared toast partial. Callers may set HX-Trigger on the result."""
+    return templates.TemplateResponse(request, "partials/toast.html", {
+        "color": color,
+        "message": message,
+        "status_output": status_output,
+    })
 
 # ── Session Configuration ─────────────────────────────────
 # Secret key for signing session cookies
@@ -378,7 +388,7 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
 
 @router.get("/api/file/{server_id}", response_class=HTMLResponse)
 async def fetch_file(request: Request, server_id: int, path: str, scope: str, name: str, role: str = Depends(get_current_user_role)):
-    use_sudo = (scope == 'global')
+    use_sudo = is_global_scope(scope)
     cmd = f"cat {shlex.quote(path)}"
     try:
         content = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
@@ -424,22 +434,11 @@ async def save_file(
         try:
             validate_quadlet_syntax(content, quadlet_type)
         except QuadletValidationError as ve:
-            return templates.TemplateResponse(request, "partials/toast.html", {
-                "color": "red",
-                "message": f"Validation error: {ve}",
-                "status_output": None
-            })
+            return _toast(request, "red", f"Validation error: {ve}")
 
-    use_sudo = (scope == 'global')
-    safe_content = shlex.quote(content)
-    cmd = f"printf '%s' {safe_content} | "
-    if use_sudo:
-        cmd += f"sudo tee {shlex.quote(file_path)} > /dev/null"
-    else:
-        cmd += f"tee {shlex.quote(file_path)} > /dev/null"
-        
+    use_sudo = is_global_scope(scope)
     try:
-        await pool.execute_command(server_id, cmd, use_sudo=False)
+        await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
         await reload_and_restart(server_id, unit_name, scope)
         status_output = await systemctl_action(server_id, "status", unit_name, scope)
         
@@ -463,18 +462,10 @@ async def save_file(
             # Non-fatal: the save succeeded, collision avoidance is best-effort
             logger.warning(f"Collision avoidance update failed (save was OK): {ca_err}")
         
-        return templates.TemplateResponse(request, "partials/toast.html", {
-            "color": "green",
-            "message": f"Saved & Restarted {unit_name}!",
-            "status_output": status_output
-        })
+        return _toast(request, "green", f"Saved & Restarted {unit_name}!", status_output=status_output)
     except Exception as e:
         logger.error(f"Save failed: {e}")
-        return templates.TemplateResponse(request, "partials/toast.html", {
-            "color": "red",
-            "message": f"Failed to save: {str(e)}",
-            "status_output": None
-        })
+        return _toast(request, "red", f"Failed to save: {str(e)}")
 
 @router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str = Depends(get_current_user_role)):
@@ -528,7 +519,7 @@ async def api_pod_action(
     if action not in ("start", "stop", "restart"):
         return HTMLResponse(f"Invalid pod action: {html.escape(action)}", status_code=400)
 
-    use_sudo = (scope == 'global')
+    use_sudo = is_global_scope(scope)
     safe_pod_name = shlex.quote(pod_name)
     cmd = f"podman pod {action} {safe_pod_name}"
 
@@ -592,32 +583,19 @@ async def create_new_quadlet(
             content = row[0] if row else f"[{quadlet_type.capitalize()}]\n"
             
     file_name = f"{name}.{quadlet_type}"
-    target_dir = "/etc/containers/systemd" if scope == "global" else "~/.config/containers/systemd"
-    file_path = f"{target_dir}/{file_name}"
-    
-    use_sudo = (scope == "global")
-    safe_content = shlex.quote(content)
-    cmd = f"printf '%s' {safe_content} | "
-    cmd += (f"sudo tee {shlex.quote(file_path)} > /dev/null" if use_sudo else f"tee {shlex.quote(file_path)} > /dev/null")
-    
+    use_sudo = is_global_scope(scope)
     try:
-        await pool.execute_command(server_id, f"mkdir -p {target_dir}", use_sudo=use_sudo)
-        await pool.execute_command(server_id, cmd, use_sudo=False)
-        
-        response = templates.TemplateResponse(request, "partials/toast.html", {
-            "color": "green",
-            "message": f"Created {file_name}!",
-            "status_output": None
-        })
+        target_dir = await quadlet_dir_for_scope(server_id, scope)
+        file_path = f"{target_dir}/{file_name}"
+        await pool.execute_command(server_id, f"mkdir -p {shlex.quote(target_dir)}", use_sudo=use_sudo)
+        await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
+
+        response = _toast(request, "green", f"Created {file_name}!")
         response.headers["HX-Trigger"] = "reload-servers"
         return response
     except Exception as e:
         logger.error(f"Failed to create quadlet: {e}")
-        return templates.TemplateResponse(request, "partials/toast.html", {
-            "color": "red",
-            "message": f"Creation Failed: {str(e)}",
-            "status_output": None
-        })
+        return _toast(request, "red", f"Creation Failed: {str(e)}")
 
 @router.get("/api/health/history/{server_id}")
 async def api_health_history(server_id: int, minutes: int = 60, role: str = Depends(get_current_user_role)):
@@ -981,10 +959,13 @@ async def settings_delete_user(
 
 # ── Theme Settings ────────────────────────────────────────
 
-THEME_COLOR_ALLOWLIST = frozenset({
+# Ordered list of customizable theme color keys; the allowlist and the
+# template context are both derived from this single source of truth.
+THEME_COLOR_KEYS = (
     "bg_base", "bg_surface", "text_primary", "text_muted",
     "brand_primary", "success", "danger", "border_color",
-})
+)
+THEME_COLOR_ALLOWLIST = frozenset(THEME_COLOR_KEYS)
 _HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
@@ -998,6 +979,16 @@ _DEFAULT_COLORS_LIGHT = {
     "text_muted": "#6b7280", "brand_primary": "#0d9488", "success": "#059669",
     "danger": "#dc2626", "border_color": "#d3d8e0",
 }
+
+
+async def _require_owned_theme(db, theme_id: int, user_id: int):
+    """Return the (id, is_active) row of a theme owned by the user, or raise 404."""
+    row = await (await db.execute(
+        "SELECT id, is_active FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
+    )).fetchone()
+    if not row:
+        raise HTTPException(status_code=404)
+    return row
 
 
 async def _settings_themes_response(request: Request, user_id: int) -> HTMLResponse:
@@ -1028,8 +1019,7 @@ async def _settings_themes_response(request: Request, user_id: int) -> HTMLRespo
             "active_theme": active_theme,
             "default_light": _DEFAULT_COLORS_LIGHT,
             "default_dark": _DEFAULT_COLORS_DARK,
-            "allowlist": ["bg_base", "bg_surface", "text_primary", "text_muted",
-                          "brand_primary", "success", "danger", "border_color"],
+            "allowlist": list(THEME_COLOR_KEYS),
         }
     )
 
@@ -1087,11 +1077,7 @@ async def settings_update_theme(
         raise HTTPException(status_code=422, detail="mode_preference must be 'auto', 'light', or 'dark'.")
 
     async with get_db_connection() as db:
-        row = await (await db.execute(
-            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
-        )).fetchone()
-        if not row:
-            raise HTTPException(status_code=404)
+        await _require_owned_theme(db, theme_id, user_id)
 
         updates, params = [], []
         if theme_name is not None:
@@ -1126,11 +1112,7 @@ async def settings_update_theme_colors(
         raise HTTPException(status_code=422, detail="mode must be 'light' or 'dark'.")
 
     async with get_db_connection() as db:
-        row = await (await db.execute(
-            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
-        )).fetchone()
-        if not row:
-            raise HTTPException(status_code=404)
+        await _require_owned_theme(db, theme_id, user_id)
 
         overrides, invalid = {}, []
         for key, val in form.items():
@@ -1165,11 +1147,7 @@ async def settings_activate_theme(
     user_id: int = Depends(get_current_user_id),
 ):
     async with get_db_connection() as db:
-        row = await (await db.execute(
-            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
-        )).fetchone()
-        if not row:
-            raise HTTPException(status_code=404)
+        await _require_owned_theme(db, theme_id, user_id)
         await db.execute("UPDATE user_themes SET is_active=0 WHERE user_id=?", (user_id,))
         await db.execute(
             "UPDATE user_themes SET is_active=1 WHERE id=? AND user_id=?", (theme_id, user_id)
@@ -1192,11 +1170,7 @@ async def settings_reset_theme(
         raise HTTPException(status_code=422, detail="mode must be 'light', 'dark', or 'both'.")
 
     async with get_db_connection() as db:
-        row = await (await db.execute(
-            "SELECT id FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
-        )).fetchone()
-        if not row:
-            raise HTTPException(status_code=404)
+        await _require_owned_theme(db, theme_id, user_id)
 
         now = int(time.time())
         if mode == "light":
@@ -1227,12 +1201,8 @@ async def settings_delete_theme(
     user_id: int = Depends(get_current_user_id),
 ):
     async with get_db_connection() as db:
-        row = await (await db.execute(
-            "SELECT is_active FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id)
-        )).fetchone()
-        if not row:
-            raise HTTPException(status_code=404)
-        if row[0]:
+        row = await _require_owned_theme(db, theme_id, user_id)
+        if row[1]:
             raise HTTPException(status_code=400, detail="Cannot delete the active theme.")
         await db.execute("DELETE FROM user_themes WHERE id=? AND user_id=?", (theme_id, user_id))
         await db.commit()
@@ -1363,7 +1333,7 @@ async def delete_file(
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot delete files.")
 
-    use_sudo = (scope == "global")
+    use_sudo = is_global_scope(scope)
     cmd = f"sudo rm -f {shlex.quote(path)}" if use_sudo else f"rm -f {shlex.quote(path)}"
 
     try:
@@ -1377,20 +1347,12 @@ async def delete_file(
             await db.commit()
 
         file_name = path.split("/")[-1]
-        response = templates.TemplateResponse(request, "partials/toast.html", {
-            "color": "green",
-            "message": f"Deleted {file_name}!",
-            "status_output": None
-        })
+        response = _toast(request, "green", f"Deleted {file_name}!")
         response.headers["HX-Trigger"] = "reload-servers"
         return response
     except Exception as e:
         logger.error(f"Delete failed: {e}")
-        return templates.TemplateResponse(request, "partials/toast.html", {
-            "color": "red",
-            "message": f"Failed to delete: {str(e)}",
-            "status_output": None
-        })
+        return _toast(request, "red", f"Failed to delete: {str(e)}")
 
 
 async def _authenticate_websocket(websocket: WebSocket) -> dict | None:

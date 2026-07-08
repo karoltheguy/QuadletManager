@@ -1,18 +1,20 @@
 import os
 import logging
+import shlex
 from typing import List, Dict
 from services.ssh_manager import pool
+from services.remote_fs import GLOBAL_QUADLET_DIR, quadlet_dir_for_scope
 
 logger = logging.getLogger("quadlet-manager.scanner")
 
-GLOBAL_DIR = "/etc/containers/systemd"
-USER_DIR = "~/.config/containers/systemd"
+# Backwards-compatible alias for the shared scope directory constant.
+GLOBAL_DIR = GLOBAL_QUADLET_DIR
 
 async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict]:
-    """Uses SSH to run `find` and lists files in the given directory."""
-    
+    """Uses SSH to run `find` and lists files in the given directory. `path` must be absolute."""
+
     # We grep for specific known Quadlet extensions.
-    cmd = rf"find {path} -type f -maxdepth 1 | grep -E '\.(container|volume|network|pod)$' || true"
+    cmd = rf"find {shlex.quote(path)} -type f -maxdepth 1 | grep -E '\.(container|volume|network|pod)$' || true"
     
     try:
         output = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
@@ -50,7 +52,12 @@ async def fetch_all_quadlets(server_id: int, scope_filter: str = "both") -> Dict
         global_files = await scan_directory(server_id, GLOBAL_DIR, use_sudo=True)
 
     if scope_filter in ("both", "user"):
-        user_files = await scan_directory(server_id, USER_DIR, use_sudo=False)
+        try:
+            user_dir = await quadlet_dir_for_scope(server_id, "user")
+        except Exception as e:
+            logger.error(f"Error resolving user quadlet dir on server {server_id}: {e}")
+        else:
+            user_files = await scan_directory(server_id, user_dir, use_sudo=False)
 
     return {
         "global": global_files,

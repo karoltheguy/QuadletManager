@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from services.tree_scanner import scan_directory, fetch_all_quadlets, GLOBAL_DIR, USER_DIR
+from services.tree_scanner import scan_directory, fetch_all_quadlets, GLOBAL_DIR
+
+USER_DIR = "/home/test/.config/containers/systemd"
 
 @pytest.fixture
 def mock_pool():
@@ -22,7 +24,7 @@ async def test_scan_directory_success_global(mock_pool):
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_scan_directory_success_user(mock_pool):
-    mock_pool.execute_command.return_value = "~/.config/containers/systemd/my.pod\n"
+    mock_pool.execute_command.return_value = "/home/test/.config/containers/systemd/my.pod\n"
     res = await scan_directory(1, USER_DIR, use_sudo=False)
     assert len(res) == 1
     assert res[0]["name"] == "my.pod"
@@ -45,7 +47,8 @@ async def test_scan_directory_error(mock_pool):
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_fetch_all_quadlets_both():
-    with patch("services.tree_scanner.scan_directory") as mock_scan:
+    with patch("services.tree_scanner.scan_directory") as mock_scan, \
+         patch("services.tree_scanner.quadlet_dir_for_scope", new=AsyncMock(return_value=USER_DIR)):
         mock_scan.side_effect = [
             [{"name": "global_app.container"}],
             [{"name": "user_app.container"}]
@@ -68,7 +71,8 @@ async def test_fetch_all_quadlets_global():
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_fetch_all_quadlets_user():
-    with patch("services.tree_scanner.scan_directory") as mock_scan:
+    with patch("services.tree_scanner.scan_directory") as mock_scan, \
+         patch("services.tree_scanner.quadlet_dir_for_scope", new=AsyncMock(return_value=USER_DIR)):
         mock_scan.side_effect = [[{"name": "user_app.container"}]]
         res = await fetch_all_quadlets(1, scope_filter="user")
         assert len(res["global"]) == 0

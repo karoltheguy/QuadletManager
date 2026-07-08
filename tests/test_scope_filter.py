@@ -117,6 +117,8 @@ async def test_scope_filter_global_only_skips_user(mock_get_db, mock_fetch, mock
 # =============================================================================
 
 @pytest.mark.asyncio
+@patch("services.tree_scanner.quadlet_dir_for_scope",
+       new=AsyncMock(return_value="/home/test/.config/containers/systemd"))
 @patch("services.tree_scanner.scan_directory")
 @pytest.mark.unit
 async def test_fetch_all_quadlets_both_scans_both(mock_scan):
@@ -125,7 +127,7 @@ async def test_fetch_all_quadlets_both_scans_both(mock_scan):
 
     mock_scan.side_effect = [
         [{"path": "/etc/containers/systemd/nginx.container", "name": "nginx.container", "scope": "global"}],
-        [{"path": "~/.config/containers/systemd/app.container", "name": "app.container", "scope": "user"}],
+        [{"path": "/home/test/.config/containers/systemd/app.container", "name": "app.container", "scope": "user"}],
     ]
 
     result = await fetch_all_quadlets(server_id=1, scope_filter="both")
@@ -136,6 +138,8 @@ async def test_fetch_all_quadlets_both_scans_both(mock_scan):
 
 
 @pytest.mark.asyncio
+@patch("services.tree_scanner.quadlet_dir_for_scope",
+       new=AsyncMock(return_value="/home/test/.config/containers/systemd"))
 @patch("services.tree_scanner.scan_directory")
 @pytest.mark.unit
 async def test_fetch_all_quadlets_user_only(mock_scan):
@@ -143,7 +147,7 @@ async def test_fetch_all_quadlets_user_only(mock_scan):
     from services.tree_scanner import fetch_all_quadlets
 
     mock_scan.return_value = [
-        {"path": "~/.config/containers/systemd/app.container", "name": "app.container", "scope": "user"}
+        {"path": "/home/test/.config/containers/systemd/app.container", "name": "app.container", "scope": "user"}
     ]
 
     result = await fetch_all_quadlets(server_id=1, scope_filter="user")
@@ -176,6 +180,8 @@ async def test_fetch_all_quadlets_global_only(mock_scan):
 
 
 @pytest.mark.asyncio
+@patch("services.tree_scanner.quadlet_dir_for_scope",
+       new=AsyncMock(return_value="/home/test/.config/containers/systemd"))
 @patch("services.tree_scanner.scan_directory")
 @pytest.mark.unit
 async def test_fetch_all_quadlets_defaults_to_both(mock_scan):
