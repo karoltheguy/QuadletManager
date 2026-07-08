@@ -144,6 +144,8 @@ async def test_editor_can_create(mock_execute, mock_db):
     from api.routes import create_new_quadlet
 
     role = "editor"
+    # First call resolves the remote $HOME; later calls (mkdir, tee) ignore the value.
+    mock_execute.return_value = "/home/test"
     mock_cursor = AsyncMock()
     mock_cursor.fetchone.return_value = ("[Container]\n",)
 

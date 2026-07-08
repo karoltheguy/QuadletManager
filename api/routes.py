@@ -583,12 +583,11 @@ async def create_new_quadlet(
             content = row[0] if row else f"[{quadlet_type.capitalize()}]\n"
             
     file_name = f"{name}.{quadlet_type}"
-    target_dir = quadlet_dir_for_scope(scope)
-    file_path = f"{target_dir}/{file_name}"
-
     use_sudo = is_global_scope(scope)
     try:
-        await pool.execute_command(server_id, f"mkdir -p {target_dir}", use_sudo=use_sudo)
+        target_dir = await quadlet_dir_for_scope(server_id, scope)
+        file_path = f"{target_dir}/{file_name}"
+        await pool.execute_command(server_id, f"mkdir -p {shlex.quote(target_dir)}", use_sudo=use_sudo)
         await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
 
         response = _toast(request, "green", f"Created {file_name}!")

@@ -73,6 +73,8 @@ async def test_create_endpoint_returns_reload_trigger(mock_execute, mock_db):
     header so the file tree reloads and shows the new file."""
     from api.routes import create_new_quadlet
 
+    # First call resolves the remote $HOME; later calls (mkdir, tee) ignore the value.
+    mock_execute.return_value = "/home/test"
     mock_cursor = AsyncMock()
     mock_cursor.fetchone.return_value = ("[Container]\n",)
     cursor_ctx = AsyncMock()
