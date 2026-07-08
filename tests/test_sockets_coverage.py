@@ -135,7 +135,8 @@ async def test_exec_terminal_global_scope_and_send_bytes_error(mock_websocket, m
     mock_websocket.send_text.side_effect = Exception("send_text failed")
 
     async def _receive():
-        await asyncio.sleep(1)
+        # Keep the input task pending; it is cancelled once the read task ends.
+        await asyncio.sleep(0.1)
         return "input"
 
     mock_websocket.receive_text.side_effect = _receive
@@ -158,7 +159,9 @@ async def test_exec_terminal_input_edge_cases(mock_websocket, monkeypatch):
     process = MagicMock()
 
     async def _blocking_read(*_args, **_kwargs):
-        await asyncio.sleep(5)
+        # Stay pending while the write task processes its (synchronous) inputs
+        # and raises; a short delay is enough to keep this task alive.
+        await asyncio.sleep(0.1)
         return b""
 
     process.stdout.read = _blocking_read
@@ -196,7 +199,8 @@ async def test_exec_terminal_cleanup_errors(mock_websocket, monkeypatch):
     _patch_pool(monkeypatch, mock_conn)
 
     async def _receive():
-        await asyncio.sleep(1)
+        # Keep the input task pending; it is cancelled once the read task ends.
+        await asyncio.sleep(0.1)
         return "input"
 
     mock_websocket.receive_text.side_effect = _receive
