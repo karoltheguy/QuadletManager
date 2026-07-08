@@ -42,7 +42,7 @@ class AppConfig:
 
             self._apply_config_data(data)
 
-            logger.info("Loaded configuration from config.yaml.")
+            logger.info(f"Loaded configuration from {config_path}.")
 
         except (OSError, yaml.YAMLError, ValueError, TypeError) as e:
             # Expected failures (missing/unreadable file, malformed YAML, bad
