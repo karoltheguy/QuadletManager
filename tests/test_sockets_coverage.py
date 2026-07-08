@@ -57,12 +57,20 @@ async def test_stream_logs_global_scope_and_stdout_error(mock_websocket, monkeyp
     _patch_pool(monkeypatch, mock_conn)
 
     # send_text raises when the read task forwards the chunk -> hits the
-    # read_stdout except handler.
-    mock_websocket.send_text.side_effect = Exception("send failed")
+    # read_stdout except handler. The event lets the receive loop block until
+    # the read task has actually reached (and failed) the send, avoiding a
+    # timing-based sleep.
+    send_attempted = asyncio.Event()
+
+    def _send_text(_message):
+        send_attempted.set()
+        raise Exception("send failed")
+
+    mock_websocket.send_text.side_effect = _send_text
 
     async def _receive():
-        # yield control so the read task runs, then stop the loop
-        await asyncio.sleep(0.05)
+        # Wait until the read task has attempted the send, then stop the loop.
+        await send_attempted.wait()
         return "STOP"
 
     mock_websocket.receive_text.side_effect = _receive
