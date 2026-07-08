@@ -6,6 +6,17 @@ logger = logging.getLogger("quadlet-manager.db")
 
 DATABASE_PATH = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
 
+
+def _is_duplicate_column_error(exc: Exception) -> bool:
+    """True only for SQLite's idempotent 'duplicate column' ALTER TABLE error.
+
+    Used to make additive column migrations safe to re-run without masking
+    genuine failures (locked database, disk full, corruption) behind a blanket
+    ``except Exception: pass``.
+    """
+    return isinstance(exc, aiosqlite.OperationalError) and "duplicate column name" in str(exc).lower()
+
+
 async def init_db():
     logger.info("Initializing SQLite Database Schema...")
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -21,8 +32,9 @@ async def init_db():
         # Migration: add is_admin column to existing databases
         try:
             await db.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
-        except Exception:
-            pass  # Column already exists
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS ssh_keys (
@@ -46,15 +58,17 @@ async def init_db():
         # Migration: add scope_filter column to existing databases
         try:
             await db.execute("ALTER TABLE servers ADD COLUMN scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both'))")
-        except Exception:
-            pass  # Column already exists
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
 
         # Migration: add position column for user-defined server ordering
         try:
             await db.execute("ALTER TABLE servers ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
             await db.execute("UPDATE servers SET position = id")
-        except Exception:
-            pass  # Column already exists
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS quadlets (
@@ -95,14 +109,16 @@ async def init_db():
         # Migration: add health_status column to existing databases
         try:
             await db.execute("ALTER TABLE container_health_history ADD COLUMN health_status TEXT DEFAULT NULL")
-        except Exception:
-            pass  # Column already exists
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
 
         # Migration: add resolution_sec column to existing databases
         try:
             await db.execute("ALTER TABLE container_health_history ADD COLUMN resolution_sec INTEGER NOT NULL DEFAULT 5")
-        except Exception:
-            pass  # Column already exists
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
 
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_health_history_server_time
