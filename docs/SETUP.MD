@@ -56,6 +56,8 @@ export QUADLET_MASTER_KEY="a_secure_256_bit_hex_string_here"
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
+If `QUADLET_MASTER_KEY` is not set, the app falls back to an auto-generated dev key persisted to a `master.key` file (mode 0600) next to `quadlets.db`, so the same key survives restarts. This is convenient for local development but is **not recommended for production**. Both `quadlets.db` and `master.key` are sensitive files and must be protected and backed up together — anyone who obtains `master.key` can decrypt the SSH private keys stored in the database.
+
 ## 6. Application Login
 Upon first startup, the database is seeded with two default users:
 - **Username:** `admin` | **Password:** `admin` (Role: Editor)

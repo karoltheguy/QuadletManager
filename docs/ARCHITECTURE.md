@@ -596,7 +596,7 @@ poll_frequency: 10
 
 | Variable | Description |
 |----------|-------------|
-| `QUADLET_MASTER_KEY` | AES-256 master key (64 hex chars) |
+| `QUADLET_MASTER_KEY` | AES-256 master key (64 hex chars) used to encrypt stored SSH private keys. If unset, a dev key is generated once and persisted to `master.key` (mode 0600) next to `quadlets.db` so the key survives restarts. `quadlets.db` and `master.key` are both sensitive and must be protected/backed up together — anyone with `master.key` can decrypt the stored SSH private keys |
 | `QUADLET_SESSION_SECRET` | Session-cookie signing secret; must be identical across workers. If unset, a dev secret is generated once and persisted to the `settings` table so sessions survive restarts |
 | `QUADLET_CONFIG_PATH` | Path to config YAML file (default: `config.yaml`) |
 | `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |

@@ -88,6 +88,8 @@ The master key is used to encrypt and decrypt SSH private keys stored in the dat
 export QUADLET_MASTER_KEY=$(openssl rand -hex 32)
 ```
 
+If unset, a dev key is auto-generated and persisted to `master.key` (mode 0600) next to `quadlets.db`, so restarts reuse the same key. Treat `master.key` like the database itself: back it up alongside `quadlets.db` and keep it out of version control, since anyone with `master.key` can decrypt the stored SSH private keys.
+
 ### config.yaml
 
 ```yaml
@@ -101,7 +103,7 @@ dev_auto_login: false
 
 | Variable | Description |
 |----------|-------------|
-| `QUADLET_MASTER_KEY` | AES-256 master key (64 hex characters) |
+| `QUADLET_MASTER_KEY` | AES-256 master key (64 hex characters). Falls back to an auto-generated dev key persisted in `master.key` if unset |
 | `QUADLET_CONFIG_PATH` | Path to config YAML file (default: `config.yaml`) |
 | `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
 | `LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |

@@ -42,20 +42,54 @@ def encrypt_private_key(private_key: str) -> bytes:
     # Prepend the nonce to the ciphertext for storage
     return nonce + ciphertext
 
+def _write_key_file(path: str, key: str) -> None:
+    """Write `key` to a new file at `path` with 0600 permissions.
+
+    The file must not already exist (created with O_EXCL). If `os.fdopen`
+    fails to wrap the raw descriptor, the descriptor is closed manually;
+    once `os.fdopen` succeeds, the returned file object (used as a context
+    manager) owns the descriptor and is responsible for closing it.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        f = os.fdopen(fd, "w")
+    except Exception:
+        os.close(fd)
+        raise
+    with f:
+        f.write(key)
+
+
 async def ensure_master_key() -> None:
     """Ensure a stable master key is available before any SSH operations run.
 
     If QUADLET_MASTER_KEY or config master_key is already set, this is a no-op.
-    Otherwise a dev key is loaded from (or persisted to) the `settings` table so
-    the same key survives application restarts.  Call this once at startup after
-    init_db().
+    Otherwise a dev key is loaded from (or persisted to) a `master.key` file
+    (mode 0600) in the database directory, so the same key survives
+    application restarts. Any legacy dev key found in the `settings` table
+    is migrated to that file and removed from the table. Call this once at
+    startup after init_db().
     """
     from core.config_loader import global_config
     from core.database import get_db_connection
+    import core.database as db_module
 
     if os.getenv("QUADLET_MASTER_KEY"):
         return
     if getattr(global_config, "master_key", ""):
+        return
+
+    key_file = os.path.join(os.path.dirname(os.path.abspath(db_module.DATABASE_PATH)), "master.key")
+
+    if os.path.exists(key_file):
+        with open(key_file, "r") as f:
+            key = f.read().strip()
+        os.environ["QUADLET_MASTER_KEY"] = key
+        logger.warning(
+            "QUADLET_MASTER_KEY not set; loaded persisted dev key from %s. "
+            "Set QUADLET_MASTER_KEY to a stable 64-char hex value for production.",
+            key_file,
+        )
         return
 
     async with get_db_connection() as db:
@@ -63,22 +97,24 @@ async def ensure_master_key() -> None:
             row = await cursor.fetchone()
 
         if row:
-            os.environ["QUADLET_MASTER_KEY"] = row[0]
+            key = row[0]
+            _write_key_file(key_file, key)
+            await db.execute("DELETE FROM settings WHERE key = 'dev_master_key'")
+            await db.commit()
+            os.environ["QUADLET_MASTER_KEY"] = key
             logger.warning(
-                "QUADLET_MASTER_KEY not set; loaded persisted dev key from database. "
-                "Set QUADLET_MASTER_KEY to a stable 64-char hex value for production."
+                "QUADLET_MASTER_KEY not set; migrated legacy dev key from the database to %s. "
+                "Set QUADLET_MASTER_KEY to a stable 64-char hex value for production.",
+                key_file,
             )
         else:
             new_key = AESGCM.generate_key(bit_length=256).hex()
-            await db.execute(
-                "INSERT INTO settings (key, value) VALUES ('dev_master_key', ?)",
-                (new_key,),
-            )
-            await db.commit()
+            _write_key_file(key_file, new_key)
             os.environ["QUADLET_MASTER_KEY"] = new_key
             logger.warning(
-                "QUADLET_MASTER_KEY not set; generated and persisted a dev key to the database. "
-                "This is NOT secure for production. Set QUADLET_MASTER_KEY to a stable 64-char hex value."
+                "QUADLET_MASTER_KEY not set; generated a dev key and persisted it to %s. "
+                "This is NOT secure for production. Set QUADLET_MASTER_KEY to a stable 64-char hex value.",
+                key_file,
             )
 
 

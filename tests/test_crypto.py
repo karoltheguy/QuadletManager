@@ -49,7 +49,8 @@ async def fresh_db(tmp_path):
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_ensure_master_key_generates_and_persists(fresh_db):
-    """When no key is configured, ensure_master_key generates a key and stores it in the DB."""
+    """When no key is configured, ensure_master_key generates a key and stores it in a
+    master.key file next to the database (mode 0600) -- not in the settings table."""
     import core.database as db_module
     from core.config_loader import global_config
     original_db = db_module.DATABASE_PATH
@@ -65,11 +66,19 @@ async def test_ensure_master_key_generates_and_persists(fresh_db):
         key = os.environ["QUADLET_MASTER_KEY"]
         assert len(key) == 64  # 32 bytes as hex
 
+        key_file = os.path.join(os.path.dirname(fresh_db), "master.key")
+        assert os.path.exists(key_file)
+        with open(key_file, "r") as f:
+            file_contents = f.read().strip()
+        assert file_contents == key
+
+        mode = os.stat(key_file).st_mode & 0o777
+        assert mode == 0o600
+
         async with aiosqlite.connect(fresh_db) as db:
             async with db.execute("SELECT value FROM settings WHERE key = 'dev_master_key'") as cursor:
                 row = await cursor.fetchone()
-        assert row is not None
-        assert row[0] == key
+        assert row is None
     finally:
         db_module.DATABASE_PATH = original_db
         global_config.master_key = original_mk
@@ -123,7 +132,8 @@ async def test_ensure_master_key_respects_existing_env_var(fresh_db):
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_ensure_master_key_idempotent_no_duplicate_rows(fresh_db):
-    """Calling ensure_master_key twice must not create duplicate rows in the settings table."""
+    """Calling ensure_master_key twice must load the same key from the key file, and
+    must never create a dev_master_key row in the settings table."""
     import core.database as db_module
     from core.config_loader import global_config
     original_db = db_module.DATABASE_PATH
@@ -135,13 +145,58 @@ async def test_ensure_master_key_idempotent_no_duplicate_rows(fresh_db):
         from core.crypto import ensure_master_key
 
         await ensure_master_key()
-        os.environ.pop("QUADLET_MASTER_KEY", None)
+        first_key = os.environ.pop("QUADLET_MASTER_KEY")
         await ensure_master_key()
+        second_key = os.environ["QUADLET_MASTER_KEY"]
+
+        assert first_key == second_key
 
         async with aiosqlite.connect(fresh_db) as db:
             async with db.execute("SELECT COUNT(*) FROM settings WHERE key = 'dev_master_key'") as cursor:
                 row = await cursor.fetchone()
-        assert row[0] == 1
+        assert row[0] == 0
+    finally:
+        db_module.DATABASE_PATH = original_db
+        global_config.master_key = original_mk
+        os.environ.pop("QUADLET_MASTER_KEY", None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_ensure_master_key_migrates_legacy_db_key(fresh_db):
+    """A pre-existing dev_master_key row in the settings table must be migrated into
+    the master.key file and the row removed from the DB."""
+    import core.database as db_module
+    from core.config_loader import global_config
+    original_db = db_module.DATABASE_PATH
+    original_mk = global_config.master_key
+    db_module.DATABASE_PATH = fresh_db
+    global_config.master_key = ""
+    legacy_key = "b" * 64
+    try:
+        async with aiosqlite.connect(fresh_db) as db:
+            await db.execute(
+                "INSERT INTO settings (key, value) VALUES ('dev_master_key', ?)",
+                (legacy_key,),
+            )
+            await db.commit()
+
+        os.environ.pop("QUADLET_MASTER_KEY", None)
+        from core.crypto import ensure_master_key
+        await ensure_master_key()
+
+        assert os.environ["QUADLET_MASTER_KEY"] == legacy_key
+
+        key_file = os.path.join(os.path.dirname(fresh_db), "master.key")
+        assert os.path.exists(key_file)
+        with open(key_file, "r") as f:
+            file_contents = f.read().strip()
+        assert file_contents == legacy_key
+
+        async with aiosqlite.connect(fresh_db) as db:
+            async with db.execute("SELECT value FROM settings WHERE key = 'dev_master_key'") as cursor:
+                row = await cursor.fetchone()
+        assert row is None
     finally:
         db_module.DATABASE_PATH = original_db
         global_config.master_key = original_mk
