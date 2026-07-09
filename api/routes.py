@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi.templating import Jinja2Templates
 import hashlib
 import html
+import os
 from argon2 import PasswordHasher, exceptions
 import json
 import re
@@ -62,6 +63,53 @@ SESSION_DURATION_LABELS = (
 _session_duration_seconds = global_config.session_timeout
 
 serializer = URLSafeTimedSerializer(SESSION_SECRET)
+
+
+async def ensure_session_secret() -> None:
+    """Ensure a stable session secret is available before any cookies are issued.
+
+    If QUADLET_SESSION_SECRET is set, it is used directly (and nothing is persisted
+    to the database). Otherwise a dev secret is loaded from (or persisted to) the
+    `settings` table so signed session cookies survive application restarts. Call
+    this once at startup after init_db().
+    """
+    global SESSION_SECRET, serializer
+
+    env_secret = os.getenv("QUADLET_SESSION_SECRET")
+    if env_secret:
+        SESSION_SECRET = env_secret
+        serializer = URLSafeTimedSerializer(SESSION_SECRET)
+        return
+
+    candidate = secrets.token_hex(32)
+    async with get_db_connection() as db:
+        insert_cursor = await db.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('session_secret', ?)",
+            (candidate,),
+        )
+        await db.commit()
+
+        async with db.execute(
+            "SELECT value FROM settings WHERE key = 'session_secret'"
+        ) as select_cursor:
+            row = await select_cursor.fetchone()
+        resolved = row[0]
+
+        if insert_cursor.rowcount == 0:
+            logger.warning(
+                "QUADLET_SESSION_SECRET not set; loaded persisted dev session secret "
+                "from database. Set QUADLET_SESSION_SECRET to a stable value for production."
+            )
+        else:
+            logger.warning(
+                "QUADLET_SESSION_SECRET not set; generated and persisted a dev session "
+                "secret to the database. This is NOT secure for production. Set "
+                "QUADLET_SESSION_SECRET to a stable value."
+            )
+
+    SESSION_SECRET = resolved
+    serializer = URLSafeTimedSerializer(SESSION_SECRET)
+
 
 COOKIE_NAME = "qm_session"
 

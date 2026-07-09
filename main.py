@@ -13,7 +13,7 @@ from services.stats_engine import stats_engine_loop
 from services.container_events import container_events_cleanup_loop
 from services.ssh_manager import pool
 from api.routes import router as web_router
-from api.routes import _load_session_duration_from_db
+from api.routes import _load_session_duration_from_db, ensure_session_secret
 
 _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
@@ -36,6 +36,9 @@ async def lifespan(app: FastAPI):
 
     # 2b. Hydrate the in-memory session duration from any persisted setting
     await _load_session_duration_from_db()
+
+    # 2c. Ensure a stable session secret exists before any cookies are issued
+    await ensure_session_secret()
 
     # 3. Start the Polling Engine as a background asyncio task
     _background_tasks.append(asyncio.create_task(polling_engine_loop()))
