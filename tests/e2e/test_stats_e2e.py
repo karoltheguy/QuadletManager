@@ -13,7 +13,8 @@ def test_stats_update_received(page: Page):
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
 
     # Wait for the servers list to load (Loading servers... disappear)
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
+    page.locator("#servers-list").get_by_text("Loading servers...").wait_for(state="hidden")
 
     # Stats table is in the Monitor tab
     page.click("button.nav-item:has-text('Monitor')")
@@ -57,7 +58,8 @@ def test_log_streaming_ui(page: Page):
         pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
 
     # Wait for servers and files to load
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
+    page.locator("#servers-list").get_by_text("Loading servers...").wait_for(state="hidden")
 
     # Navigator (sidebar with quadlet files) is only visible on the Containers tab
     page.click("button.nav-item:has-text('Containers')")
