@@ -1627,13 +1627,26 @@ window.switchBottomTab = function(pane) {
     if (controls) controls.classList.toggle('hidden', pane !== 'terminal');
     var logsControls = document.querySelector('.logs-controls');
     if (logsControls) logsControls.classList.toggle('hidden', pane !== 'logs');
+    document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
+        el.classList.remove('is-active');
+    });
     if (pane === 'terminal') {
         var key = window._activeTerminalTabKey;
         if (key) {
+            document.querySelectorAll('.terminal-conn-tab').forEach(function(el) {
+                el.classList.toggle('is-active', el.dataset.key === key);
+            });
             var session = window._terminalTabs.get(key);
             if (session && session.fitAddon) {
                 setTimeout(function() { session.fitAddon.fit(); }, 50);
             }
+        }
+    } else if (pane === 'logs') {
+        var logKey = window._activeLogTabKey;
+        if (logKey) {
+            document.querySelectorAll('.log-conn-tab').forEach(function(el) {
+                el.classList.toggle('is-active', el.dataset.key === logKey);
+            });
         }
     }
 };
@@ -1806,12 +1819,17 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
 window.switchTerminalTab = function(key) {
     window._activeTerminalTabKey = key;
 
+    document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
+        el.classList.remove('is-active');
+    });
     document.querySelectorAll('.terminal-conn-tab').forEach(function(el) {
         el.classList.toggle('is-active', el.dataset.key === key);
     });
     document.querySelectorAll('.terminal-tab-pane').forEach(function(el) {
         el.classList.toggle('hidden', el.dataset.key !== key);
     });
+
+    switchBottomTab('terminal');
 
     var session = window._terminalTabs.get(key);
     if (session && session.fitAddon) {
@@ -2444,12 +2462,17 @@ function createLogTab(tabKey, serverId, unitName, scope) {
 window.switchLogTab = function(key) {
     window._activeLogTabKey = key;
 
+    document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
+        el.classList.remove('is-active');
+    });
     document.querySelectorAll('.log-conn-tab').forEach(function(el) {
         el.classList.toggle('is-active', el.dataset.key === key);
     });
     document.querySelectorAll('.log-tab-pane').forEach(function(el) {
         el.classList.toggle('hidden', el.dataset.key !== key);
     });
+
+    switchBottomTab('logs');
 };
 
 function handleClosedLogTabFallback(key) {
