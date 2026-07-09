@@ -1,1 +1,0 @@
-/home/carol/development/QuadletManager/static/main.js
