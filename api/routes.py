@@ -34,6 +34,14 @@ logger = logging.getLogger("quadlet-manager.routes")
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+
+
+def _asset_version(filename: str) -> int:
+    """Return the on-disk mtime (as an int) of a static asset, for cache-busting."""
+    return int(os.path.getmtime(os.path.join(STATIC_DIR, filename)))
+
+
 
 def _toast(request: Request, color: str, message: str, status_output=None) -> HTMLResponse:
     """Render the shared toast partial. Callers may set HX-Trigger on the result."""
@@ -343,6 +351,8 @@ async def dashboard_view(
         "active_theme_light": active_theme["light"],
         "active_theme_dark": active_theme["dark"],
         "app_version": get_version(),
+        "static_main_js_version": _asset_version("main.js"),
+        "static_style_css_version": _asset_version("style.css"),
     })
 
 @router.get("/api/servers", response_class=HTMLResponse)

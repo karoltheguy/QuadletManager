@@ -24,7 +24,7 @@
     <script src="/static/xterm.min.js"></script>
     <script src="/static/xterm-addon-fit.umd.min.js"></script>
     <link rel="stylesheet" href="/static/xterm.min.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ static_style_css_version }}">
     <style id="qm-theme-overrides">
       :root[data-theme="light"] {
         {% for k, v in active_theme_light.items() %}--{{ k|replace('_','-') }}: {{ v }};{% endfor %}
@@ -496,6 +496,6 @@
     </div><!-- /.app-container -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js" integrity="sha384-UcP5/iVWyRzIhnVjcB2o9W1eoYKL5fAhHTRzvFZg8ctOsoAoDeBQyQuyIk+BJ/nh" crossorigin="anonymous"></script>
-    <script src="/static/main.js"></script>
+    <script src="/static/main.js?v={{ static_main_js_version }}"></script>
 </body>
 </html>
