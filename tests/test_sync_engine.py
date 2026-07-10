@@ -139,7 +139,7 @@ async def test_newer_mtime_triggers_publish(mock_get_db_func, mock_pool, mock_pu
     mock_get_db_func.side_effect = [select_cm, update_cm]
 
     # stat returns a newer mtime, cat returns content
-    mock_pool.execute_command = AsyncMock(side_effect=["2000\n", "[Container]\nImage=nginx\n"])
+    mock_pool.execute_command = AsyncMock(side_effect=["/etc/containers/systemd/web.container 2000\n", "[Container]\nImage=nginx\n"])
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
@@ -172,7 +172,7 @@ async def test_same_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher
     mock_get_db_func.side_effect = [select_cm]
 
     # stat returns the same mtime as the DB
-    mock_pool.execute_command = AsyncMock(return_value="1500\n")
+    mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/db.container 1500\n")
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
@@ -198,7 +198,7 @@ async def test_older_mtime_no_publish(mock_get_db_func, mock_pool, mock_publishe
     select_cm, _ = _make_db_cm([quadlet_row])
     mock_get_db_func.side_effect = [select_cm]
 
-    mock_pool.execute_command = AsyncMock(return_value="1000\n")
+    mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/old.container 1000\n")
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
@@ -224,7 +224,7 @@ async def test_none_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher
     select_cm, _ = _make_db_cm([quadlet_row])
     mock_get_db_func.side_effect = [select_cm]
 
-    mock_pool.execute_command = AsyncMock(return_value="5000\n")
+    mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/new.container 5000\n")
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
@@ -278,7 +278,7 @@ async def test_user_scope_does_not_use_sudo(mock_get_db_func, mock_pool, mock_pu
     select_cm, _ = _make_db_cm([quadlet_row])
     mock_get_db_func.side_effect = [select_cm]
 
-    mock_pool.execute_command = AsyncMock(return_value="1000\n")
+    mock_pool.execute_command = AsyncMock(return_value="~/.config/containers/systemd/app.container 1000\n")
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
@@ -286,7 +286,7 @@ async def test_user_scope_does_not_use_sudo(mock_get_db_func, mock_pool, mock_pu
     # Verify the stat command was called with use_sudo=False
     mock_pool.execute_command.assert_called_once_with(
         10,
-        "stat -c %Y ~/.config/containers/systemd/app.container",
+        "stat -c '%n %Y' ~/.config/containers/systemd/app.container 2>/dev/null; true",
         use_sudo=False,
     )
 
@@ -309,14 +309,14 @@ async def test_global_scope_uses_sudo(mock_get_db_func, mock_pool, mock_publishe
     select_cm, _ = _make_db_cm([quadlet_row])
     mock_get_db_func.side_effect = [select_cm]
 
-    mock_pool.execute_command = AsyncMock(return_value="1000\n")
+    mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/sys.container 1000\n")
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
 
     mock_pool.execute_command.assert_called_once_with(
         10,
-        "stat -c %Y /etc/containers/systemd/sys.container",
+        "stat -c '%n %Y' /etc/containers/systemd/sys.container 2>/dev/null; true",
         use_sudo=True,
     )
 
@@ -359,7 +359,7 @@ async def test_db_updated_with_new_mtime(mock_get_db_func, mock_pool, mock_publi
     update_cm, update_db = _make_db_cm([])
     mock_get_db_func.side_effect = [select_cm, update_cm]
 
-    mock_pool.execute_command = AsyncMock(side_effect=["3000\n", "[Container]\nImage=redis\n"])
+    mock_pool.execute_command = AsyncMock(side_effect=["/etc/containers/systemd/cache.container 3000\n", "[Container]\nImage=redis\n"])
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
@@ -403,13 +403,124 @@ async def test_after_save_updates_mtime_no_false_positive(mock_get_db_func, mock
     mock_get_db_func.side_effect = [select_cm]
 
     # Remote file has the same mtime=2000 (our own write)
-    mock_pool.execute_command = AsyncMock(return_value="2000\n")
+    mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/web.container 2000\n")
     mock_publisher.publish = AsyncMock()
 
     await check_quadlets()
 
     # No false-positive "file changed externally" event
     mock_publisher.publish.assert_not_called()
+
+@pytest.mark.asyncio
+@patch("services.sync_engine.publisher")
+@patch("services.sync_engine.pool")
+@patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
+async def test_batched_stat_one_call_per_server_scope_group(mock_get_db_func, mock_pool, mock_publisher):
+    """Quadlets sharing (server_id, use_sudo) should be batched into a single
+    stat command instead of one SSH round-trip per file."""
+    quadlet_rows = [
+        {
+            "id": 1,
+            "server_id": 10,
+            "file_path": "/etc/containers/systemd/a.container",
+            "scope": "global",
+            "last_known_mtime": 1000,
+        },
+        {
+            "id": 2,
+            "server_id": 10,
+            "file_path": "/etc/containers/systemd/b.container",
+            "scope": "global",
+            "last_known_mtime": 1000,
+        },
+        {
+            "id": 3,
+            "server_id": 10,
+            "file_path": "/home/u/c.container",
+            "scope": "user",
+            "last_known_mtime": 1000,
+        },
+    ]
+
+    select_cm, _ = _make_db_cm(quadlet_rows)
+    update_cm, _ = _make_db_cm([])
+    mock_get_db_func.side_effect = [select_cm, update_cm]
+
+    async def fake_execute_command(server_id, cmd, use_sudo=False):
+        if "a.container" in cmd and "b.container" in cmd:
+            return "/etc/containers/systemd/a.container 2000\n/etc/containers/systemd/b.container 1000\n"
+        if "c.container" in cmd:
+            return "/home/u/c.container 1000\n"
+        raise AssertionError(f"Unexpected command: {cmd}")
+
+    mock_pool.execute_command = AsyncMock(side_effect=fake_execute_command)
+    mock_publisher.publish = AsyncMock()
+
+    await check_quadlets()
+
+    # Exactly one batched call per (server_id, use_sudo) group, not per-file.
+    assert mock_pool.execute_command.call_count == 2
+
+    global_call = next(
+        c for c in mock_pool.execute_command.call_args_list if c.kwargs.get("use_sudo") is True
+    )
+    user_call = next(
+        c for c in mock_pool.execute_command.call_args_list if c.kwargs.get("use_sudo") is False
+    )
+
+    global_cmd = global_call.args[1]
+    assert "stat -c '%n %Y'" in global_cmd
+    assert "/etc/containers/systemd/a.container" in global_cmd
+    assert "/etc/containers/systemd/b.container" in global_cmd
+
+    user_cmd = user_call.args[1]
+    assert "/home/u/c.container" in user_cmd
+
+    # Only a.container changed (2000 > 1000); b.container and c.container are unchanged.
+    mock_publisher.publish.assert_called_once()
+    call_args = mock_publisher.publish.call_args[0]
+    assert call_args[0] == "file_changed"
+    assert call_args[1]["file_path"] == "/etc/containers/systemd/a.container"
+
+
+@pytest.mark.asyncio
+@patch("services.sync_engine.publisher")
+@patch("services.sync_engine.pool")
+@patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
+async def test_batched_stat_tilde_path_mapped_by_suffix(mock_get_db_func, mock_pool, mock_publisher):
+    """stat prints the shell-expanded absolute path for a ~/ quadlet path, so the
+    batched result must be mapped back to the DB's tilde path by suffix match."""
+    quadlet_row = {
+        "id": 5,
+        "server_id": 10,
+        "file_path": "~/.config/containers/systemd/app.container",
+        "scope": "user",
+        "last_known_mtime": 1000,
+    }
+
+    select_cm, _ = _make_db_cm([quadlet_row])
+    update_cm, update_db = _make_db_cm([])
+    mock_get_db_func.side_effect = [select_cm, update_cm]
+
+    mock_pool.execute_command = AsyncMock(
+        return_value="/home/carol/.config/containers/systemd/app.container 2000\n"
+    )
+    mock_publisher.publish = AsyncMock()
+
+    await check_quadlets()
+
+    mock_publisher.publish.assert_called_once()
+    call_args = mock_publisher.publish.call_args[0]
+    assert call_args[0] == "file_changed"
+    assert call_args[1]["file_path"] == "~/.config/containers/systemd/app.container"
+
+    update_db.execute.assert_called()
+    update_call = update_db.execute.call_args
+    params = update_call[0][1]
+    assert params == (2000, 5)
+
 
 @pytest.mark.asyncio
 @pytest.mark.unit

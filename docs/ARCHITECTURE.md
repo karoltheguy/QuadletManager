@@ -122,6 +122,20 @@ SSH connection pool implementation:
 - Timeout handling with remote process cleanup
 - Sudo command prefixing for rootful operations
 
+#### [`services/sync_engine.py`](services/sync_engine.py)
+
+File-modification polling engine. Every 10 seconds (`POLL_INTERVAL_SEC`) it checks whether registered quadlet files were modified outside the app:
+
+- Quadlets are grouped by `(server_id, scope)` — global-scope files require sudo, so a server with mixed scopes gets two groups.
+- Each group is fetched in **one SSH round-trip**: a single batched `stat -c '%n %Y' file1 file2 ...` returns all mtimes for that group. Missing files are silently absent from the output (stderr is discarded and the exit code neutralized) rather than failing the batch.
+- All groups run **concurrently** via `asyncio.gather`, so cycle latency is bounded by the slowest server, not by `servers × files` sequential round-trips.
+- Tilde-prefixed paths (`~/.config/...`) are sent unexpanded so the remote shell resolves `$HOME`; since `stat %n` prints the expanded absolute path, results are mapped back to DB paths by suffix match.
+- A remote mtime newer than the stored `last_known_mtime` publishes a `file_changed` SSE event and updates the DB baseline.
+
+#### [`services/stats_engine.py`](services/stats_engine.py)
+
+Container stats polling engine. Every 5 seconds it runs `podman stats` per server (user and rootful scopes fetched concurrently per server, according to the server's scope filter), publishes `stats_update` / `stats_error` SSE events, and records container health history for the monitoring charts.
+
 ---
 
 ## Frontend Components
