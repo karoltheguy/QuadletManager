@@ -17,16 +17,21 @@ async def parse_mtime(stdout: str) -> int:
         return 0
 
 def _quote_remote_path(path: str) -> str:
-    """Quote a remote path for safe shell use while preserving a leading ~/
-    so the remote shell still performs tilde (home directory) expansion."""
+    """Quote a remote path for safe shell use.
+
+    Preserves a leading ~/ so the remote shell still performs tilde
+    (home directory) expansion.
+    """
     if path.startswith("~/"):
         return "~/" + shlex.quote(path[2:])
     return shlex.quote(path)
 
 async def _fetch_mtimes(server_id, use_sudo, paths) -> dict[str, int]:
-    """Fetch mtimes for multiple remote paths on the same server/scope in a
-    single SSH round-trip, mapping the stat output back to the caller's
-    (possibly tilde-prefixed) DB paths."""
+    """Fetch mtimes for multiple remote paths on the same server and scope.
+
+    Performs this in a single SSH round-trip, mapping the stat output back to
+    the caller's (possibly tilde-prefixed) DB paths.
+    """
     quoted = [_quote_remote_path(p) for p in paths]
     cmd = "stat -c '%n %Y' " + " ".join(quoted) + " 2>/dev/null; true"
 

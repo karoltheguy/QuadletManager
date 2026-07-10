@@ -12,16 +12,20 @@ logger = logging.getLogger("quadlet-manager.systemd")
 _UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9_@\-\.:\\]+$")
 
 async def systemctl_action(server_id: int, action: str, unit_name: str, scope: str = 'global', allow_failure: bool = False):
-    """
-    Executes a systemctl action (start, stop, restart, status) on a unit.
+    """Execute a systemctl action (start, stop, restart, status) on a unit.
+
     Applies user-level systemctl if scope is 'user', otherwise global.
 
-    Args:
-        allow_failure: When True, non-zero exit codes are logged and returned
+    :param server_id: The server ID.
+    :param action: The action (start, stop, restart, status, daemon-reload).
+    :param unit_name: The name of the systemd unit.
+    :param scope: Systemd scope ('global' or 'user'). Defaults to 'global'.
+    :param allow_failure: When True, non-zero exit codes are logged and returned
                        as an error string rather than raising an exception.
                        Useful for daemon-reload / restart in the save flow,
                        where the file was already written successfully and we
                        don't want a restart hiccup to show as a save failure.
+                       Defaults to False.
     """
     allowed_actions = ['start', 'stop', 'restart', 'status', 'daemon-reload']
     if action not in allowed_actions:
@@ -50,14 +54,13 @@ async def systemctl_action(server_id: int, action: str, unit_name: str, scope: s
         raise
 
 async def reload_and_restart(server_id: int, unit_name: str, scope: str = 'global'):
-    """
-    Helper to trigger daemon-reload then restart a unit,
-    which is typically done after a file is saved.
+    """Trigger daemon-reload then restart a unit.
 
-    Both steps use allow_failure=True so that a non-zero exit code from
-    systemctl (e.g. the unit fails to start after the config change) is
-    logged as a warning rather than raising an exception that would mask the
-    successful file save and cause the UI to display a contradictory error.
+    This is typically done after a file is saved. Both steps use
+    allow_failure=True so that a non-zero exit code from systemctl
+    (e.g., if the unit fails to start after config changes) is logged
+    as a warning instead of raising an exception that masks the successful
+    file save.
     """
     await systemctl_action(server_id, 'daemon-reload', "", scope=scope, allow_failure=True)
     await systemctl_action(server_id, 'restart', unit_name, scope=scope, allow_failure=True)

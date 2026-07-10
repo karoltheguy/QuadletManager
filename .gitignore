@@ -28,3 +28,4 @@ lizard_results.sarif
 coverage/lcov.info
 
 .mcp.json
+.prospector.yaml

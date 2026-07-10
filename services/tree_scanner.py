@@ -12,7 +12,6 @@ GLOBAL_DIR = GLOBAL_QUADLET_DIR
 
 async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict]:
     """Uses SSH to run `find` and lists files in the given directory. `path` must be absolute."""
-
     # We grep for specific known Quadlet extensions.
     cmd = rf"find {shlex.quote(path)} -type f -maxdepth 1 | grep -E '\.(container|volume|network|pod)$' || true"
     

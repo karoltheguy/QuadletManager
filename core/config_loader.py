@@ -6,6 +6,7 @@ logger = logging.getLogger("quadlet-manager.config")
 
 class AppConfig:
     def __init__(self):
+        """Initialize AppConfig with default values."""
         self.master_key = os.getenv("QUADLET_MASTER_KEY", "")
         self.session_timeout = 3600
         self.poll_frequency = 10

@@ -198,5 +198,8 @@ async def init_db():
         await db.commit()
 
 def get_db_connection():
-    """Return an aiosqlite connection to be used as: async with get_db_connection() as db:"""
+    """Return an active connection context manager for the SQLite database.
+
+    Can be used as: ``async with get_db_connection() as db:``.
+    """
     return aiosqlite.connect(DATABASE_PATH)

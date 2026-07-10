@@ -20,12 +20,11 @@ async def record_container_event(
 ) -> None:
     """Record a container lifecycle event to the database.
 
-    Args:
-        server_id: The server ID
-        container_name: The container name
-        event_type: One of 'start', 'stop', 'restart', 'failure'
-        triggered_by: Username or 'system'
-        details: Optional details about the event
+    :param server_id: The server ID.
+    :param container_name: The container name.
+    :param event_type: One of 'start', 'stop', 'restart', 'failure'.
+    :param triggered_by: Username or 'system'. Defaults to None.
+    :param details: Optional details about the event. Defaults to None.
     """
     occurred_at = int(time.time())
 
@@ -48,13 +47,10 @@ async def get_container_activity(
 ) -> list[dict]:
     """Fetch recent activity events for a specific container.
 
-    Args:
-        server_id: The server ID
-        container_name: The container name
-        limit: Maximum number of events to return
-
-    Returns:
-        List of dicts with event details, most recent first
+    :param server_id: The server ID.
+    :param container_name: The container name.
+    :param limit: Maximum number of events to return. Defaults to 10.
+    :return: List of dicts with event details, most recent first.
     """
     async with get_db_connection() as db:
         async with db.execute(

@@ -4,9 +4,9 @@ class QuadletValidationError(Exception):
     pass
 
 def validate_quadlet_syntax(content: str, quadlet_type: str = "container"):
-    """
-    Validates a Quadlet systemd unit file.
-    Because Quadlets are systemd-flavored INI, we use configparser.
+    """Validate a Quadlet systemd unit file.
+
+    Use of configparser here for systemd-flavored INI Quadlets.
     """
     # configparser requires a generic section header if none exists,
     # but Quadlets should always have standard systemd sections.

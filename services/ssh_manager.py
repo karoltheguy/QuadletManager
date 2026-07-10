@@ -16,6 +16,7 @@ class SSHCommandError(Exception):
     """
 
     def __init__(self, message: str, exit_status: int = None, stderr: str = None):
+        """Initialize SSHCommandError with an error message and optional exit code/stderr."""
         super().__init__(message)
         self.exit_status = exit_status
         self.stderr = stderr
@@ -27,6 +28,7 @@ class SSHTimeoutError(SSHCommandError):
 
 class SSHConnectionPool:
     def __init__(self):
+        """Initialize the SSHConnectionPool with an empty connections dictionary."""
         # server_id -> asyncssh.SSHClientConnection
         self.connections = {}
 
@@ -144,11 +146,13 @@ class SSHConnectionPool:
         return await self._run_with_timeout(conn, command, timeout, server_id)
 
     async def execute_command(self, server_id: int, command: str, use_sudo: bool = False, timeout: float = 30.0) -> str:
-        """Executes a command. Prepends sudo if requested.
-        
-        Args:
-            timeout: Maximum seconds to wait for the command to complete.
-                     Defaults to 30s. Set to None to wait indefinitely (not recommended).
+        """Execute a command, prepending sudo if requested.
+
+        :param server_id: The server ID.
+        :param command: The command to execute on the remote host.
+        :param use_sudo: When True, prepends 'sudo' to the command. Defaults to False.
+        :param timeout: Maximum seconds to wait for the command to complete. Defaults to 30.0.
+        :return: The stdout of the command on success.
         """
         if use_sudo:
             command = f"sudo {command}"

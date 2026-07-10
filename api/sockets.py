@@ -16,6 +16,7 @@ _CONTAINER_NAME_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
 
 class ConnectionManager:
     def __init__(self):
+        """Initialize the ConnectionManager with an empty connections list."""
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
@@ -89,8 +90,8 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
 
 
 async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, container_name: str, scope: str = "user", cmd: str = "bash"):
-    """
-    Bidirectional WebSocket terminal for interactive podman exec.
+    """Bidirectional WebSocket terminal for interactive podman exec.
+
     Supports terminal resize events and graceful cleanup on disconnect.
     """
     await manager.connect(websocket)

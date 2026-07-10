@@ -168,6 +168,7 @@ async def _persist_session_duration(seconds: int) -> None:
 
 async def _get_session(request: Request) -> dict:
     """Return the full session dict {"username": ..., "role": ...}.
+
     Raises HTTPException(303) redirect to /login if not authenticated.
     """
     if global_config.dev_auto_login:
@@ -193,6 +194,7 @@ async def _get_session(request: Request) -> dict:
 
 async def get_current_user_role(request: Request) -> str:
     """Extract the user role from the session cookie.
+
     Raises HTTPException(303) redirect to /login if not authenticated.
     Set DEV_AUTO_LOGIN=1 or dev_auto_login: true in config.yaml
     to bypass auth entirely during development.
@@ -230,7 +232,7 @@ async def get_current_username(request: Request) -> str:
 
 
 async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> None:
-    """FastAPI dependency that raises 403 if the current user is not an admin."""
+    """Verify that the current user has admin privileges, raising 403 if not."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
 
@@ -1472,6 +1474,7 @@ async def delete_file(
 
 async def _authenticate_websocket(websocket: WebSocket) -> dict | None:
     """Validate the session cookie sent on a WebSocket upgrade.
+
     Returns the session dict on success, or None if unauthenticated.
     Honors dev_auto_login the same way the HTTP dependency does.
     """

@@ -7,6 +7,7 @@ logger = logging.getLogger("quadlet-manager.events")
 
 class EventPublisher:
     def __init__(self):
+        """Initialize the EventPublisher with an empty list of subscriber queues."""
         self.queues = []
 
     def subscribe(self) -> asyncio.Queue:
