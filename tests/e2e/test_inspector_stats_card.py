@@ -62,8 +62,8 @@ def test_selecting_container_shows_card(page: Page):
 
     # Inject fake stats data so the card has something to display
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: [{
                 name: 'my-app',
@@ -73,8 +73,8 @@ def test_selecting_container_shows_card(page: Page):
                 pids: '5'
             }]
         };
-        window.runningContainersBySid[1] = new Set(['my-app']);
-        window.selectContainerStem('my-app', 1);
+        window.runningContainersBySid[999] = new Set(['my-app']);
+        window.selectContainerStem('my-app', 999);
     }""")
 
     card = page.locator("#container-stats-card")
@@ -87,8 +87,8 @@ def test_card_displays_cpu_mem_net_pids(page: Page):
     _goto(page)
 
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: [{
                 name: 'my-app',
@@ -98,8 +98,8 @@ def test_card_displays_cpu_mem_net_pids(page: Page):
                 pids: '8'
             }]
         };
-        window.runningContainersBySid[1] = new Set(['my-app']);
-        window.selectContainerStem('my-app', 1);
+        window.runningContainersBySid[999] = new Set(['my-app']);
+        window.selectContainerStem('my-app', 999);
     }""")
 
     card = page.locator("#container-stats-card")
@@ -115,13 +115,13 @@ def test_card_shows_not_running_for_stopped_container(page: Page):
     _goto(page)
 
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: []
         };
-        window.runningContainersBySid[1] = new Set();
-        window.selectContainerStem('stopped-app', 1);
+        window.runningContainersBySid[999] = new Set();
+        window.selectContainerStem('stopped-app', 999);
     }""")
 
     card = page.locator("#container-stats-card")
@@ -135,22 +135,22 @@ def test_switching_containers_updates_card(page: Page):
     _goto(page)
 
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: [
                 { name: 'app-a', cpu: '5.00%', mem: '2.00%', net_io: '1kB / 1kB', pids: '3' },
                 { name: 'app-b', cpu: '50.00%', mem: '40.00%', net_io: '10kB / 5kB', pids: '12' }
             ]
         };
-        window.runningContainersBySid[1] = new Set(['app-a', 'app-b']);
-        window.selectContainerStem('app-a', 1);
+        window.runningContainersBySid[999] = new Set(['app-a', 'app-b']);
+        window.selectContainerStem('app-a', 999);
     }""")
 
     card = page.locator("#container-stats-card")
     expect(card).to_contain_text("5.00%")
 
-    page.evaluate("() => { window.selectContainerStem('app-b', 1); }")
+    page.evaluate("() => { window.selectContainerStem('app-b', 999); }")
     expect(card).to_contain_text("50.00%")
 
 
@@ -161,14 +161,14 @@ def test_card_updates_on_sse_data(page: Page):
 
     # Initial selection
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: [{ name: 'my-app', cpu: '10.00%', mem: '5.00%', net_io: '1kB / 1kB', pids: '2' }]
         };
-        window.runningContainersBySid[1] = new Set(['my-app']);
-        window._selectedContainerServerId = 1;
-        window.selectContainerStem('my-app', 1);
+        window.runningContainersBySid[999] = new Set(['my-app']);
+        window._selectedContainerServerId = 999;
+        window.selectContainerStem('my-app', 999);
     }""")
 
     card = page.locator("#container-stats-card")
@@ -176,12 +176,12 @@ def test_card_updates_on_sse_data(page: Page):
 
     # Simulate new SSE data arriving
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: [{ name: 'my-app', cpu: '75.00%', mem: '60.00%', net_io: '50kB / 20kB', pids: '15' }]
         };
-        window.runningContainersBySid[1] = new Set(['my-app']);
+        window.runningContainersBySid[999] = new Set(['my-app']);
         updateInspectorStatsCard();
     }""")
 
@@ -195,13 +195,13 @@ def test_card_shows_container_name_in_title(page: Page):
     _goto(page)
 
     page.evaluate("""() => {
-        lastStatsPerServer[1] = {
-            server_id: 1,
+        lastStatsPerServer[999] = {
+            server_id: 999,
             server_name: 'test-server',
             containers: [{ name: 'nginx-proxy', cpu: '1.00%', mem: '0.50%', net_io: '100B / 50B', pids: '1' }]
         };
-        window.runningContainersBySid[1] = new Set(['nginx-proxy']);
-        window.selectContainerStem('nginx-proxy', 1);
+        window.runningContainersBySid[999] = new Set(['nginx-proxy']);
+        window.selectContainerStem('nginx-proxy', 999);
     }""")
 
     card = page.locator("#container-stats-card")
