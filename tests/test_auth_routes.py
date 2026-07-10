@@ -29,7 +29,7 @@ def mock_db_login():
                 return _aw().__await__()
             async def fetchone(self):
                 # Return None if it's the unknown user test, else the admin user
-                return getattr(self, "return_value", (pwd_hash, "admin", 1))
+                return getattr(self, "return_value", (pwd_hash, "admin", 1, 0))
 
         mock_cursor = MockCursor()
         mock_db = MagicMock()
@@ -43,12 +43,13 @@ def mock_db_login():
         
         # Add commit as AsyncMock since it's awaited
         mock_db.commit = AsyncMock()
-        
+
         @asynccontextmanager
         async def _mock_conn():
             yield mock_db
-            
+
         mock_conn.side_effect = _mock_conn
+        mock_cursor.mock_db = mock_db
         yield mock_cursor
 
 @pytest.mark.unit
@@ -128,7 +129,7 @@ def test_login_rejects_legacy_sha256_hash(client):
                     return self
                 return _aw().__await__()
             async def fetchone(self):
-                return (pwd_hash, "admin", 1)
+                return (pwd_hash, "admin", 1, 0)
 
         mock_cursor = MockCursor()
         mock_db = MagicMock()
@@ -150,3 +151,104 @@ def test_login_rejects_legacy_sha256_hash(client):
         response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
         assert response.status_code == 401
         assert "Invalid username or password" in response.text
+
+@pytest.mark.unit
+def test_login_submit_redirects_to_change_password_when_flagged(client, mock_db_login):
+    pwd_hash = PasswordHasher().hash("password123")
+    mock_db_login.return_value = (pwd_hash, "viewer", 0, 1)
+    response = client.post("/login", data={"username": "viewer", "password": "password123"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/change-password"
+
+
+@pytest.mark.unit
+def test_change_password_success_clears_flag(client, mock_db_login):
+    pwd_hash = PasswordHasher().hash("password123")
+    mock_db_login.return_value = (pwd_hash, "viewer", 0, 1)
+
+    login_resp = client.post(
+        "/login", data={"username": "viewer", "password": "password123"}, follow_redirects=False
+    )
+    assert login_resp.status_code == 303
+    assert login_resp.headers["location"] == "/change-password"
+    old_cookie = login_resp.cookies["qm_session"]
+
+    change_resp = client.post(
+        "/change-password",
+        data={"new_password": "newpassword456", "confirm_password": "newpassword456"},
+        cookies={"qm_session": old_cookie},
+        follow_redirects=False,
+    )
+
+    assert change_resp.status_code == 303
+    assert change_resp.headers["location"] == "/"
+
+    mock_db = mock_db_login.mock_db
+    assert "must_change_password = 0" in mock_db.last_query
+    assert "UPDATE users SET password_hash" in mock_db.last_query
+
+    assert "qm_session" in change_resp.cookies
+    new_cookie = change_resp.cookies["qm_session"]
+    assert new_cookie != old_cookie
+
+
+@pytest.mark.unit
+def test_change_password_mismatched_passwords_shows_error(client, mock_db_login):
+    pwd_hash = PasswordHasher().hash("password123")
+    mock_db_login.return_value = (pwd_hash, "viewer", 0, 1)
+
+    login_resp = client.post(
+        "/login", data={"username": "viewer", "password": "password123"}, follow_redirects=False
+    )
+    cookie = login_resp.cookies["qm_session"]
+
+    change_resp = client.post(
+        "/change-password",
+        data={"new_password": "abc123", "confirm_password": "different"},
+        cookies={"qm_session": cookie},
+        follow_redirects=False,
+    )
+
+    assert change_resp.status_code == 400
+    assert "Passwords do not match" in change_resp.text
+
+    mock_db = mock_db_login.mock_db
+    assert not hasattr(mock_db, "last_query") or "UPDATE users SET password_hash" not in mock_db.last_query
+
+
+@pytest.mark.unit
+def test_flagged_user_redirected_from_dashboard_not_just_login(client, mock_db_login):
+    pwd_hash = PasswordHasher().hash("password123")
+    mock_db_login.return_value = (pwd_hash, "viewer", 0, 1)
+
+    login_resp = client.post(
+        "/login", data={"username": "viewer", "password": "password123"}, follow_redirects=False
+    )
+    cookie = login_resp.cookies["qm_session"]
+
+    dashboard_resp = client.get("/", cookies={"qm_session": cookie}, follow_redirects=False)
+    assert dashboard_resp.status_code == 303
+    assert dashboard_resp.headers["location"] == "/change-password"
+
+
+@pytest.mark.unit
+def test_flag_persists_across_logout_login(client, mock_db_login):
+    pwd_hash = PasswordHasher().hash("password123")
+    mock_db_login.return_value = (pwd_hash, "viewer", 0, 1)
+
+    first_login = client.post(
+        "/login", data={"username": "viewer", "password": "password123"}, follow_redirects=False
+    )
+    assert first_login.status_code == 303
+    assert first_login.headers["location"] == "/change-password"
+    cookie = first_login.cookies["qm_session"]
+
+    logout_resp = client.get("/logout", cookies={"qm_session": cookie}, follow_redirects=False)
+    assert logout_resp.status_code == 303
+    assert logout_resp.headers["location"] == "/login"
+
+    second_login = client.post(
+        "/login", data={"username": "viewer", "password": "password123"}, follow_redirects=False
+    )
+    assert second_login.status_code == 303
+    assert second_login.headers["location"] == "/change-password"

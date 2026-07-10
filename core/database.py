@@ -35,7 +35,14 @@ async def init_db():
         except aiosqlite.OperationalError as exc:
             if not _is_duplicate_column_error(exc):
                 raise  # Only 'column already exists' is expected here
-        
+
+        # Migration: add must_change_password column to existing databases
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0")
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS ssh_keys (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,8 +190,8 @@ async def init_db():
         ph = PasswordHasher()
         admin_hash = ph.hash("admin")
         viewer_hash = ph.hash("viewer")
-        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role, is_admin) VALUES (1, 'admin', ?, 'editor', 1)", (admin_hash,))
-        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (2, 'viewer', ?, 'viewer')", (viewer_hash,))
+        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role, is_admin, must_change_password) VALUES (1, 'admin', ?, 'editor', 1, 1)", (admin_hash,))
+        await db.execute("INSERT OR IGNORE INTO users (id, username, password_hash, role, must_change_password) VALUES (2, 'viewer', ?, 'viewer', 1)", (viewer_hash,))
         # Ensure existing admin seed user has is_admin=1
         await db.execute("UPDATE users SET is_admin = 1 WHERE id = 1 AND is_admin = 0")
         

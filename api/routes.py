@@ -122,9 +122,14 @@ async def ensure_session_secret() -> None:
 COOKIE_NAME = "qm_session"
 
 
-def _create_session_cookie(username: str, role: str, is_admin: bool = False) -> str:
+def _create_session_cookie(username: str, role: str, is_admin: bool = False, must_change_password: bool = False) -> str:
     """Create a signed session cookie value."""
-    return serializer.dumps({"username": username, "role": role, "is_admin": is_admin})
+    return serializer.dumps({
+        "username": username,
+        "role": role,
+        "is_admin": is_admin,
+        "must_change_password": must_change_password,
+    })
 
 
 def _read_session_cookie(cookie_value: str) -> dict | None:
@@ -175,6 +180,13 @@ async def _get_session(request: Request) -> dict:
     session = _read_session_cookie(cookie)
     if not session:
         raise HTTPException(status_code=303, headers={"Location": "/login"})
+
+    if (
+        session.get("must_change_password")
+        and request.url.path != "/change-password"
+        and request.url.path != "/logout"
+    ):
+        raise HTTPException(status_code=303, headers={"Location": "/change-password"})
 
     return session
 
@@ -285,7 +297,7 @@ async def login_page(request: Request):
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     async with get_db_connection() as db:
         async with db.execute(
-            "SELECT password_hash, role, is_admin FROM users WHERE username = ?",
+            "SELECT password_hash, role, is_admin, must_change_password FROM users WHERE username = ?",
             (username,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -298,7 +310,8 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     stored_hash = row[0]
     role = row[1]
     is_admin = bool(row[2])
-    
+    must_change_password = bool(row[3])
+
     ph = PasswordHasher()
     credentials_valid = False
 
@@ -314,10 +327,12 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         }, status_code=401)
 
     # Credentials valid – set session cookie and redirect to dashboard
-    response = RedirectResponse(url="/", status_code=303)
+    # (or to the forced password-change page, if flagged)
+    redirect_url = "/change-password" if must_change_password else "/"
+    response = RedirectResponse(url=redirect_url, status_code=303)
     response.set_cookie(
         key=COOKIE_NAME,
-        value=_create_session_cookie(username, role, is_admin),
+        value=_create_session_cookie(username, role, is_admin, must_change_password),
         max_age=_session_duration_seconds,
         httponly=True,
         samesite="lax",
@@ -329,6 +344,48 @@ async def login_submit(request: Request, username: str = Form(...), password: st
 async def logout():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(COOKIE_NAME)
+    return response
+
+
+@router.get("/change-password", response_class=HTMLResponse)
+async def change_password_page(request: Request):
+    await _get_session(request)
+    return templates.TemplateResponse(request, "change_password.html", {"error": None})
+
+
+@router.post("/change-password", response_class=HTMLResponse)
+async def change_password_submit(
+    request: Request,
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    session = await _get_session(request)
+
+    if not new_password or new_password != confirm_password:
+        return templates.TemplateResponse(request, "change_password.html", {
+            "error": "Passwords do not match"
+        }, status_code=400)
+
+    username = session["username"]
+    role = session["role"]
+    is_admin = bool(session.get("is_admin", False))
+
+    new_hash = PasswordHasher().hash(new_password)
+    async with get_db_connection() as db:
+        await db.execute(
+            "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = ?",
+            (new_hash, username),
+        )
+        await db.commit()
+
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=_create_session_cookie(username, role, is_admin, must_change_password=False),
+        max_age=_session_duration_seconds,
+        httponly=True,
+        samesite="lax",
+    )
     return response
 
 

@@ -32,7 +32,7 @@ def _mock_login_db(is_admin: bool):
         async def __aexit__(self, exc_type, exc, tb):
             pass
         async def fetchone(self):
-            return (pwd_hash, "editor", int(is_admin))
+            return (pwd_hash, "editor", int(is_admin), 0)
 
     mock_db = MagicMock()
     mock_db.execute = MagicMock(return_value=MockCursor())
