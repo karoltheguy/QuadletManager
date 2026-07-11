@@ -36,7 +36,7 @@ Priority: **P0** (next up) · **P1** (planned) · **P2** (nice to have, no rush)
 | 10 | Expand/Collapse All button for server list | **P2** | Small quality-of-life, low urgency. |
 | 11 | Reorder servers in Containers | **P2** | Needs a persisted order (per-user setting), likely the same mechanism as Monitor's favorite server (#4) and Overview's grid/order preference (#5, #24). Open question: should Containers' server order and Overview's server order be the same preference or independent ones? |
 | 12 | Dim Start/Stop/Restart buttons in Inspector | **P2** | Pure CSS/styling tweak. |
-| 13 | Unsaved-changes indicator for Editor | **P0** | Prevents real data loss (navigating away with unsaved quadlet edits): a correctness/safety issue, not just polish. |
+| 13 | Unsaved-changes indicator for Editor | **P0** | ✅ Done — implemented as issue **#188** (dirty indicator, discard confirmation on file switch, beforeunload guard). |
 | 15 | Visually group containers belonging to a pod | **P1** | Improves readability once server lists get busy; moderate UI work. |
 | 16 | Lint/validate Editor content against systemd/Podman unit syntax | **P0** | Prevents shipping broken units to servers, the highest-value item in this tab. Could start simple (basic key/section validation) and grow from there. |
 | 17 | Option to enable/disable the panel on the right side of the Editor | **P2, needs scoping** | The Editor already has an Inspector-collapse toggle (`inspector-expand-btn` / `toggleInspectorExpand()` in `static/main.js`). Needs a decision on whether this item describes that existing toggle or a distinct panel. |

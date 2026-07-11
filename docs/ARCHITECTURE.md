@@ -234,6 +234,8 @@ The dedicated Monitoring tab provides full-width container resource visualizatio
 | [`templates/partials/settings_themes.html`](templates/partials/settings_themes.html) | Custom theme configuration |
 | [`templates/partials/settings_keys.html`](templates/partials/settings_keys.html) | Global SSH key management |
 
+**Editor unsaved-changes guard** (issue #188): the editor pane tracks a dirty flag (`window._editorDirty`) via Monaco's `onDidChangeModelContent`, shown as a `●` indicator next to the editor title. A global `htmx:confirm` listener prompts before any swap targeting `#editor-pane` while dirty, and `_beforeunloadHandler` covers tab close/reload. The flag is cleared only by the `quadlet-saved` DOM event, which htmx synthesizes from the `HX-Trigger: quadlet-saved` response header that `/api/save` sets **exclusively on its success path** — this header is the load-bearing success signal, because `/api/save` returns HTTP 200 for both a real save and a validation failure (green vs red toast), so response status cannot distinguish them. Anyone changing the save route must preserve the header-on-success-only behavior or the dirty flag will clear on failed saves.
+
 ### Settings View
 
 The Settings tab (editor-only sections) provides administrative controls:
