@@ -464,12 +464,17 @@ Event types:
 
 ```javascript
 // Client-side SSE handling (static/main.js)
-var evtSource = new EventSource('/api/events');
+var url = '/api/events' + (window.activeServerId ? ('?server_id=' + encodeURIComponent(window.activeServerId)) : '');
+var evtSource = new EventSource(url);
 evtSource.addEventListener('stats_update', function(e) {
     var data = JSON.parse(e.data);
     updateStats(data);
 });
 ```
+
+**Per-client scoping and bounded delivery** (`core/events_manager.py`, issue #169): each SSE connection subscribes with the browser's currently active server via the `?server_id=` query param, and the underlying queue is capped (`maxsize=200`, drop-oldest on overflow) so a stalled client can't grow server memory without bound.
+
+Filtering only applies to `stats_update`, since it's the only event type a client only cares about for one server at a time — `poll_health` and `file_changed` are still broadcast to every connected client regardless of `server_id`, because both drive fleet-wide UI (per-server poll-health badges, file-tree change notices) that a client needs for servers other than the one it's currently viewing. Switching the active server (`setActiveServer` / `selectMonitoringServer` in `static/main.js`) closes and reopens the `EventSource` connection, since a live `EventSource` cannot change its URL.
 
 ### Browser Notifications
 

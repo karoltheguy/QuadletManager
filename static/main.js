@@ -653,6 +653,10 @@ window.setActiveServer = function(serverId) {
     serverId = parseInt(serverId, 10);
     if (window.activeServerId === serverId) return;
     window.activeServerId = serverId;
+    if (evtSource) {
+        evtSource.close();
+        connectSSE();
+    }
     // Re-render immediately with cached data for this server, if we have it.
     var cached = Reflect.get(lastStatsPerServer, serverId);
     if (cached) {
@@ -1221,8 +1225,10 @@ function fetchPollHealthSnapshot() {
 }
 
 // ── SSE Connection ───────────────────────────────────────
+var evtSource = null;
 function connectSSE() {
-  var evtSource = new EventSource('/api/events');
+  var url = '/api/events' + (window.activeServerId ? ('?server_id=' + encodeURIComponent(window.activeServerId)) : '');
+  evtSource = new EventSource(url);
 
   // Stats updates (every 5s from stats_engine)
   evtSource.addEventListener('stats_update', handleStatsUpdate);
@@ -1447,6 +1453,10 @@ window.selectMonitoringServer = function(serverId) {
 
   if (window.activeServerId === numId) return;
   window.activeServerId = numId;
+  if (evtSource) {
+    evtSource.close();
+    connectSSE();
+  }
 
   renderMonitoringServerStats(numId);
 };

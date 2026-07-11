@@ -690,8 +690,8 @@ async def api_pod_action(
         return HTMLResponse("Pod action failed")
 
 @router.get("/api/events")
-async def sse_events(request: Request, role: str = Depends(get_current_user_role)):
-    return StreamingResponse(publisher.event_generator(request), media_type="text/event-stream")
+async def sse_events(request: Request, server_id: int | None = None, role: str = Depends(get_current_user_role)):
+    return StreamingResponse(publisher.event_generator(request, server_id=server_id), media_type="text/event-stream")
 
 @router.get("/api/activity/{server_id}")
 async def get_activity(server_id: int, container: str, limit: int = 10, role: str = Depends(get_current_user_role)):

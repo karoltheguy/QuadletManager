@@ -89,6 +89,36 @@ class TestPollHealthState:
         pattern = r"function updatePollHealth[\s\S]{0,500}data\.scope\s*(===|!==|==|!=)\s*'server'"
         assert re.search(pattern, self.js)
 
+
+class TestConnectSSEServerScoping:
+    """Covers Issue #169: SSE connections should be scoped to the active server
+    and reconnect when the active server changes."""
+
+    def setup_method(self):
+        self.js = _js()
+
+    @pytest.mark.unit
+    def test_evtsource_hoisted_to_module_scope(self):
+        assert re.search(r"^var evtSource = null;", self.js, re.MULTILINE)
+
+    @pytest.mark.unit
+    def test_connect_sse_url_includes_active_server_id(self):
+        pattern = (
+            r"function connectSSE\(\)[\s\S]{0,500}"
+            r"'/api/events' \+ \(window\.activeServerId \? "
+            r"\('\?server_id=' \+ encodeURIComponent\(window\.activeServerId\)\) : ''\)"
+        )
+        assert re.search(pattern, self.js)
+
+    @pytest.mark.unit
+    def test_set_active_server_reconnects_sse(self):
+        pattern = (
+            r"window\.setActiveServer = function\(serverId\)[\s\S]{0,500}"
+            r"window\.activeServerId = serverId;[\s\S]{0,200}"
+            r"evtSource\.close\(\);[\s\S]{0,50}connectSSE\(\);"
+        )
+        assert re.search(pattern, self.js)
+
     @pytest.mark.unit
     def test_update_poll_health_stores_state_by_server_id(self):
         pattern = r"function updatePollHealth[\s\S]{0,1500}_pollHealthState\["
