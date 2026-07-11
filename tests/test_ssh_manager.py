@@ -62,6 +62,9 @@ async def test_get_connection_reconnects_if_closed(pool):
 async def test_get_connection_concurrent_callers_connect_once(pool):
     call_count = 0
     sentinel_conn = MagicMock()
+    # The pool's staleness check treats a closing/closed transport as dead;
+    # a bare MagicMock's is_closing() is truthy, so mark the fake as live.
+    sentinel_conn._transport.is_closing.return_value = False
 
     async def _fake_connect_to_server(server_id):
         nonlocal call_count
@@ -77,6 +80,32 @@ async def test_get_connection_concurrent_callers_connect_once(pool):
 
         mock_connect.assert_called_once()
         assert all(c is results[0] for c in results)
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_get_connection_rechecks_staleness_under_lock(pool):
+    sid = 1
+    lock = pool._locks.setdefault(sid, asyncio.Lock())
+    await lock.acquire()
+
+    task = asyncio.create_task(pool.get_connection(sid))
+    # Give the task a chance to start and block on the lock.
+    await asyncio.sleep(0.01)
+
+    stale_conn = MagicMock()
+    stale_conn._transport.is_closing.return_value = True
+    pool.connections[sid] = stale_conn
+
+    fresh_conn = MagicMock()
+    with patch.object(pool, "connect_to_server", new_callable=AsyncMock) as mock_connect:
+        mock_connect.return_value = fresh_conn
+        lock.release()
+
+        result = await task
+
+    assert result is fresh_conn
+    assert result is not stale_conn
+
 
 @pytest.mark.asyncio
 @pytest.mark.unit

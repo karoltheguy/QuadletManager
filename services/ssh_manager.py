@@ -47,18 +47,27 @@ class SSHConnectionPool:
         # per server so concurrent callers don't open duplicate connections.
         self._locks: dict[int, asyncio.Lock] = {}
 
+    def _drop_if_stale(self, server_id: int) -> bool:
+        """If the cached connection for server_id has a closing/closed transport,
+        pop it from self.connections and return True. Otherwise return False.
+
+        Assumes server_id is present in self.connections.
+        """
+        conn = self.connections[server_id]
+        # Check whether the underlying transport is still open.
+        # asyncssh's SSHClientConnection wraps an asyncio Transport;
+        # if the transport is closing/closed the connection is stale.
+        transport = getattr(conn, '_transport', None)
+        if transport is None or transport.is_closing():
+            logger.info(f"Cached SSH connection for server {server_id} has a closed transport – dropping.")
+            self.connections.pop(server_id, None)
+            return True
+        return False
+
     async def get_connection(self, server_id: int):
         if server_id in self.connections:
-            conn = self.connections[server_id]
-            # Check whether the underlying transport is still open.
-            # asyncssh's SSHClientConnection wraps an asyncio Transport;
-            # if the transport is closing/closed the connection is stale.
-            transport = getattr(conn, '_transport', None)
-            if transport is None or transport.is_closing():
-                logger.info(f"Cached SSH connection for server {server_id} has a closed transport – dropping.")
-                self.connections.pop(server_id, None)
-            else:
-                return conn
+            if not self._drop_if_stale(server_id):
+                return self.connections[server_id]
 
         # No live cached connection here means we need to connect. Serialize
         # via a per-server lock so concurrent callers don't each open their
@@ -68,11 +77,12 @@ class SSHConnectionPool:
         async with lock:
             # Re-check under the lock: another coroutine may have already
             # connected and populated self.connections while we were waiting
-            # for the lock. A connection found here was just established (or
-            # confirmed live) by whichever coroutine holds/held the lock, so
-            # it's safe to reuse without re-running the staleness check.
+            # for the lock. That connection could have died since it was
+            # established/confirmed, so re-run the staleness check before
+            # reusing it.
             if server_id in self.connections:
-                return self.connections[server_id]
+                if not self._drop_if_stale(server_id):
+                    return self.connections[server_id]
 
             return await self.connect_to_server(server_id)
 

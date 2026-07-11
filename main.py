@@ -33,7 +33,7 @@ class _PollingAccessLogFilter(logging.Filter):
         if not isinstance(args, tuple) or len(args) != 5:
             return True
         full_path = args[2]
-        return full_path != "/api/overview"
+        return full_path.split("?", 1)[0] != "/api/overview"
 
 
 @asynccontextmanager

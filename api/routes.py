@@ -183,7 +183,13 @@ async def _load_log_level_from_db() -> None:
         ) as cursor:
             row = await cursor.fetchone()
     if row:
-        _log_level = row[0]
+        stored_value = row[0]
+        if stored_value not in LOG_LEVEL_CHOICES:
+            logger.warning(
+                "Ignoring invalid stored log level %r", stored_value
+            )
+            return
+        _log_level = stored_value
         logging.getLogger("quadlet-manager").setLevel(_log_level)
 
 

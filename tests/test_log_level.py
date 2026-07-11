@@ -88,6 +88,25 @@ class SettingsMockDB:
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
+async def test_load_log_level_ignores_invalid_stored_value():
+    settings_db = SettingsMockDB()
+    settings_db.store["log_level"] = "VERBOSE"
+
+    @asynccontextmanager
+    async def _mock_settings_conn():
+        yield settings_db
+
+    logger = logging.getLogger("quadlet-manager")
+    original_level = logger.level
+
+    with patch("api.routes.get_db_connection", side_effect=_mock_settings_conn):
+        await api_routes._load_log_level_from_db()
+
+    assert logger.level == original_level
+
+
+@pytest.mark.unit
 def test_log_level_persists_and_applies_live(client):
     admin_cookie = _login(client, is_admin=True)
 
