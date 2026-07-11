@@ -1,6 +1,7 @@
 <div id="editor-pane" class="main-content">
     <div class="header-bar">
         <h2 class="panel-title">Editor: {{ name }}</h2>
+        <span id="unsaved-indicator" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
         <div class="header-actions">
             <div id="editor-actions">
                 {% if user_role == 'editor' %}
@@ -69,6 +70,12 @@
                     language: 'ini',
                     theme: 'vs-dark',
                     automaticLayout: true
+                });
+                window._editorDirty = false;
+                window.editor.onDidChangeModelContent(function() {
+                    window._editorDirty = true;
+                    var indicator = document.getElementById('unsaved-indicator');
+                    if (indicator) indicator.removeAttribute('hidden');
                 });
             });
         })();

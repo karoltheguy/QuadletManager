@@ -621,7 +621,9 @@ async def save_file(
             # Non-fatal: the save succeeded, collision avoidance is best-effort
             logger.warning(f"Collision avoidance update failed (save was OK): {ca_err}")
         
-        return _toast(request, "green", f"Saved & Restarted {unit_name}!", status_output=status_output)
+        response = _toast(request, "green", f"Saved & Restarted {unit_name}!", status_output=status_output)
+        response.headers["HX-Trigger"] = "quadlet-saved"
+        return response
     except Exception as e:
         logger.error(f"Save failed: {e}")
         return _toast(request, "red", f"Failed to save: {str(e)}")

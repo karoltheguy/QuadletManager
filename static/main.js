@@ -2680,12 +2680,31 @@ function saveActiveSessionsToStorage() {
 }
 
 function _beforeunloadHandler(e) {
-    if (window._terminalTabs.size > 0 || window._logTabs.size > 0) {
+    if (window._terminalTabs.size > 0 || window._logTabs.size > 0 || window._editorDirty) {
         e.preventDefault();
         e.returnValue = '';
     }
 }
 window.addEventListener('beforeunload', _beforeunloadHandler);
+
+// Guard htmx swaps of the editor pane when there are unsaved changes.
+document.body.addEventListener('htmx:confirm', function(evt) {
+    var target = evt.detail && evt.detail.target;
+    if (!target || target.id !== 'editor-pane' || !window._editorDirty) {
+        return;
+    }
+    evt.preventDefault();
+    if (confirm('You have unsaved changes in the editor. Discard them?')) {
+        evt.detail.issueRequest();
+    }
+});
+
+// The server sets HX-Trigger: quadlet-saved on a successful /api/save response.
+document.body.addEventListener('quadlet-saved', function() {
+    window._editorDirty = false;
+    var indicator = document.getElementById('unsaved-indicator');
+    if (indicator) indicator.setAttribute('hidden', '');
+});
 
 window.safeReload = function() {
     saveActiveSessionsToStorage();
