@@ -1188,6 +1188,15 @@ function applyPollHealthBadges() {
   });
 }
 
+function updateCycleIndicator(cycle) {
+  if (!cycle) return;
+  var indicator = document.getElementById('sync-cycle-indicator');
+  if (!indicator) return;
+  indicator.textContent = 'Sync cycle: ' + Number(cycle.duration).toFixed(1) + 's / ' + cycle.interval + 's';
+  indicator.removeAttribute('hidden');
+  indicator.classList.toggle('cycle-over-budget', cycle.budget_exceeded);
+}
+
 function fetchPollHealthSnapshot() {
   fetch('/api/poll-health')
     .then(function(resp) { return resp.json(); })
@@ -1204,6 +1213,7 @@ function fetchPollHealthSnapshot() {
         };
       });
       applyPollHealthBadges();
+      updateCycleIndicator(snapshot.cycle);
     })
     .catch(function(err) {
       console.error('Poll health snapshot parse error:', err);
@@ -1229,7 +1239,11 @@ function connectSSE() {
   evtSource.addEventListener('poll_health', function(e) {
     try {
       var data = JSON.parse(e.data);
-      updatePollHealth(data);
+      if (data.scope === 'cycle') {
+        updateCycleIndicator(data);
+      } else {
+        updatePollHealth(data);
+      }
     } catch (err) {
       console.error('Poll health parse error:', err);
     }
@@ -2167,6 +2181,12 @@ initMemChart();
 setupShellSelector();
 connectSSE();
 fetchPollHealthSnapshot();
+setInterval(function() {
+  var pane = document.getElementById('monitoring-pane');
+  if (pane && pane.offsetParent !== null) {
+    fetchPollHealthSnapshot();
+  }
+}, 30000);
 initResizableHandles();
 
 // ── Reconnect Banner ──────────────────────────────────────
