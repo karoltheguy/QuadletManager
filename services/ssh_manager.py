@@ -43,6 +43,9 @@ class SSHConnectionPool:
         """Initialize the SSHConnectionPool with an empty connections dictionary."""
         # server_id -> asyncssh.SSHClientConnection
         self.connections = {}
+        # server_id -> asyncio.Lock, used to serialize connection establishment
+        # per server so concurrent callers don't open duplicate connections.
+        self._locks: dict[int, asyncio.Lock] = {}
 
     async def get_connection(self, server_id: int):
         if server_id in self.connections:
@@ -57,7 +60,21 @@ class SSHConnectionPool:
             else:
                 return conn
 
-        return await self.connect_to_server(server_id)
+        # No live cached connection here means we need to connect. Serialize
+        # via a per-server lock so concurrent callers don't each open their
+        # own connection (setdefault has no await point, so it's safe to
+        # call without an extra guard lock).
+        lock = self._locks.setdefault(server_id, asyncio.Lock())
+        async with lock:
+            # Re-check under the lock: another coroutine may have already
+            # connected and populated self.connections while we were waiting
+            # for the lock. A connection found here was just established (or
+            # confirmed live) by whichever coroutine holds/held the lock, so
+            # it's safe to reuse without re-running the staleness check.
+            if server_id in self.connections:
+                return self.connections[server_id]
+
+            return await self.connect_to_server(server_id)
 
     async def connect_to_server(self, server_id: int):
         logger.info(f"Establishing new SSH connection to server {server_id}")

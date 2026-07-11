@@ -59,6 +59,27 @@ async def test_get_connection_reconnects_if_closed(pool):
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+async def test_get_connection_concurrent_callers_connect_once(pool):
+    call_count = 0
+    sentinel_conn = MagicMock()
+
+    async def _fake_connect_to_server(server_id):
+        nonlocal call_count
+        call_count += 1
+        await asyncio.sleep(0.01)
+        pool.connections[server_id] = sentinel_conn
+        return sentinel_conn
+
+    with patch.object(pool, "connect_to_server", new_callable=AsyncMock) as mock_connect:
+        mock_connect.side_effect = _fake_connect_to_server
+
+        results = await asyncio.gather(*[pool.get_connection(1) for _ in range(5)])
+
+        mock_connect.assert_called_once()
+        assert all(c is results[0] for c in results)
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_success(pool):
     mock_conn = AsyncMock()
     mock_process = MagicMock()
