@@ -1980,6 +1980,30 @@ var setupShellSelector = function() {
     }
 };
 
+// Handle log time-range selector changes (setup after DOM is ready)
+var setupLogSinceSelector = function() {
+    var sinceSelect = document.getElementById('log-since-select');
+    if (sinceSelect) {
+        sinceSelect.addEventListener('change', function() {
+            var value = this.value;
+            try {
+                localStorage.setItem('qm-log-since-range', value);
+            } catch {
+                // Ignore localStorage restrictions
+            }
+
+            var key = window._activeLogTabKey;
+            var entry = key ? window._logTabs.get(key) : null;
+            if (!entry) return;
+
+            entry.since = value;
+            if (entry.ws) entry.ws.close();
+            if (entry.logDiv) entry.logDiv.textContent = 'Reconnecting…\n';
+            openLogSocket(key);
+        });
+    }
+};
+
 // Ctrl+1 / Ctrl+2 — switch bottom panel tabs when panel is open
 document.addEventListener('keydown', function(e) {
     if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
@@ -2179,6 +2203,14 @@ initStatsChart();
 initCpuChart();
 initMemChart();
 setupShellSelector();
+setupLogSinceSelector();
+try {
+    var storedLogSince = localStorage.getItem('qm-log-since-range');
+    var logSinceSelect = document.getElementById('log-since-select');
+    if (storedLogSince && logSinceSelect) logSinceSelect.value = storedLogSince;
+} catch {
+    // Ignore localStorage restrictions
+}
 connectSSE();
 fetchPollHealthSnapshot();
 setInterval(function() {
@@ -2512,15 +2544,34 @@ function createLogTab(tabKey, serverId, unitName, scope) {
     var hint = document.getElementById('log-empty-hint');
     if (hint) hint.style.display = 'none';
 
-    window._logTabs.set(tabKey, { logDiv: logDiv, tabEl: tabEl, paneEl: paneEl, serverId: serverId, unitName: unitName, scope: scope });
+    var sinceSelect = document.getElementById('log-since-select');
+    var since = sinceSelect ? sinceSelect.value : '15m';
+
+    window._logTabs.set(tabKey, { logDiv: logDiv, tabEl: tabEl, paneEl: paneEl, serverId: serverId, unitName: unitName, scope: scope, since: since });
     switchLogTab(tabKey);
 
     // ── WebSocket ───────────────────────────────────────
+    openLogSocket(tabKey);
+}
+
+function openLogSocket(tabKey) {
+    var entry = window._logTabs.get(tabKey);
+    if (!entry) return;
+
+    var serverId = entry.serverId;
+    var unitName = entry.unitName;
+    var scope = entry.scope;
+    var logDiv = entry.logDiv;
+    var tabEl = entry.tabEl;
+
     // ws:// fallback is intentional: this app supports non-TLS deployments (e.g. internal
     // networks) with no reverse proxy/cert in front of it. Forcing wss:// unconditionally
     // would break log streaming for those setups since there's no TLS to terminate against.
     // Accepted risk for non-TLS deployments — see #161.
     var wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
+    if (entry.since && entry.since !== 'All') {
+        wsUrl += '&since=' + encodeURIComponent(entry.since);
+    }
     var ws = new WebSocket(wsUrl);
 
     ws.onmessage = function(event) {
@@ -2529,6 +2580,7 @@ function createLogTab(tabKey, serverId, unitName, scope) {
     };
 
     ws.onclose = function() {
+        if (entry.ws !== ws) return;
         logDiv.appendChild(document.createTextNode('\n--- Log stream disconnected ---\n'));
         tabEl.classList.add('is-disconnected');
     };
@@ -2538,7 +2590,8 @@ function createLogTab(tabKey, serverId, unitName, scope) {
         logDiv.appendChild(document.createTextNode('\n--- Error connecting to log stream ---\n'));
     };
 
-    window._logTabs.set(tabKey, { ws: ws, logDiv: logDiv, tabEl: tabEl, paneEl: paneEl, serverId: serverId, unitName: unitName, scope: scope });
+    entry.ws = ws;
+    window._logTabs.set(tabKey, entry);
 }
 
 window.switchLogTab = function(key) {
@@ -2553,6 +2606,12 @@ window.switchLogTab = function(key) {
     document.querySelectorAll('.log-tab-pane').forEach(function(el) {
         el.classList.toggle('hidden', el.dataset.key !== key);
     });
+
+    var sinceSelect = document.getElementById('log-since-select');
+    if (sinceSelect) {
+        var entry = window._logTabs.get(key);
+        sinceSelect.value = (entry && entry.since) || '15m';
+    }
 
     switchBottomTab('logs');
 };

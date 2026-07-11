@@ -458,6 +458,7 @@ Endpoint: `WS /ws/logs/{server_id}/{unit_name}`
 Real-time log streaming via `journalctl -f`:
 - Client sends `STOP` to terminate stream
 - Server kills remote process on disconnect
+- Optional `since` query param scopes the tail to a recent window: allowlisted values `5m`, `15m`, `1h`, `6h`, `24h` map to `journalctl --since "<phrase>"` (replacing the default `-n 100` backlog). Any other value — including omission or `All` — keeps the default. Raw values are never interpolated into the command; only allowlist-mapped phrases are.
 - See [`api/sockets.py`](api/sockets.py) for implementation
 
 ---

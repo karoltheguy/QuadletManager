@@ -36,7 +36,18 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
+# Allowlist mapping range codes to journalctl --since phrases. Values are
+# never taken from user input directly, so this is the only source of
+# --since text interpolated into the shell command.
+_SINCE_PHRASES = {
+    "5m": "5 minutes ago",
+    "15m": "15 minutes ago",
+    "1h": "1 hour ago",
+    "6h": "6 hours ago",
+    "24h": "24 hours ago",
+}
+
+async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user", since: str = None):
     await manager.connect(websocket)
     if not _UNIT_NAME_RE.match(unit_name or ""):
         logger.warning(f"Rejected invalid unit_name: {unit_name!r}")
@@ -49,10 +60,15 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
     safe_unit = shlex.quote(unit_name)
     # Start journalctl process on remote server via ssh
     conn = await pool.get_connection(server_id)
-    if scope == "global":
-        cmd = f"sudo journalctl -u {safe_unit} -f -n 100"
+    since_phrase = _SINCE_PHRASES.get(since)
+    if since_phrase is not None:
+        tail_clause = f"--since {shlex.quote(since_phrase)}"
     else:
-        cmd = f"journalctl --user -u {safe_unit} -f -n 100"
+        tail_clause = "-n 100"
+    if scope == "global":
+        cmd = f"sudo journalctl -u {safe_unit} -f {tail_clause}"
+    else:
+        cmd = f"journalctl --user -u {safe_unit} -f {tail_clause}"
 
     logger.info(f"Starting log stream for {unit_name} on server {server_id}")
 

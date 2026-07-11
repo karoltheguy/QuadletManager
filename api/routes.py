@@ -1494,13 +1494,13 @@ async def _authenticate_websocket(websocket: WebSocket) -> dict | None:
 
 
 @router.websocket("/ws/logs/{server_id}/{unit_name}")
-async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user"):
+async def websocket_logs(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user", since: str = None):
     session = await _authenticate_websocket(websocket)
     if session is None:
         logger.warning("Rejected unauthenticated /ws/logs connection")
         await websocket.close(code=4401)
         return
-    await stream_logs_over_websocket(websocket, server_id, unit_name, scope)
+    await stream_logs_over_websocket(websocket, server_id, unit_name, scope, since=since)
 
 
 @router.websocket("/ws/exec/{server_id}/{container_name}")

@@ -269,6 +269,157 @@ async def test_stream_logs_valid_unit_name_passes(mock_websocket, monkeypatch):
     mock_conn.create_process.assert_called_once()
 
 
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_stream_logs_since_15m_uses_relative_time(mock_websocket, monkeypatch):
+    """Test that since='15m' translates to a --since '15 minutes ago' clause and drops -n 100"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+
+    async def mock_stdout():
+        if False:
+            yield ""
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.return_value = "STOP"
+
+    await stream_logs_over_websocket(
+        mock_websocket, server_id=1, unit_name="my_unit.service", since="15m"
+    )
+
+    call_args = mock_conn.create_process.call_args[0]
+    built_cmd = call_args[0]
+    assert "--since '15 minutes ago'" in built_cmd
+    assert "-n 100" not in built_cmd
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_stream_logs_since_24h_global_scope(mock_websocket, monkeypatch):
+    """Test that since='24h' with scope='global' still uses sudo journalctl and translates properly"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+
+    async def mock_stdout():
+        if False:
+            yield ""
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.return_value = "STOP"
+
+    await stream_logs_over_websocket(
+        mock_websocket, server_id=1, unit_name="my_unit.service", scope="global", since="24h"
+    )
+
+    call_args = mock_conn.create_process.call_args[0]
+    built_cmd = call_args[0]
+    assert built_cmd.startswith("sudo journalctl")
+    assert "--since '24 hours ago'" in built_cmd
+    assert "-n 100" not in built_cmd
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_stream_logs_since_none_keeps_existing_behavior(mock_websocket, monkeypatch):
+    """Test that omitting since preserves the current -n 100 behavior with no --since clause"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+
+    async def mock_stdout():
+        if False:
+            yield ""
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.return_value = "STOP"
+
+    await stream_logs_over_websocket(mock_websocket, server_id=1, unit_name="my_unit.service")
+
+    call_args = mock_conn.create_process.call_args[0]
+    built_cmd = call_args[0]
+    assert "-n 100" in built_cmd
+    assert "--since" not in built_cmd
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_stream_logs_since_all_keeps_existing_behavior(mock_websocket, monkeypatch):
+    """Test that since='All' behaves the same as omitting since entirely"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+
+    async def mock_stdout():
+        if False:
+            yield ""
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.return_value = "STOP"
+
+    await stream_logs_over_websocket(
+        mock_websocket, server_id=1, unit_name="my_unit.service", since="All"
+    )
+
+    call_args = mock_conn.create_process.call_args[0]
+    built_cmd = call_args[0]
+    assert "-n 100" in built_cmd
+    assert "--since" not in built_cmd
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_stream_logs_since_unrecognized_value_falls_back(mock_websocket, monkeypatch):
+    """Test that an unrecognized/malicious since value falls back to default behavior and is never interpolated"""
+    mock_pool = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+
+    async def mock_stdout():
+        if False:
+            yield ""
+
+    mock_process.stdout = mock_stdout()
+    mock_conn.create_process.return_value = mock_process
+    mock_pool.get_connection.return_value = mock_conn
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    mock_websocket.receive_text.return_value = "STOP"
+
+    garbage = "garbage; rm -rf /"
+    await stream_logs_over_websocket(
+        mock_websocket, server_id=1, unit_name="my_unit.service", since=garbage
+    )
+
+    call_args = mock_conn.create_process.call_args[0]
+    built_cmd = call_args[0]
+    assert "-n 100" in built_cmd
+    assert "--since" not in built_cmd
+    assert garbage not in built_cmd
+
+
 # ── Authentication tests for WebSocket route handlers ──────────────────────
 
 @pytest.fixture
@@ -330,7 +481,7 @@ async def test_ws_logs_accepts_valid_session(authed_ws, monkeypatch):
     monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
     called = {"hit": False}
 
-    async def fake_stream(ws, server_id, unit_name, scope):
+    async def fake_stream(ws, server_id, unit_name, scope, since=None):
         called["hit"] = True
 
     monkeypatch.setattr(api_routes, "stream_logs_over_websocket", fake_stream)

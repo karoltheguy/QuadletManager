@@ -460,6 +460,17 @@
               <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
             </div>
             <div class="logs-controls hidden">
+              <div class="shell-pill">
+                <span class="shell-pill-prefix" aria-hidden="true">Since</span>
+                <select id="log-since-select" class="terminal-shell-select" aria-label="Log time range">
+                  <option value="5m">5m</option>
+                  <option value="15m" selected>15m</option>
+                  <option value="1h">1h</option>
+                  <option value="6h">6h</option>
+                  <option value="24h">24h</option>
+                  <option value="All">All</option>
+                </select>
+              </div>
               <button id="toggle-logs-btn" class="btn btn-primary btn-sm" onclick="tailLogsFromPanel()">Tail Logs</button>
             </div>
           </div>
