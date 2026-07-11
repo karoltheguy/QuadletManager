@@ -9,6 +9,7 @@
                 <span class="server-chevron">▾</span>
                 <span class="font-bold text-lg">{{ server[1] }}</span>
             </button>
+            <span class="server-poll-warning" data-server-id="{{ server[0] }}" hidden>⚠</span>
             {% if user_role == 'editor' %}
             <button class="server-new-btn"
                     hx-get="/api/modal/new?server_id={{ server[0] }}"

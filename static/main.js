@@ -218,6 +218,8 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
     }
     // Sync expand button tooltip after editor pane swaps
     syncInspectorToggleBtn();
+    // Re-apply poll-health warning badges after the server tree reloads
+    applyPollHealthBadges();
 });
 
 // ── Monaco Editor Configuration ──────────────────────────
@@ -1159,6 +1161,55 @@ function handleStatsUpdate(e) {
   }
 }
 
+// ── Poll Health Badges ───────────────────────────────────
+var _pollHealthState = {};
+
+function updatePollHealth(data) {
+  if (!data || data.scope !== 'server') return;
+  _pollHealthState[data.server_id] = data;
+  var badge = document.querySelector(".server-poll-warning[data-server-id=\"" + data.server_id + "\"]");
+  if (!badge) return;
+  if (data.healthy) {
+    badge.setAttribute('hidden', '');
+    badge.title = '';
+    return;
+  }
+  badge.removeAttribute('hidden');
+  if (data.reason === 'slow_fetch') {
+    badge.title = 'Polling slow' + ' (' + Number(data.last_duration).toFixed(1) + 's)';
+  } else {
+    badge.title = 'Polling failing' + ' (' + data.consecutive_failures + ' consecutive failures)';
+  }
+}
+
+function applyPollHealthBadges() {
+  Object.keys(_pollHealthState).forEach(function(serverId) {
+    updatePollHealth(_pollHealthState[serverId]);
+  });
+}
+
+function fetchPollHealthSnapshot() {
+  fetch('/api/poll-health')
+    .then(function(resp) { return resp.json(); })
+    .then(function(snapshot) {
+      Object.keys(snapshot.servers || {}).forEach(function(serverId) {
+        var entry = snapshot.servers[serverId];
+        _pollHealthState[serverId] = {
+          scope: 'server',
+          server_id: serverId,
+          healthy: entry.healthy,
+          reason: entry.healthy ? 'recovered' : (entry.consecutive_failures > 0 ? 'consecutive_failures' : 'slow_fetch'),
+          consecutive_failures: entry.consecutive_failures,
+          last_duration: entry.last_duration
+        };
+      });
+      applyPollHealthBadges();
+    })
+    .catch(function(err) {
+      console.error('Poll health snapshot parse error:', err);
+    });
+}
+
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
   var evtSource = new EventSource('/api/events');
@@ -1173,6 +1224,16 @@ function connectSSE() {
       el('div', { className: 'text-xs text-muted mt-1' }, 'Will retry automatically…')
     ]);
   }
+
+  // Poll health events (from sync poller, per-server scope only)
+  evtSource.addEventListener('poll_health', function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      updatePollHealth(data);
+    } catch (err) {
+      console.error('Poll health parse error:', err);
+    }
+  });
 
   // Stats error events (when podman is unreachable/timed out)
   evtSource.addEventListener('stats_error', function(e) {
@@ -2105,6 +2166,7 @@ initCpuChart();
 initMemChart();
 setupShellSelector();
 connectSSE();
+fetchPollHealthSnapshot();
 initResizableHandles();
 
 // ── Reconnect Banner ──────────────────────────────────────

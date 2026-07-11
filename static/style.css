@@ -985,6 +985,13 @@ ul { list-style: none; }
     animation: flash-failed 1.2s ease-in-out infinite;
 }
 
+.server-poll-warning {
+    margin-left: 0.35rem;
+    color: var(--danger);
+    font-size: 0.85em;
+    cursor: default;
+}
+
 /* Monitor time-series chart section */
 .monitor-chart-section {
   background-color: var(--bg-surface);
