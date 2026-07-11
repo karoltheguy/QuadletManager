@@ -13,7 +13,7 @@ from services.stats_engine import stats_engine_loop
 from services.container_events import container_events_cleanup_loop
 from services.ssh_manager import pool
 from api.routes import router as web_router
-from api.routes import _load_session_duration_from_db, ensure_session_secret
+from api.routes import _load_session_duration_from_db, _load_log_level_from_db, ensure_session_secret
 
 _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
@@ -24,10 +24,27 @@ _background_tasks: list[asyncio.Task] = []
 
 from contextlib import asynccontextmanager
 
+
+class _PollingAccessLogFilter(logging.Filter):
+    """Drops uvicorn access-log records for the polling endpoint."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if not isinstance(args, tuple) or len(args) != 5:
+            return True
+        full_path = args[2]
+        return full_path != "/api/overview"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting QuadletManager backend... (version {get_version()})")
-    
+
+    # 0. Filter noisy polling requests out of the uvicorn access log.
+    # Must happen here (not at module import time) because uvicorn configures
+    # its own "uvicorn.access" logger before the app's lifespan hook runs.
+    logging.getLogger("uvicorn.access").addFilter(_PollingAccessLogFilter())
+
     # 1. Initialize SQLite schema
     await init_db()
 
@@ -36,6 +53,9 @@ async def lifespan(app: FastAPI):
 
     # 2b. Hydrate the in-memory session duration from any persisted setting
     await _load_session_duration_from_db()
+
+    # 2b-2. Hydrate the in-memory log level from any persisted setting
+    await _load_log_level_from_db()
 
     # 2c. Ensure a stable session secret exists before any cookies are issued
     await ensure_session_secret()

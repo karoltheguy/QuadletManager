@@ -71,6 +71,13 @@ SESSION_DURATION_LABELS = (
 # session_timeout (or its 3600 default) until a value is persisted to the settings table.
 _session_duration_seconds = global_config.session_timeout
 
+LOG_LEVEL_SETTING_KEY = "log_level"
+LOG_LEVEL_CHOICES = ("DEBUG", "INFO", "WARNING")
+
+# Mutable at runtime via PUT /api/settings/log-level; seeded the same way main.py seeds
+# its own startup logging.basicConfig level, until a value is persisted to the settings table.
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
 serializer = URLSafeTimedSerializer(SESSION_SECRET)
 
 
@@ -165,6 +172,34 @@ async def _persist_session_duration(seconds: int) -> None:
             pass
         await db.commit()
     _session_duration_seconds = seconds
+
+
+async def _load_log_level_from_db() -> None:
+    """Hydrate the in-memory log level from the persisted setting, if any."""
+    global _log_level
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT value FROM settings WHERE key = ?", (LOG_LEVEL_SETTING_KEY,)
+        ) as cursor:
+            row = await cursor.fetchone()
+    if row:
+        _log_level = row[0]
+        logging.getLogger("quadlet-manager").setLevel(_log_level)
+
+
+async def _persist_log_level(level: str) -> None:
+    """Persist the log level to the settings table, update the in-memory value, and apply it live."""
+    global _log_level
+    async with get_db_connection() as db:
+        async with db.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (LOG_LEVEL_SETTING_KEY, level),
+        ):
+            pass
+        await db.commit()
+    _log_level = level
+    logging.getLogger("quadlet-manager").setLevel(level)
 
 
 async def _get_session(request: Request) -> dict:
@@ -939,6 +974,8 @@ async def settings_get_session_duration(
     return templates.TemplateResponse(request, "partials/settings_admin.html", {
         "current_seconds": _session_duration_seconds,
         "duration_choices": SESSION_DURATION_LABELS,
+        "current_log_level": _log_level,
+        "log_level_choices": LOG_LEVEL_CHOICES,
         "saved": False,
     })
 
@@ -959,6 +996,47 @@ async def settings_update_session_duration(
     return templates.TemplateResponse(request, "partials/settings_admin.html", {
         "current_seconds": _session_duration_seconds,
         "duration_choices": SESSION_DURATION_LABELS,
+        "current_log_level": _log_level,
+        "log_level_choices": LOG_LEVEL_CHOICES,
+        "saved": True,
+    })
+
+
+@router.get("/api/settings/log-level", response_class=HTMLResponse)
+async def settings_get_log_level(
+    request: Request,
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+
+    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+        "current_seconds": _session_duration_seconds,
+        "duration_choices": SESSION_DURATION_LABELS,
+        "current_log_level": _log_level,
+        "log_level_choices": LOG_LEVEL_CHOICES,
+        "saved": False,
+    })
+
+
+@router.put("/api/settings/log-level", response_class=HTMLResponse)
+async def settings_update_log_level(
+    request: Request,
+    log_level: str = Form(...),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    if log_level not in LOG_LEVEL_CHOICES:
+        raise HTTPException(status_code=400, detail="Invalid log level.")
+
+    await _persist_log_level(log_level)
+    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+        "current_seconds": _session_duration_seconds,
+        "duration_choices": SESSION_DURATION_LABELS,
+        "current_log_level": _log_level,
+        "log_level_choices": LOG_LEVEL_CHOICES,
         "saved": True,
     })
 

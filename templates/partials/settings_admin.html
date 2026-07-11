@@ -11,7 +11,19 @@
       {% endfor %}
     </select>
   </div>
+  <div class="form-row">
+    <label class="form-label">Log level</label>
+    <select class="form-control" name="log_level"
+            hx-put="/api/settings/log-level"
+            hx-target="#admin-root"
+            hx-swap="outerHTML"
+            hx-include="this">
+      {% for level in log_level_choices %}
+      <option value="{{ level }}" {% if level == current_log_level %}selected{% endif %}>{{ level.capitalize() }}</option>
+      {% endfor %}
+    </select>
+  </div>
   {% if saved %}
-  <p class="text-success">Session duration updated.</p>
+  <p class="text-success">Settings updated.</p>
   {% endif %}
 </div>
