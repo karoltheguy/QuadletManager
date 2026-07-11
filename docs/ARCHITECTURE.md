@@ -434,7 +434,7 @@ Event types:
 - `stats_update`: Container resource metrics (every 5s)
 - `stats_error`: Podman connectivity issues
 - `file_changed`: External file modification detected
-- `poll_health`: Sync-poller health transitions — a server entering/leaving unhealthy (consecutive failures or slow fetch) or the poll cycle crossing its duration budget; edge-triggered, not periodic
+- `poll_health`: Sync-poller health transitions — a server entering/leaving unhealthy (consecutive failures or slow fetch) or the poll cycle crossing its duration budget; edge-triggered, not periodic. Payload schemas and thresholds are documented in [Poll Health Instrumentation](#poll-health-instrumentation-servicessync_enginepy)
 
 ```javascript
 // Client-side SSE handling (static/main.js)
@@ -488,6 +488,67 @@ flowchart TD
         E -->|No| B
     end
 ```
+
+### Poll Health Instrumentation ([`services/sync_engine.py`](services/sync_engine.py))
+
+The sync engine measures its own polling health and exposes it to the frontend (issues #183–#186). All state lives in an in-memory `PollHealthTracker` (`health_tracker` module singleton) — nothing is persisted, and there is no adaptive behavior (no backoff, no interval changes): measure and display only.
+
+**Mechanism:**
+- Each per-server `stat` batch and the overall poll cycle are timed with `time.monotonic()`.
+- Results are aggregated per server across its `(server_id, scope)` fetch groups: a server counts as *failed* if any of its groups failed, and its duration is the *max* across groups.
+- Servers deleted from the DB are pruned from the tracker each cycle.
+- Events are **edge-triggered**: a `poll_health` SSE event is published only when a state *transition* occurs — never once per cycle, so the event stream is silent in steady state. Recovery transitions also emit events so the UI can clear warnings.
+
+**Thresholds** (module constants in `services/sync_engine.py`, deliberately not config-exposed until tuning proves necessary):
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `SLOW_FETCH_THRESHOLD_SEC` | `5` | A successful fetch slower than this marks the server unhealthy (`slow_fetch`) |
+| `CONSECUTIVE_FAILURES_THRESHOLD` | `3` | This many consecutive failed fetches marks the server unhealthy (`consecutive_failures`) |
+| `CYCLE_BUDGET_RATIO` | `0.8` | Cycle duration above this fraction of `POLL_INTERVAL_SEC` sets `budget_exceeded` |
+
+**`poll_health` event payloads:**
+
+Server-scope (a server crossing into or out of unhealthy):
+
+```json
+{
+  "scope": "server",
+  "server_id": 1,
+  "healthy": false,
+  "reason": "consecutive_failures",  // or "slow_fetch"; "recovered" when healthy flips back to true
+  "consecutive_failures": 3,
+  "last_duration": 0.0               // seconds, max across the server's fetch groups
+}
+```
+
+Cycle-scope (the whole poll cycle crossing the duration budget, either direction):
+
+```json
+{
+  "scope": "cycle",
+  "duration": 8.2,          // seconds
+  "interval": 10,           // POLL_INTERVAL_SEC
+  "budget_exceeded": true
+}
+```
+
+**Snapshot endpoint** — `GET /api/poll-health` returns the tracker's full current state so the UI can render on page load without waiting for a transition event:
+
+```json
+{
+  "servers": {
+    "1": { "healthy": true, "consecutive_failures": 0, "last_duration": 0.4 }
+  },
+  "cycle": { "duration": 0.5, "interval": 10, "budget_exceeded": false }
+}
+```
+
+Notes for consumers: server keys are **JSON strings** (`"1"`, not `1`); `cycle` is `null` before the first cycle completes; the snapshot carries no `reason` field — the frontend infers `slow_fetch` when an unhealthy server has `consecutive_failures == 0`.
+
+**UI consumers** (`static/main.js`):
+- **Quadlet tree**: a `.server-poll-warning` badge on each server row, shown with a human-readable tooltip ("Polling failing (N consecutive failures)" / "Polling slow (X.Xs)") when that server is unhealthy, hidden on recovery. Badges are re-applied on `htmx:afterSwap` because the tree partial loads after the SSE connection opens.
+- **Monitoring view**: a `#sync-cycle-indicator` in the header bar ("Sync cycle: X.Xs / Ys"), danger-colored when over budget. Because events only fire on transitions, the frontend also re-fetches the snapshot every 30s while the monitoring pane is visible to keep the displayed numbers current.
 
 ### Container Events Engine ([`services/container_events.py`](services/container_events.py))
 
