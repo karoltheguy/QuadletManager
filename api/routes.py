@@ -20,6 +20,7 @@ from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationEr
 from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
+import services.sync_engine as sync_engine
 from services.sync_engine import parse_mtime
 from core.events_manager import publisher
 from services.container_events import record_container_event, get_container_activity
@@ -741,6 +742,12 @@ async def api_health_history(server_id: int, minutes: int = 60, role: str = Depe
         })
 
     return JSONResponse(list(containers.values()))
+
+
+@router.get("/api/poll-health")
+async def api_poll_health(role: str = Depends(get_current_user_role)):
+    """Return the poll health tracker's current snapshot."""
+    return JSONResponse(sync_engine.health_tracker.snapshot())
 
 
 @router.get("/api/settings/servers", response_class=HTMLResponse)

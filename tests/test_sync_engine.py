@@ -545,3 +545,325 @@ async def test_polling_engine_loop_exception_caught():
     with patch("services.sync_engine.asyncio.sleep", side_effect=mock_sleep), \
          patch("services.sync_engine.check_quadlets", side_effect=Exception("sync error")):
         await polling_engine_loop()
+
+
+# =============================================================================
+# TestPollHealthTracker - pure logic tests for PollHealthTracker (issue #184)
+# =============================================================================
+
+
+@pytest.mark.unit
+def test_module_constants_exist():
+    """Sanity check the health instrumentation thresholds are defined."""
+    from services.sync_engine import (
+        SLOW_FETCH_THRESHOLD_SEC,
+        CONSECUTIVE_FAILURES_THRESHOLD,
+        CYCLE_BUDGET_RATIO,
+    )
+    assert SLOW_FETCH_THRESHOLD_SEC == 5
+    assert CONSECUTIVE_FAILURES_THRESHOLD == 3
+    assert CYCLE_BUDGET_RATIO == 0.8
+
+
+@pytest.mark.unit
+def test_module_level_health_tracker_instance_exists():
+    """A module-level `health_tracker` singleton must be importable."""
+    from services.sync_engine import health_tracker, PollHealthTracker
+    assert isinstance(health_tracker, PollHealthTracker)
+
+
+@pytest.mark.unit
+def test_first_and_second_consecutive_failure_no_event():
+    """1st and 2nd consecutive failures for a server produce no event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    assert tracker.record_fetch(server_id=1, duration=0.1, success=False) is None
+    assert tracker.record_fetch(server_id=1, duration=0.1, success=False) is None
+
+
+@pytest.mark.unit
+def test_third_consecutive_failure_fires_unhealthy_event():
+    """3rd consecutive failure transitions the server to unhealthy."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    event = tracker.record_fetch(server_id=1, duration=0.1, success=False)
+
+    assert event == {
+        "scope": "server",
+        "server_id": 1,
+        "healthy": False,
+        "reason": "consecutive_failures",
+        "consecutive_failures": 3,
+        "last_duration": 0.1,
+    }
+
+
+@pytest.mark.unit
+def test_fourth_and_beyond_failure_no_event_already_unhealthy():
+    """4th and subsequent failures produce no event (level, not transition)."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+
+    assert tracker.record_fetch(server_id=1, duration=0.1, success=False) is None
+    assert tracker.record_fetch(server_id=1, duration=0.1, success=False) is None
+
+
+@pytest.mark.unit
+def test_success_after_unhealthy_fires_recovery_event_and_resets_count():
+    """A success after unhealthy (consecutive failures) fires a recovery event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+
+    event = tracker.record_fetch(server_id=1, duration=0.2, success=True)
+
+    assert event == {
+        "scope": "server",
+        "server_id": 1,
+        "healthy": True,
+        "reason": "recovered",
+        "consecutive_failures": 0,
+        "last_duration": 0.2,
+    }
+
+    # Failure count has been reset: two more failures should not yet fire.
+    assert tracker.record_fetch(server_id=1, duration=0.1, success=False) is None
+    assert tracker.record_fetch(server_id=1, duration=0.1, success=False) is None
+
+
+@pytest.mark.unit
+def test_slow_fetch_fires_unhealthy_event():
+    """A successful fetch exceeding SLOW_FETCH_THRESHOLD_SEC is a slow-fetch transition."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    event = tracker.record_fetch(server_id=2, duration=6.0, success=True)
+
+    assert event == {
+        "scope": "server",
+        "server_id": 2,
+        "healthy": False,
+        "reason": "slow_fetch",
+        "consecutive_failures": 0,
+        "last_duration": 6.0,
+    }
+
+
+@pytest.mark.unit
+def test_slow_fetch_recovery_when_duration_drops_below_threshold():
+    """After a slow fetch, a subsequent fast fetch fires a recovery event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=2, duration=6.0, success=True)
+    event = tracker.record_fetch(server_id=2, duration=1.0, success=True)
+
+    assert event == {
+        "scope": "server",
+        "server_id": 2,
+        "healthy": True,
+        "reason": "recovered",
+        "consecutive_failures": 0,
+        "last_duration": 1.0,
+    }
+
+
+@pytest.mark.unit
+def test_successive_slow_fetches_only_first_fires():
+    """Repeated slow fetches after the first should not re-fire the event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    first = tracker.record_fetch(server_id=2, duration=6.0, success=True)
+    second = tracker.record_fetch(server_id=2, duration=7.0, success=True)
+
+    assert first is not None
+    assert first["reason"] == "slow_fetch"
+    assert second is None
+
+
+@pytest.mark.unit
+def test_cycle_crossing_above_budget_fires_event():
+    """A cycle duration crossing above CYCLE_BUDGET_RATIO * interval fires an event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    event = tracker.record_cycle(duration=9.0, interval=10.0)
+
+    assert event == {
+        "scope": "cycle",
+        "duration": 9.0,
+        "interval": 10.0,
+        "budget_exceeded": True,
+    }
+
+
+@pytest.mark.unit
+def test_cycle_staying_above_budget_no_event():
+    """Staying above budget on the next call fires no event (edge-triggered)."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_cycle(duration=9.0, interval=10.0)
+    event = tracker.record_cycle(duration=9.5, interval=10.0)
+
+    assert event is None
+
+
+@pytest.mark.unit
+def test_cycle_dropping_back_below_budget_fires_event():
+    """Dropping back below budget fires a recovery-style cycle event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_cycle(duration=9.0, interval=10.0)
+    event = tracker.record_cycle(duration=2.0, interval=10.0)
+
+    assert event == {
+        "scope": "cycle",
+        "duration": 2.0,
+        "interval": 10.0,
+        "budget_exceeded": False,
+    }
+
+
+@pytest.mark.unit
+def test_cycle_staying_below_budget_no_event_including_first_call():
+    """Staying below budget - including the very first call - fires no event."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    assert tracker.record_cycle(duration=1.0, interval=10.0) is None
+    assert tracker.record_cycle(duration=2.0, interval=10.0) is None
+
+
+@pytest.mark.unit
+def test_snapshot_shape_before_any_cycle():
+    """Before any cycle is recorded, snapshot()["cycle"] is None."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=1, duration=0.5, success=True)
+
+    snapshot = tracker.snapshot()
+    assert snapshot == {
+        "servers": {
+            1: {"healthy": True, "consecutive_failures": 0, "last_duration": 0.5},
+        },
+        "cycle": None,
+    }
+
+
+@pytest.mark.unit
+def test_snapshot_reflects_server_and_cycle_state():
+    """snapshot() reflects both per-server health and the latest cycle state."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_fetch(server_id=1, duration=0.1, success=False)
+    tracker.record_cycle(duration=9.0, interval=10.0)
+
+    snapshot = tracker.snapshot()
+    assert snapshot == {
+        "servers": {
+            1: {"healthy": False, "consecutive_failures": 3, "last_duration": 0.1},
+        },
+        "cycle": {"duration": 9.0, "interval": 10.0, "budget_exceeded": True},
+    }
+
+
+@pytest.mark.unit
+def test_prune_removes_servers_not_in_active_set():
+    """prune() removes servers absent from the given active server id collection."""
+    from services.sync_engine import PollHealthTracker
+    tracker = PollHealthTracker()
+
+    tracker.record_fetch(server_id=1, duration=0.1, success=True)
+    tracker.record_fetch(server_id=2, duration=0.1, success=True)
+
+    tracker.prune(active_server_ids=[1])
+
+    snapshot = tracker.snapshot()
+    assert 1 in snapshot["servers"]
+    assert 2 not in snapshot["servers"]
+
+
+# =============================================================================
+# TestPollHealthIntegration - check_quadlets() publishing poll_health events
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@patch("services.sync_engine.publisher")
+@patch("services.sync_engine.pool")
+@patch("services.sync_engine.get_db_connection")
+@pytest.mark.unit
+async def test_check_quadlets_publishes_poll_health_after_three_failures(
+    mock_get_db_func, mock_pool, mock_publisher
+):
+    """After three consecutive SSH failures for a server, check_quadlets() should
+    publish a poll_health event marking that server unhealthy."""
+    import services.sync_engine as sync_engine_module
+
+    # Reset tracker state so failure counts start clean for this test.
+    sync_engine_module.health_tracker = sync_engine_module.PollHealthTracker()
+
+    quadlet_row = {
+        "id": 20,
+        "server_id": 42,
+        "file_path": "/etc/containers/systemd/flaky.container",
+        "scope": "global",
+        "last_known_mtime": 1000,
+    }
+
+    mock_pool.execute_command = AsyncMock(side_effect=ConnectionError("SSH timeout"))
+    mock_publisher.publish = AsyncMock()
+
+    for _ in range(3):
+        select_cm, _ = _make_db_cm([quadlet_row])
+        mock_get_db_func.side_effect = [select_cm]
+        await check_quadlets()
+
+    poll_health_calls = [
+        call for call in mock_publisher.publish.call_args_list
+        if call.args[0] == "poll_health"
+    ]
+    assert len(poll_health_calls) >= 1
+    payload = poll_health_calls[-1].args[1]
+    assert payload["healthy"] is False
+
+
+# =============================================================================
+# TestPollHealthEndpoint - GET /api/poll-health route
+# =============================================================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_api_poll_health_returns_tracker_snapshot():
+    """api_poll_health() returns JSON equal to health_tracker.snapshot()."""
+    from api.routes import api_poll_health
+    from services.sync_engine import health_tracker
+
+    response = await api_poll_health(role="admin")
+
+    assert response.body is not None
+    import json as _json
+    # Compare through a JSON round-trip on both sides: snapshot() legitimately
+    # uses int server-id keys (asserted directly elsewhere), but JSON always
+    # serializes dict keys as strings, so a raw comparison against the live
+    # snapshot() would spuriously fail whenever any server is tracked.
+    assert _json.loads(response.body) == _json.loads(_json.dumps(health_tracker.snapshot()))
