@@ -131,6 +131,7 @@ File-modification polling engine. Every 10 seconds (`POLL_INTERVAL_SEC`) it chec
 - All groups run **concurrently** via `asyncio.gather`, so cycle latency is bounded by the slowest server, not by `servers × files` sequential round-trips.
 - Tilde-prefixed paths (`~/.config/...`) are sent unexpanded so the remote shell resolves `$HOME`; since `stat %n` prints the expanded absolute path, results are mapped back to DB paths by suffix match.
 - A remote mtime newer than the stored `last_known_mtime` publishes a `file_changed` SSE event and updates the DB baseline.
+- **Poll health instrumentation**: each group fetch and the overall cycle are timed (`time.monotonic()`). An in-memory `PollHealthTracker` aggregates per server (any-failure / max-duration across a server's groups) and publishes `poll_health` SSE events only on state *transitions* — a server crossing 3 consecutive failures or a 5s slow-fetch threshold (and its recovery), or cycle duration crossing 80% of `POLL_INTERVAL_SEC`. The current state is queryable via `GET /api/poll-health`. No persistence, no adaptive behavior — measure and display only.
 
 #### [`services/stats_engine.py`](services/stats_engine.py)
 
@@ -433,6 +434,7 @@ Event types:
 - `stats_update`: Container resource metrics (every 5s)
 - `stats_error`: Podman connectivity issues
 - `file_changed`: External file modification detected
+- `poll_health`: Sync-poller health transitions — a server entering/leaving unhealthy (consecutive failures or slow fetch) or the poll cycle crossing its duration budget; edge-triggered, not periodic
 
 ```javascript
 // Client-side SSE handling (static/main.js)
@@ -589,6 +591,7 @@ flowchart TD
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/events` | SSE stream |
+| GET | `/api/poll-health` | Sync-poller health snapshot (per-server + cycle) |
 | WS | `/ws/logs/{server_id}/{unit_name}` | Log streaming |
 | WS | `/ws/exec/{server_id}/{container_name}` | Interactive terminal execution |
 
