@@ -868,6 +868,34 @@ async def settings_delete_server(
     return response
 
 
+@router.post("/api/settings/servers/{server_id}/repin-host-key", response_class=HTMLResponse)
+async def settings_repin_server_host_key(
+    request: Request,
+    server_id: int,
+    role: str = Depends(get_current_user_role),
+    is_admin: bool = Depends(get_current_user_is_admin),
+):
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    # Drop the cached SSH connection so the next connect performs a fresh
+    # handshake against whatever key the server presents.
+    conn = pool.connections.pop(server_id, None)
+    if conn:
+        try:
+            conn.close()
+        except Exception as close_exc:
+            logger.debug(f"Failed to close stale connection for server {server_id}: {close_exc}")
+
+    async with get_db_connection() as db:
+        await db.execute("UPDATE servers SET host_key = NULL WHERE id = ?", (server_id,))
+        await db.commit()
+
+    response = await settings_list_servers(request, role, is_admin=True)
+    response.headers["HX-Trigger"] = "reload-servers"
+    return response
+
+
 @router.patch("/api/settings/servers/reorder", response_class=HTMLResponse)
 async def settings_reorder_servers(
     request: Request,

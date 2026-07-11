@@ -4,6 +4,7 @@ import logging
 from cryptography.exceptions import InvalidTag
 from core.database import get_db_connection
 from core.crypto import decrypt_private_key
+from core.config_loader import global_config
 
 logger = logging.getLogger("quadlet-manager.ssh")
 
@@ -24,6 +25,17 @@ class SSHCommandError(Exception):
 
 class SSHTimeoutError(SSHCommandError):
     """Raised when a remote SSH command exceeds its timeout."""
+
+
+class HostKeyMismatchError(Exception):
+    """Raised when a server's presented SSH host key does not match the
+    previously pinned host key, or when strict host-key checking is enabled
+    and no host key has been pinned yet.
+
+    Deliberately NOT a subclass of asyncssh.DisconnectError or
+    SSHCommandError so that execute_command()'s reconnect-and-retry logic
+    does not treat a host-key mismatch as a transient, retryable failure.
+    """
 
 
 class SSHConnectionPool:
@@ -48,51 +60,94 @@ class SSHConnectionPool:
         return await self.connect_to_server(server_id)
 
     async def connect_to_server(self, server_id: int):
-        conn = None
         logger.info(f"Establishing new SSH connection to server {server_id}")
         async with get_db_connection() as db:
             async with db.execute("""
-                SELECT s.ip_address, s.ssh_user, k.encrypted_private_key 
-                FROM servers s JOIN ssh_keys k ON s.ssh_key_id = k.id 
+                SELECT s.ip_address, s.ssh_user, k.encrypted_private_key, s.host_key
+                FROM servers s JOIN ssh_keys k ON s.ssh_key_id = k.id
                 WHERE s.id = ?
             """, (server_id,)) as cursor:
                 row = await cursor.fetchone()
-                if not row:
-                    raise Exception(f"Server {server_id} not found or missing SSH key mapping.")
-                
-                ip_address, ssh_user, encrypted_pk = row
-                
-                host = ip_address
-                port = 22
-                if ':' in host:
-                    parts = host.split(':', 1)
-                    host = parts[0]
-                    port = int(parts[1])
-                
-                # Decrypt the key in memory
-                try:
-                    private_key_str = decrypt_private_key(encrypted_pk)
-                except (InvalidTag, ValueError) as exc:
-                    raise Exception(
-                        f"Failed to decrypt SSH key for server {server_id}. "
-                        "The master key may have changed since this server was configured. "
-                        "Set QUADLET_MASTER_KEY to a stable value and re-add the server if needed."
-                    ) from exc
-                
-                # Load key for asyncssh
-                key = asyncssh.import_private_key(private_key_str)
-                
-                # Create connection
-                conn = await asyncssh.connect(
-                    host=host,
-                    port=port,
-                    username=ssh_user, 
-                    client_keys=[key],
-                    known_hosts=None  # Can be expanded to verify known_hosts but left None for dev
-                )
-                
-                self.connections[server_id] = conn
-                return conn
+            if not row:
+                raise Exception(f"Server {server_id} not found or missing SSH key mapping.")
+
+            ip_address, ssh_user, encrypted_pk, stored_host_key = row
+
+        # DB context is closed here, deliberately, before any network I/O so
+        # the SSH handshake (which can be slow/blocking on a bad network)
+        # doesn't hold a database connection open.
+
+        host = ip_address
+        port = 22
+        if ':' in host:
+            parts = host.split(':', 1)
+            host = parts[0]
+            port = int(parts[1])
+
+        # Decrypt the key in memory
+        try:
+            private_key_str = decrypt_private_key(encrypted_pk)
+        except (InvalidTag, ValueError) as exc:
+            raise Exception(
+                f"Failed to decrypt SSH key for server {server_id}. "
+                "The master key may have changed since this server was configured. "
+                "Set QUADLET_MASTER_KEY to a stable value and re-add the server if needed."
+            ) from exc
+
+        # Load key for asyncssh
+        key = asyncssh.import_private_key(private_key_str)
+
+        remediation_hint = (
+            "If the server was legitimately rekeyed, use 'Re-pin host key' "
+            "in Settings > Servers."
+        )
+
+        if stored_host_key:
+            # Verify the presented host key against the pinned key.
+            pinned = asyncssh.import_public_key(stored_host_key)
+            known_hosts_arg = ([pinned], [], [])
+        elif global_config.ssh_strict_host_keys:
+            # Strict mode with no pinned key: refuse to connect blindly.
+            raise HostKeyMismatchError(
+                f"Server {server_id} has no pinned host key and strict host "
+                "key checking is enabled. Pin the key via the re-pin action "
+                "or provision it out of band before connecting."
+            )
+        else:
+            # TOFU: trust the presented key on first connect and pin it below.
+            known_hosts_arg = None
+
+        try:
+            conn = await asyncssh.connect(
+                host=host,
+                port=port,
+                username=ssh_user,
+                client_keys=[key],
+                known_hosts=known_hosts_arg,
+            )
+        except asyncssh.HostKeyNotVerifiable as exc:
+            raise HostKeyMismatchError(
+                f"Host key verification failed for server {server_id}: the "
+                "presented SSH host key does not match the pinned host key. "
+                f"{remediation_hint}"
+            ) from exc
+
+        if not stored_host_key:
+            # TOFU: trust the presented key on first connect and pin it.
+            host_key_obj = conn.get_server_host_key()
+            if host_key_obj is not None:
+                exported = host_key_obj.export_public_key()
+                if isinstance(exported, bytes):
+                    exported = exported.decode()
+                async with get_db_connection() as pin_db:
+                    await pin_db.execute(
+                        "UPDATE servers SET host_key = ? WHERE id = ?",
+                        (exported, server_id),
+                    )
+                    await pin_db.commit()
+
+        self.connections[server_id] = conn
+        return conn
 
     async def _run_with_timeout(self, conn, command: str, timeout: float, server_id: int) -> str:
         """Run a command on the given connection with proper timeout handling.

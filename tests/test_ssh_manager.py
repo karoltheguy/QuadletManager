@@ -15,7 +15,7 @@ def mock_db_ctx():
     async def _mock_db():
         db_mock = AsyncMock()
         cursor_mock = AsyncMock()
-        cursor_mock.fetchone.return_value = ("127.0.0.1:22", "user", "enc")
+        cursor_mock.fetchone.return_value = ("127.0.0.1:22", "user", "enc", None)
         
         @asynccontextmanager
         async def _mock_execute(*args, **kwargs):
@@ -35,6 +35,9 @@ async def test_get_connection_caches(pool, mock_db_ctx):
         
         mock_conn = MagicMock()
         mock_conn._transport.is_closing.return_value = False
+        # No host key observed (GSS-style) so the TOFU path skips persisting;
+        # pinning behaviour is covered in test_host_key_pinning.py.
+        mock_conn.get_server_host_key.return_value = None
         mock_connect.return_value = mock_conn
 
         conn1 = await pool.get_connection(1)

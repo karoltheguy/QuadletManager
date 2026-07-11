@@ -275,6 +275,7 @@ CREATE TABLE servers (
     ssh_key_id INTEGER,
     scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both')),
     position INTEGER NOT NULL DEFAULT 0,
+    host_key TEXT,  -- pinned SSH host public key (NULL = not yet pinned)
     FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
 );
 
@@ -387,6 +388,31 @@ flowchart LR
 - Private keys encrypted before database storage
 - Decryption only in memory during SSH session lifecycle
 - See [`core/crypto.py`](core/crypto.py) for implementation
+
+### SSH Host Key Verification (TOFU)
+
+Server host keys are verified on every connection using a trust-on-first-use
+model (like `ssh` itself), implemented in
+[`services/ssh_manager.py`](services/ssh_manager.py):
+
+- **First connect (unpinned):** the presented host key is trusted, then
+  pinned — persisted to `servers.host_key` as an OpenSSH-format public key.
+  (If the key exchange exposes no host key, e.g. GSS, nothing is pinned and
+  the next connect pins instead.)
+- **Subsequent connects:** the pinned key is passed to asyncssh as the only
+  trusted host key. A mismatch aborts the connection with
+  `HostKeyMismatchError` — deliberately *not* a subclass of
+  `asyncssh.DisconnectError`, so the connection pool's transient-failure
+  retry logic in `execute_command()` never retries it. The error surfaces
+  through the sync-poll health machinery like any other connect failure.
+- **Legitimate rekeys:** an admin-only action
+  (`POST /api/settings/servers/{id}/repin-host-key`, button in
+  Settings → Servers) clears the pin and drops the pooled connection; the
+  next connect re-pins. There is no silent acceptance of a changed key.
+- **Strict mode:** setting `ssh_strict_host_keys: true` in `config.yaml`
+  refuses to connect to any server without a pinned key instead of trusting
+  first use — for deployments that provision host keys out of band
+  (default: `false`).
 
 ### RBAC Enforcement
 
@@ -640,6 +666,7 @@ flowchart TD
 | POST | `/api/settings/servers` | Add server with encrypted SSH key |
 | PUT | `/api/settings/servers/{server_id}` | Update server scope or position |
 | DELETE | `/api/settings/servers/{server_id}` | Remove server and clean up SSH key |
+| POST | `/api/settings/servers/{server_id}/repin-host-key` | Clear pinned SSH host key; next connect re-pins (admin only) |
 | GET | `/api/settings/users` | List users (HTML partial) |
 | POST | `/api/settings/users` | Add new user |
 | PUT | `/api/settings/users/{user_id}` | Update user role |
@@ -669,6 +696,7 @@ master_key: "your-64-char-hex-master-key"
 dev_auto_login: false
 session_timeout: 3600
 poll_frequency: 10
+ssh_strict_host_keys: false  # true = refuse servers without a pinned host key (no TOFU)
 ```
 
 ### Environment Variables

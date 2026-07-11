@@ -215,7 +215,7 @@ async def test_connect_to_server_decryption_failure_gives_clear_error():
     test_pool = SSHConnectionPool()
 
     mock_cursor = AsyncMock()
-    mock_cursor.fetchone = AsyncMock(return_value=("192.168.1.1", "user", b"bad_encrypted_data"))
+    mock_cursor.fetchone = AsyncMock(return_value=("192.168.1.1", "user", b"bad_encrypted_data", None))
 
     class DualCM:
         async def __aenter__(self): return mock_cursor

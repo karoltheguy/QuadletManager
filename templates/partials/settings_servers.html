@@ -28,6 +28,13 @@
                 onclick="toggleServerEdit({{ s[0] }})">
           Edit
         </button>
+        <button class="btn btn-sm btn-secondary"
+                hx-post="/api/settings/servers/{{ s[0] }}/repin-host-key"
+                hx-target="#servers-list"
+                hx-swap="innerHTML"
+                hx-confirm="Clear the pinned host key for '{{ s[1] }}'? The next connection will trust whatever host key the server presents.">
+          Re-pin host key
+        </button>
         <button class="btn btn-sm btn-danger"
                 hx-delete="/api/settings/servers/{{ s[0] }}"
                 hx-target="#servers-list"

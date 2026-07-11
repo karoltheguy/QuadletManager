@@ -59,6 +59,7 @@ async def init_db():
                 ssh_user TEXT NOT NULL,
                 ssh_key_id INTEGER,
                 scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both')),
+                host_key TEXT,
                 FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
             )
         """)
@@ -73,6 +74,13 @@ async def init_db():
         try:
             await db.execute("ALTER TABLE servers ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
             await db.execute("UPDATE servers SET position = id")
+        except aiosqlite.OperationalError as exc:
+            if not _is_duplicate_column_error(exc):
+                raise  # Only 'column already exists' is expected here
+
+        # Migration: add host_key column for TOFU SSH host-key pinning
+        try:
+            await db.execute("ALTER TABLE servers ADD COLUMN host_key TEXT")
         except aiosqlite.OperationalError as exc:
             if not _is_duplicate_column_error(exc):
                 raise  # Only 'column already exists' is expected here

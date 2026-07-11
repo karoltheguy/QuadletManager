@@ -13,6 +13,9 @@ class AppConfig:
         # When True, backend skips login and treats all users as 'editor'.
         # Defaults from DEV_AUTO_LOGIN env, but can be overridden in config.yaml.
         self.dev_auto_login = os.getenv("DEV_AUTO_LOGIN") == "1"
+        # When True, connect_to_server() refuses to connect to a server whose
+        # host key has not yet been pinned instead of silently trusting it.
+        self.ssh_strict_host_keys = False
         self._load_from_yaml()
 
     def _apply_config_data(self, data):
@@ -30,6 +33,13 @@ class AppConfig:
                 self.dev_auto_login = value
             else:
                 self.dev_auto_login = str(value) == "1"
+        if "ssh_strict_host_keys" in data:
+            # Accept booleans or 0/1 style ints in YAML
+            value = data["ssh_strict_host_keys"]
+            if isinstance(value, bool):
+                self.ssh_strict_host_keys = value
+            else:
+                self.ssh_strict_host_keys = str(value) == "1"
 
     def _load_from_yaml(self):
         config_path = os.getenv("QUADLET_CONFIG_PATH", "config.yaml")
