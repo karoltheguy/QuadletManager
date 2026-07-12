@@ -1528,6 +1528,16 @@ function applyContainerFilter(value) {
 }
 window.applyContainerFilter = applyContainerFilter;
 
+function computeServerTotals(containers) {
+  var list = containers || [];
+  var totals = { cpu: 0, mem: 0 };
+  list.forEach(function(c) {
+    totals.cpu += parsePercent(c.cpu);
+    totals.mem += parsePercent(c.mem);
+  });
+  return totals;
+}
+
 function updateSummaryStrip(data) {
   var containers = data.containers || [];
   var serverId = data.server_id;
@@ -1539,11 +1549,14 @@ function updateSummaryStrip(data) {
   var unhealthy = containers.filter(function(c) {
     return c.health && c.health !== 'healthy';
   }).length;
+  var totals = computeServerTotals(containers);
 
   var elTotal     = document.getElementById('mstat-total');
   var elRunning   = document.getElementById('mstat-running');
   var elStopped   = document.getElementById('mstat-stopped');
   var elUnhealthy = document.getElementById('mstat-unhealthy');
+  var elCpu       = document.getElementById('mstat-cpu');
+  var elMem       = document.getElementById('mstat-mem');
   var elBar       = document.getElementById('monitor-stat-bar');
 
   if (elTotal)     elTotal.textContent     = total;
@@ -1553,6 +1566,8 @@ function updateSummaryStrip(data) {
     elUnhealthy.textContent = unhealthy;
     elUnhealthy.classList.toggle('danger', unhealthy > 0);
   }
+  if (elCpu) elCpu.textContent = containers.length > 0 ? totals.cpu.toFixed(1) + '%' : '—';
+  if (elMem) elMem.textContent = containers.length > 0 ? totals.mem.toFixed(1) + '%' : '—';
   if (elBar) elBar.style.display = '';
 }
 
