@@ -4,9 +4,11 @@
         <span id="unsaved-indicator" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
         <div class="header-actions">
             <div id="editor-actions">
+                <button id="validate-btn" class="btn btn-secondary btn-md" onclick="validateQuadlet()">
+                    Validate
+                </button>
                 {% if user_role == 'editor' %}
-                <button id="save-btn" class="btn btn-primary btn-md"
-                        onclick="document.getElementById('hidden-content').value = window.editor.getValue(); document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));">
+                <button id="save-btn" class="btn btn-primary btn-md" onclick="saveQuadlet()">
                     Save Quadlet
                 </button>
                 {% endif %}
@@ -22,7 +24,8 @@
         <textarea name="content" id="hidden-content"></textarea>
     </form>
     <div id="editor-container"></div>
-    
+    <div id="validation-results" hidden></div>
+
     <!-- Update the Inspector Pane simultaneously using HTMX OOB Swaps -->
     <div id="systemctl-actions" hx-swap-oob="true" class="space-x-2 mb-2">
         {% if user_role == 'editor' %}

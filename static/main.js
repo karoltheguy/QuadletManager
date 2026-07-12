@@ -2732,6 +2732,89 @@ window.softRefresh = function() {
     loadMonitorCharts(window._monitorChartMinutes || 15);
 };
 
+// ── Editor Validation / Save ────────────────────────────────
+window.validateQuadlet = async function() {
+    var form = document.getElementById('save-form');
+    var serverId = form.querySelector('[name="server_id"]').value;
+    var filePath = form.querySelector('[name="file_path"]').value;
+    var scope = form.querySelector('[name="scope"]').value;
+    var content = window.editor.getValue();
+
+    var body = new FormData();
+    body.append('file_path', filePath);
+    body.append('scope', scope);
+    body.append('content', content);
+
+    var response = await fetch('/api/validate/' + encodeURIComponent(serverId), {
+        method: 'POST',
+        body: body
+    });
+    if (!response.ok) {
+        throw new Error('Validation request failed with status ' + response.status);
+    }
+    var verdict = await response.json();
+    var issues = verdict.issues || [];
+    var lines = content.split('\n');
+
+    var markers = [];
+    issues.forEach(function(issue) {
+        if (!issue.key) return;
+        var pattern = new RegExp('^\\s*' + issue.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=');
+        for (var i = 0; i < lines.length; i++) {
+            if (pattern.test(lines[i])) {
+                markers.push({
+                    severity: issue.level === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+                    message: issue.message,
+                    startLineNumber: i + 1,
+                    startColumn: 1,
+                    endLineNumber: i + 1,
+                    endColumn: lines[i].length + 1
+                });
+                break;
+            }
+        }
+    });
+    monaco.editor.setModelMarkers(window.editor.getModel(), 'quadlet', markers);
+
+    var resultsEl = document.getElementById('validation-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        if (verdict.valid && issues.length === 0) {
+            resultsEl.setAttribute('hidden', '');
+        } else {
+            resultsEl.removeAttribute('hidden');
+            issues.forEach(function(issue) {
+                var line = document.createElement('div');
+                line.className = 'validation-issue validation-issue-' + issue.level;
+                line.textContent = issue.level + ': ' + issue.message;
+                resultsEl.appendChild(line);
+            });
+            if (verdict.local_only) {
+                var note = document.createElement('div');
+                note.className = 'validation-note';
+                note.textContent = 'local validation only';
+                resultsEl.appendChild(note);
+            }
+        }
+    }
+
+    return verdict;
+};
+
+window.saveQuadlet = async function saveQuadlet() {
+    try {
+        var verdict = await validateQuadlet();
+        if (!verdict.valid && !confirm('Validation found errors. Save anyway?')) {
+            return;
+        }
+    } catch {
+        // validation unavailable — do not block saving
+    }
+
+    document.getElementById('hidden-content').value = window.editor.getValue();
+    document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
+};
+
 // ── Modal Dismissal Handlers ───────────────────────────────
 window.setupModalDismissal = function(modalId) {
   var modal = document.getElementById(modalId);
