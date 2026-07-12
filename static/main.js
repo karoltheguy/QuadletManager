@@ -2759,9 +2759,10 @@ window.validateQuadlet = async function() {
     var markers = [];
     issues.forEach(function(issue) {
         if (!issue.key) return;
-        var pattern = new RegExp('^\\s*' + issue.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=');
         for (var i = 0; i < lines.length; i++) {
-            if (pattern.test(lines[i])) {
+            var trimmed = lines[i].replace(/^\s+/, '');
+            var rest = trimmed.slice(issue.key.length).replace(/^\s+/, '');
+            if (trimmed.indexOf(issue.key) === 0 && rest.charAt(0) === '=') {
                 markers.push({
                     severity: issue.level === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
                     message: issue.message,
