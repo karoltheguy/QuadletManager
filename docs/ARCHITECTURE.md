@@ -151,6 +151,8 @@ Flow of `validate_remote(server_id, content, file_name, scope)`:
 
 The endpoint returns JSON (a deliberate exception to the app's HTML-partial convention) because its consumer is JS building Monaco editor markers, and it is open to viewer roles since validation is read-only.
 
+**Editor integration** (`validateQuadlet()` / `saveQuadlet()` in [`static/main.js`](static/main.js)): a Validate button in the editor pane (outside the editor-role guard — viewers may validate) posts the current Monaco content and renders issues as editor markers plus a `#validation-results` strip. The generator reports no line numbers, so markers are anchored by searching the content for the first `key=` line matching the issue's extracted key; key-less issues appear in the strip only. Saving validates first but **warns rather than blocks**: a confirm dialog gates saving past errors, and any validation failure (endpoint down, SSH error) lets the save proceed — validation can never make saving impossible.
+
 ---
 
 ## Frontend Components
