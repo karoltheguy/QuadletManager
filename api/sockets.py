@@ -105,6 +105,87 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
             await process.wait(check=False)
 
 
+def _build_exec_command(container_name: str, cmd: str, scope: str) -> str:
+    """Build the podman exec command for a PTY session (cmd is quoted to
+    neutralize shell metacharacters)."""
+    safe_cmd = shlex.quote(cmd)
+    exec_cmd = f"podman exec -it {container_name} {safe_cmd}"
+    if scope == "global":
+        exec_cmd = f"sudo {exec_cmd}"
+    return exec_cmd
+
+
+def _try_handle_control_message(data: str, process) -> bool:
+    """Parse `data` as a control message (e.g. resize) if it looks like JSON.
+
+    Returns True if `data` was a control message and has been handled,
+    meaning the caller should not forward it to the process stdin.
+    """
+    if not data.startswith('{'):
+        return False
+    try:
+        msg = json.loads(data)
+    except (json.JSONDecodeError, ValueError):
+        return False
+    if msg.get('type') == 'resize':
+        cols, rows = msg.get('cols', 80), msg.get('rows', 24)
+        try:
+            process.change_terminal_size(cols, rows)
+            logger.debug(f"PTY resized to {cols}x{rows}")
+        except Exception as e:
+            logger.warning(f"Failed to resize PTY: {e}")
+    return True
+
+
+class TerminalSession:
+    """Holds the live state for one interactive podman-exec PTY session."""
+
+    def __init__(self, process, websocket: WebSocket, container_name: str):
+        self.process = process
+        self.websocket = websocket
+        self.container_name = container_name
+        self.process_done = asyncio.Event()
+
+    async def read_output(self):
+        # Use read() instead of "async for" (readline) — PTY prompts have no
+        # trailing newline, so readline() blocks until the user types something,
+        # producing a blank terminal screen (issue #100).
+        try:
+            while True:
+                chunk = await self.process.stdout.read(4096)
+                if not chunk:
+                    break
+                try:
+                    await self.websocket.send_bytes(chunk)
+                except Exception as e:
+                    logger.debug(f"Failed to send to websocket: {e}")
+                    break
+        except Exception as e:
+            logger.error(f"Error reading stdout: {e}")
+        finally:
+            self.process_done.set()
+
+    async def write_input(self):
+        try:
+            while True:
+                data = await self.websocket.receive_text()
+                if not data or _try_handle_control_message(data, self.process):
+                    continue
+
+                if self.process.stdin:
+                    try:
+                        self.process.stdin.write(data.encode())
+                    except Exception as e:
+                        logger.error(f"Failed to write to stdin: {e}")
+                        break
+        except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected for terminal {self.container_name}")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Terminal input error: {e}")
+
+
 async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, container_name: str, scope: str = "user", cmd: str = "bash"):
     """Bidirectional WebSocket terminal for interactive podman exec.
 
@@ -125,15 +206,9 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
     conn = await pool.get_connection(server_id)
     process = None
     read_task = None
-    process_done = asyncio.Event()
 
     try:
-        # Start podman exec with PTY (cmd is quoted to neutralize shell metacharacters)
-        safe_cmd = shlex.quote(cmd)
-        exec_cmd = f"podman exec -it {container_name} {safe_cmd}"
-        if scope == "global":
-            exec_cmd = f"sudo {exec_cmd}"
-
+        exec_cmd = _build_exec_command(container_name, cmd, scope)
         logger.debug(f"Executing: {exec_cmd}")
         process = await conn.create_process(
             exec_cmd,
@@ -142,65 +217,9 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
             encoding=None
         )
 
-        # Background task to read stdout and send to client.
-        # Use read() instead of "async for" (readline) — PTY prompts have no
-        # trailing newline, so readline() blocks until the user types something,
-        # producing a blank terminal screen (issue #100).
-        async def read_output():
-            try:
-                while True:
-                    chunk = await process.stdout.read(4096)
-                    if not chunk:
-                        break
-                    try:
-                        await websocket.send_bytes(chunk)
-                    except Exception as e:
-                        logger.debug(f"Failed to send to websocket: {e}")
-                        break
-            except Exception as e:
-                logger.error(f"Error reading stdout: {e}")
-            finally:
-                process_done.set()
-
-        async def write_input():
-            try:
-                while True:
-                    data = await websocket.receive_text()
-                    if not data:
-                        continue
-
-                    # Parse control messages (e.g., resize)
-                    if data.startswith('{'):
-                        try:
-                            msg = json.loads(data)
-                            if msg.get('type') == 'resize':
-                                cols = msg.get('cols', 80)
-                                rows = msg.get('rows', 24)
-                                try:
-                                    process.change_terminal_size(cols, rows)
-                                    logger.debug(f"PTY resized to {cols}x{rows}")
-                                except Exception as e:
-                                    logger.warning(f"Failed to resize PTY: {e}")
-                            continue
-                        except (json.JSONDecodeError, ValueError):
-                            pass  # Not a control message, treat as input
-
-                    # Send input to stdin.
-                    if process.stdin:
-                        try:
-                            process.stdin.write(data.encode())
-                        except Exception as e:
-                            logger.error(f"Failed to write to stdin: {e}")
-                            break
-            except WebSocketDisconnect:
-                logger.info(f"WebSocket disconnected for terminal {container_name}")
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.error(f"Terminal input error: {e}")
-
-        read_task = asyncio.create_task(read_output())
-        write_task = asyncio.create_task(write_input())
+        session = TerminalSession(process, websocket, container_name)
+        read_task = asyncio.create_task(session.read_output())
+        write_task = asyncio.create_task(session.write_input())
 
         done, pending = await asyncio.wait(
             [read_task, write_task],
