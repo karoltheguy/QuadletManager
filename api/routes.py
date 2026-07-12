@@ -16,11 +16,12 @@ import aiosqlite
 from core.database import get_db_connection
 from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
-from services.ssh_manager import pool
+from services.ssh_manager import pool, SSHCommandError, SSHTimeoutError
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
+from services.quadlet_validator import validate_remote
 import services.sync_engine as sync_engine
 from services.sync_engine import parse_mtime
 from core.events_manager import publisher
@@ -639,6 +640,22 @@ async def save_file(
     except Exception as e:
         logger.error(f"Save failed: {e}")
         return _toast(request, "red", f"Failed to save: {str(e)}")
+
+@router.post("/api/validate/{server_id}")
+async def validate_quadlet(
+    server_id: int,
+    file_path: str = Form(...),
+    scope: str = Form(...),
+    content: str = Form(...),
+    role: str = Depends(get_current_user_role)
+):
+    file_name = file_path.split("/")[-1]
+    try:
+        result = await validate_remote(server_id, content, file_name, scope)
+        return JSONResponse(result)
+    except (SSHCommandError, SSHTimeoutError) as e:
+        logger.error(f"Validation failed: {e}")
+        return JSONResponse({"error": str(e)}, status_code=502)
 
 @router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str = Depends(get_current_user_role)):
