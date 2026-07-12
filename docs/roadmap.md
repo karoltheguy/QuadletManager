@@ -10,7 +10,7 @@ Priority: **P0** (next up) · **P1** (planned) · **P2** (nice to have, no rush)
 
 | # | Item | Priority | Notes |
 |---|------|----------|-------|
-| 1 | Show total CPU + MEM usage per server | **P0** | Natural extension of the existing per-container stats poller (see `docs/ARCHITECTURE.md` monitoring section); mostly an aggregation plus a header stat, low risk. |
+| 1 | Show total CPU + MEM usage per server | **P0** | ✅ Done — implemented as issue **#189** (`computeServerTotals` in `static/main.js`, CPU/MEM blocks in the Monitor summary strip). Unblocks #18, #22, #23. |
 | 2 | Clicking a container in Monitor applies all the right filters so only that container's data shows, nothing else | **P1** | A filter-state change rather than a new view: selecting a container programmatically sets every relevant filter/dropdown to isolate it. Pairs with #3. |
 | 3 | One-click "filter down to just this container" control, remembered across sessions | **P1** | A dedicated one-click affordance (not just clicking the container itself) that isolates a single container and persists the choice across tab switches and reloads. Natural to build alongside #2 since both share the same filter-state mechanism. |
 | 4 | Favorite server in Monitor (default is first, shown with details) | **P1** | Needs a small persisted preference (per-user or per-browser). |
