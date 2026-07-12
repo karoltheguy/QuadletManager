@@ -84,7 +84,8 @@ flowchart TB
     ├── stats_engine.py # Podman stats polling engine
     ├── systemd_manager.py # systemctl command wrappers
     ├── tree_scanner.py # Quadlet file tree discovery
-    └── quadlet_parser.py # Quadlet file parsing utilities
+    ├── quadlet_parser.py # Quadlet file parsing utilities
+    └── quadlet_validator.py # Remote Quadlet dry-run validation
 tests/
 ├── test_stats_engine.py # Stats engine unit tests (pytest-asyncio)
 ├── test_sync_engine.py # Sync engine unit tests (pytest-asyncio)
@@ -136,6 +137,19 @@ File-modification polling engine. Every 10 seconds (`POLL_INTERVAL_SEC`) it chec
 #### [`services/stats_engine.py`](services/stats_engine.py)
 
 Container stats polling engine. Every 5 seconds it runs `podman stats` per server (user and rootful scopes fetched concurrently per server, according to the server's scope filter), publishes `stats_update` / `stats_error` SSE events, and records container health history for the monitoring charts.
+
+#### [`services/quadlet_validator.py`](services/quadlet_validator.py)
+
+Validates editor content by running Podman's own Quadlet generator in dry-run mode **on the target server**, rather than maintaining a local list of valid keys — so validity always matches the Podman version actually deployed there. Exposed via `POST /api/validate/{server_id}` (see [File Operations](#file-operations)).
+
+Flow of `validate_remote(server_id, content, file_name, scope)`:
+- Content is written to a `mktemp -d` scratch dir over the SSH pool — never the live unit file — which is why the whole run is sudo-less regardless of scope. The scratch dir is removed in a `finally` block.
+- The generator binary is probed at the two known install paths (`/usr/lib/systemd/system-generators/podman-system-generator`, `/usr/libexec/podman/quadlet`) and run with `QUADLET_UNIT_DIRS` pointing at the scratch dir, plus `--user` for user-scope units.
+- stderr is captured via `2>&1 >/dev/null || true` because `execute_command` only returns stdout on success — without the redirect, warnings on a zero-exit run would be lost. The verdict derives from parsed issues, not the exit code.
+- `parse_generator_stderr` turns generator output into structured issues (`level`/`message`/`key`): the `quadlet-generator[pid]:` prefix is stripped, informational `Loading source unit file` lines and the `processing encountered some errors` summary are skipped, and `key '...'` names are extracted for editor markers. The format was verified against real Podman 5.8.4 output — notably, valid files still write to stderr, so "any stderr = invalid" would be wrong.
+- If no generator exists on the target (Podman < 4.4), it falls back to the local `validate_quadlet_syntax` check and flags the result `local_only`.
+
+The endpoint returns JSON (a deliberate exception to the app's HTML-partial convention) because its consumer is JS building Monaco editor markers, and it is open to viewer roles since validation is read-only.
 
 ---
 
@@ -646,6 +660,7 @@ flowchart TD
 |--------|------|-------------|
 | GET | `/api/modal/new` | Create Quadlet modal form (HTML partial) |
 | POST | `/api/save` | Save file content |
+| POST | `/api/validate/{server_id}` | Validate content via remote Quadlet dry-run (JSON) |
 | POST | `/api/create` | Create new quadlet |
 | DELETE | `/api/files` | Delete file |
 
