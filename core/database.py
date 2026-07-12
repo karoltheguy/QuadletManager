@@ -1,6 +1,7 @@
 import os
 import aiosqlite
 import logging
+from typing import Sequence
 
 logger = logging.getLogger("quadlet-manager.db")
 
@@ -17,6 +18,22 @@ def _is_duplicate_column_error(exc: Exception) -> bool:
     return isinstance(exc, aiosqlite.OperationalError) and "duplicate column name" in str(exc).lower()
 
 
+async def _run_additive_migration(db, statements: Sequence[str]):
+    """Run additive schema-migration statements, tolerating re-runs.
+
+    Only 'duplicate column name' is swallowed; any other OperationalError
+    (locked database, disk full, corruption) is re-raised. If the first
+    statement fails with duplicate-column, remaining statements are
+    skipped (matches original per-block try semantics).
+    """
+    try:
+        for stmt in statements:
+            await db.execute(stmt)
+    except aiosqlite.OperationalError as exc:
+        if not _is_duplicate_column_error(exc):
+            raise  # Only 'column already exists' is expected here
+
+
 async def init_db():
     logger.info("Initializing SQLite Database Schema...")
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -30,18 +47,14 @@ async def init_db():
             )
         """)
         # Migration: add is_admin column to existing databases
-        try:
-            await db.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"
+        ])
 
         # Migration: add must_change_password column to existing databases
-        try:
-            await db.execute("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"
+        ])
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS ssh_keys (
@@ -64,26 +77,20 @@ async def init_db():
             )
         """)
         # Migration: add scope_filter column to existing databases
-        try:
-            await db.execute("ALTER TABLE servers ADD COLUMN scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both'))")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE servers ADD COLUMN scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both'))"
+        ])
 
         # Migration: add position column for user-defined server ordering
-        try:
-            await db.execute("ALTER TABLE servers ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
-            await db.execute("UPDATE servers SET position = id")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE servers ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
+            "UPDATE servers SET position = id"
+        ])
 
         # Migration: add host_key column for TOFU SSH host-key pinning
-        try:
-            await db.execute("ALTER TABLE servers ADD COLUMN host_key TEXT")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE servers ADD COLUMN host_key TEXT"
+        ])
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS quadlets (
@@ -122,18 +129,14 @@ async def init_db():
         """)
 
         # Migration: add health_status column to existing databases
-        try:
-            await db.execute("ALTER TABLE container_health_history ADD COLUMN health_status TEXT DEFAULT NULL")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE container_health_history ADD COLUMN health_status TEXT DEFAULT NULL"
+        ])
 
         # Migration: add resolution_sec column to existing databases
-        try:
-            await db.execute("ALTER TABLE container_health_history ADD COLUMN resolution_sec INTEGER NOT NULL DEFAULT 5")
-        except aiosqlite.OperationalError as exc:
-            if not _is_duplicate_column_error(exc):
-                raise  # Only 'column already exists' is expected here
+        await _run_additive_migration(db, [
+            "ALTER TABLE container_health_history ADD COLUMN resolution_sec INTEGER NOT NULL DEFAULT 5"
+        ])
 
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_health_history_server_time
