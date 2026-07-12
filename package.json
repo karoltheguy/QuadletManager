@@ -2,13 +2,13 @@
   "name": "quadlet-manager",
   "private": true,
   "dependencies": {
-    "@codacy/codacy-mcp": "^0.6.18",
     "xterm": "5.3.0",
     "xterm-addon-fit": "0.8.0"
   },
   "devDependencies": {
     "eslint": "10.6.0",
-    "globals": "15.15.0"
+    "globals": "15.15.0",
+    "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server"
   },
   "scripts": {
     "copy-assets": "cp node_modules/xterm/lib/xterm.js static/xterm.min.js && cp node_modules/xterm/css/xterm.css static/xterm.min.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/xterm-addon-fit.umd.min.js"
