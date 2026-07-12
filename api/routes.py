@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, Uplo
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
 from typing import Optional
 from fastapi.templating import Jinja2Templates
+import asyncio
 import hashlib
 import html
 import os
@@ -598,9 +599,7 @@ async def save_file(
     use_sudo = is_global_scope(scope)
     try:
         await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
-        await reload_and_restart(server_id, unit_name, scope)
-        status_output = await systemctl_action(server_id, "status", unit_name, scope)
-        
+
         # ── Collision Avoidance ──
         # Immediately update the DB with the new mtime so the sync poller
         # doesn't flag our own save as an "external modification."
@@ -609,7 +608,7 @@ async def save_file(
             mtime_str = await pool.execute_command(server_id, stat_cmd, use_sudo=use_sudo)
             new_mtime = await parse_mtime(mtime_str)
             content_hash = hashlib.sha256(content.encode()).hexdigest()
-            
+
             async with get_db_connection() as db:
                 await db.execute(
                     "UPDATE quadlets SET last_known_mtime = ?, last_content_hash = ? "
@@ -620,8 +619,21 @@ async def save_file(
         except Exception as ca_err:
             # Non-fatal: the save succeeded, collision avoidance is best-effort
             logger.warning(f"Collision avoidance update failed (save was OK): {ca_err}")
-        
-        response = _toast(request, "green", f"Saved & Restarted {unit_name}!", status_output=status_output)
+
+        # Restart in the background, *after* responding. A save can target the unit
+        # that is currently running QuadletManager itself; awaiting the restart here
+        # would kill this request (and the process serving it) before the response
+        # - including the HX-Trigger the client relies on to clear the dirty indicator -
+        # ever reaches the browser.
+        async def _restart_in_background():
+            try:
+                await reload_and_restart(server_id, unit_name, scope)
+            except Exception as restart_err:
+                logger.error(f"Background restart of {unit_name} failed: {restart_err}")
+
+        asyncio.create_task(_restart_in_background())
+
+        response = _toast(request, "green", f"Saved! Restarting {unit_name}...")
         response.headers["HX-Trigger"] = "quadlet-saved"
         return response
     except Exception as e:

@@ -44,7 +44,7 @@
         {% endif %}
     </div>
     
-    <div id="systemd-status" hx-swap-oob="true" hx-get="{{ status_url }}" hx-trigger="load" class="status-box">
+    <div id="systemd-status" hx-swap-oob="true" hx-get="{{ status_url }}" hx-trigger="load, quadlet-saved from:body delay:2s" class="status-box">
         Loading status...
     </div>
     
