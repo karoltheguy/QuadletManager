@@ -977,6 +977,7 @@ function getHealthBadgeInfo(health) {
     var h = health || '';
     if (h === '') return { badgeClass: 'running', label: 'running' };
     if (h === 'healthy') return { badgeClass: 'healthy', label: h };
+    if (h === 'starting') return { badgeClass: 'starting', label: h };
     return { badgeClass: 'unhealthy', label: h };
 }
 

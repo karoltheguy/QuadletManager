@@ -1052,8 +1052,14 @@ ul { list-style: none; }
 }
 
 .stat-badge.unhealthy {
-  background: color-mix(in srgb, var(--danger) 15%, transparent);
-  color: var(--danger);
+  background-color: var(--danger-hover);
+  color: #fff;
+  animation: attention-unhealthy 1.8s ease-in-out infinite;
+}
+
+.stat-badge.starting {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning, #f59e0b);
 }
 
 .cell-warn   { color: #d97706; }
@@ -2015,9 +2021,15 @@ body.bottom-panel-expanded #navigator {
   color: var(--success);
 }
 
+@keyframes attention-unhealthy {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
 .overview-health-unhealthy {
-  background-color: rgba(239, 68, 68, 0.12);
-  color: var(--danger, #ef4444);
+  background-color: var(--danger-hover);
+  color: #fff;
+  animation: attention-unhealthy 1.8s ease-in-out infinite;
 }
 
 .overview-health-starting {
@@ -2804,4 +2816,17 @@ li.is-collapsed .server-quadlet-tree {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+}
+
+/* Respect reduced-motion preference: disable attention-drawing animations
+   while preserving each element's static base color. */
+@media (prefers-reduced-motion: reduce) {
+    .status-dot.dot-running,
+    .status-dot.dot-failed,
+    .live-pulse::before,
+    .terminal-conn-tab::before,
+    .overview-health-unhealthy,
+    .stat-badge.unhealthy {
+        animation: none;
+    }
 }
