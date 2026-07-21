@@ -813,7 +813,25 @@ systemctl --user daemon-reload
 systemctl --user start quadletmanager
 ```
 
-**Dockerfile** ([`Dockerfile`](Dockerfile)): Multi-stage build with `python:3.12-slim`. Stage 1 installs dependencies, stage 2 copies only the app code and installed packages.
+**Dockerfile** ([`Dockerfile`](Dockerfile)): Multi-stage build. A `node:20-slim` **assets** stage runs `npm ci` to build the vendored frontend assets, stage 1 (`python:3.12-slim`) installs Python dependencies, and the runtime stage copies only the app code, the installed packages, and the built assets.
+
+### Vendored Frontend Assets
+
+`quadlet-lint` (the client-side Quadlet linter behind the editor's instant diagnostics) is **not committed**. It is an exact-pinned npm dependency whose browser build is generated into `static/vendor/quadlet-lint/` at install time, and `static/vendor/` is gitignored. Generating rather than committing it is what lets Dependabot bump the version unattended: Dependabot only edits `package.json`/`package-lock.json` and its workflows get a read-only `GITHUB_TOKEN`, so a committed asset would need a manual refresh on every bump.
+
+The asset reaches its destination by **two separate paths, and neither is redundant**:
+
+- The `postinstall` hook in [`package.json`](../package.json) (which runs `copy-assets`) populates the **host tree**. This matters because [`docker-compose.test.yml`](../docker-compose.test.yml) bind-mounts `.` over `/app`, so during E2E the host tree shadows whatever was baked into the image. CI already runs `npm ci`, so no workflow change was needed.
+- The Dockerfile `assets` stage populates the **production image**, which has no bind mount.
+
+Removing either path breaks a real scenario. Two further constraints are load-bearing and easy to destroy accidentally:
+
+- **`mkdir -p` must stay first in `copy-assets`.** It creates `static/` as a parent, which is the only reason the trailing xterm `cp` commands work in the bare node assets stage, where no `static/` exists. Reordering the script breaks the Docker build while still passing every test.
+- **The whole `dist/` directory is copied, not named files.** The package ships content-hashed `chunk-*.js` siblings whose names change every release and whose imports are relative, so an explicit file list would break on the next version bump.
+
+A CDN was ruled out: [`tests/test_cdn_script_integrity.py`](../tests/test_cdn_script_integrity.py) enforces SRI on CDN scripts, and SRI cannot cover an ESM module's relative chunk imports.
+
+The xterm assets under `static/` are still committed and have the same staleness gap; migrating them onto this pipeline is tracked separately. Note that `postinstall` now rewrites them on every install — byte-identical today, but a future xterm bump would silently dirty local working trees until that migration lands.
 
 ### Versioning
 
