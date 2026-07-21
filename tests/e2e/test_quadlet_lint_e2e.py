@@ -19,6 +19,8 @@ import os
 
 import pytest
 
+from tests.e2e.console_errors import app_console_errors
+
 try:
     from playwright.sync_api import Page, expect
     HAS_PLAYWRIGHT = True
@@ -277,10 +279,7 @@ def test_repeated_unit_swaps_produce_no_console_errors(page: Page):
         # Give the debounced initial lint a moment to run/settle.
         page.wait_for_timeout(400)
 
-    errors = [
-        entry for entry in page._console_logs
-        if "PAGE ERROR" in entry or "CONSOLE [error]" in entry
-    ]
+    errors = app_console_errors(page._console_logs)
     assert not errors, f"Expected no console/page errors across repeated unit swaps, got: {errors!r}"
 
 
@@ -396,10 +395,7 @@ def test_swap_during_debounce_produces_no_page_error(page: Page):
     # would have had a chance to fire.
     page.wait_for_timeout(600)
 
-    errors = [
-        entry for entry in page._console_logs
-        if "PAGE ERROR" in entry or "CONSOLE [error]" in entry
-    ]
+    errors = app_console_errors(page._console_logs)
     assert not errors, (
         f"Expected no console/page errors from a pending debounced lint racing "
         f"a pane swap, got: {errors!r}"
