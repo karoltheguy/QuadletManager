@@ -153,6 +153,20 @@ The endpoint returns JSON (a deliberate exception to the app's HTML-partial conv
 
 **Editor integration** (`validateQuadlet()` / `saveQuadlet()` in [`static/main.js`](static/main.js)): a Validate button in the editor pane (outside the editor-role guard — viewers may validate) posts the current Monaco content and renders issues as editor markers plus a `#validation-results` strip. The generator reports no line numbers, so markers are anchored by searching the content for the first `key=` line matching the issue's extracted key; key-less issues appear in the strip only. Saving validates first but **warns rather than blocks**: a confirm dialog gates saving past errors, and any validation failure (endpoint down, SSH error) lets the save proceed — validation can never make saving impossible.
 
+#### [`static/quadlet_lint.js`](static/quadlet_lint.js) — client-side diagnostics
+
+Issue #199 added a **second, independent** validation layer: the vendored `quadlet-lint` linter runs entirely in the browser and marks unknown keys, bad enums, typo'd sections and file-type mismatches as you type. It does **not** replace the remote generator validation above — the two are deliberately complementary. The linter is offline, instant and knows only static rules; the generator is authoritative for the Podman version actually deployed on the target. Neither subsumes the other.
+
+Three invariants hold this together, and all three are non-obvious:
+
+- **The two validators must keep distinct marker owners.** `monaco.editor.setModelMarkers(model, owner, markers)` *replaces* every marker for the given owner, so a shared owner would make each run silently erase the other's diagnostics. The client linter uses the package default `"quadlet-lint"`; the remote path uses `'quadlet'` ([`static/main.js`](static/main.js), `validateQuadlet()`). Do not unify them.
+- **The Monaco model URI must carry the *quadlet* filename, not the unit name.** The editor model is built with `monaco.Uri.file('{{ name }}')` (e.g. `web.container`), because the linter derives the expected section from the file extension. `unit_name` is `web.service` — and `service` is not a Quadlet extension, so building the URI from it silently disables every file-type rule (QL050) with no error anywhere. The URI is functional, not cosmetic.
+- **The editor no longer owns its model, so teardown must dispose it explicitly.** Passing a model via the `model` option (rather than `value:`) means Monaco does not own it, and `editor.dispose()` will not clean it up. The pane script disposes the editor first, then the model it was showing — that order matters, since disposing a model still attached to a live editor is the unsafe direction. Without this, every unit opened leaks its text buffer, undo stack and markers until page reload.
+
+Linting is debounced (~200 ms) on `onDidChangeContent`. Because the pane script re-executes on every HTMX swap, a pending lint can outlive the model it was queued against: teardown therefore calls the stored `detach()` to cancel any in-flight timer, and `runLint` re-checks `model.isDisposed()` before touching the model. Either guard alone prevents the `Model is disposed!` throw; both are kept as defense in depth.
+
+The module is loaded once from [`templates/dashboard.html`](templates/dashboard.html) as an ES module that parks its exports on `window` and sets a readiness flag **before** dispatching `quadlet-lint-ready`. The flag is the load-bearing part: module scripts are deferred, and that event fires exactly once for the page's lifetime, so a pane swap arriving later can only discover readiness by checking the flag — waiting on an event that already fired would hang forever, silently disabling diagnostics for that pane.
+
 ---
 
 ## Frontend Components
@@ -244,6 +258,7 @@ The dedicated Monitoring tab provides full-width container resource visualizatio
 | [`templates/partials/quadlet_tree.html`](templates/partials/quadlet_tree.html) | Server/file tree navigation with status dots |
 | [`templates/partials/servers_list.html`](templates/partials/servers_list.html) | Server list rendering |
 | [`static/main.js`](static/main.js) | Monaco & xterm initialization, SSE handling, chart updates, tab switching |
+| [`static/quadlet_lint.js`](static/quadlet_lint.js) | Debounced client-side Quadlet diagnostics wired onto the editor model |
 | [`static/style.css`](static/style.css) | Custom styles, dark theme, and view control classes |
 | [`templates/partials/settings_servers.html`](templates/partials/settings_servers.html) | Settings server list configuration |
 | [`templates/partials/settings_users.html`](templates/partials/settings_users.html) | Settings user list with inline role editing |

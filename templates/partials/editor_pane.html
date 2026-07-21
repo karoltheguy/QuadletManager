@@ -52,9 +52,18 @@
     </div>
     
     <script>
+        // Cancel any pending debounced lint from the previous pane before it can fire
+        // against a model we are about to dispose.
+        if (window._quadletLintDetach) {
+            window._quadletLintDetach();
+            window._quadletLintDetach = null;
+        }
+
         // Dispose any previously-running Monaco instance before requesting a new one.
         if (window.editor) {
+            var prevModel = window.editor.getModel();
             window.editor.dispose();
+            if (prevModel) prevModel.dispose();
             window.editor = null;
         }
 
@@ -68,9 +77,14 @@
                 // Guard: if this container is no longer in the document (i.e. another
                 // click happened and HTMX already replaced this pane), skip init.
                 if (!document.body.contains(targetContainer)) return;
+
+                var uri = monaco.Uri.file('{{ name }}');
+                var old = monaco.editor.getModel(uri);
+                if (old) old.dispose();
+                var model = monaco.editor.createModel(`{{ safe_content | safe }}`, 'ini', uri);
+
                 window.editor = monaco.editor.create(targetContainer, {
-                    value: `{{ safe_content | safe }}`,
-                    language: 'ini',
+                    model: model,
                     theme: 'vs-dark',
                     automaticLayout: true
                 });
@@ -80,6 +94,18 @@
                     var indicator = document.getElementById('unsaved-indicator');
                     if (indicator) indicator.removeAttribute('hidden');
                 });
+
+                function startQuadletLint() {
+                    if (!document.body.contains(targetContainer)) return;
+                    if (window.editor && window.editor.getModel() !== model) return;
+                    window._quadletLintDetach = window.attachQuadletLint(monaco, model);
+                }
+
+                if (window._quadletLintReady) {
+                    startQuadletLint();
+                } else {
+                    document.addEventListener('quadlet-lint-ready', startQuadletLint, { once: true });
+                }
             });
         })();
     </script>
