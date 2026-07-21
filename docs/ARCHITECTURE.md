@@ -378,6 +378,57 @@ erDiagram
     servers }o--|| ssh_keys : "encrypted"
 ```
 
+### Connection Management
+
+Every request opens a fresh `aiosqlite` connection through
+[`get_db_connection()`](core/database.py) — there is no connection pool. The
+helper is an `@asynccontextmanager`, so all call sites use:
+
+```python
+async with get_db_connection() as db:
+    ...
+```
+
+Three pragmas are applied, split by where they persist:
+
+| Pragma | Value | Set in | Scope |
+|--------|-------|--------|-------|
+| `journal_mode` | `WAL` | `init_db()` | Persisted **in the database file** — set once |
+| `busy_timeout` | `5000` | `init_db()` + `get_db_connection()` | Per-connection |
+| `synchronous` | `NORMAL` | `get_db_connection()` | Per-connection |
+
+**Why WAL.** The default rollback journal takes a database-wide write lock that
+blocks readers. With the stats engine batch-writing every 5s per server
+alongside concurrent request readers, that risks `database is locked`. Under
+WAL, readers and one writer proceed concurrently.
+
+**Why `synchronous=NORMAL`.** Safe specifically *because* WAL is enabled — it
+must not be set without it. Under WAL, `NORMAL` avoids an fsync per commit
+while still preserving integrity across application crashes (a power loss can
+cost recent transactions, not the database).
+
+**`busy_timeout` pins existing behavior rather than changing it.** Python's
+`sqlite3.connect()` defaults to `timeout=5.0`, which SQLite translates into
+`busy_timeout=5000` — so this value was already in effect implicitly. Setting
+it explicitly makes the guarantee independent of that driver default.
+
+**Operational note — WAL sidecar files.** While a connection is open, SQLite
+maintains `quadlets.db-wal` and `quadlets.db-shm` beside the database. They are
+checkpointed and removed on clean shutdown. Copying `quadlets.db` alone while
+the app is **running** can therefore miss commits still living in the `-wal`;
+copy all three, or stop the app first. Both shipped deployments
+(`docker-compose.yml`, `quadletmanager.container`) use a local named volume,
+where WAL works correctly — note that WAL is **not** supported on network
+filesystems (NFS/SMB), so bind-mounting the database onto a NAS is unsupported.
+
+**On staying with SQLite.** This is deliberate, not deferred. Write volume is
+tiny and the lock contention came from the journal mode, not throughput.
+Revisit only if one of these becomes true: multiple app instances/uvicorn
+workers share one database, sustained high-concurrency multi-process writes
+appear, or the database must be reachable over the network. The raw-SQL,
+single-`get_db_connection()` seam is kept precisely so that migration stays
+contained if it ever happens.
+
 ---
 
 ## Security Model

@@ -1,6 +1,7 @@
 import os
 import aiosqlite
 import logging
+from contextlib import asynccontextmanager
 from typing import Sequence
 
 logger = logging.getLogger("quadlet-manager.db")
@@ -37,6 +38,11 @@ async def _run_additive_migration(db, statements: Sequence[str]):
 async def init_db():
     logger.info("Initializing SQLite Database Schema...")
     async with aiosqlite.connect(DATABASE_PATH) as db:
+        # WAL is persisted in the database file itself, so this only needs
+        # setting once here (not per-connection in get_db_connection()).
+        await db.execute("PRAGMA journal_mode=WAL")
+        # Prevent startup schema migrations from racing the stats engine.
+        await db.execute("PRAGMA busy_timeout=5000")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,9 +214,17 @@ async def init_db():
         
         await db.commit()
 
-def get_db_connection():
-    """Return an active connection context manager for the SQLite database.
+@asynccontextmanager
+async def get_db_connection():
+    """Yield an active connection to the SQLite database.
 
     Can be used as: ``async with get_db_connection() as db:``.
+
+    Applies the per-connection pragmas ``busy_timeout=5000`` and
+    ``synchronous=NORMAL`` (safe because WAL is enabled once in
+    ``init_db()``) before yielding the connection.
     """
-    return aiosqlite.connect(DATABASE_PATH)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("PRAGMA busy_timeout=5000")
+        await db.execute("PRAGMA synchronous=NORMAL")
+        yield db
