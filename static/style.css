@@ -2329,6 +2329,18 @@ body.view-settings #bottom-panel-resize-handle { display: none !important; }
     display: none;
 }
 
+.sessions-strip-empty-hint {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-style: italic;
+    pointer-events: none;
+}
+
+/* Hide the empty-state hint once real sessions exist — JS toggles .has-tabs on #terminal-conn-tabs */
+.terminal-conn-tabs.has-tabs ~ .sessions-strip-empty-hint {
+    display: none;
+}
+
 .terminal-conn-tab {
     display: inline-flex;
     align-items: center;
