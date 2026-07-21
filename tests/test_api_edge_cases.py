@@ -118,3 +118,35 @@ def test_api_create_exception(client):
         assert response.status_code == 200
         assert "Creation Failed" in response.text
 
+@pytest.mark.unit
+def test_api_save_exception_no_stack_trace_leak(client):
+    with patch("api.routes.pool.execute_command") as mock_exec:
+        mock_exec.side_effect = Exception("SENTINEL_LEAK_/etc/secret/path")
+        response = client.post("/api/save", data={"server_id": 1, "file_path": "test", "scope": "user", "unit_name": "test", "content": "data"}, follow_redirects=False)
+        assert response.status_code == 200
+        assert "SENTINEL_LEAK_/etc/secret/path" not in response.text
+        assert "Failed to save" in response.text
+
+@pytest.mark.unit
+def test_api_create_exception_no_stack_trace_leak(client):
+    with patch("api.routes.pool.execute_command") as mock_exec:
+        mock_exec.side_effect = Exception("SENTINEL_LEAK_/etc/secret/path")
+        response = client.post("/api/create", data={"server_id": 1, "scope": "user", "type": "container", "name": "test"}, follow_redirects=False)
+        assert response.status_code == 200
+        assert "SENTINEL_LEAK_/etc/secret/path" not in response.text
+        assert "Creation Failed" in response.text
+
+@pytest.mark.unit
+def test_api_delete_exception_no_stack_trace_leak(client):
+    with patch("api.routes.pool.execute_command") as mock_exec:
+        mock_exec.side_effect = Exception("SENTINEL_LEAK_/etc/secret/path")
+        response = client.request(
+            "DELETE",
+            "/api/files",
+            params={"server_id": 1, "path": "/etc/containers/systemd/test.container", "scope": "user"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 200
+        assert "SENTINEL_LEAK_/etc/secret/path" not in response.text
+        assert "Failed to delete" in response.text
+

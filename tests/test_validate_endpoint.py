@@ -89,6 +89,28 @@ async def test_validate_endpoint_ssh_failure_returns_502(mock_validate_remote):
 @pytest.mark.asyncio
 @pytest.mark.unit
 @patch('api.routes.validate_remote', new_callable=AsyncMock)
+async def test_validate_endpoint_ssh_failure_no_stack_trace_leak(mock_validate_remote):
+    from api.routes import validate_quadlet
+
+    mock_validate_remote.side_effect = SSHCommandError("SENTINEL_LEAK_/etc/secret/path")
+
+    response = await validate_quadlet(
+        server_id=1,
+        file_path="/etc/containers/systemd/test.container",
+        scope="system",
+        content="[Container]\nImage=quay.io/x\n",
+        role="editor",
+    )
+
+    assert response.status_code == 502
+    body = json.loads(response.body)
+    assert isinstance(body.get("error"), str)
+    assert "SENTINEL_LEAK_/etc/secret/path" not in response.body.decode()
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+@patch('api.routes.validate_remote', new_callable=AsyncMock)
 async def test_validate_endpoint_viewer_allowed(mock_validate_remote):
     from api.routes import validate_quadlet
 

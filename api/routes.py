@@ -639,7 +639,7 @@ async def save_file(
         return response
     except Exception as e:
         logger.error(f"Save failed: {e}")
-        return _toast(request, "red", f"Failed to save: {str(e)}")
+        return _toast(request, "red", "Failed to save")
 
 @router.post("/api/validate/{server_id}")
 async def validate_quadlet(
@@ -655,7 +655,7 @@ async def validate_quadlet(
         return JSONResponse(result)
     except (SSHCommandError, SSHTimeoutError) as e:
         logger.error(f"Validation failed: {e}")
-        return JSONResponse({"error": str(e)}, status_code=502)
+        return JSONResponse({"error": "Validation failed"}, status_code=502)
 
 @router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str = Depends(get_current_user_role)):
@@ -785,7 +785,7 @@ async def create_new_quadlet(
         return response
     except Exception as e:
         logger.error(f"Failed to create quadlet: {e}")
-        return _toast(request, "red", f"Creation Failed: {str(e)}")
+        return _toast(request, "red", "Creation Failed")
 
 @router.get("/api/health/history/{server_id}")
 async def api_health_history(server_id: int, minutes: int = 60, role: str = Depends(get_current_user_role)):
@@ -1619,7 +1619,7 @@ async def delete_file(
         return response
     except Exception as e:
         logger.error(f"Delete failed: {e}")
-        return _toast(request, "red", f"Failed to delete: {str(e)}")
+        return _toast(request, "red", "Failed to delete")
 
 
 async def _authenticate_websocket(websocket: WebSocket) -> dict | None:
