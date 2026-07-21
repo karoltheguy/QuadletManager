@@ -2,6 +2,7 @@
   "name": "quadlet-manager",
   "private": true,
   "dependencies": {
+    "monaco-editor": "0.45.0",
     "quadlet-lint": "0.1.78",
     "xterm": "5.3.0",
     "xterm-addon-fit": "0.8.0"
@@ -12,7 +13,7 @@
     "globals": "15.15.0"
   },
   "scripts": {
-    "copy-assets": "mkdir -p static/vendor/quadlet-lint && cp -r node_modules/quadlet-lint/dist/. static/vendor/quadlet-lint/ && cp node_modules/xterm/lib/xterm.js static/xterm.min.js && cp node_modules/xterm/css/xterm.css static/xterm.min.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/xterm-addon-fit.umd.min.js",
+    "copy-assets": "mkdir -p static/vendor/quadlet-lint && cp -r node_modules/quadlet-lint/dist/. static/vendor/quadlet-lint/ && cp node_modules/xterm/lib/xterm.js static/xterm.min.js && cp node_modules/xterm/css/xterm.css static/xterm.min.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/xterm-addon-fit.umd.min.js && mkdir -p static/vendor/monaco && cp -r node_modules/monaco-editor/min/vs static/vendor/monaco/vs",
     "postinstall": "npm run copy-assets"
   }
 }

@@ -832,7 +832,9 @@ systemctl --user start quadletmanager
 
 ### Vendored Frontend Assets
 
-`quadlet-lint` (the client-side Quadlet linter behind the editor's instant diagnostics) is **not committed**. It is an exact-pinned npm dependency whose browser build is generated into `static/vendor/quadlet-lint/` at install time, and `static/vendor/` is gitignored. Generating rather than committing it is what lets Dependabot bump the version unattended: Dependabot only edits `package.json`/`package-lock.json` and its workflows get a read-only `GITHUB_TOKEN`, so a committed asset would need a manual refresh on every bump.
+`quadlet-lint` (the client-side Quadlet linter behind the editor's instant diagnostics) and **Monaco Editor** are **not committed**. Each is an exact-pinned npm dependency whose browser build is generated into `static/vendor/` at install time (`static/vendor/quadlet-lint/` and `static/vendor/monaco/vs/`), and `static/vendor/` is gitignored. Generating rather than committing them is what lets Dependabot bump the version unattended: Dependabot only edits `package.json`/`package-lock.json` and its workflows get a read-only `GITHUB_TOKEN`, so a committed asset would need a manual refresh on every bump.
+
+**Monaco is self-hosted specifically because of its web workers** (issue #218). Monaco's AMD loader resolves worker bundles (and their NLS string files) relative to the configured `vs` path, *lazily, at editor-open time*. When `vs` pointed at a CDN, Monaco wrapped each worker in a blob that `importScripts()`-ed the cross-origin URL — so opening the editor triggered a live CDN fetch that could fail on a restricted network or a CI runner (it did: a flaky `simpleWorker.nls.js` load). With `vs` set to the same-origin `/static/vendor/monaco/vs` ([`static/main.js`](../static/main.js) `require.config`, loader tag in [`templates/dashboard.html`](../templates/dashboard.html)), Monaco loads the worker directly and no external fetch happens. A same-origin asset is trusted, so its loader tag carries no SRI.
 
 The asset reaches its destination by **two separate paths, and neither is redundant**:
 
@@ -844,7 +846,7 @@ Removing either path breaks a real scenario. Two further constraints are load-be
 - **`mkdir -p` must stay first in `copy-assets`.** It creates `static/` as a parent, which is the only reason the trailing xterm `cp` commands work in the bare node assets stage, where no `static/` exists. Reordering the script breaks the Docker build while still passing every test.
 - **The whole `dist/` directory is copied, not named files.** The package ships content-hashed `chunk-*.js` siblings whose names change every release and whose imports are relative, so an explicit file list would break on the next version bump.
 
-A CDN was ruled out: [`tests/test_cdn_script_integrity.py`](../tests/test_cdn_script_integrity.py) enforces SRI on CDN scripts, and SRI cannot cover an ESM module's relative chunk imports.
+A CDN was ruled out for both. [`tests/test_cdn_script_integrity.py`](../tests/test_cdn_script_integrity.py) now enforces the self-hosted contract: it asserts the Monaco loader is served from `/static/vendor/monaco/` and that no `cdnjs.cloudflare.com` reference survives anywhere under `templates/` or `static/`. (This *resolves* the earlier CodeQL `js/functionality-from-untrusted-source` finding at its source rather than papering over it with SRI — SRI could not have covered Monaco's lazily-fetched worker/NLS files or an ESM module's relative chunk imports anyway.)
 
 The xterm assets under `static/` are still committed and have the same staleness gap; migrating them onto this pipeline is tracked separately. Note that `postinstall` now rewrites them on every install — byte-identical today, but a future xterm bump would silently dirty local working trees until that migration lands.
 

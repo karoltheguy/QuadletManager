@@ -223,7 +223,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 });
 
 // ── Monaco Editor Configuration ──────────────────────────
-require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+require.config({ paths: { 'vs': '/static/vendor/monaco/vs' }});
 
 // Ensure Monaco layout handles window sizing
 window.addEventListener('resize', function() {
