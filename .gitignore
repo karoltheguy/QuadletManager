@@ -9,6 +9,7 @@ env/
 *.sqlite3
 .pytest_cache/
 node_modules/
+static/vendor/
 .kilo/
 .agents/
 .claude/

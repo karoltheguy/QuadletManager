@@ -2,15 +2,17 @@
   "name": "quadlet-manager",
   "private": true,
   "dependencies": {
+    "quadlet-lint": "0.1.78",
     "xterm": "5.3.0",
     "xterm-addon-fit": "0.8.0"
   },
   "devDependencies": {
+    "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server",
     "eslint": "10.6.0",
-    "globals": "15.15.0",
-    "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server"
+    "globals": "15.15.0"
   },
   "scripts": {
-    "copy-assets": "cp node_modules/xterm/lib/xterm.js static/xterm.min.js && cp node_modules/xterm/css/xterm.css static/xterm.min.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/xterm-addon-fit.umd.min.js"
+    "copy-assets": "mkdir -p static/vendor/quadlet-lint && cp -r node_modules/quadlet-lint/dist/. static/vendor/quadlet-lint/ && cp node_modules/xterm/lib/xterm.js static/xterm.min.js && cp node_modules/xterm/css/xterm.css static/xterm.min.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/xterm-addon-fit.umd.min.js",
+    "postinstall": "npm run copy-assets"
   }
 }

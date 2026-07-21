@@ -13,6 +13,9 @@ if not exist "venv" (
     call venv\Scripts\activate.bat
 )
 
+echo Installing/updating frontend vendor assets...
+npm ci
+
 set QUADLET_MASTER_KEY=1111111111111111111111111111111111111111111111111111111111111111
 
 echo Starting QuadletManager on http://0.0.0.0:8000

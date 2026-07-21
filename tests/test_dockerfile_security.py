@@ -59,3 +59,36 @@ def test_entrypoint_fixes_ownership_and_drops_to_non_root():
     dropper = re.search(r"\b(gosu|su-exec)\s+(\S+)", content)
     assert dropper, "entrypoint.sh must drop privileges via gosu/su-exec"
     assert dropper.group(2) != "root", "entrypoint.sh must not drop to root"
+
+
+@pytest.mark.unit
+def test_dockerfile_builds_vendor_assets_in_separate_stage():
+    """Verify the Dockerfile builds quadlet-lint's vendored asset in its own
+    `assets` build stage and copies it into the final runtime stage via
+    `COPY --from=assets`, since the production image has no bind mount and
+    must have the asset baked in explicitly (see #198)."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    dockerfile_path = os.path.join(base_dir, "Dockerfile")
+    lines = read_dockerfile_lines(dockerfile_path)
+
+    assets_stage_indices = [
+        i for i, line in enumerate(lines)
+        if re.match(r"^FROM\s+\S+\s+AS\s+assets\s*$", line, re.IGNORECASE)
+    ]
+    assert assets_stage_indices, (
+        "Dockerfile must declare a build stage named 'assets' (FROM ... AS assets)"
+    )
+
+    copy_from_assets_indices = [
+        i for i, line in enumerate(lines)
+        if re.match(r"^COPY\s+--from=assets\b", line, re.IGNORECASE)
+        and "vendor" in line
+    ]
+    assert copy_from_assets_indices, (
+        "Dockerfile must have a 'COPY --from=assets' instruction that copies the vendor directory"
+    )
+
+    last_from_index = max(i for i, line in enumerate(lines) if line.startswith("FROM "))
+    assert copy_from_assets_indices[-1] > last_from_index, (
+        "COPY --from=assets must appear in the final runtime stage, after the last FROM"
+    )

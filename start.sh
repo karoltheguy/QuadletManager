@@ -14,6 +14,9 @@ source venv/bin/activate
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt
 
+echo "Installing/updating frontend vendor assets..."
+npm ci
+
 export QUADLET_MASTER_KEY=1111111111111111111111111111111111111111111111111111111111111111
 
 echo "Starting QuadletManager on http://0.0.0.0:8000"
