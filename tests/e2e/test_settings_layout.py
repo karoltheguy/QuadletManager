@@ -138,3 +138,39 @@ def test_settings_group_single_column_on_narrow_viewport(page: Page):
         f"On a 600px viewport, sections should stack vertically. "
         f"Section 1 y={first_box['y']}, Section 2 y={second_box['y']}"
     )
+
+
+@pytest.mark.e2e
+def test_settings_server_action_buttons_not_clipped(page: Page):
+    """The Edit / Re-pin host key / Remove buttons in a server row's actions cell
+    must be fully visible and contained within their td, not clipped by the
+    .settings-table's overflow/ellipsis rules (Issue #219)."""
+    _goto_settings(page)
+
+    servers_table = page.locator("#servers-list table.settings-table")
+    expect(servers_table).to_be_visible()
+
+    row = servers_table.locator("tr", has_text="Mock Server")
+    expect(row).to_be_visible()
+
+    actions_cell = row.locator("td").last
+    td_box = actions_cell.bounding_box()
+    assert td_box is not None, "Actions <td> for 'Mock Server' row not found"
+
+    for label in ["Edit", "Re-pin host key", "Remove"]:
+        button = actions_cell.locator("button", has_text=label)
+        expect(button).to_be_visible()
+        btn_box = button.bounding_box()
+        assert btn_box is not None, f"Button '{label}' not found in actions cell"
+
+        assert btn_box["x"] >= td_box["x"], (
+            f"Button '{label}' starts left of its td: "
+            f"button.x={btn_box['x']} < td.x={td_box['x']}"
+        )
+        assert btn_box["x"] + btn_box["width"] <= td_box["x"] + td_box["width"] + 1, (
+            f"Button '{label}' overflows its td horizontally: "
+            f"button.x={btn_box['x']}, button.width={btn_box['width']}, "
+            f"button right edge={btn_box['x'] + btn_box['width']}, "
+            f"td.x={td_box['x']}, td.width={td_box['width']}, "
+            f"td right edge={td_box['x'] + td_box['width']}"
+        )

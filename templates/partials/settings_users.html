@@ -1,11 +1,11 @@
 {% if users %}
-<table class="settings-table">
+<table class="settings-table settings-users-table">
   <thead>
     <tr>
       <th>Username</th>
       <th>Role</th>
       <th>Admin</th>
-      <th></th>
+      <th class="actions-col"><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
   <tbody>
@@ -40,7 +40,7 @@
                  title="Toggle admin privileges">
         {% endif %}
       </td>
-      <td>
+      <td class="actions-col">
         {% if u[1] != current_username %}
         <button class="btn btn-sm btn-danger"
                 hx-delete="/api/settings/users/{{ u[0] }}"

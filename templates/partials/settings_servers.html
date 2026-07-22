@@ -2,13 +2,13 @@
 <table class="settings-table">
   <thead>
     <tr>
-      {% if is_admin %}<th style="width:2rem"></th>{% endif %}
+      {% if is_admin %}<th style="width:2rem"><span class="visually-hidden">Reorder</span></th>{% endif %}
       <th>Name</th>
       <th>IP Address</th>
       <th>SSH User</th>
       <th>SSH Key</th>
       <th>Scope</th>
-      {% if is_admin %}<th></th>{% endif %}
+      {% if is_admin %}<th class="actions-col"><span class="visually-hidden">Actions</span></th>{% endif %}
     </tr>
   </thead>
   <tbody id="servers-tbody">
@@ -23,7 +23,7 @@
       <td>{{ s[4] or '—' }}</td>
       <td>{{ s[5] or 'both' }}</td>
       {% if is_admin %}
-      <td style="white-space:nowrap">
+      <td class="actions-col" style="white-space:nowrap">
         <button class="btn btn-sm btn-secondary"
                 onclick="toggleServerEdit({{ s[0] }})">
           Edit

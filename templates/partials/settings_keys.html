@@ -1,16 +1,16 @@
 {% if keys %}
-<table class="settings-table">
+<table class="settings-table settings-keys-table">
   <thead>
     <tr>
       <th>Key Name</th>
-      <th></th>
+      <th class="actions-col"><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
   <tbody>
     {% for k in keys %}
     <tr>
       <td>{{ k[1] }}</td>
-      <td>
+      <td class="actions-col">
         <button class="btn btn-sm btn-danger"
                 hx-delete="/api/keys/{{ k[0] }}"
                 hx-target="#keys-list"

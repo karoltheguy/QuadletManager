@@ -443,6 +443,35 @@ body.view-containers.inspector-expanded #resize-handle-right {
     border-bottom: none;
 }
 
+/* Actions column needs enough width for its action buttons; without this,
+   table-layout:fixed splits columns evenly and the blanket overflow:hidden
+   rule above clips the buttons (issue #219). */
+.settings-table th.actions-col,
+.settings-table td.actions-col {
+    width: 19rem;
+    text-overflow: clip;
+}
+
+/* Narrower tables (SSH keys, Users) only need room for a single button. */
+.settings-keys-table th.actions-col,
+.settings-keys-table td.actions-col,
+.settings-users-table th.actions-col,
+.settings-users-table td.actions-col {
+    width: 8rem;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .add-server-form {
     display: flex;
     flex-direction: column;
