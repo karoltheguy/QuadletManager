@@ -9,6 +9,7 @@ import os
 from argon2 import PasswordHasher, exceptions
 import json
 import re
+import secrets
 import shlex
 import time
 
@@ -45,6 +46,14 @@ def _asset_version(filename: str) -> int:
     """Return the on-disk mtime (as an int) of a static asset, for cache-busting."""
     return int(os.path.getmtime(os.path.join(STATIC_DIR, filename)))
 
+
+
+def _log_error_ref(prefix: str, exc: Exception) -> str:
+    """Log exc with a short random correlation id and return the id so the
+    same reference can be shown to the user without leaking exception detail."""
+    ref = secrets.token_hex(3)
+    logger.error(f"{prefix} (ref: {ref}): {exc}")
+    return ref
 
 
 def _toast(request: Request, color: str, message: str, status_output=None) -> HTMLResponse:
@@ -639,8 +648,8 @@ async def save_file(
         response.headers["HX-Trigger"] = "quadlet-saved"
         return response
     except Exception as e:
-        logger.error(f"Save failed: {e}")
-        return _toast(request, "red", "Failed to save")
+        ref = _log_error_ref("Save failed", e)
+        return _toast(request, "red", f"Failed to save (ref: {ref})")
 
 @router.post("/api/validate/{server_id}")
 async def validate_quadlet(
@@ -655,8 +664,8 @@ async def validate_quadlet(
         result = await validate_remote(server_id, content, file_name, scope)
         return JSONResponse(result)
     except (SSHCommandError, SSHTimeoutError) as e:
-        logger.error(f"Validation failed: {e}")
-        return JSONResponse({"error": "Validation failed"}, status_code=502)
+        ref = _log_error_ref("Validation failed", e)
+        return JSONResponse({"error": f"Validation failed (ref: {ref})"}, status_code=502)
 
 @router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str = Depends(get_current_user_role)):
@@ -664,8 +673,8 @@ async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str 
         output = await systemctl_action(server_id, "status", unit, scope)
         return HTMLResponse(output)
     except Exception as e:
-        logger.error(f"Error fetching systemctl status: {e}")
-        return HTMLResponse("Failed to get status")
+        ref = _log_error_ref("Error fetching systemctl status", e)
+        return HTMLResponse(f"Failed to get status (ref: {ref})")
 
 @router.post("/api/systemctl/{server_id}", response_class=HTMLResponse)
 async def api_systemctl_post(
@@ -785,8 +794,8 @@ async def create_new_quadlet(
         response.headers["HX-Trigger"] = "reload-servers"
         return response
     except Exception as e:
-        logger.error(f"Failed to create quadlet: {e}")
-        return _toast(request, "red", "Creation Failed")
+        ref = _log_error_ref("Failed to create quadlet", e)
+        return _toast(request, "red", f"Creation Failed (ref: {ref})")
 
 @router.get("/api/health/history/{server_id}")
 async def api_health_history(server_id: int, minutes: int = 60, role: str = Depends(get_current_user_role)):
@@ -1619,8 +1628,8 @@ async def delete_file(
         response.headers["HX-Trigger"] = "reload-servers"
         return response
     except Exception as e:
-        logger.error(f"Delete failed: {e}")
-        return _toast(request, "red", "Failed to delete")
+        ref = _log_error_ref("Delete failed", e)
+        return _toast(request, "red", f"Failed to delete (ref: {ref})")
 
 
 async def _authenticate_websocket(websocket: WebSocket) -> dict | None:
