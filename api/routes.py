@@ -26,6 +26,7 @@ import services.sync_engine as sync_engine
 from services.sync_engine import parse_mtime
 from core.events_manager import publisher
 from services.container_events import record_container_event, get_container_activity
+from services.quadlet_naming import base_name_of, unit_name_for, quadlet_type_of
 import logging
 from core.config_loader import global_config
 from core.version import get_version
@@ -553,9 +554,9 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
     cmd = f"cat {shlex.quote(path)}"
     try:
         content = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
-        base_name = name.rsplit('.', 1)[0]
-        unit_name = f"{base_name}.service"
-        quadlet_type = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+        base_name = base_name_of(name)
+        unit_name = unit_name_for(name)
+        quadlet_type = quadlet_type_of(name)
         pod_name = base_name if quadlet_type == 'pod' else None
         
         safe_content = content.replace('`', '\\`').replace('$', '\\$').replace('<', '\\u003c')
@@ -590,7 +591,7 @@ async def save_file(
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot save files.")
 
-    quadlet_type = file_path.rsplit('.', 1)[-1].lower()
+    quadlet_type = quadlet_type_of(file_path)
     if quadlet_type in ('container', 'volume', 'network', 'pod', 'kube'):
         try:
             validate_quadlet_syntax(content, quadlet_type)
@@ -686,7 +687,7 @@ async def api_systemctl_post(
         if action in ("start", "stop", "restart"):
             session = await _get_session(request)
             username = session["username"]
-            stem = unit.rsplit(".", 1)[0] if "." in unit else unit
+            stem = base_name_of(unit)
             await record_container_event(server_id, stem, action, triggered_by=username)
 
         return HTMLResponse(output)
