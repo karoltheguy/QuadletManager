@@ -37,6 +37,7 @@
                  hx-target="#users-list"
                  hx-swap="innerHTML"
                  hx-vals='{"is_admin_target": {% if u[3] %}false{% else %}true{% endif %}}'
+                 hx-confirm="{% if u[3] %}Revoke admin from '{{ u[1] }}'?{% else %}Grant admin to '{{ u[1] }}'?{% endif %}"
                  title="Toggle admin privileges"
                  aria-label="Admin for {{ u[1] }}">
         {% endif %}

@@ -395,6 +395,24 @@ document.body.addEventListener('htmx:responseError', function(evt) {
     }, 8000);
 });
 
+document.body.addEventListener('user-updated', function(evt) {
+    var toast = document.getElementById('status-toast');
+    if (!toast) return;
+
+    var message = (evt.detail && evt.detail.message) || 'User updated';
+
+    toast.textContent = '';
+    toast.appendChild(
+        el('div', { className: 'toast-msg toast-success toast-enter' }, message)
+    );
+    // Auto-dismiss after 8 seconds
+    setTimeout(function() {
+        if (toast.querySelector('.toast-enter')) {
+            toast.textContent = '';
+        }
+    }, 8000);
+});
+
 
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;

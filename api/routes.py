@@ -1174,7 +1174,14 @@ async def settings_update_user_role(
         )
         await db.commit()
 
-    return await settings_list_users(request, role, is_admin=True)
+    if row:
+        message = f"Role for '{row[0]}' set to {user_role}"
+    else:
+        message = "Role updated"
+
+    response = await settings_list_users(request, role, is_admin=True)
+    response.headers["HX-Trigger"] = json.dumps({"user-updated": {"message": message}})
+    return response
 
 
 @router.put("/api/settings/users/{user_id}/admin", response_class=HTMLResponse)
@@ -1204,7 +1211,17 @@ async def settings_toggle_admin(
         )
         await db.commit()
 
-    return await settings_list_users(request, role, is_admin=True)
+    if row:
+        if is_admin_target:
+            message = f"Admin granted to '{row[0]}'"
+        else:
+            message = f"Admin revoked from '{row[0]}'"
+    else:
+        message = "Admin status updated"
+
+    response = await settings_list_users(request, role, is_admin=True)
+    response.headers["HX-Trigger"] = json.dumps({"user-updated": {"message": message}})
+    return response
 
 
 @router.delete("/api/settings/users/{user_id}", response_class=HTMLResponse)
