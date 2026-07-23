@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "e2e",
-  "message": "failing",
-  "color": "red"
+  "message": "passing",
+  "color": "brightgreen"
 }
