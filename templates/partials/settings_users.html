@@ -37,7 +37,8 @@
                  hx-target="#users-list"
                  hx-swap="innerHTML"
                  hx-vals='{"is_admin_target": {% if u[3] %}false{% else %}true{% endif %}}'
-                 title="Toggle admin privileges">
+                 title="Toggle admin privileges"
+                 aria-label="Admin for {{ u[1] }}">
         {% endif %}
       </td>
       <td class="actions-col">

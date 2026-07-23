@@ -97,7 +97,7 @@
         {% for key in allowlist %}
         {% set val = active_theme.light.get(key, default_light[key]) %}
         <div class="color-picker-row">
-          <label class="color-key-label">{{ key | replace("_", " ") }}</label>
+          <label class="color-key-label" for="light-{{ loop.index }}">{{ key | replace("_", " ") }}</label>
           <input type="color" value="{{ val }}" name="{{ key }}"
                  data-hex-id="light-{{ loop.index }}">
           <input type="text" id="light-{{ loop.index }}" class="form-control hex-input"
@@ -133,7 +133,7 @@
         {% for key in allowlist %}
         {% set val = active_theme.dark.get(key, default_dark[key]) %}
         <div class="color-picker-row">
-          <label class="color-key-label">{{ key | replace("_", " ") }}</label>
+          <label class="color-key-label" for="dark-{{ loop.index }}">{{ key | replace("_", " ") }}</label>
           <input type="color" value="{{ val }}" name="{{ key }}"
                  data-hex-id="dark-{{ loop.index }}">
           <input type="text" id="dark-{{ loop.index }}" class="form-control hex-input"

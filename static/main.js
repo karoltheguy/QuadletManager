@@ -1403,7 +1403,13 @@ window.showSettingsSection = function(name) {
     g.style.display = g.dataset.group === name ? 'grid' : 'none';
   });
   document.querySelectorAll('.settings-sidenav-item').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.section === name);
+    var isActive = btn.dataset.section === name;
+    btn.classList.toggle('active', isActive);
+    if (isActive) {
+      btn.setAttribute('aria-current', 'true');
+    } else {
+      btn.removeAttribute('aria-current');
+    }
   });
   if (name === 'servers') refreshSshKeyDropdown();
   if (name !== 'themes') clearThemePreview();
