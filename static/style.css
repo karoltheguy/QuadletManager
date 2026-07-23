@@ -253,7 +253,6 @@ body {
     overflow-y: auto;
     background-color: var(--bg-surface);
     padding: 1rem;
-    transition: width 0.25s ease, flex 0.25s ease;
 }
 
 .inspector-header {
@@ -1227,7 +1226,6 @@ ul { list-style: none; }
     background-color: var(--bg-element);
     border-radius: 0.25rem;
     font-size: 0.75rem;
-    border-left: 2px solid var(--border-color);
 }
 
 .container-activity-log .activity-icon {
@@ -2689,8 +2687,7 @@ li.is-collapsed .server-quadlet-tree {
 }
 
 .theme-card.active {
-    box-shadow: var(--shadow-inset);
-    border-left: 3px solid var(--brand-primary);
+    box-shadow: var(--shadow-inset), inset 0 0 0 1px var(--brand-primary);
 }
 
 .theme-card-header {
