@@ -362,6 +362,39 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
     }
 });
 
+document.body.addEventListener('htmx:responseError', function(evt) {
+    var xhr = evt.detail.xhr;
+    var toast = document.getElementById('status-toast');
+    if (!toast) return;
+
+    var message = '';
+    var responseText = xhr.responseText || '';
+    try {
+        var parsed = JSON.parse(responseText);
+        if (parsed && typeof parsed.detail !== 'undefined') {
+            message = parsed.detail;
+        } else {
+            message = responseText;
+        }
+    } catch (err) {
+        message = responseText;
+    }
+    if (!message) {
+        message = 'Request failed (HTTP ' + xhr.status + ')';
+    }
+
+    toast.textContent = '';
+    toast.appendChild(
+        el('div', { className: 'toast-msg toast-danger toast-enter' }, message)
+    );
+    // Auto-dismiss after 8 seconds
+    setTimeout(function() {
+        if (toast.querySelector('.toast-enter')) {
+            toast.textContent = '';
+        }
+    }, 8000);
+});
+
 
 // ── Stats Chart ──────────────────────────────────────────
 let statsChart = null;

@@ -39,7 +39,7 @@
           hx-post="/api/settings/themes"
           hx-target="#themes-root"
           hx-swap="outerHTML"
-          hx-on::after-request="this.reset()">
+          hx-on::after-request="if(event.detail.successful) this.reset()">
       <div class="form-row">
         <label class="form-label">Name</label>
         <input type="text" name="theme_name" class="form-control" required placeholder="ocean">

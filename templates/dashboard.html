@@ -219,7 +219,7 @@
                   hx-post="/api/settings/servers"
                   hx-target="#servers-list"
                   hx-swap="innerHTML"
-                  hx-on::after-request="this.reset()">
+                  hx-on::after-request="if(event.detail.successful) this.reset()">
               <div class="form-row">
                 <label class="form-label">Name</label>
                 <input type="text" name="name" class="form-control" required placeholder="my-server">
@@ -270,7 +270,7 @@
                   hx-post="/api/keys"
                   hx-target="#keys-list"
                   hx-swap="innerHTML"
-                  hx-on::after-request="this.reset()"
+                  hx-on::after-request="if(event.detail.successful) this.reset()"
                   enctype="multipart/form-data">
               <div class="form-row">
                 <label class="form-label">Key Name</label>
@@ -307,7 +307,7 @@
                   hx-post="/api/settings/users"
                   hx-target="#users-list"
                   hx-swap="innerHTML"
-                  hx-on::after-request="this.reset()">
+                  hx-on::after-request="if(event.detail.successful) this.reset()">
               <div class="form-row">
                 <label class="form-label">Username</label>
                 <input type="text" name="username" class="form-control" required placeholder="jane">
