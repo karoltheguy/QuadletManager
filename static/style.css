@@ -462,10 +462,18 @@ body.view-containers.inspector-expanded #resize-handle-right {
 
 /* Actions column needs enough width for its action buttons; without this,
    table-layout:fixed splits columns evenly and the blanket overflow:hidden
-   rule above clips the buttons (issue #219). */
+   rule above clips the buttons (issue #219). Width holds two buttons
+   (Edit, Remove) after issue #229 moved the reset action into the edit panel. */
+/* Space the action buttons within the cell so they don't crowd (issue #227). */
+.settings-table td.actions-col {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .settings-table th.actions-col,
 .settings-table td.actions-col {
-    width: 19rem;
+    width: 12rem;
     text-overflow: clip;
 }
 
