@@ -16,7 +16,7 @@
     --text-accent: #2dd4bf;
 
     --brand-primary: #14b8a6;  /* Teal — desaturated, reads as uptime/health */
-    --brand-hover: #0d9488;
+    --brand-hover: #2dd4bf;
 
     --success: #10b981;
     --danger:  #ef4444;
@@ -58,10 +58,10 @@
 
     --text-primary: #1c1f24;
     --text-muted: #6b7280;
-    --text-accent: #0d9488;
+    --text-accent: #0e7268;
 
-    --brand-primary: #0d9488;
-    --brand-hover: #0f766e;
+    --brand-primary: #0e7268;
+    --brand-hover: #115e59;
 
     --success: #059669;
     --danger:  #dc2626;
@@ -95,9 +95,9 @@
         --border-color: #d3d8e0;
         --text-primary: #1c1f24;
         --text-muted: #6b7280;
-        --text-accent: #0d9488;
-        --brand-primary: #0d9488;
-        --brand-hover: #0f766e;
+        --text-accent: #0e7268;
+        --brand-primary: #0e7268;
+        --brand-hover: #115e59;
         --success: #059669;
         --danger:  #dc2626;
         --warning: #d97706;

@@ -1270,7 +1270,7 @@ _DEFAULT_COLORS_DARK = {
 }
 _DEFAULT_COLORS_LIGHT = {
     "bg_base": "#e8ecf0", "bg_surface": "#eef1f5", "text_primary": "#1c1f24",
-    "text_muted": "#6b7280", "brand_primary": "#0d9488", "success": "#059669",
+    "text_muted": "#6b7280", "brand_primary": "#0e7268", "success": "#059669",
     "danger": "#dc2626", "border_color": "#d3d8e0",
 }
 
