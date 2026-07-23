@@ -44,6 +44,9 @@
     --radius-lg: 1.25rem;
     --radius-md: 0.75rem;
 
+    --settings-content-max: 820px;   /* settings content column */
+    --settings-control-max: 26rem;   /* form / single-control reading width */
+
     /* Resizable panel widths (overridden by JS / localStorage) */
     --sidebar-width: 300px;
     --inspector-width: 360px;
@@ -397,23 +400,33 @@ body.view-containers.inspector-expanded #resize-handle-right {
 }
 
 .settings-group {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: var(--density-gap);
-    align-content: start;
+    max-width: var(--settings-content-max, 820px);
 }
 
-.settings-section.full-width {
-    grid-column: 1 / -1;
-}
-
+/* Flat sections: grouped by proximity and a hairline divider, not nested
+   cards. Depth stays on the outer panel (chrome) and on the controls
+   themselves; the data groupings are flat. */
 .settings-section {
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: var(--density-section-padding);
-    min-width: 0;             /* allow section to shrink below content size */
-    overflow-x: auto;         /* scroll when table is wider than section */
+    min-width: 0;             /* allow content to shrink below its size */
+    /* No overflow clip here: it would force overflow-y to `auto` too and
+       clip the controls' neumorphic shadows at the (now padding-less) flat
+       section edges. Settings tables are table-layout:fixed/width:100% so
+       they never overflow horizontally. */
+}
+
+.settings-section + .settings-section {
+    padding-top: var(--density-gap);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Forms and single-control groups take a reading width so their fields and
+   buttons don't stretch across the full content column. */
+.add-server-form,
+#admin-root {
+    max-width: var(--settings-control-max, 26rem);
 }
 
 .settings-table {
@@ -1795,17 +1808,17 @@ body.bottom-panel-expanded #navigator {
     min-height: 0;
 }
 
-/* ── Settings pane: raised wrapper with an inner sidenav + content ── */
+/* ── Settings pane: single raised panel (like Monitor/Containers) holding
+   the sidenav + content directly — no inset sub-well, so the surface uses
+   one elevation model consistent with the rest of the app. ── */
 .settings-pane { padding: var(--density-panel-padding); }
 .settings-layout {
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    background-color: var(--bg-base);
-    box-shadow: var(--shadow-inset);
+    background-color: transparent;
+    box-shadow: none;
 }
 .settings-sidenav {
     background-color: transparent;
-    /* border-right: 1px solid var(--border-color); */
+    border-right: 1px solid var(--border-color);
     padding: 1rem 0.5rem;
 }
 .settings-sidenav-item {
@@ -1827,15 +1840,11 @@ body.bottom-panel-expanded #navigator {
     box-shadow: var(--shadow-inset);
     border-left: none;
 }
-.settings-main { padding: var(--density-panel-padding); }
-
-/* Settings cards: raised panels instead of bordered boxes */
-.settings-section {
-    background-color: var(--bg-surface);
-    border: none;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-raised-sm);
-    padding: var(--density-section-padding);
+/* Extra bottom room so the last control's raised shadow (and the control
+   itself) clears the scroll edge instead of being clipped by overflow. */
+.settings-main {
+    padding: var(--density-panel-padding);
+    padding-bottom: 2.5rem;
 }
 
 /* Settings table: flat with hairlines, no card chrome */

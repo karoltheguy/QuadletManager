@@ -1,8 +1,10 @@
 """
-Tests for Settings tab layout (Issue #27):
+Tests for Settings tab layout (Issue #27, updated for #224):
 - Title must have proper left padding (not cut off)
 - Settings use inner sidebar navigation with section groups
-- Active section uses a multi-column grid on wide viewports
+- The active group is a single-column flat stack at every viewport
+  (Issue #224 replaced the multi-column auto-fill grid, which stranded a
+  narrow form beside a wide table, with one unified single-column surface)
 """
 import pytest
 
@@ -80,38 +82,44 @@ def test_settings_sidenav_switches_sections(page: Page):
 
 
 @pytest.mark.e2e
-def test_settings_active_group_uses_grid_layout(page: Page):
-    """The active settings group must use CSS grid for multi-column layout."""
+def test_settings_active_group_is_single_column_flex(page: Page):
+    """Issue #224: the active settings group is a single-column flex stack
+    (not a multi-column auto-fill grid), so sections never strand dead space."""
     _goto_settings(page)
-    display = page.locator(".settings-group[data-group='servers']").evaluate(
-        "el => window.getComputedStyle(el).display"
+    style = page.locator(".settings-group[data-group='servers']").evaluate(
+        "el => { const s = window.getComputedStyle(el);"
+        " return { display: s.display, direction: s.flexDirection }; }"
     )
-    assert display == "grid", (
-        f"Active settings-group should use display:grid, got '{display}'"
+    assert style["display"] == "flex", (
+        f"Active settings-group should use display:flex, got '{style['display']}'"
+    )
+    assert style["direction"] == "column", (
+        f"settings-group should stack in one column, got flex-direction "
+        f"'{style['direction']}'"
     )
 
 
 @pytest.mark.e2e
-def test_settings_group_multi_column_on_wide_viewport(page: Page):
-    """On a wide viewport, sections within the active group should fill multiple columns."""
+def test_settings_group_single_column_on_wide_viewport(page: Page):
+    """Issue #224: even on a wide viewport, sections stack in one column.
+    The old side-by-side layout stranded a narrow form beside a wide table."""
     page.set_viewport_size({"width": 1400, "height": 900})
     _goto_settings(page)
 
-    # Exclude full-width sections (they intentionally span all columns)
     sections = page.locator(
-        ".settings-group[data-group='servers'] .settings-section:not(.full-width)"
+        ".settings-group[data-group='servers'] .settings-section"
     )
     count = sections.count()
     if count < 2:
-        pytest.skip("Not enough non-full-width settings sections visible to test multi-column layout")
+        pytest.skip("Not enough settings sections visible to test single-column layout")
 
     first_box = sections.nth(0).bounding_box()
     second_box = sections.nth(1).bounding_box()
 
     assert first_box is not None and second_box is not None
-    # In a multi-column grid the second section should be beside the first
-    assert abs(first_box["y"] - second_box["y"]) < 10, (
-        f"On a 1400px viewport, sections should be side-by-side. "
+    # Single column: the second section sits below the first, not beside it.
+    assert second_box["y"] > first_box["y"] + 10, (
+        f"On a 1400px viewport, sections should stack vertically (single column). "
         f"Section 1 y={first_box['y']}, Section 2 y={second_box['y']}"
     )
 
@@ -123,11 +131,11 @@ def test_settings_group_single_column_on_narrow_viewport(page: Page):
     _goto_settings(page)
 
     sections = page.locator(
-        ".settings-group[data-group='servers'] .settings-section:not(.full-width)"
+        ".settings-group[data-group='servers'] .settings-section"
     )
     count = sections.count()
     if count < 2:
-        pytest.skip("Not enough non-full-width settings sections visible to test single-column layout")
+        pytest.skip("Not enough settings sections visible to test single-column layout")
 
     first_box = sections.nth(0).bounding_box()
     second_box = sections.nth(1).bounding_box()

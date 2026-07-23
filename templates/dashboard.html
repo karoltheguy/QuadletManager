@@ -201,7 +201,7 @@
 
         <!-- SERVERS -->
         <div class="settings-group" data-group="servers">
-          <div class="settings-section full-width">
+          <div class="settings-section">
             <h3 class="section-title mb-4">Server Management</h3>
             <div id="servers-list"
                  hx-get="/api/settings/servers"
@@ -294,7 +294,7 @@
         <!-- USERS (admin only) -->
         {% if is_admin %}
         <div class="settings-group" data-group="users" style="display:none">
-          <div class="settings-section full-width">
+          <div class="settings-section">
             <h3 class="section-title mb-4">User Management</h3>
             <div id="users-list" hx-get="/api/settings/users" hx-trigger="load">
               <p class="text-muted">Loading users...</p>
@@ -335,7 +335,7 @@
 
         <!-- THEMES -->
         <div class="settings-group" data-group="themes" style="display:none">
-          <div class="settings-section full-width">
+          <div class="settings-section">
             <h3 class="section-title mb-4">Theme Customization</h3>
             <div id="themes-root"
                  hx-get="/api/settings/themes"
@@ -344,7 +344,7 @@
               <p class="text-muted">Loading themes...</p>
             </div>
           </div>
-          <div class="settings-section full-width" id="density-section">
+          <div class="settings-section" id="density-section">
             <h3 class="section-title mb-4">UI Density</h3>
             <div class="form-row mode-pref-row">
               <label class="form-label">Layout spacing</label>
@@ -367,7 +367,7 @@
         <!-- ADMIN (admin only) -->
         {% if is_admin %}
         <div class="settings-group" data-group="admin" style="display:none">
-          <div class="settings-section full-width">
+          <div class="settings-section">
             <h3 class="section-title mb-4">Instance Settings</h3>
             <div id="admin-root"
                  hx-get="/api/settings/session-duration"

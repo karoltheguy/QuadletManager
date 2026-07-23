@@ -95,8 +95,18 @@ class TestDensityCSS:
         assert 'gap: var(--density-gap)' in self.css
 
     @pytest.mark.unit
-    def test_settings_section_uses_density_section_padding_token(self):
-        assert 'padding: var(--density-section-padding)' in self.css
+    def test_settings_section_separation_is_density_aware(self):
+        # The settings surface was flattened (issue #224): sections are no
+        # longer per-section cards with `--density-section-padding`, so
+        # density now drives their separation through the flat-section
+        # divider. Density must still tighten/loosen settings.
+        divider = re.search(
+            r'\.settings-section \+ \.settings-section\s*\{([^}]+)\}', self.css
+        )
+        assert divider, ".settings-section divider rule not found"
+        assert 'var(--density-' in divider.group(1), (
+            "flat settings sections must be separated by a density-aware amount"
+        )
 
     @pytest.mark.unit
     def test_raised_panels_use_density_token(self):
