@@ -246,6 +246,20 @@ def test_non_admin_does_not_see_remove_button_in_servers_list():
     assert 'Remove' not in html
 
 
+@pytest.mark.unit
+def test_reset_host_key_button_renamed_and_in_edit_panel():
+    """The 'Re-pin host key' button must be renamed to 'Reset host key' and
+    relocated into the per-server edit panel (issue #229)."""
+    html = _render_settings_servers(is_admin=True)
+    # 1. renamed: old misleading label gone, accurate label present
+    assert 'Re-pin host key' not in html
+    assert 'Reset host key' in html
+    # 2. relocated: the repin action now lives inside the per-server edit panel
+    #    (after the server-edit-row marker), not in the top-level actions cell
+    assert 'server-edit-row-1' in html
+    assert html.index('repin-host-key') > html.index('server-edit-row-1')
+
+
 # =============================================================================
 # servers-list HTMX error handling and refresh trigger (issue #103)
 # =============================================================================

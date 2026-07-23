@@ -165,7 +165,7 @@ def test_settings_server_action_buttons_not_clipped(page: Page):
     td_box = actions_cell.bounding_box()
     assert td_box is not None, "Actions <td> for 'Mock Server' row not found"
 
-    for label in ["Edit", "Re-pin host key", "Remove"]:
+    for label in ["Edit", "Remove"]:
         button = actions_cell.locator("button", has_text=label)
         expect(button).to_be_visible()
         btn_box = button.bounding_box()
