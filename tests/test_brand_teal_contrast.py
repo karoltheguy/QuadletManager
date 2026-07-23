@@ -129,10 +129,10 @@ def _load_template_light_block(path: str) -> dict:
     return _extract_tokens(block)
 
 
-def _load_routes_default_colors_light() -> dict:
+def _load_routes_default_colors(dict_name: str) -> dict:
     text = _read(ROUTES_PATH)
-    m = re.search(r"_DEFAULT_COLORS_LIGHT\s*=\s*\{(.*?)\}", text, re.DOTALL)
-    assert m is not None, "Could not find _DEFAULT_COLORS_LIGHT dict in api/routes.py"
+    m = re.search(re.escape(dict_name) + r"\s*=\s*\{(.*?)\}", text, re.DOTALL)
+    assert m is not None, f"Could not find {dict_name} dict in api/routes.py"
     body = m.group(1)
     colors = {}
     for key, value in re.findall(r'"(\w+)"\s*:\s*"(#[0-9a-fA-F]{6})"', body):
@@ -242,7 +242,8 @@ def test_change_password_template_light_brand_primary_meets_wcag_aa(pair):
 
 # ── api/routes.py _DEFAULT_COLORS_LIGHT ────────────────────────
 
-_ROUTES_LIGHT_COLORS = _load_routes_default_colors_light()
+_ROUTES_LIGHT_COLORS = _load_routes_default_colors("_DEFAULT_COLORS_LIGHT")
+_ROUTES_DARK_COLORS = _load_routes_default_colors("_DEFAULT_COLORS_DARK")
 _ROUTES_BG_KEYS = ("bg_base", "bg_surface")
 
 
@@ -321,3 +322,71 @@ def test_parsed_sources_yielded_expected_tokens():
             f"Expected key {key!r} not found in _DEFAULT_COLORS_LIGHT of "
             f"{ROUTES_PATH} -- a rename likely broke parsing"
         )
+
+
+# ── Lockstep guards: the same brand value must appear everywhere ──────
+#
+# The contrast tests above check each source independently, so two sources
+# could drift to *different* (both individually passing) teals without any
+# test noticing. These tests pin the cross-source equality contract: the
+# prefers-color-scheme fallback, the standalone template blocks, and the
+# api/routes.py default palettes must all carry the same brand values as
+# the corresponding style.css token blocks.
+
+_LOCKSTEP_BRAND_TOKENS = ("--brand-primary", "--brand-hover", "--text-accent")
+
+
+@pytest.mark.parametrize("token", _LOCKSTEP_BRAND_TOKENS)
+def test_os_light_fallback_brand_tokens_match_light_block(token):
+    light_value = _STYLE_BLOCKS["light"][token]
+    os_light_value = _STYLE_BLOCKS["os_light"][token]
+    assert os_light_value == light_value, (
+        f"[prefers-color-scheme: light :root:not([data-theme])] {token} "
+        f"({os_light_value}) does not match [:root[data-theme=\"light\"]] "
+        f"{token} ({light_value})"
+    )
+
+
+@pytest.mark.parametrize("path_name,tokens", [
+    ("templates/login.html", _LOGIN_TOKENS),
+    ("templates/change_password.html", _CHANGE_PW_TOKENS),
+], ids=lambda v: v if isinstance(v, str) else "")
+def test_template_light_brand_primary_matches_style_css(path_name, tokens):
+    light_value = _STYLE_BLOCKS["light"]["--brand-primary"]
+    template_value = tokens["--brand-primary"]
+    assert template_value == light_value, (
+        f"[{path_name} :root[data-theme=\"light\"]] --brand-primary "
+        f"({template_value}) does not match style.css light --brand-primary "
+        f"({light_value})"
+    )
+
+
+@pytest.mark.parametrize("dict_name,colors,block_name", [
+    ("_DEFAULT_COLORS_LIGHT", _ROUTES_LIGHT_COLORS, "light"),
+    ("_DEFAULT_COLORS_DARK", _ROUTES_DARK_COLORS, "dark"),
+], ids=["light", "dark"])
+def test_routes_default_brand_primary_matches_style_css(dict_name, colors, block_name):
+    css_value = _STYLE_BLOCKS[block_name]["--brand-primary"]
+    routes_value = colors.get("brand_primary")
+    assert routes_value == css_value, (
+        f"[api/routes.py {dict_name}] brand_primary ({routes_value}) does not "
+        f"match style.css {block_name} --brand-primary ({css_value})"
+    )
+
+
+# ── Hover-darkens relationship (light theme) ──────────────────────────
+#
+# In light mode --brand-hover reads as a *pressed/darker* state of
+# --brand-primary; a fix that darkened primary past hover would silently
+# invert that relationship.
+
+def test_light_brand_hover_is_darker_than_brand_primary():
+    primary = _STYLE_BLOCKS["light"]["--brand-primary"]
+    hover = _STYLE_BLOCKS["light"]["--brand-hover"]
+    l_primary = relative_luminance(primary)
+    l_hover = relative_luminance(hover)
+    assert l_hover < l_primary, (
+        f"Expected light --brand-hover ({hover}, L={l_hover:.4f}) to be darker "
+        f"(lower relative luminance) than --brand-primary ({primary}, "
+        f"L={l_primary:.4f}) to preserve the hover-darkens relationship"
+    )
