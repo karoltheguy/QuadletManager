@@ -1,4 +1,9 @@
-import { lintModel } from './vendor/quadlet-lint/monaco.js';
+import {
+  lintModel,
+  registerCompletionProvider,
+  registerHoverProvider,
+  registerCodeActionProvider,
+} from './vendor/quadlet-lint/monaco.js';
 
 /**
  * Attach live quadlet-lint diagnostics to a Monaco model.
@@ -48,4 +53,17 @@ export function attachQuadletLint(monacoNs, model, options) {
       subscription.dispose = function () {};
     }
   };
+}
+
+// These providers register globally on the language id and live for the page
+// lifetime -- the returned disposables are intentionally not kept because the
+// dashboard is a single-page shell that never navigates away without a full
+// unload, and it hosts exactly one Monaco editor on exactly one language
+// ('ini'); revisit if a second editor/language or real client-side
+// navigation is ever added.
+export function registerQuadletLintProviders(monacoNs, languageId) {
+  const lang = languageId || 'ini';
+  registerCompletionProvider(monacoNs, lang);
+  registerHoverProvider(monacoNs, lang);
+  registerCodeActionProvider(monacoNs, lang);
 }

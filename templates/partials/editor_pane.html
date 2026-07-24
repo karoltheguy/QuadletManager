@@ -74,6 +74,11 @@
         (function() {
             var targetContainer = document.getElementById('editor-container');
             require(['vs/editor/editor.main'], function() {
+                if (!window._quadletProvidersRegistered && window.registerQuadletLintProviders) {
+                    window.registerQuadletLintProviders(monaco, 'ini');
+                    window._quadletProvidersRegistered = true;
+                }
+
                 // Guard: if this container is no longer in the document (i.e. another
                 // click happened and HTMX already replaced this pane), skip init.
                 if (!document.body.contains(targetContainer)) return;

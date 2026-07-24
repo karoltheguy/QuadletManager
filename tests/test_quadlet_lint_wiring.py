@@ -16,6 +16,7 @@ import pytest
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 DASHBOARD_HTML_PATH = os.path.join(BASE_DIR, "templates", "dashboard.html")
 EDITOR_PANE_HTML_PATH = os.path.join(BASE_DIR, "templates", "partials", "editor_pane.html")
+QUADLET_LINT_JS_PATH = os.path.join(BASE_DIR, "static", "quadlet_lint.js")
 
 
 def _dashboard_html():
@@ -25,6 +26,11 @@ def _dashboard_html():
 
 def _editor_pane_html():
     with open(EDITOR_PANE_HTML_PATH, encoding="utf-8") as f:
+        return f.read()
+
+
+def _quadlet_lint_js():
+    with open(QUADLET_LINT_JS_PATH, encoding="utf-8") as f:
         return f.read()
 
 
@@ -154,4 +160,94 @@ def test_editor_pane_does_not_reuse_quadlet_owner_string():
         "quadlet-lint path would make each run wipe the other's markers via "
         "setModelMarkers' owner-scoped replace semantics. attachQuadletLint should be "
         "called without an owner override so it uses its own 'quadlet-lint' owner."
+    )
+
+
+@pytest.mark.unit
+def test_quadlet_lint_js_defines_register_providers_helper():
+    js = _quadlet_lint_js()
+
+    assert "registerCompletionProvider" in js, (
+        "Expected static/quadlet_lint.js to import registerCompletionProvider from "
+        "./vendor/quadlet-lint/monaco.js. Without this import, quadlet_lint.js has no "
+        "way to wire Monaco completion suggestions into the editor."
+    )
+    assert "registerHoverProvider" in js, (
+        "Expected static/quadlet_lint.js to import registerHoverProvider from "
+        "./vendor/quadlet-lint/monaco.js. Without this import, quadlet_lint.js has no "
+        "way to wire Monaco hover tooltips into the editor."
+    )
+    assert "registerCodeActionProvider" in js, (
+        "Expected static/quadlet_lint.js to import registerCodeActionProvider from "
+        "./vendor/quadlet-lint/monaco.js. Without this import, quadlet_lint.js has no "
+        "way to wire Monaco quick-fix code actions into the editor."
+    )
+    assert "registerQuadletLintProviders" in js, (
+        "Expected static/quadlet_lint.js to define and export a "
+        "registerQuadletLintProviders(monacoNs, languageId) function that registers all "
+        "three quadlet-lint Monaco providers. Without this exported helper, callers have "
+        "no single entry point to wire completion/hover/code-action support into a "
+        "Monaco language."
+    )
+    assert "registerCompletionProvider(" in js, (
+        "Expected static/quadlet_lint.js's registerQuadletLintProviders() to actually "
+        "call registerCompletionProvider(...), not just import it."
+    )
+    assert "registerHoverProvider(" in js, (
+        "Expected static/quadlet_lint.js's registerQuadletLintProviders() to actually "
+        "call registerHoverProvider(...), not just import it."
+    )
+    assert "registerCodeActionProvider(" in js, (
+        "Expected static/quadlet_lint.js's registerQuadletLintProviders() to actually "
+        "call registerCodeActionProvider(...), not just import it."
+    )
+
+
+@pytest.mark.unit
+def test_dashboard_exposes_register_providers_on_window():
+    html = _dashboard_html()
+    assert "window.registerQuadletLintProviders" in html, (
+        "Expected dashboard.html's inline <script type=\"module\"> block to assign "
+        "window.registerQuadletLintProviders = registerQuadletLintProviders (alongside "
+        "the existing window.attachQuadletLint assignment), so that non-module scripts "
+        "such as editor_pane.html can call it."
+    )
+
+
+@pytest.mark.unit
+def test_editor_pane_registers_providers_once_behind_guard():
+    html = _editor_pane_html()
+    assert "registerQuadletLintProviders(" in html, (
+        "Expected editor_pane.html to call registerQuadletLintProviders(...) so that "
+        "Monaco completion/hover/code-action support for quadlet-lint is actually "
+        "registered against the editor's language."
+    )
+    assert "window._quadletProvidersRegistered" in html, (
+        "Expected editor_pane.html to guard the registerQuadletLintProviders(...) call "
+        "with a window._quadletProvidersRegistered boolean flag, so the providers are "
+        "registered only once no matter how many times the editor pane is (re)created."
+    )
+
+
+@pytest.mark.unit
+def test_editor_pane_registers_providers_before_liveness_guard():
+    html = _editor_pane_html()
+
+    registration_index = html.find("registerQuadletLintProviders(")
+    guard_index = html.find("document.body.contains(targetContainer)")
+
+    assert registration_index != -1, (
+        "Expected editor_pane.html to call registerQuadletLintProviders(...) inside the "
+        "require() callback."
+    )
+    assert guard_index != -1, (
+        "Expected editor_pane.html to still contain the "
+        "document.body.contains(targetContainer) liveness guard."
+    )
+    assert registration_index < guard_index, (
+        "Expected registerQuadletLintProviders(...) to run BEFORE the "
+        "document.body.contains(targetContainer) liveness early-return in the require() "
+        "callback. Provider registration must not be gated behind the per-pane liveness "
+        "early-returns, or a fast first-pane swap can permanently skip global provider "
+        "registration (the quadlet-lint-ready listener is once:true)."
     )
