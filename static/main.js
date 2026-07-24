@@ -84,6 +84,7 @@ function toggleTheme() {
         // Ignore localStorage restrictions
     }
     applyChartTheme();
+    applyEditorTheme();
 }
 window.toggleTheme = toggleTheme;
 
@@ -162,6 +163,7 @@ document.addEventListener('input', handleGlobalInput);
 document.body.addEventListener('theme-updated', function() {
     clearThemePreview();
     applyChartTheme();
+    applyEditorTheme();
 });
 
 // Mark the clicked quadlet tree button as selected (inset state).
@@ -484,6 +486,13 @@ function applyChartTheme() {
         healthHistoryChart.update('none');
     }
 }
+
+function applyEditorTheme() {
+    if (!window.monaco || !window.editor) return;
+    var resolved = document.documentElement.getAttribute('data-theme');
+    window.monaco.editor.setTheme(resolved === 'light' ? 'vs' : 'vs-dark');
+}
+window.applyEditorTheme = applyEditorTheme;
 
 // Track which server the user is currently working in.
 // The stats chart only renders updates for this server.

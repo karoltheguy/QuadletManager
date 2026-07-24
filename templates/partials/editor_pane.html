@@ -90,9 +90,10 @@
 
                 window.editor = monaco.editor.create(targetContainer, {
                     model: model,
-                    theme: 'vs-dark',
+                    theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'vs' : 'vs-dark',
                     automaticLayout: true
                 });
+                if (window.applyEditorTheme) window.applyEditorTheme();
                 window._editorDirty = false;
                 window.editor.onDidChangeModelContent(function() {
                     window._editorDirty = true;
