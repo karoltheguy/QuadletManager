@@ -61,7 +61,8 @@ def test_color_picker_change_applies_css_var(page: Page):
     dark_form = page.locator("form.color-editor-form[data-mode='dark']")
     hex_input = dark_form.locator("#dark-1")  # dark-1 = bg_base (first in fixed allowlist)
     hex_input.fill(_CANARY_DARK_BG)
-    dark_form.locator("button:has-text('Save')").click()
+    with page.expect_response("**/api/settings/themes/**"):
+        dark_form.locator("button:has-text('Save')").click()
     expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
     # Reload so the server-rendered qm-theme-overrides block reflects the saved color.
@@ -81,7 +82,8 @@ def test_color_picker_change_applies_css_var(page: Page):
         page.click(".color-editor .seg-btn:has-text('Dark mode')")
         df = page.locator("form.color-editor-form[data-mode='dark']")
         df.locator("#dark-1").fill(_DEFAULT_DARK_BG)
-        df.locator("button:has-text('Save')").click()
+        with page.expect_response("**/api/settings/themes/**"):
+            df.locator("button:has-text('Save')").click()
         expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
@@ -103,7 +105,8 @@ def test_neumorphic_shadows_preserved_after_custom_theme(page: Page):
     for input_id, color in test_colors:
         dark_form.locator(input_id).fill(color)
 
-    dark_form.locator("button:has-text('Save')").click()
+    with page.expect_response("**/api/settings/themes/**"):
+        dark_form.locator("button:has-text('Save')").click()
     expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
     page.reload()
@@ -124,9 +127,10 @@ def test_neumorphic_shadows_preserved_after_custom_theme(page: Page):
         _goto_themes(page)
         page.click(".color-editor .seg-btn:has-text('Dark mode')")
         page.once("dialog", lambda d: d.accept())
-        page.locator(
-            "form.color-editor-form[data-mode='dark'] button:has-text('Reset')"
-        ).click()
+        with page.expect_response("**/api/settings/themes/**"):
+            page.locator(
+                "form.color-editor-form[data-mode='dark'] button:has-text('Reset')"
+            ).click()
         expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
@@ -141,7 +145,8 @@ def test_no_fouc_on_reload_with_active_custom_theme(page: Page):
     page.click(".color-editor .seg-btn:has-text('Dark mode')")
     dark_form = page.locator("form.color-editor-form[data-mode='dark']")
     dark_form.locator("#dark-1").fill(_CANARY_DARK_BG)
-    dark_form.locator("button:has-text('Save')").click()
+    with page.expect_response("**/api/settings/themes/**"):
+        dark_form.locator("button:has-text('Save')").click()
     expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
     # Init script runs before any page script; sets up a DOMContentLoaded capture.
@@ -176,7 +181,8 @@ def test_no_fouc_on_reload_with_active_custom_theme(page: Page):
         page.click(".color-editor .seg-btn:has-text('Dark mode')")
         df = page.locator("form.color-editor-form[data-mode='dark']")
         df.locator("#dark-1").fill(_DEFAULT_DARK_BG)
-        df.locator("button:has-text('Save')").click()
+        with page.expect_response("**/api/settings/themes/**"):
+            df.locator("button:has-text('Save')").click()
         expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
