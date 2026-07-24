@@ -1,0 +1,86 @@
+"""
+E2E behavioral test: the Monaco editor must follow the app light/dark theme in
+'follow' mode (Issue #231; also covers the #230 live-follow regression).
+
+Reproduces the real bug: applyChartTheme() throws ReferenceError on the
+undefined global 'monitoringChart' (undefined on the editor view), which aborts
+toggleTheme() before it reaches applyEditorTheme(), so the editor never
+re-themes on an app theme toggle. This is the behavioral coverage the earlier
+source-grep unit tests could not express.
+"""
+import pytest
+
+try:
+    from playwright.sync_api import Page
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
+    import typing
+    Page = typing.Any
+
+pytestmark = pytest.mark.skipif(
+    not HAS_PLAYWRIGHT, reason="Playwright is not installed in this environment"
+)
+
+BASE_URL = "http://localhost:8000"
+
+
+@pytest.mark.e2e
+def test_editor_follows_theme_toggle_in_follow_mode(page: Page):
+    try:
+        page.goto(BASE_URL + "/")
+    except Exception:
+        pytest.skip("Backend is not running on localhost:8000 - skipping E2E test.")
+
+    # Precondition: reproduce the editor-view condition where 'monitoringChart' is
+    # an undefined global. If some monitoring script defined it this session, the
+    # real ReferenceError path cannot be exercised -> skip rather than false-green.
+    if page.evaluate("typeof monitoringChart") != "undefined":
+        pytest.skip(
+            "monitoringChart is defined this session; cannot reproduce the "
+            "editor-view ReferenceError condition."
+        )
+
+    # Follow mode, deterministic starting app theme = light.
+    page.evaluate("localStorage.setItem('qm-editor-theme', 'follow')")
+    page.evaluate("try { localStorage.removeItem('qm-theme-override'); } catch (e) {}")
+    page.evaluate("document.documentElement.setAttribute('data-theme', 'light')")
+
+    # Inject a Monaco editor into #editor-pane, starting theme following light (vs).
+    page.evaluate(
+        "() => {"
+        "  var pane = document.getElementById('editor-pane');"
+        "  pane.innerHTML = '<div id=\"editor-container\" style=\"height:300px;width:100%\"></div>';"
+        "  require(['vs/editor/editor.main'], function() {"
+        "    if (window.editor) { window.editor.dispose(); }"
+        "    window.editor = monaco.editor.create("
+        "      document.getElementById('editor-container'),"
+        "      { value: '[Container]\\nImage=\\n', language: 'ini', theme: 'vs', automaticLayout: true }"
+        "    );"
+        "  });"
+        "}"
+    )
+    page.wait_for_function("() => window.editor != null", timeout=10_000)
+
+    # Sanity: the editor starts light (vs, not vs-dark).
+    page.wait_for_function(
+        "() => { var e = document.querySelector('.monaco-editor');"
+        " return e && e.classList.contains('vs') && !e.classList.contains('vs-dark'); }",
+        timeout=10_000,
+    )
+
+    # Act: toggle the app theme via the real top-nav button (routes through toggleTheme()).
+    page.click("button.theme-toggle")
+
+    # The app theme itself must have flipped to dark.
+    resolved = page.evaluate("document.documentElement.getAttribute('data-theme')")
+    assert resolved == "dark", f"Expected data-theme='dark' after toggle, got {resolved!r}"
+
+    # Assert: in follow mode the editor must now be dark too. With the bug present,
+    # toggleTheme() throws in applyChartTheme() before applyEditorTheme() runs, so the
+    # editor stays 'vs' and this wait times out (RED for the right reason).
+    page.wait_for_function(
+        "() => { var e = document.querySelector('.monaco-editor');"
+        " return e && e.classList.contains('vs-dark'); }",
+        timeout=5_000,
+    )

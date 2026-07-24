@@ -493,7 +493,11 @@ function patchChartOptions(opts, t) {
 
 function applyChartTheme() {
     var t = getChartTheme();
-    [statsChart, monitoringChart].forEach(function(chart) {
+    var charts = [statsChart];
+    if (typeof monitoringChart !== 'undefined' && monitoringChart) {
+        charts.push(monitoringChart);
+    }
+    charts.forEach(function(chart) {
         if (!chart) return;
         chart.data.datasets[0].backgroundColor = t.accentBg;
         chart.data.datasets[0].borderColor      = t.accent;
@@ -502,7 +506,7 @@ function applyChartTheme() {
         patchChartOptions(chart.options, t);
         chart.update('none');
     });
-    if (healthHistoryChart) {
+    if (typeof healthHistoryChart !== 'undefined' && healthHistoryChart) {
         patchChartOptions(healthHistoryChart.options, t);
         healthHistoryChart.update('none');
     }
