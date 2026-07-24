@@ -114,6 +114,27 @@ function initDensityRadio() {
     if (radio) radio.checked = true;
 }
 
+// ── Editor Theme Toggle ──────────────────────────────────
+window.toggleEditorTheme = function(value) {
+    try {
+        localStorage.setItem('qm-editor-theme', value);
+    } catch {
+        // Ignore localStorage restrictions
+    }
+    applyEditorTheme();
+};
+
+function initEditorThemeRadio() {
+    var stored = 'follow';
+    try {
+        stored = localStorage.getItem('qm-editor-theme') || 'follow';
+    } catch {
+        // Ignore localStorage restrictions
+    }
+    var radio = document.getElementById('editor-theme-' + stored);
+    if (radio) radio.checked = true;
+}
+
 // ── Theme Preview ─────────────────────────────────────────
 function applyThemePreview(form) {
     var mode = form.dataset.mode;
@@ -489,8 +510,20 @@ function applyChartTheme() {
 
 function applyEditorTheme() {
     if (!window.monaco || !window.editor) return;
-    var resolved = document.documentElement.getAttribute('data-theme');
-    window.monaco.editor.setTheme(resolved === 'light' ? 'vs' : 'vs-dark');
+    var pref = 'follow';
+    try {
+        pref = localStorage.getItem('qm-editor-theme') || 'follow';
+    } catch {
+        pref = 'follow';
+    }
+    if (pref === 'light') {
+        window.monaco.editor.setTheme('vs');
+    } else if (pref === 'dark') {
+        window.monaco.editor.setTheme('vs-dark');
+    } else {
+        var resolved = document.documentElement.getAttribute('data-theme');
+        window.monaco.editor.setTheme(resolved === 'light' ? 'vs' : 'vs-dark');
+    }
 }
 window.applyEditorTheme = applyEditorTheme;
 
@@ -1441,6 +1474,7 @@ window.showSettingsSection = function(name) {
   if (name === 'servers') refreshSshKeyDropdown();
   if (name !== 'themes') clearThemePreview();
   if (name === 'themes') initDensityRadio();
+  if (name === 'themes') initEditorThemeRadio();
 };
 
 // ── Inspector Expand / Collapse Toggle ───────────────────

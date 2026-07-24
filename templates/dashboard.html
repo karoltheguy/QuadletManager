@@ -362,6 +362,29 @@
               </div>
             </div>
           </div>
+          <div class="settings-section" id="editor-theme-section">
+            <h3 class="section-title mb-4">Editor Theme</h3>
+            <div class="form-row mode-pref-row">
+              <label class="form-label">Editor color theme</label>
+              <div class="radio-group" id="editor-theme-radio-group">
+                <label class="radio-label">
+                  <input type="radio" name="editor_theme" value="follow"
+                         onchange="toggleEditorTheme('follow')"
+                         id="editor-theme-follow"> Follow app theme
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="editor_theme" value="light"
+                         onchange="toggleEditorTheme('light')"
+                         id="editor-theme-light"> Always light
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="editor_theme" value="dark"
+                         onchange="toggleEditorTheme('dark')"
+                         id="editor-theme-dark"> Always dark
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ADMIN (admin only) -->

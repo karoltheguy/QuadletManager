@@ -112,3 +112,94 @@ def test_theme_updated_handler_calls_apply_editor_theme():
         "externally (mirroring the existing applyChartTheme() call in the same "
         "handler)."
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #231: persist an explicit editor-theme preference (follow/light/dark)
+# in localStorage under the key `qm-editor-theme`, mirroring the existing
+# UI-density pattern (`qm-density`, toggleDensity()/initDensityRadio() in
+# static/main.js), and add a tri-state radio group in templates/dashboard.html
+# (id `density-section`-adjacent, name="editor_theme", values follow/light/dark).
+#
+# None of this wiring exists yet: static/main.js has no `qm-editor-theme`
+# localStorage key and no getItem/setItem calls for it, and
+# templates/dashboard.html has no `name="editor_theme"` radio group. This is
+# the RED phase of a TDD cycle: all tests below are expected to fail until
+# that wiring is implemented.
+# ---------------------------------------------------------------------------
+
+DASHBOARD_HTML_PATH = os.path.join(BASE_DIR, "templates", "dashboard.html")
+
+
+def _dashboard_html():
+    with open(DASHBOARD_HTML_PATH, encoding="utf-8") as f:
+        return f.read()
+
+
+@pytest.mark.unit
+def test_main_js_references_editor_theme_storage_key():
+    js = _main_js()
+    assert ("'qm-editor-theme'" in js) or ('"qm-editor-theme"' in js), (
+        "Expected static/main.js to reference the localStorage key "
+        "'qm-editor-theme' (as a single- or double-quoted string literal), "
+        "mirroring the existing 'qm-density' pattern. This key is needed to "
+        "persist the user's explicit editor-theme preference "
+        "(follow/light/dark). RED phase: this wiring does not exist yet."
+    )
+
+
+@pytest.mark.unit
+def test_main_js_persists_editor_theme_preference():
+    js = _main_js()
+    assert "localStorage.setItem" in js, (
+        "Expected static/main.js to call localStorage.setItem(...) somewhere, "
+        "as the mechanism used to persist the editor-theme preference. RED "
+        "phase: this wiring does not exist yet."
+    )
+    assert "qm-editor-theme" in js, (
+        "Expected static/main.js to reference the 'qm-editor-theme' key "
+        "(used as the localStorage.setItem key when persisting the user's "
+        "explicit editor-theme choice). RED phase: this wiring does not "
+        "exist yet."
+    )
+
+
+@pytest.mark.unit
+def test_main_js_reads_editor_theme_preference():
+    js = _main_js()
+    assert re.search(r"getItem\(['\"]qm-editor-theme['\"]\)", js), (
+        "Expected static/main.js to call "
+        "localStorage.getItem('qm-editor-theme') somewhere, as the mechanism "
+        "used by applyEditorTheme()/init code to resolve the persisted "
+        "editor-theme preference (follow/light/dark). RED phase: this "
+        "wiring does not exist yet."
+    )
+
+
+@pytest.mark.unit
+def test_dashboard_html_has_editor_theme_radio_group():
+    html = _dashboard_html()
+    assert re.search(r"<input\s+type=\"radio\"[^>]*name=\"editor_theme\"", html) or re.search(
+        r"<input\s+type='radio'[^>]*name=\"editor_theme\"", html
+    ), (
+        "Expected templates/dashboard.html to contain a "
+        "`<input type=\"radio\" ... name=\"editor_theme\" ...>` element, as "
+        "part of the new tri-state (follow/light/dark) radio group for the "
+        "editor-theme preference, mirroring the existing UI Density radio "
+        "group. RED phase: this wiring does not exist yet."
+    )
+    assert 'value="follow"' in html, (
+        "Expected templates/dashboard.html to contain a radio option with "
+        'value="follow" for the editor-theme preference group. RED phase: '
+        "this wiring does not exist yet."
+    )
+    assert 'value="light"' in html, (
+        "Expected templates/dashboard.html to contain a radio option with "
+        'value="light" for the editor-theme preference group. RED phase: '
+        "this wiring does not exist yet."
+    )
+    assert 'value="dark"' in html, (
+        "Expected templates/dashboard.html to contain a radio option with "
+        'value="dark" for the editor-theme preference group. RED phase: '
+        "this wiring does not exist yet."
+    )
