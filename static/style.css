@@ -17,6 +17,7 @@
 
     --brand-primary: #14b8a6;  /* Teal — desaturated, reads as uptime/health */
     --brand-hover: #2dd4bf;
+    --brand-on-primary: #1c1f24;
 
     --success: #10b981;
     --danger:  #ef4444;
@@ -65,6 +66,7 @@
 
     --brand-primary: #0e7268;
     --brand-hover: #115e59;
+    --brand-on-primary: #ffffff;
 
     --success: #059669;
     --danger:  #dc2626;
@@ -101,6 +103,7 @@
         --text-accent: #0e7268;
         --brand-primary: #0e7268;
         --brand-hover: #115e59;
+        --brand-on-primary: #ffffff;
         --success: #059669;
         --danger:  #dc2626;
         --warning: #d97706;
@@ -1744,6 +1747,7 @@ body.bottom-panel-expanded #navigator {
     padding: 0.35rem 0.8rem;
     font-size: 0.75rem;
 }
+
 .btn-primary {
     background-color: var(--bg-surface);
     color: var(--brand-primary);
@@ -1759,6 +1763,29 @@ body.bottom-panel-expanded #navigator {
     background: var(--bg-surface);
     color: var(--text-muted);
     border: none;
+}
+
+/* ── Settings: flat data, soft chrome (issue #225) ──────────
+   The neumorphic override above leaves primary and secondary
+   buttons differing only by text color, which erases hierarchy
+   on settings' task-focused forms. Inside settings only, the
+   primary action takes a real brand fill (higher selector
+   specificity than the unscoped '.btn-primary' above, so it
+   wins the cascade regardless of source order); app chrome
+   (terminal Connect, Tail Logs) keeps the soft treatment. */
+.settings-pane .btn-primary {
+    background-color: var(--brand-primary);
+    color: var(--brand-on-primary);
+}
+.settings-pane .btn-primary:hover {
+    background-color: var(--brand-hover);
+    color: var(--brand-on-primary);
+}
+
+/* Inputs get a real edge so the affordance does not rely on
+   shadow alone, while keeping the inset well character. */
+.settings-pane .form-control {
+    border: 1px solid var(--border-color);
 }
 
 /* ── Form inputs: inset wells ── */
