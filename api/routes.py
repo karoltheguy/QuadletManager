@@ -312,10 +312,16 @@ async def load_active_theme(user_id: int) -> dict:
         )).fetchone()
     if not row:
         return {"mode_pref": "auto", "light": {}, "dark": {}}
+    light = json.loads(row[1] or "{}")
+    dark = json.loads(row[2] or "{}")
+    for overrides in (light, dark):
+        brand_primary = overrides.get("brand_primary")
+        if brand_primary and _HEX_COLOR_RE.match(brand_primary):
+            overrides["brand_on_primary"] = _on_primary_for(brand_primary)
     return {
         "mode_pref": row[0],
-        "light": json.loads(row[1] or "{}"),
-        "dark": json.loads(row[2] or "{}"),
+        "light": light,
+        "dark": dark,
     }
 
 
@@ -1273,6 +1279,45 @@ _DEFAULT_COLORS_LIGHT = {
     "text_muted": "#6b7280", "brand_primary": "#0e7268", "success": "#059669",
     "danger": "#dc2626", "border_color": "#d3d8e0",
 }
+
+
+# ── WCAG contrast helpers (see tests/test_brand_teal_contrast.py lines 32-54) ──
+
+def _linearize(channel_0_1: float) -> float:
+    if channel_0_1 <= 0.04045:
+        return channel_0_1 / 12.92
+    return ((channel_0_1 + 0.055) / 1.055) ** 2.4
+
+
+def _relative_luminance(hex_color: str) -> float:
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16) / 255
+    g = int(hex_color[2:4], 16) / 255
+    b = int(hex_color[4:6], 16) / 255
+    r, g, b = _linearize(r), _linearize(g), _linearize(b)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_ratio(hex_a: str, hex_b: str) -> float:
+    la = _relative_luminance(hex_a)
+    lb = _relative_luminance(hex_b)
+    lighter, darker = max(la, lb), min(la, lb)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+_ON_PRIMARY_CANDIDATES = ("#1c1f24", "#ffffff", "#000000")
+_WCAG_AA_MIN = 4.5
+
+
+def _on_primary_for(brand_hex: str) -> str:
+    """Pick a button foreground color that clears WCAG AA (>= 4.5:1) contrast
+    against a custom brand_primary color, preferring the themed near-black
+    (#1c1f24) and falling back to white/black for hostile mid-luminance
+    brand colors that neither existing static default can satisfy."""
+    for candidate in _ON_PRIMARY_CANDIDATES:
+        if _contrast_ratio(candidate, brand_hex) >= _WCAG_AA_MIN:
+            return candidate
+    return "#ffffff"  # unreachable: black or white always clears AA for any color
 
 
 async def _require_owned_theme(db, theme_id: int, user_id: int):
