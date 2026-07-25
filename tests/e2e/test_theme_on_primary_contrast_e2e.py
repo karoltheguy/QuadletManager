@@ -101,7 +101,7 @@ def _save_dark_brand_primary(page: Page, hex_value: str):
     # bg_base, bg_surface, text_primary, text_muted, brand_primary, ...)
     dark_form.locator("#dark-5").fill(hex_value)
     with page.expect_response("**/api/settings/themes/**"):
-        dark_form.locator("button:has-text('Save')").click()
+        dark_form.get_by_role("button", name="Save").click()
     expect(page.locator(".theme-list")).to_be_visible(timeout=5000)
 
 
@@ -142,10 +142,12 @@ def test_on_primary_meets_wcag_aa_after_hostile_dark_brand_save(page: Page):
         # sub-section) and re-select the Dark mode segment so the dark
         # color-editor form's "Save" button — a `.btn-primary` styled by the
         # settings-scoped rule (`.settings-pane .btn-primary`, which sets
-        # `color: var(--brand-on-primary)`) — is actually visible. This
-        # avoids `#settings-pane .btn-primary >> nth=0`, which resolves to
-        # the hidden "Save" button inside the (display:none) server edit
-        # row and never becomes visible.
+        # `color: var(--brand-on-primary)`) — is actually visible. The
+        # locator below is form-scoped and role-based (get_by_role), which
+        # matches against the accessibility tree; the hidden (display:none)
+        # server-edit-row "Save" button is excluded from that tree, so the
+        # ambiguity that `#settings-pane .btn-primary >> nth=0` had cannot
+        # arise here.
         _goto_themes(page)
         # _goto_themes() re-navigates via page.goto(), which resets
         # data-theme to its page-default value, discarding the 'dark'
@@ -161,7 +163,7 @@ def test_on_primary_meets_wcag_aa_after_hostile_dark_brand_save(page: Page):
 
         page.click(".color-editor .seg-btn:has-text('Dark mode')")
         dark_form = page.locator("form.color-editor-form[data-mode='dark']")
-        button = dark_form.locator("button.btn-primary:has-text('Save')")
+        button = dark_form.get_by_role("button", name="Save")
         expect(button).to_be_visible()
 
         button_color = button.evaluate("el => window.getComputedStyle(el).color")
@@ -173,7 +175,7 @@ def test_on_primary_meets_wcag_aa_after_hostile_dark_brand_save(page: Page):
 
         print(
             f"[contract-2] locator=form.color-editor-form[data-mode='dark'] "
-            f">> button.btn-primary:has-text('Save') "
+            f">> get_by_role('button', name='Save') "
             f"data-theme={active_theme!r} "
             f"color={button_color!r} ({button_color_hex}) "
             f"background-color={button_bg!r} ({button_bg_hex})"
