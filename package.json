@@ -2,14 +2,14 @@
   "name": "quadlet-manager",
   "private": true,
   "dependencies": {
-    "monaco-editor": "0.45.0",
+    "monaco-editor": "0.56.0",
     "quadlet-lint": "0.1.78",
     "xterm": "5.3.0",
     "xterm-addon-fit": "0.8.0"
   },
   "devDependencies": {
     "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server",
-    "eslint": "10.7.0",
+    "eslint": "10.8.0",
     "globals": "17.7.0"
   },
   "scripts": {
