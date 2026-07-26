@@ -55,13 +55,20 @@ I first started my development in my homelab Forgejo repository but as I want to
 
 ### From Source
 
+Download the source archive for the version you want from the
+[Releases page](https://github.com/karoltheguy/QuadletManager/releases), or
+clone and check out a release tag:
+
 ```bash
-git clone <repository-url>
+git clone https://github.com/karoltheguy/QuadletManager.git
 cd QuadletManager
+git checkout v0.1.0
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+
+Omit the `git checkout` to track `main`, which is the development branch.
 
 ### Container (Docker Compose)
 
@@ -77,6 +84,21 @@ Copy `quadletmanager.container` to `~/.config/containers/systemd/` (rootless) or
 systemctl --user daemon-reload
 systemctl --user start quadletmanager
 ```
+
+### Container Image Tags
+
+Images are published to `ghcr.io/karoltheguy/quadletmanager`:
+
+| Tag | Points at |
+|-----|-----------|
+| `latest` | The newest release. Use this unless you have a reason not to |
+| `0.1.0` | That exact release |
+| `0.1` | The newest patch within that minor series |
+| `main` | The tip of the development branch. Unreleased and may break |
+| `sha-<full-sha>` | One specific commit |
+
+Pin to `0.1` or an exact version for production. Releases before `1.0.0` may
+make breaking changes in a minor bump — see [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Configuration
 

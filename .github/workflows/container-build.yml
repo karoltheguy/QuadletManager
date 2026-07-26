@@ -45,17 +45,28 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `latest` tracks the newest release, not the tip of main -- main
+          # pushes are already published as `main` by type=ref,event=branch
+          # below. Anyone who wants the development build pulls `:main`.
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=long
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Compute app version
         id: app_version
-        run: echo "value=$(cat VERSION)+build.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+        # A tag build ships the bare release version so the UI and logs report
+        # `0.1.0` rather than `0.1.0+build.42`. Every other build keeps the
+        # run-number suffix (see #158) so dev images stay distinguishable.
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(cat VERSION)+build.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build and push Docker image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
