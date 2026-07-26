@@ -1,4 +1,4 @@
-fastapi>=0.139.2
+fastapi>=0.140.0
 uvicorn[standard]>=0.30.0
 asyncssh>=2.24.0
 cryptography>=48.0.1
