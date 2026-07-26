@@ -3,10 +3,14 @@ name: Build and Push Container Image
 on:
   push:
     branches: [ "main" ]
-    tags: [ "v*.*.*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+  # Tag builds do NOT trigger here directly -- release.yml calls this after the
+  # test suite passes, so `:latest` can never move ahead of a red suite. The
+  # caller's context still reports the tag as `github.ref`, which is what the
+  # semver tagging and `latest` gating below key off.
+  workflow_call:
 
 env:
   REGISTRY: ghcr.io
