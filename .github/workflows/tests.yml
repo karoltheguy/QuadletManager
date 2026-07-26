@@ -1,8 +1,15 @@
 name: Tests
 
 on:
+  # Scoped to main deliberately. An unqualified `push:` also fires for the
+  # branch behind an open PR, so every push ran the whole matrix twice -- once
+  # for `push` and once for `pull_request` -- and fired a third redundant run
+  # on every tag, duplicating the suite release.yml already gates on below.
+  # Work on a branch is covered by its PR; main is covered here.
   push:
+    branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
   # release.yml calls this to gate a tag build on a green suite. Note that a
   # called workflow sees the *caller's* context, so `github.ref` is the tag
