@@ -254,8 +254,14 @@ Full architecture documentation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 Full API documentation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#api-reference)
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+how to run the four test suites the way CI does, and the pull request process.
+
 ## Documentation
 
+- [CONTRIBUTING.md](CONTRIBUTING.md) -- development setup and pull request process
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) -- system architecture, component details, API reference
 - [docs/SETUP.MD](docs/SETUP.MD) -- remote server setup guide
 - [docs/TESTING.md](docs/TESTING.md) -- test structure and writing guide
