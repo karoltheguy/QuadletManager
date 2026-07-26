@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # release.yml calls this to gate a tag build on a green suite. Note that a
+  # called workflow sees the *caller's* context, so `github.ref` is the tag
+  # and `github.event_name` is `push` -- the same values these jobs would see
+  # from a direct tag push.
+  workflow_call:
 
 env:
   PYTHON_VERSION: "3.12"

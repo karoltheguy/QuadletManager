@@ -35,23 +35,41 @@ Nothing about ordinary development changes:
    git push origin v0.2.0
    ```
 
-That tag push fires two independent workflows:
+That tag push runs `release.yml`, which owns the whole release as one linear
+pipeline:
 
-- **`release.yml`** verifies `VERSION` matches the tag, then creates a GitHub
-  Release with auto-generated notes. GitHub attaches the source `.tar.gz` and
-  `.zip` automatically — that is the download for anyone running from source,
-  so no artifact needs to be built or uploaded.
-- **`container-build.yml`** publishes `:0.2.0`, `:0.2`, `:latest`, and
-  `:sha-<full-sha>`, with the app version baked in as a clean `0.2.0`.
+```
+check ──> test ──> image ──> release
+```
 
-They do not depend on each other, so a failure in one does not block the other.
+- **`check`** verifies `VERSION` matches the tag. It is first and cheap so a
+  mistyped tag fails in seconds — and, critically, before anything is pushed.
+- **`test`** calls `tests.yml` as a reusable workflow. The full suite must be
+  green before anything outward-facing happens.
+- **`image`** calls `container-build.yml`, publishing `:0.2.0`, `:0.2`,
+  `:latest`, and `:sha-<full-sha>`, with the app version baked in as a clean
+  `0.2.0`.
+- **`release`** creates the GitHub Release with auto-generated notes. GitHub
+  attaches the source `.tar.gz` and `.zip` automatically — that is the
+  download for anyone running from source, so no artifact needs to be built
+  or uploaded.
+
+Because each stage gates the next, a red suite means no image is pushed and no
+Release is published. `container-build.yml` deliberately does **not** trigger
+on tags itself; if it did, `:latest` could move before the tests finished.
+
+A called workflow evaluates against the *caller's* context, so inside `test`
+and `image` the values of `github.ref`, `github.ref_type`, and
+`github.event_name` are the same ones a direct tag push would produce. That is
+what keeps the semver tagging, the `:latest` gate, and the bare-version
+`APP_VERSION` working unchanged after the move.
 
 ### Prereleases
 
 Tag with a prerelease segment (`v0.2.0-rc.1`). `release.yml` passes
 `--prerelease`, so GitHub does not promote it to "Latest release". Note that
-`container-build.yml` still moves the `:latest` container tag on any `v*.*.*`
-push — if that matters for a given prerelease, publish it from a branch rather
+the `image` stage still moves the `:latest` container tag for any `v*.*.*`
+tag — if that matters for a given prerelease, publish it from a branch rather
 than a tag.
 
 ### If a tag was pushed wrong
