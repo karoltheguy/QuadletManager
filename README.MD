@@ -43,7 +43,7 @@ I first started my development in my homelab Forgejo repository but as I want to
 
 ### Settings View
 
-`[Insert screenshot of settings view]`
+![Settings View](screenshots/settings.png)
 
 ## Requirements
 
