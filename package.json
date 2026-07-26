@@ -10,7 +10,7 @@
   "devDependencies": {
     "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server",
     "eslint": "10.8.0",
-    "globals": "17.7.0"
+    "globals": "17.8.0"
   },
   "scripts": {
     "copy-assets": "mkdir -p static/vendor/quadlet-lint && cp -r node_modules/quadlet-lint/dist/. static/vendor/quadlet-lint/ && mkdir -p static/vendor/xterm && cp node_modules/xterm/lib/xterm.js static/vendor/xterm/xterm.js && cp node_modules/xterm/css/xterm.css static/vendor/xterm/xterm.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js static/vendor/xterm/xterm-addon-fit.js && mkdir -p static/vendor/monaco && cp -r node_modules/monaco-editor/min/vs static/vendor/monaco/vs",
