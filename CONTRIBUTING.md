@@ -1,7 +1,7 @@
 # Contributing to QuadletManager
 
 Thanks for taking an interest. This project manages real servers over SSH, so
-the bar for correctness is higher than the line count suggests — but the
+the bar for correctness is higher than the line count suggests. The
 contribution process itself is deliberately light.
 
 Small fixes need no ceremony: open a pull request and we'll go from there. For
@@ -29,8 +29,8 @@ npm ci
 `npm ci` is not optional, even though this is mostly a Python project. Its
 `postinstall` hook runs `npm run copy-assets`, which copies Monaco, xterm and
 quadlet-lint out of `node_modules/` into `static/vendor/`. That directory is
-`.gitignore`d, so a fresh clone has no frontend vendor assets until you run it —
-the editor and terminal panes will simply fail to load.
+`.gitignore`d, so a fresh clone has no frontend vendor assets until you run it,
+and the editor and terminal panes will simply fail to load.
 
 ### Running the app
 
@@ -40,8 +40,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 The master key encrypts stored SSH private keys. If you leave it unset, a dev
-key is generated and persisted to `master.key` next to `quadlets.db` — fine
-locally, never in production. First startup seeds `admin`/`admin` and
+key is generated and persisted to `master.key` next to `quadlets.db`. That is
+fine locally, never in production. First startup seeds `admin`/`admin` and
 `viewer`/`viewer`.
 
 Setting `DEV_AUTO_LOGIN=1` skips the login screen, which is handy when
@@ -65,7 +65,7 @@ locally is the most reliable way to know your PR will go green:
 
 The first two run fully mocked in a couple of seconds and cover most changes.
 
-For `integration` and `e2e`, start the mock environment first — it boots a
+For `integration` and `e2e`, start the mock environment first. It boots a
 container running real systemd to stand in for a remote host:
 
 ```bash
@@ -91,7 +91,7 @@ time. Read that section before writing an E2E test.
 
 Anything that needs Docker gets `@pytest.mark.integration`; anything driving a
 browser gets `@pytest.mark.e2e`; fast mocked tests get `@pytest.mark.unit`.
-Unmarked tests still run — they land in the `unmarked` job — but marking is
+Unmarked tests still run (they land in the `unmarked` job), but marking is
 better, because it keeps the fast lane fast.
 
 ---
@@ -105,7 +105,7 @@ the same one every change goes through.
 1. Branch from `main`. Name it after the change (`fix-stats-poll-leak`), not
    after yourself.
 2. Make the change, with a test that fails before it and passes after.
-3. Push and open a PR. Say what problem it solves — the diff already shows
+3. Push and open a PR. Say what problem it solves. The diff already shows
    what you did, so spend the words on why.
 4. Wait for checks. The four test suites and the container build must pass.
    Codacy, SonarCloud, CodeQL and GitGuardian also report; they're advisory,
@@ -113,7 +113,7 @@ the same one every change goes through.
 5. If it fixes an issue, put `fixes #123` in the PR body so it closes on merge.
 
 PRs are squash-merged, so your branch's intermediate commits don't need to be
-tidy — the PR title becomes the commit subject on `main`. Make that one good.
+tidy. The PR title becomes the commit subject on `main`, so make that one good.
 
 ### Commit and PR messages
 
