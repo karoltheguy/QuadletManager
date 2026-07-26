@@ -2,7 +2,7 @@
   "name": "quadlet-manager",
   "private": true,
   "dependencies": {
-    "monaco-editor": "0.45.0",
+    "monaco-editor": "0.56.0",
     "quadlet-lint": "0.1.78",
     "xterm": "5.3.0",
     "xterm-addon-fit": "0.8.0"
