@@ -52,14 +52,22 @@ async def _get_schema_version(db) -> int:
 async def _set_schema_version(db, version: int):
     """Stamp the schema version via ``PRAGMA user_version``.
 
-    SQLite pragmas do not accept bound parameters, so ``version`` must be
-    interpolated directly into the SQL string. It is therefore guarded to
-    only ever be an ``int`` (rejecting ``bool``, which is a subclass of
-    ``int`` in Python) so this interpolation can never become an injection
-    point.
+    SQLite pragmas do not accept bound parameters: ``PRAGMA user_version = ?``
+    is a syntax error, so the value has to be interpolated into the statement
+    text. ``version`` is therefore validated to be a non-negative ``int``
+    before it reaches the query. ``bool`` is rejected explicitly because it is
+    a subclass of ``int`` in Python and would otherwise stamp 0 or 1 silently.
+
+    A validated integer cannot carry SQL syntax, so this interpolation is not
+    an injection point. Semgrep's ``formatted-sql-query`` rule is syntactic and
+    cannot see the guard above, and its suggested remedy (parameterization) is
+    not available for pragmas, so the rule is suppressed on that single line.
     """
     if isinstance(version, bool) or not isinstance(version, int):
         raise TypeError(f"version must be an int, got {type(version).__name__}")
+    if version < 0:
+        raise ValueError(f"version must be non-negative, got {version}")
+    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
     await db.execute(f"PRAGMA user_version = {version}")
 
 
