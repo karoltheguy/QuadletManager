@@ -510,6 +510,13 @@ function applyChartTheme() {
         patchChartOptions(healthHistoryChart.options, t);
         healthHistoryChart.update('none');
     }
+    // Monitor time-series charts build their own per-container datasets, so only
+    // the shared axis/legend/tooltip colors need repainting on a theme switch.
+    [cpuHistoryChart, memHistoryChart].forEach(function(chart) {
+        if (!chart) return;
+        patchChartOptions(chart.options, t);
+        chart.update('none');
+    });
 }
 
 function applyEditorTheme() {
