@@ -30,9 +30,47 @@ def test_is_duplicate_column_error_rejects_other_operational_errors():
 
 def _mock_connect(execute_side_effect):
     """Build an aiosqlite.connect() replacement usable as an async context manager."""
+
+    class _ExecuteResult:
+        """Result of db.execute(...), usable both as `async with` and awaited directly.
+
+        The new PRAGMA user_version read does `async with db.execute(...) as cur:
+        row = await cur.fetchone()`, so the mocked execute() result must support
+        both that async-context-manager usage and being awaited on its own for the
+        plain `await db.execute(...)` calls used everywhere else.
+        """
+
+        async def fetchone(self):
+            return (0,)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def __await__(self):
+            async def _noop():
+                return self
+            return _noop().__await__()
+
     db = MagicMock()
-    db.execute = AsyncMock(side_effect=execute_side_effect)
+
+    def _execute(sql, *args, **kwargs):
+        # Must be synchronous (not an AsyncMock/coroutine function): real
+        # aiosqlite db.execute() returns an object usable both as
+        # `async with db.execute(...) as cur:` and as a plain awaitable, not
+        # a coroutine itself. execute_side_effect may raise synchronously
+        # here, matching real aiosqlite's ALTER TABLE error behavior.
+        if execute_side_effect is not None:
+            result = execute_side_effect(sql, *args, **kwargs)
+            if result is not None:
+                return result
+        return _ExecuteResult()
+
+    db.execute = MagicMock(side_effect=_execute)
     db.commit = AsyncMock()
+    db.rollback = AsyncMock()
 
     ctx = MagicMock()
     ctx.__aenter__ = AsyncMock(return_value=db)
@@ -69,7 +107,14 @@ async def test_init_db_tolerates_duplicate_column_errors():
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_init_db_is_idempotent_against_real_database(tmp_path):
-    """Running init_db() twice on the same file must succeed (real duplicate columns)."""
+    """Running init_db() twice on the same file must succeed (real duplicate columns).
+
+    The stored schema version is reset to 0 between the two calls because,
+    with versioned migrations in place, a second init_db() call against an
+    already-stamped database would otherwise skip all migrations and stop
+    exercising the duplicate-column path this test exists to cover.
+    """
+    import aiosqlite
     import core.database as db_module
 
     db_path = str(tmp_path / "test.db")
@@ -77,6 +122,11 @@ async def test_init_db_is_idempotent_against_real_database(tmp_path):
     db_module.DATABASE_PATH = db_path
     try:
         await db_module.init_db()
+
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute("PRAGMA user_version = 0")
+            await db.commit()
+
         await db_module.init_db()  # Migrations hit real 'duplicate column name' errors
     finally:
         db_module.DATABASE_PATH = original
