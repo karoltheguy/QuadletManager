@@ -92,8 +92,8 @@
   <div id="monitoring-pane" class="monitoring-pane">
     <div class="header-bar">
       <h2 class="panel-title">Monitor</h2>
-      <span id="sync-cycle-indicator" class="sync-cycle-indicator" hidden></span>
       <div class="server-selector">
+        <span id="sync-cycle-indicator" class="sync-cycle-indicator" hidden></span>
         <select id="monitoring-server-select" class="form-control" onchange="selectMonitoringServer(this.value)">
           <option value="">Select a server...</option>
         </select>
@@ -106,29 +106,33 @@
       <p class="monitoring-empty-hint">Choose a server from the dropdown above to view its charts and stats.</p>
     </div>
     <div id="monitor-stat-bar" class="monitor-stat-bar" style="display:none;">
-      <div class="monitor-stat-block">
-        <span class="monitor-stat-num" id="mstat-total">—</span>
-        <span class="monitor-stat-lbl">Total</span>
+      <div class="monitor-stat-group">
+        <div class="monitor-stat-block">
+          <span class="monitor-stat-num" id="mstat-total">—</span>
+          <span class="monitor-stat-lbl">Total</span>
+        </div>
+        <div class="monitor-stat-block">
+          <span class="monitor-stat-num" id="mstat-running">—</span>
+          <span class="monitor-stat-lbl">Running</span>
+        </div>
+        <div class="monitor-stat-block">
+          <span class="monitor-stat-num" id="mstat-stopped">—</span>
+          <span class="monitor-stat-lbl">Stopped</span>
+        </div>
+        <div class="monitor-stat-block">
+          <span class="monitor-stat-num" id="mstat-unhealthy">—</span>
+          <span class="monitor-stat-lbl">Unhealthy</span>
+        </div>
       </div>
-      <div class="monitor-stat-block">
-        <span class="monitor-stat-num" id="mstat-running">—</span>
-        <span class="monitor-stat-lbl">Running</span>
-      </div>
-      <div class="monitor-stat-block">
-        <span class="monitor-stat-num" id="mstat-stopped">—</span>
-        <span class="monitor-stat-lbl">Stopped</span>
-      </div>
-      <div class="monitor-stat-block">
-        <span class="monitor-stat-num" id="mstat-unhealthy">—</span>
-        <span class="monitor-stat-lbl">Unhealthy</span>
-      </div>
-      <div class="monitor-stat-block">
-        <span class="monitor-stat-num" id="mstat-cpu">—</span>
-        <span class="monitor-stat-lbl">CPU</span>
-      </div>
-      <div class="monitor-stat-block">
-        <span class="monitor-stat-num" id="mstat-mem">—</span>
-        <span class="monitor-stat-lbl">MEM</span>
+      <div class="monitor-stat-group monitor-stat-group-load">
+        <div class="monitor-stat-block">
+          <span class="monitor-stat-num" id="mstat-cpu">—</span>
+          <span class="monitor-stat-lbl">CPU</span>
+        </div>
+        <div class="monitor-stat-block">
+          <span class="monitor-stat-num" id="mstat-mem">—</span>
+          <span class="monitor-stat-lbl">MEM</span>
+        </div>
       </div>
     </div>
     <div id="monitoring-content" class="monitoring-content" style="display:none;">
@@ -137,7 +141,7 @@
       </div>
       <div class="monitor-chart-section">
         <div class="monitor-chart-header">
-          <span class="monitor-chart-label">CPU %</span>
+          <span class="monitor-section-label">Resource history</span>
           <div class="health-history-controls">
             <button class="btn btn-sm btn-secondary health-range-btn active" onclick="loadMonitorCharts(60, this)">1h</button>
             <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(360, this)">6h</button>
@@ -145,13 +149,18 @@
             <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(10080, this)">7d</button>
           </div>
         </div>
-        <div style="height: 220px; position: relative; width: 100%;">
-          <canvas id="cpu-history-chart"></canvas>
-        </div>
-        <div class="monitor-chart-label" style="margin-top: 1.25rem;">Memory %</div>
-        <div style="height: 220px; position: relative; width: 100%;">
-          <canvas id="mem-history-chart"></canvas>
-        </div>
+        <figure class="monitor-chart">
+          <figcaption class="monitor-chart-label">CPU %</figcaption>
+          <div class="monitor-chart-canvas">
+            <canvas id="cpu-history-chart"></canvas>
+          </div>
+        </figure>
+        <figure class="monitor-chart">
+          <figcaption class="monitor-chart-label">Memory %</figcaption>
+          <div class="monitor-chart-canvas">
+            <canvas id="mem-history-chart"></canvas>
+          </div>
+        </figure>
         <div id="monitor-charts-empty" class="p-4 text-muted italic" style="display:none;">No history data yet — data accumulates every 5 seconds.</div>
       </div>
     </div>
