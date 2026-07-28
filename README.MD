@@ -87,18 +87,26 @@ systemctl --user start quadletmanager
 
 ### Container Image Tags
 
-Images are published to `ghcr.io/karoltheguy/quadletmanager`:
+Images are published to `ghcr.io/karoltheguy/quadletmanager` for `linux/amd64`:
+
+```bash
+podman pull ghcr.io/karoltheguy/quadletmanager:0.1
+```
 
 | Tag | Points at |
 |-----|-----------|
-| `latest` | The newest release. Use this unless you have a reason not to |
+| `latest` | The newest release, whatever its version number |
+| `0.1` | The newest patch in the `0.1.x` series |
 | `0.1.0` | That exact release |
-| `0.1` | The newest patch within that minor series |
-| `main` | The tip of the development branch. Unreleased and may break |
-| `sha-<full-sha>` | One specific commit |
+| `main` | Changes merged but not yet released. Most likely to break |
 
 Pin to `0.1` or an exact version for production. Releases before `1.0.0` may
-make breaking changes in a minor bump — see [docs/RELEASING.md](docs/RELEASING.md).
+make breaking changes in a minor bump, so `latest` can move across one without
+warning.
+
+`docker-compose.yml` and `quadletmanager.container` build or reference a local
+image. Point `image:` or `Image=` at `ghcr.io/karoltheguy/quadletmanager:0.1`
+to run a published build instead.
 
 ## Configuration
 
