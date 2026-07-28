@@ -156,7 +156,7 @@ def test_monitor_container_filter_applies_to_charts_and_persists_across_servers(
     except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
 
     # Mock the chart history endpoint so both containers are always returned
     # by the backend, regardless of any client-side filter — this isolates
@@ -283,7 +283,7 @@ def test_monitor_filter_drops_chart_series_without_a_chart_rebuild(page: Page):
     except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
 
     def fulfill_history(route):
         route.fulfill(
