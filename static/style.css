@@ -757,6 +757,14 @@ body.view-monitor #monitoring-pane { display: flex !important; }
   max-width: 240px;
 }
 
+/* The count belongs to the input, so it binds tighter than the 0.75rem gap
+   that separates the selector's independent controls. */
+.monitor-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 /* Filter match count. Plain muted text, no badge: it reports state, it is not
    a control, and the glance bar right below already carries the numbers. */
 .monitor-filter-count {

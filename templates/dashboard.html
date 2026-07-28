@@ -97,8 +97,10 @@
         <select id="monitoring-server-select" class="form-control" onchange="selectMonitoringServer(this.value)">
           <option value="">Select a server...</option>
         </select>
-        <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
-        <span id="monitor-filter-count" class="monitor-filter-count" aria-live="polite" hidden></span>
+        <span class="monitor-filter-group">
+          <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
+          <span id="monitor-filter-count" class="monitor-filter-count" aria-live="polite" hidden></span>
+        </span>
       </div>
     </div>
     <div id="monitoring-empty-state" class="monitoring-empty-state">
