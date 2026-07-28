@@ -1069,7 +1069,12 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         }
       });
 
-      var cpuDatasets = data.map(function(c, i) {
+      // Apply container filter to chart data
+      var filteredData = monitorContainerFilter
+        ? data.filter(function(c) { return (c.container_name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
+        : data;
+
+      var cpuDatasets = filteredData.map(function(c, i) {
         var byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.cpu !== null ? p.cpu : null); });
         var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
@@ -1088,7 +1093,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         };
       });
 
-      var memDatasets = data.map(function(c, i) {
+      var memDatasets = filteredData.map(function(c, i) {
         var byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.mem !== null ? p.mem : null); });
         var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
@@ -1611,9 +1616,6 @@ window.selectMonitoringServer = function(serverId) {
   if (contentEl) contentEl.style.display = '';
 
   window._monitoringServerId = numId;
-  monitorContainerFilter = '';
-  var filterInput = document.getElementById('monitor-container-filter');
-  if (filterInput) filterInput.value = '';
 
   if (window.activeServerId === numId) return;
   window.activeServerId = numId;
@@ -1625,7 +1627,9 @@ function updateMonitoringView(data) {
   // Only render when this data is for the server currently selected in the dropdown.
   if (data.server_id !== window._monitoringServerId) return;
 
-  // Apply active filter — summary strip always shows unfiltered totals.
+  // Apply the active filter to every part of the pane: table, charts and the
+  // glance bar all narrow together, so the numbers always describe what is
+  // on screen.
   var allContainers = data.containers || [];
   var containers = monitorContainerFilter
     ? allContainers.filter(function(c) {
@@ -1645,11 +1649,22 @@ function updateMonitoringView(data) {
 
     var appendToChart = function(chart, valueKey) {
       if (!chart) return;
+      var containersToShow = monitorContainerFilter
+        ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
+        : allContainers;
+
+      // Drop datasets for containers the filter no longer matches; otherwise a
+      // series drawn before the filter was typed stays on the canvas with
+      // nothing appending to it, since this path never refetches history.
+      var visibleNames = {};
+      containersToShow.forEach(function(c) { visibleNames[c.name] = true; });
+      chart.data.datasets = chart.data.datasets.filter(function(ds) { return visibleNames[ds.label]; });
+
       // Build a map of current dataset labels for quick lookup
       var datasetByName = {};
       chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
 
-      allContainers.forEach(function(c) {
+      containersToShow.forEach(function(c) {
         var val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
         if (datasetByName[c.name]) {
           datasetByName[c.name].data.push(val);
@@ -1685,7 +1700,25 @@ function updateMonitoringView(data) {
   }
 
   renderContainerStatsTable('monitoring-stats-table', filteredData);
-  updateSummaryStrip(data);  // always use unfiltered data for the summary strip
+  updateSummaryStrip(filteredData);
+  updateFilterCount(containers.length, allContainers.length);
+}
+
+// "N of M shown" next to the filter box. Both counts come from the running
+// container list, so this reports what the table and charts are showing and
+// not the stopped containers the glance bar also counts.
+function updateFilterCount(shown, total) {
+  var el = document.getElementById('monitor-filter-count');
+  if (!el) return;
+
+  if (!monitorContainerFilter) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+
+  el.textContent = shown + ' of ' + total + ' shown';
+  el.hidden = false;
 }
 
 function applyContainerFilter(value) {
@@ -1713,8 +1746,19 @@ function updateSummaryStrip(data) {
   var serverId = data.server_id;
   var allSeen = Reflect.get(allSeenContainersBySid, serverId) || new Set();
 
+  // allSeen holds every container name seen on this server, including stopped
+  // ones. It must be narrowed by the same filter as the running list, or the
+  // containers the filter excluded would be counted as stopped. Its names are
+  // already lowercase, as is monitorContainerFilter.
+  var seenNames = Array.from(allSeen);
+  if (monitorContainerFilter) {
+    seenNames = seenNames.filter(function(name) {
+      return name.indexOf(monitorContainerFilter) !== -1;
+    });
+  }
+
   var running = containers.length;
-  var total = Math.max(allSeen.size, running);
+  var total = Math.max(seenNames.length, running);
   var stopped = total - running;
   var unhealthy = containers.filter(function(c) {
     return c.health && c.health !== 'healthy';
