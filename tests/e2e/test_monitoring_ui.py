@@ -351,3 +351,85 @@ def test_monitor_filter_drops_chart_series_without_a_chart_rebuild(page: Page):
     assert mem_labels == ["web"], (
         f"Filtered-out series still on the Memory chart: {mem_labels}"
     )
+
+
+@pytest.mark.e2e
+def test_monitor_filter_narrows_glance_bar_and_shows_match_count(page: Page):
+    """The glance bar must count only containers matching the filter, and the
+    "N of M shown" indicator must report the match count.
+
+    Regression guard for issue #259: the glance bar previously received
+    unfiltered data, so its totals described the whole server while the table
+    and charts showed a subset.
+    """
+    try:
+        page.goto("http://localhost:8000/")
+    except PlaywrightError:
+        pytest.skip("Backend is not running locally on 8000 for E2E tests.")
+
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
+
+    page.route(
+        "**/api/health/history/*",
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps([])
+        ),
+    )
+
+    page.click("button.nav-item:has-text('Monitor')")
+    expect(page.locator("#monitoring-pane")).to_be_visible()
+
+    containers = [
+        {"name": "web", "cpu": "5.0%", "mem": "10.0%", "net_io": "1kB / 1kB", "health": "healthy"},
+        {"name": "db", "cpu": "2.0%", "mem": "20.0%", "net_io": "1kB / 1kB", "health": "healthy"},
+        {"name": "cache", "cpu": "1.0%", "mem": "4.0%", "net_io": "1kB / 1kB", "health": "healthy"},
+    ]
+
+    page.evaluate(
+        """(containers) => {
+            window.handleStatsUpdate({
+                data: JSON.stringify({
+                    server_id: 1, server_name: "Server A", containers: containers,
+                })
+            });
+        }""",
+        containers,
+    )
+
+    page.wait_for_function(
+        "document.getElementById('monitoring-server-select').options.length >= 2"
+    )
+    page.evaluate("window.activeServerId = null")
+    page.locator("#monitoring-server-select").select_option("1")
+    expect(page.locator("#monitoring-content")).to_be_visible()
+
+    count_el = page.locator("#monitor-filter-count")
+
+    # With no filter the indicator is noise, so it stays hidden.
+    expect(count_el).to_be_hidden()
+    expect(page.locator("#mstat-running")).to_have_text("3")
+    expect(page.locator("#mstat-total")).to_have_text("3")
+
+    # Filtering to a single container must narrow the glance bar too. The two
+    # excluded containers are still running, so they must not be counted as
+    # stopped.
+    page.locator("#monitor-container-filter").fill("web")
+
+    expect(count_el).to_be_visible()
+    expect(count_el).to_have_text("1 of 3 shown")
+    expect(page.locator("#mstat-running")).to_have_text("1")
+    expect(page.locator("#mstat-total")).to_have_text("1")
+    expect(page.locator("#mstat-stopped")).to_have_text("0")
+
+    # A filter matching nothing zeroes the counts rather than going negative.
+    page.locator("#monitor-container-filter").fill("nomatch")
+
+    expect(count_el).to_have_text("0 of 3 shown")
+    expect(page.locator("#mstat-running")).to_have_text("0")
+    expect(page.locator("#mstat-stopped")).to_have_text("0")
+
+    # Clearing the filter restores the whole-server view and hides the count.
+    page.locator("#monitor-container-filter").fill("")
+
+    expect(count_el).to_be_hidden()
+    expect(page.locator("#mstat-running")).to_have_text("3")

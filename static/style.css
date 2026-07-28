@@ -757,6 +757,18 @@ body.view-monitor #monitoring-pane { display: flex !important; }
   max-width: 240px;
 }
 
+/* Filter match count. Plain muted text, no badge: it reports state, it is not
+   a control, and the glance bar right below already carries the numbers. */
+.monitor-filter-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.monitor-filter-count[hidden] {
+  display: none;
+}
+
 .header-bar {
     padding: 1rem;
     background-color: var(--bg-surface);
