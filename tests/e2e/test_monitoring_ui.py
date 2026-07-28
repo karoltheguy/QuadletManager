@@ -263,3 +263,91 @@ def test_monitor_container_filter_applies_to_charts_and_persists_across_servers(
     table_rows_after_switch = page.locator("#monitoring-stats-table table tbody tr")
     expect(table_rows_after_switch).to_have_count(1)
     expect(table_rows_after_switch.first.locator("td").first).to_have_text("web")
+
+
+@pytest.mark.e2e
+def test_monitor_filter_drops_chart_series_without_a_chart_rebuild(page: Page):
+    """Typing in the filter box must remove already-drawn chart series.
+
+    The filter input only calls applyContainerFilter() -> updateMonitoringView(),
+    which appends to the existing charts; it never refetches history. So a
+    series drawn before the filter was typed has to be pruned on that append
+    path, otherwise it stays on the canvas (and drifts out of step with the
+    shared labels, which keep being trimmed under it).
+
+    Regression guard for issue #259 — distinct from the test above, which
+    clicks a range button and therefore exercises the full-rebuild path.
+    """
+    try:
+        page.goto("http://localhost:8000/")
+    except PlaywrightError:
+        pytest.skip("Backend is not running locally on 8000 for E2E tests.")
+
+    page.locator("text='Loading servers...'").wait_for(state="hidden")
+
+    def fulfill_history(route):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps([
+                {"container_name": "web", "history": [{"ts": 1000, "cpu": 5.0, "mem": 10.0}]},
+                {"container_name": "db", "history": [{"ts": 1000, "cpu": 2.0, "mem": 20.0}]},
+            ]),
+        )
+
+    page.route("**/api/health/history/*", fulfill_history)
+
+    page.click("button.nav-item:has-text('Monitor')")
+    expect(page.locator("#monitoring-pane")).to_be_visible()
+
+    web_container = {"name": "web", "cpu": "5.0%", "mem": "10.0%", "net_io": "1kB / 1kB", "health": "healthy"}
+    db_container = {"name": "db", "cpu": "2.0%", "mem": "20.0%", "net_io": "1kB / 1kB", "health": "healthy"}
+
+    def inject_stats(server_id, server_name, containers):
+        page.evaluate(
+            """([serverId, serverName, containers]) => {
+                window.handleStatsUpdate({
+                    data: JSON.stringify({
+                        server_id: serverId,
+                        server_name: serverName,
+                        containers: containers,
+                    })
+                });
+            }""",
+            [server_id, server_name, containers],
+        )
+
+    inject_stats(1, "Server A", [web_container, db_container])
+    page.wait_for_function(
+        "document.getElementById('monitoring-server-select').options.length >= 2"
+    )
+    page.evaluate("window.activeServerId = null")
+    page.locator("#monitoring-server-select").select_option("1")
+    expect(page.locator("#monitoring-content")).to_be_visible()
+
+    # Both series are drawn before any filter is applied.
+    page.wait_for_function(
+        "Chart.getChart('cpu-history-chart') && "
+        "Chart.getChart('cpu-history-chart').data.datasets.length === 2"
+    )
+
+    # Type in the filter box. This fires oninput -> applyContainerFilter only;
+    # no range button is clicked, so no history refetch/rebuild happens.
+    page.locator("#monitor-container-filter").fill("web")
+
+    # Drive one more stats tick through the append path.
+    inject_stats(1, "Server A", [web_container, db_container])
+    page.wait_for_timeout(300)
+
+    cpu_labels = page.evaluate(
+        "Chart.getChart('cpu-history-chart').data.datasets.map(d => d.label)"
+    )
+    mem_labels = page.evaluate(
+        "Chart.getChart('mem-history-chart').data.datasets.map(d => d.label)"
+    )
+    assert cpu_labels == ["web"], (
+        f"Filtered-out series still on the CPU chart: {cpu_labels}"
+    )
+    assert mem_labels == ["web"], (
+        f"Filtered-out series still on the Memory chart: {mem_labels}"
+    )

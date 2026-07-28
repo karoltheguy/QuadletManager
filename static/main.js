@@ -1647,13 +1647,20 @@ function updateMonitoringView(data) {
 
     var appendToChart = function(chart, valueKey) {
       if (!chart) return;
-      // Build a map of current dataset labels for quick lookup
-      var datasetByName = {};
-      chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
-
       var containersToShow = monitorContainerFilter
         ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
         : allContainers;
+
+      // Drop datasets for containers the filter no longer matches; otherwise a
+      // series drawn before the filter was typed stays on the canvas with
+      // nothing appending to it, since this path never refetches history.
+      var visibleNames = {};
+      containersToShow.forEach(function(c) { visibleNames[c.name] = true; });
+      chart.data.datasets = chart.data.datasets.filter(function(ds) { return visibleNames[ds.label]; });
+
+      // Build a map of current dataset labels for quick lookup
+      var datasetByName = {};
+      chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
 
       containersToShow.forEach(function(c) {
         var val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
