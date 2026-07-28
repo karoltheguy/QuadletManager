@@ -18,7 +18,7 @@ def test_glance_bar_hidden_when_no_server_selected(page: Page):
     except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
 
     # Navigate to Monitor tab — no server selected in the dropdown yet.
     page.click("button.nav-item:has-text('Monitor')")
@@ -49,7 +49,7 @@ def test_monitoring_table_css(page: Page):
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
     
     # Wait for the DOM to load
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
 
     # Navigate to Monitoring tab
     page.click("button.nav-item:has-text('Monitor')")
@@ -94,7 +94,7 @@ def test_monitor_charts_show_error_on_history_fetch_failure(page: Page):
     except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
-    page.locator("text='Loading servers...'").wait_for(state="hidden")
+    page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")
 
     # Navigate to Monitor tab and ensure a server is selected.
     page.click("button.nav-item:has-text('Monitor')")
