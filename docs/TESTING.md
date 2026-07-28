@@ -188,6 +188,46 @@ def test_my_feature(page: Page):
     expect(page.locator("#my-element")).to_be_visible()
 ```
 
+### Selecting elements in E2E tests
+
+Two hazards have each cost more than one debugging cycle. Both are worth knowing before writing a locator.
+
+**Prefer role-based locators over styling classes.** `#settings-pane .btn-primary` matches many buttons, and the first in DOM order is a permanently hidden one: the per-row "Save" button inside a server edit row (`<tr id="server-edit-row-N" style="display:none">` in `#servers-list`, rendered by `templates/partials/settings_servers.html`), which precedes the visible "Add Server" button. A locator using `.first` therefore resolves to an element that never becomes visible and times out on `to_be_visible()`. Hidden htmx edit rows are normal markup — the selector is what's wrong.
+
+Use `get_by_role()` instead. Playwright matches roles against the accessibility tree, and `display:none` elements are not in it, so hidden rows are excluded automatically. This needs no `data-testid` hooks, and it exercises the same accessible name a screen reader would announce:
+
+```python
+# Times out: .first resolves to the hidden server-edit-row "Save" button
+button = page.locator("#settings-pane .btn-primary").first
+
+# Resolves to the one visible button; hidden rows are not in the a11y tree
+button = page.locator("#settings-pane").get_by_role("button", name="Add Server")
+```
+
+Where several *visible* buttons share an accessible name — the light and dark color editors each have a "Save" — scope to the enclosing semantic container first, then match the role. Prefer a semantic attribute like `data-mode` over a styling class:
+
+```python
+dark_form = page.locator("form.color-editor-form[data-mode='dark']")
+button = dark_form.get_by_role("button", name="Save")
+```
+
+**Guard what you measure.** A test that reads a computed style can pass vacuously: if the locator resolved to the wrong element, or the page is in the wrong theme, the assertion measures some unrelated default and reports green without ever exercising the code under test. Before asserting on a measured value, pin the state you intended to test so a wrong-state run fails loudly:
+
+```python
+# Pin the measured background to the color actually under test, so a
+# wrong-element or wrong-theme measurement fails here rather than
+# silently reporting a passing contrast ratio below.
+expected_bg_hex = _normalize_color(_HOSTILE_BRAND)
+assert button_bg_hex == expected_bg_hex, (
+    f"Expected the measured button background-color to be the hostile "
+    f"saved brand_primary {expected_bg_hex!r}, but measured "
+    f"{button_bg_hex!r} instead — the button/theme state is wrong, so "
+    f"the contrast ratio below would not be testing the fix."
+)
+```
+
+Worked example of both patterns: `tests/e2e/test_theme_on_primary_contrast_e2e.py`.
+
 ### Asserting computed styles: suppress transitions first
 
 `getComputedStyle` returns the value of the *current animation frame*, not the

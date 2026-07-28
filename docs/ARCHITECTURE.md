@@ -395,6 +395,53 @@ erDiagram
     servers }o--|| ssh_keys : "encrypted"
 ```
 
+### Schema Migrations
+
+Schema evolution is an ordered registry in [`core/database.py`](core/database.py),
+keyed off SQLite's `PRAGMA user_version`. `_MIGRATIONS` is index-aligned: entry
+`i` moves the database from version `i` to version `i+1`, and `_SCHEMA_VERSION`
+is the highest version this release knows. On startup `init_db()` reads the
+stored version, runs only the pending steps, and stamps the new version.
+
+**To add a migration:** append an async function to `_MIGRATIONS` and bump
+`_SCHEMA_VERSION` to match its new length. Because each step runs exactly once,
+new migrations may be non-idempotent: backfills, table rebuilds, and column
+drops are all fine. Never edit an existing entry, since databases already
+stamped past it will not re-run it.
+
+**Why `user_version` rather than a `schema_migrations` table.** A table would
+carry per-step names and timestamps, but it needs its own bootstrap migration
+and adds a table to a ten-table app. `user_version` is a 32-bit integer already
+in the SQLite file header: no bootstrap, no schema change, and it is properly
+transactional.
+
+**Why version 1 is a baseline squash.** Three populations of deployed database
+all read `user_version = 0`: fresh, fully migrated, and partially migrated
+(anyone upgrading from before `host_key` or `user_themes` landed). They cannot
+be distinguished from the version alone, so the version-0 path has to work for
+all three. Version 1 is therefore the whole schema as of the change, reached by
+the pre-existing idempotent `CREATE TABLE IF NOT EXISTS` and additive-`ALTER`
+code. Existing deployments run one startup identical to the old behavior, gain
+the header stamp, and skip the block from then on.
+
+**Why each step runs inside an explicit `BEGIN`.** `aiosqlite` inherits
+sqlite3's `isolation_level=""`, which does not auto-open a transaction for DDL
+on Python 3.12. Without the explicit `BEGIN`, a crash between running a
+migration and stamping the version would leave a stamped-but-unapplied schema.
+The migration and its version bump commit together or not at all.
+
+**Idempotency inside the baseline still matters.** `_run_additive_migration()`
+swallows only SQLite's duplicate-column error and re-raises everything else. Its
+skip-remaining-statements behavior is load-bearing: `ALTER TABLE servers ADD
+COLUMN position` and `UPDATE servers SET position = id` are deliberately one
+call, so on an existing database the failed `ALTER` skips the `UPDATE`. Splitting
+them silently resets every user's custom server ordering, which
+`test_reordered_server_positions_survive_remigration` guards against.
+
+A database stamped **newer** than `_SCHEMA_VERSION` logs a warning and skips all
+migrations rather than raising, so rolling the application back does not turn
+into a failed startup.
+
 ### Connection Management
 
 Every request opens a fresh `aiosqlite` connection through
