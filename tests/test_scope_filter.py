@@ -7,6 +7,8 @@ Covers:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from services.stats_engine import ScopeResult
+
 
 # =============================================================================
 # Stats engine scope filtering
@@ -47,7 +49,7 @@ async def test_scope_filter_both_fetches_both_scopes(mock_get_db, mock_fetch, mo
                "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
     global_c = [{"name": "sys-svc", "cpu": "3%", "mem": "4%",
                  "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "2"}]
-    mock_fetch.side_effect = [user_c, global_c]
+    mock_fetch.side_effect = [ScopeResult(user_c, {}), ScopeResult(global_c, {})]
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()
@@ -73,7 +75,7 @@ async def test_scope_filter_user_only_skips_global(mock_get_db, mock_fetch, mock
     mock_get_db.side_effect = _make_db_mock_with_scope([(1, "mybox", "user")])
     user_c = [{"name": "user-app", "cpu": "1%", "mem": "2%",
                "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
-    mock_fetch.return_value = user_c
+    mock_fetch.return_value = ScopeResult(user_c, {})
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()
@@ -99,7 +101,7 @@ async def test_scope_filter_global_only_skips_user(mock_get_db, mock_fetch, mock
     mock_get_db.side_effect = _make_db_mock_with_scope([(1, "mybox", "global")])
     global_c = [{"name": "sys-svc", "cpu": "5%", "mem": "8%",
                  "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "3"}]
-    mock_fetch.return_value = global_c
+    mock_fetch.return_value = ScopeResult(global_c, {})
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()

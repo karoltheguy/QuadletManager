@@ -179,6 +179,21 @@ async def _migration_001_baseline(db):
     ])
 
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS unit_state (
+            server_id INTEGER NOT NULL,
+            unit_name TEXT NOT NULL,
+            scope TEXT NOT NULL CHECK(scope IN ('global', 'user')),
+            load_state TEXT,
+            active_state TEXT,
+            sub_state TEXT,
+            n_restarts INTEGER NOT NULL DEFAULT 0,
+            recorded_at INTEGER NOT NULL,
+            PRIMARY KEY (server_id, unit_name, scope),
+            FOREIGN KEY(server_id) REFERENCES servers(id)
+        )
+    """)
+
+    await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_health_history_server_time
         ON container_health_history(server_id, recorded_at)
     """)

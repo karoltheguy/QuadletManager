@@ -8,6 +8,8 @@ from collections import namedtuple
 from core.database import get_db_connection
 from services.ssh_manager import pool
 from core.events_manager import publisher
+from services.systemd_manager import ROOTLESS_ENV_PREFIX, build_unit_state_command, parse_systemctl_show
+from services.quadlet_naming import quadlet_type_of, unit_name_for
 
 # Mirrors the INSERT column order for container_health_history.
 # Using a namedtuple here lets tests assert by field name rather than magic index.
@@ -15,6 +17,15 @@ HealthRecord = namedtuple(
     "HealthRecord",
     ["server_id", "container_name", "is_running", "cpu_pct", "mem_pct", "recorded_at", "resolution_sec", "health_status"],
 )
+
+# Fetched together: podman ps stats for a scope, plus systemd unit states for
+# that scope's quadlet-backed container units.
+ScopeResult = namedtuple("ScopeResult", ["containers", "unit_states"])
+
+# Marker used to split a batched `podman ps ...; echo '<sentinel>'; systemctl show ...`
+# SSH response back into its two halves. Must not be able to appear in podman
+# JSON output or systemctl show output.
+_UNIT_STATE_SENTINEL = "---QM-UNIT-STATE---"
 
 logger = logging.getLogger("quadlet-manager.stats")
 
@@ -156,10 +167,34 @@ async def rollup_health_history() -> None:
 PODMAN_PS_TIMEOUT = 5   # seconds – `podman ps` is near-instant; fail fast if Podman is frozen
 STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
 
-# Rootless podman over non-interactive SSH needs XDG_RUNTIME_DIR so it can
-# locate the user session (socket, cgroup delegates, etc.).  Without this
-# the command either hangs or silently returns nothing.
-ROOTLESS_ENV_PREFIX = 'XDG_RUNTIME_DIR=/run/user/$(id -u)'
+
+async def _unit_names_for_scope(server_id: int, scope: str) -> list[str]:
+    """Return the systemd unit names for a server's .container quadlets in a scope.
+
+    Only .container quadlets are mapped to a unit name — Podman names other
+    quadlet types' units differently (foo.volume -> foo-volume.service, etc),
+    so blindly mapping every quadlet to <base>.service would query units that
+    do not exist.
+    """
+    async with get_db_connection() as db:
+        async with db.execute(
+            "SELECT file_path FROM quadlets WHERE server_id = ? AND scope = ?",
+            (server_id, scope),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    names: list[str] = []
+    seen = set()
+    for row in rows:
+        file_path = row[0]
+        basename = file_path.rsplit('/', 1)[-1]
+        if quadlet_type_of(basename) != "container":
+            continue
+        unit_name = unit_name_for(basename)
+        if unit_name not in seen:
+            seen.add(unit_name)
+            names.append(unit_name)
+    return names
 
 
 def normalize_container_stats(raw: dict) -> dict:
@@ -185,14 +220,20 @@ def _extract_name(names_field) -> str:
     return str(names_field) if names_field else ""
 
 
-async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
-    """Fetch container stats for one scope (rootful or rootless).
+async def _fetch_scope_stats(server_id: int, rootful: bool) -> ScopeResult:
+    """Fetch container stats and unit states for one scope (rootful or rootless).
 
     Uses podman ps --format json to get running names AND healthcheck status
-    in a single SSH call, then fetches resource stats separately.
+    in a single SSH call — batched with a systemctl show call for this
+    scope's quadlet-backed container units, when there are any — then
+    fetches resource stats separately.
 
-    Returns a list of normalised container dicts, or an empty list on error.
+    Returns a ScopeResult(containers, unit_states). unit_states may be
+    non-empty even when containers is empty (e.g. all units stopped).
     """
+    scope = "global" if rootful else "user"
+    unit_states: dict = {}
+
     if rootful:
         ps_cmd = "sudo podman ps --format json"
         stats_prefix = "sudo podman stats"
@@ -201,12 +242,28 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
         stats_prefix = f"{ROOTLESS_ENV_PREFIX} podman stats"
 
     try:
-        ps_json_str = await pool.execute_command(
-            server_id, ps_cmd, timeout=PODMAN_PS_TIMEOUT,
+        unit_names = await _unit_names_for_scope(server_id, scope)
+        if unit_names:
+            systemctl_segment = build_unit_state_command(unit_names, scope)
+            if rootful:
+                systemctl_segment = f"sudo {systemctl_segment}"
+            first_cmd = f"{ps_cmd}; echo '{_UNIT_STATE_SENTINEL}'; {systemctl_segment}"
+        else:
+            first_cmd = ps_cmd
+
+        first_stdout = await pool.execute_command(
+            server_id, first_cmd, timeout=PODMAN_PS_TIMEOUT,
         )
+
+        if _UNIT_STATE_SENTINEL in first_stdout:
+            ps_json_str, _, systemctl_output = first_stdout.partition(_UNIT_STATE_SENTINEL)
+            unit_states = parse_systemctl_show(systemctl_output)
+        else:
+            ps_json_str = first_stdout
+
         ps_data = json.loads(ps_json_str) if ps_json_str.strip() else []
         if not ps_data:
-            return []
+            return ScopeResult([], unit_states)
 
         # Build a map of name → health_status for merging after stats call
         health_map: dict[str, str] = {}
@@ -230,7 +287,7 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
             health_map[name] = str(raw_health).lower()
 
         if not running_names:
-            return []
+            return ScopeResult([], unit_states)
 
         names_arg = " ".join(shlex.quote(n) for n in running_names)
         cmd = f"{stats_prefix} --no-stream --format json {names_arg}"
@@ -239,7 +296,7 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
         )
 
         if not stats_json_str.strip():
-            return []
+            return ScopeResult([], unit_states)
 
         stats_data = json.loads(stats_json_str)
         result = []
@@ -247,14 +304,51 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
             container = normalize_container_stats(raw)
             container["health"] = health_map.get(container["name"], "")
             result.append(container)
-        return result
+        return ScopeResult(result, unit_states)
 
     except Exception as e:
         scope_label = "global" if rootful else "user"
         logger.warning(
             f"Could not fetch {scope_label}-scope stats for server {server_id}: {e}"
         )
-        return []
+        return ScopeResult([], unit_states)
+
+
+async def _record_unit_states(server_id: int, unit_states_by_scope: dict) -> None:
+    """Persist the latest known state for each unit, keyed by (server_id, unit_name, scope)."""
+    now = int(time.time())
+
+    records = []
+    for scope, unit_states in unit_states_by_scope.items():
+        for unit_name, state in unit_states.items():
+            records.append((
+                server_id,
+                unit_name,
+                scope,
+                state.get("load_state"),
+                state.get("active_state"),
+                state.get("sub_state"),
+                state.get("n_restarts", 0),
+                now,
+            ))
+
+    if not records:
+        return
+
+    async with get_db_connection() as db:
+        await db.executemany(
+            "INSERT INTO unit_state "
+            "(server_id, unit_name, scope, load_state, active_state, sub_state, n_restarts, recorded_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(server_id, unit_name, scope) DO UPDATE SET "
+            "load_state = excluded.load_state, "
+            "active_state = excluded.active_state, "
+            "sub_state = excluded.sub_state, "
+            "n_restarts = excluded.n_restarts, "
+            "recorded_at = excluded.recorded_at",
+            records,
+        )
+        await db.commit()
 
 
 async def fetch_server_stats():
@@ -270,24 +364,45 @@ async def fetch_server_stats():
         try:
             # Fetch containers only for the scopes configured on this server.
             tasks = []
+            scope_labels = []
             if scope_filter in ("both", "user"):
                 tasks.append(_fetch_scope_stats(server_id, rootful=False))
+                scope_labels.append("user")
             if scope_filter in ("both", "global"):
                 tasks.append(_fetch_scope_stats(server_id, rootful=True))
+                scope_labels.append("global")
 
             results = await asyncio.gather(*tasks)
             seen: dict[str, dict] = {}
-            for c in (c for scope_result in results for c in scope_result):
-                if c["name"] not in seen:
-                    seen[c["name"]] = c
+            unit_states_by_scope: dict[str, dict] = {}
+            for scope_label, scope_result in zip(scope_labels, results):
+                for c in scope_result.containers:
+                    if c["name"] not in seen:
+                        seen[c["name"]] = c
+                unit_states_by_scope[scope_label] = scope_result.unit_states
             containers = list(seen.values())
+
+            units = [
+                {
+                    "unit": unit_name,
+                    "scope": scope_label,
+                    "load_state": state.get("load_state"),
+                    "active_state": state.get("active_state"),
+                    "sub_state": state.get("sub_state"),
+                    "n_restarts": state.get("n_restarts", 0),
+                }
+                for scope_label, unit_states in unit_states_by_scope.items()
+                for unit_name, state in unit_states.items()
+            ]
 
             await publisher.publish("stats_update", {
                 "server_id": server_id,
                 "server_name": server_name,
                 "containers": containers,
+                "units": units,
             })
             await _record_health_history(server_id, containers)
+            await _record_unit_states(server_id, unit_states_by_scope)
 
         except Exception as e:
             logger.error(f"Error polling stats for server {server_id} ({server_name}): {e}")
