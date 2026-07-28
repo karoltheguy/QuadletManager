@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: [ "v*.*.*" ]
+
+# The tag pipeline is deliberately linear:
+#
+#   check ──> test ──> image ──> release
+#
+# Nothing outward-facing happens until everything upstream is green: `image`
+# moves the `:latest` container tag and `release` publishes a GitHub Release.
+# `check` is first and cheap so a mistyped tag fails in seconds rather than
+# after a full suite -- and, critically, before any image is pushed.
+jobs:
+  check:
+    name: Verify VERSION matches the tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Compare VERSION against the tag
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared="$(cat VERSION)"
+          if [ "$tagged" != "$declared" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} implies version '${tagged}' but VERSION declares '${declared}'."
+            echo "Bump VERSION on main, then re-tag."
+            exit 1
+          fi
+          echo "Releasing ${declared}"
+
+  test:
+    name: Test
+    needs: check
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      # test-github pushes coverage badges.
+      contents: write
+
+  image:
+    name: Image
+    needs: test
+    uses: ./.github/workflows/container-build.yml
+    permissions:
+      contents: read
+      packages: write
+
+  release:
+    name: Create GitHub Release
+    needs: image
+    # Only run on GitHub, matching container-build.yml -- the Forgejo mirror
+    # has no `gh release` endpoint.
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # gh resolves the target repo from the checkout's git remote. The notes
+      # themselves are generated server-side, so no history is needed here.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A tag carrying a prerelease segment (v0.2.0-rc.1) must not become
+          # the repo's "Latest release", which is what GitHub would otherwise
+          # do for the newest tag.
+          prerelease=""
+          case "$GITHUB_REF_NAME" in
+            *-*) prerelease="--prerelease" ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            $prerelease

@@ -136,12 +136,64 @@ function initEditorThemeRadio() {
 }
 
 // ── Theme Preview ─────────────────────────────────────────
+
+// WCAG contrast helpers (mirrors api/routes.py's _linearize / _relative_luminance /
+// _contrast_ratio / _on_primary_for, see lines ~1285-1322). These must stay in
+// exact result-parity with the Python implementation -- see
+// tests/test_theme_preview_on_primary.py's parity assertion over a shared color
+// corpus.
+function linearize(channel) {
+    if (channel <= 0.04045) return channel / 12.92;
+    return Math.pow((channel + 0.055) / 1.055, 2.4);
+}
+
+function relativeLuminance(hexColor) {
+    var hex = hexColor.replace(/^#/, '');
+    var r = parseInt(hex.substring(0, 2), 16) / 255;
+    var g = parseInt(hex.substring(2, 4), 16) / 255;
+    var b = parseInt(hex.substring(4, 6), 16) / 255;
+    r = linearize(r);
+    g = linearize(g);
+    b = linearize(b);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(hexA, hexB) {
+    var la = relativeLuminance(hexA);
+    var lb = relativeLuminance(hexB);
+    var lighter = Math.max(la, lb);
+    var darker = Math.min(la, lb);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+var ON_PRIMARY_CANDIDATES = ['#1c1f24', '#ffffff', '#000000'];
+var WCAG_AA_MIN = 4.5;
+
+function onPrimaryFor(brandHex) {
+    for (var i = 0; i < ON_PRIMARY_CANDIDATES.length; i++) {
+        var candidate = ON_PRIMARY_CANDIDATES[i];
+        if (contrastRatio(candidate, brandHex) >= WCAG_AA_MIN) return candidate;
+    }
+    return '#ffffff';
+}
+
+// NOTE: load_active_theme() in api/routes.py only injects --brand-on-primary
+// when a saved theme has a custom brand_primary override; the live preview
+// below always emits it. This is not a divergence -- onPrimaryFor() reproduces
+// the static CSS defaults for both shipped brand colors (#14b8a6 -> #1c1f24,
+// #0e7268 -> #ffffff), so emitting it unconditionally here matches what the
+// server would compute either way.
 function applyThemePreview(form) {
     var mode = form.dataset.mode;
     var rules = '';
+    var brandPrimary = null;
     form.querySelectorAll('input[type="color"][name]').forEach(function(inp) {
         rules += '--' + inp.name.replace(/_/g, '-') + ':' + inp.value + ';';
+        if (inp.name === 'brand_primary') brandPrimary = inp.value;
     });
+    if (brandPrimary) {
+        rules += '--brand-on-primary:' + onPrimaryFor(brandPrimary) + ';';
+    }
     var css = ':root[data-theme="' + mode + '"]{' + rules + '}';
     var el = document.getElementById('qm-theme-preview');
     if (!el) {
