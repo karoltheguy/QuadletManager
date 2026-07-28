@@ -77,6 +77,66 @@ def test_monitoring_table_css(page: Page):
             padding_left = th_locator.evaluate("el => window.getComputedStyle(el).paddingLeft")
             # 1rem is usually 16px
             assert padding_left == "16px", f"Expected padding-left 16px but got {padding_left}"
-            
+
             text_align = th_locator.evaluate("el => window.getComputedStyle(el).textAlign")
             assert text_align == "left" or text_align == "start", f"Expected text-align left but got {text_align}"
+
+
+@pytest.mark.e2e
+def test_monitor_charts_show_error_on_history_fetch_failure(page: Page):
+    """When /api/health/history/{serverId} fails, the Monitor pane must show
+    a visible error message — not just fail silently or log to console.
+
+    Regression guard for issue #260.
+    """
+    try:
+        page.goto("http://localhost:8000/")
+    except PlaywrightError:
+        pytest.skip("Backend is not running locally on 8000 for E2E tests.")
+
+    page.locator("text='Loading servers...'").wait_for(state="hidden")
+
+    # Navigate to Monitor tab and ensure a server is selected.
+    page.click("button.nav-item:has-text('Monitor')")
+    expect(page.locator("#monitoring-pane")).to_be_visible()
+
+    select = page.locator("#monitoring-server-select")
+    select_value = select.input_value()
+    if select_value == "":
+        # Server options populate from WebSocket stats, which arrive on an
+        # interval; give them a moment to show up before giving up.
+        with contextlib.suppress(PlaywrightError):
+            page.wait_for_function(
+                "document.getElementById('monitoring-server-select').options.length > 1",
+                timeout=8000,
+            )
+        options = select.locator("option").all()
+        candidate_values = [
+            opt.get_attribute("value") for opt in options
+            if opt.get_attribute("value")
+        ]
+        if not candidate_values:
+            pytest.skip("No servers available to select for this test.")
+        select.select_option(candidate_values[0])
+
+    expect(page.locator("#monitoring-content")).to_be_visible()
+
+    # Mock the chart history endpoint to fail with a 500 error.
+    page.route(
+        "**/api/health/history/*",
+        lambda route: route.fulfill(
+            status=500,
+            content_type="application/json",
+            body='{"detail": "Internal Server Error"}',
+        ),
+    )
+
+    # Trigger a chart history fetch via one of the range buttons.
+    page.click(".health-range-btn.active")
+
+    # A visible error message must appear on the Monitor pane.
+    error_el = page.locator("#monitor-charts-error")
+    expect(error_el).to_be_visible()
+
+    # The empty-state placeholder must not be shown instead of the error.
+    expect(page.locator("#monitor-charts-empty")).to_be_hidden()

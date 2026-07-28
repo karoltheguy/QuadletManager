@@ -227,3 +227,42 @@ assert button_bg_hex == expected_bg_hex, (
 ```
 
 Worked example of both patterns: `tests/e2e/test_theme_on_primary_contrast_e2e.py`.
+
+### Asserting computed styles: suppress transitions first
+
+`getComputedStyle` returns the value of the *current animation frame*, not the
+settled value. `static/style.css` transitions some properties and not others —
+`.btn`, for example, transitions `color` (0.18s) but not `background-color` — so
+a test that flips `data-theme` and reads immediately sees the new background
+paired with the **old** foreground, and any contrast assertion on that pair is
+measuring a frame that never appears at rest.
+
+The symptom is misleading: forcing `color: red !important` computes as something
+like `rgb(255, 234, 234)`, which looks like the browser blending author styles
+rather than an interpolated frame. Issue #225 lost a full debugging cycle to
+this and produced a wrong root cause (native `<button>` dark-mode styling) before
+the transition was identified.
+
+Suppress transitions right after navigation, so assertions measure the settled
+state:
+
+```python
+page.add_style_tag(content="""
+    *, *::before, *::after {
+        transition: none !important;
+        animation: none !important;
+    }
+""")
+```
+
+Prefer this over `page.wait_for_timeout(...)`: a sleep re-introduces the flake
+the moment someone lengthens a transition duration, and it slows every run.
+
+### Selector ambiguity in settings
+
+Several settings partials render a hidden inline-edit `<form>` per table row
+*before* the always-visible "add" form. A bare
+`#settings-pane button.btn-primary` therefore resolves `.first` to a
+`display: none` element, and the test fails on visibility rather than on what it
+meant to assert. Scope to the visible form — for example
+`#settings-pane .add-server-form button.btn-primary`.
