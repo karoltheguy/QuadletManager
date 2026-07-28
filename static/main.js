@@ -1069,7 +1069,12 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         }
       });
 
-      var cpuDatasets = data.map(function(c, i) {
+      // Apply container filter to chart data
+      var filteredData = monitorContainerFilter
+        ? data.filter(function(c) { return (c.container_name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
+        : data;
+
+      var cpuDatasets = filteredData.map(function(c, i) {
         var byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.cpu !== null ? p.cpu : null); });
         var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
@@ -1088,7 +1093,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         };
       });
 
-      var memDatasets = data.map(function(c, i) {
+      var memDatasets = filteredData.map(function(c, i) {
         var byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.mem !== null ? p.mem : null); });
         var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
@@ -1611,9 +1616,6 @@ window.selectMonitoringServer = function(serverId) {
   if (contentEl) contentEl.style.display = '';
 
   window._monitoringServerId = numId;
-  monitorContainerFilter = '';
-  var filterInput = document.getElementById('monitor-container-filter');
-  if (filterInput) filterInput.value = '';
 
   if (window.activeServerId === numId) return;
   window.activeServerId = numId;
@@ -1649,7 +1651,11 @@ function updateMonitoringView(data) {
       var datasetByName = {};
       chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
 
-      allContainers.forEach(function(c) {
+      var containersToShow = monitorContainerFilter
+        ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
+        : allContainers;
+
+      containersToShow.forEach(function(c) {
         var val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
         if (datasetByName[c.name]) {
           datasetByName[c.name].data.push(val);
