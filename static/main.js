@@ -985,6 +985,8 @@ window.loadMonitorCharts = function(minutes, btnEl) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var emptyEl = document.getElementById('monitor-charts-empty');
+      var errorEl = document.getElementById('monitor-charts-error');
+      if (errorEl) errorEl.style.display = 'none';
 
       if (!data || data.length === 0) {
         if (emptyEl) emptyEl.style.display = '';
@@ -1061,7 +1063,11 @@ window.loadMonitorCharts = function(minutes, btnEl) {
       memHistoryChart.data.datasets = memDatasets;
       memHistoryChart.update();
     })
-    .catch(function(err) { console.error('Monitor chart fetch error:', err); });
+    .catch(function(err) {
+      console.error('Monitor chart fetch error:', err);
+      var errorEl = document.getElementById('monitor-charts-error');
+      if (errorEl) errorEl.style.display = '';
+    });
 };
 
 function parsePercent(val) {

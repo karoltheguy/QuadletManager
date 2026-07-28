@@ -28,5 +28,24 @@ lizard_results.json
 lizard_results.sarif
 coverage/lcov.info
 
+# Verity — ignore runtime state, but commit standard.yaml and the memory graph
+.verity/credentials
+.verity/.cache/
+.verity/.logs/
+.verity/.baseline/
+.verity/.last-analysis
+.verity/.iteration-count
+.verity/.last-pass-hash
+.verity/.last-intent
+.verity/.memory-sync-state.json
+.verity/memory/log.md
+.claude/settings.local.json
+.verity
+VERITY.md
+
+# Impeccable.Style
+PRODUCT.md
+.impeccable
+
 .mcp.json
 .prospector.yaml
