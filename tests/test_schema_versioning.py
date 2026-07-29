@@ -164,7 +164,7 @@ async def test_existing_data_survives_restamping(fresh_db_path):
     assert server_row == ("my-server", "10.0.0.5", "root")
     assert key_row == ("my-key", b"encrypted-bytes")
     assert template_row == ("CUSTOMIZED",)
-    assert version_row[0] == 1
+    assert version_row[0] == db_module._SCHEMA_VERSION
 
 
 @pytest.mark.asyncio
@@ -229,7 +229,7 @@ async def test_partially_migrated_database_is_upgraded(fresh_db_path):
     assert table_names == {"user_themes", "container_events"}
     assert user_row == ("legacy-user",)
     assert server_row == ("legacy-server", "10.1.1.1", "root")
-    assert version_row[0] == 1
+    assert version_row[0] == db_module._SCHEMA_VERSION
 
 
 @pytest.mark.asyncio
@@ -243,15 +243,18 @@ async def test_failed_migration_rolls_back_and_leaves_version_unbumped(fresh_db_
     a stamped-but-unapplied schema on disk.
     """
     await init_db()
+    applied_version = db_module._SCHEMA_VERSION
 
     async def failing_migration(db):
         await db.execute("CREATE TABLE should_not_survive (x INTEGER)")
         raise RuntimeError("boom")
 
+    # Append onto the real registry rather than rebuilding it, so this stays
+    # correct as further migrations are added.
     monkeypatch.setattr(
-        db_module, "_MIGRATIONS", [db_module._migration_001_baseline, failing_migration]
+        db_module, "_MIGRATIONS", [*db_module._MIGRATIONS, failing_migration]
     )
-    monkeypatch.setattr(db_module, "_SCHEMA_VERSION", 2)
+    monkeypatch.setattr(db_module, "_SCHEMA_VERSION", applied_version + 1)
 
     with pytest.raises(RuntimeError, match="boom"):
         await init_db()
@@ -264,7 +267,9 @@ async def test_failed_migration_rolls_back_and_leaves_version_unbumped(fresh_db_
         ) as cur:
             table_row = await cur.fetchone()
 
-    assert version_row[0] == 1, f"expected user_version to remain 1, got {version_row[0]}"
+    assert version_row[0] == applied_version, (
+        f"expected user_version to remain {applied_version}, got {version_row[0]}"
+    )
     assert table_row is None, "should_not_survive table must not persist after rollback"
 
 
@@ -278,6 +283,7 @@ async def test_pending_migrations_run_in_order_from_stored_version(fresh_db_path
     ``_MIGRATIONS`` moves the database from version ``i`` to version ``i+1``.
     """
     await init_db()
+    applied_version = db_module._SCHEMA_VERSION
 
     order = []
 
@@ -289,12 +295,14 @@ async def test_pending_migrations_run_in_order_from_stored_version(fresh_db_path
         order.append("three")
         await db.execute("CREATE TABLE marker_three (x INTEGER)")
 
+    # Appended onto the real registry, so only these two are pending and the
+    # already-applied migrations must not re-run.
     monkeypatch.setattr(
         db_module,
         "_MIGRATIONS",
-        [db_module._migration_001_baseline, step_two, step_three],
+        [*db_module._MIGRATIONS, step_two, step_three],
     )
-    monkeypatch.setattr(db_module, "_SCHEMA_VERSION", 3)
+    monkeypatch.setattr(db_module, "_SCHEMA_VERSION", applied_version + 2)
 
     await init_db()
 
@@ -309,7 +317,7 @@ async def test_pending_migrations_run_in_order_from_stored_version(fresh_db_path
             version_row = await cur.fetchone()
 
     assert table_names == {"marker_two", "marker_three"}
-    assert version_row[0] == 3
+    assert version_row[0] == applied_version + 2
 
     await init_db()
 

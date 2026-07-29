@@ -16,6 +16,7 @@ from services.stats_engine import (
     _parse_pct,
     _record_health_history,
     ROOTLESS_ENV_PREFIX,
+    ScopeResult,
 )
 
 
@@ -131,18 +132,20 @@ def test_all_keys_present_in_output():
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_rootless_commands_include_env_prefix(mock_pool):
+async def test_rootless_commands_include_env_prefix(mock_pool, mock_unit_names):
     """Rootless (user) scope must prefix commands with XDG_RUNTIME_DIR."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{"Names": "app", "HealthStatus": ""}])
     stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert len(result) == 1
-    assert result[0]["name"] == "app"
+    assert len(result.containers) == 1
+    assert result.containers[0]["name"] == "app"
 
     # Verify the ps command includes the env prefix
     ps_call = mock_pool.execute_command.call_args_list[0]
@@ -156,18 +159,20 @@ async def test_rootless_commands_include_env_prefix(mock_pool):
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_rootful_commands_use_sudo(mock_pool):
+async def test_rootful_commands_use_sudo(mock_pool, mock_unit_names):
     """Global (rootful) scope must use sudo, not the env prefix."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{"Names": "system-app", "HealthStatus": ""}])
     stats_json = json.dumps([{"Name": "system-app", "CPUPerc": "5%", "MemPerc": "10%"}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=True)
 
-    assert len(result) == 1
-    assert result[0]["name"] == "system-app"
+    assert len(result.containers) == 1
+    assert result.containers[0]["name"] == "system-app"
 
     # Verify sudo is used
     ps_call = mock_pool.execute_command.call_args_list[0]
@@ -178,49 +183,57 @@ async def test_rootful_commands_use_sudo(mock_pool):
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_no_running_containers_returns_empty(mock_pool):
+async def test_no_running_containers_returns_empty(mock_pool, mock_unit_names):
     """If podman ps returns an empty JSON array, we get an empty list (no crash)."""
+    mock_unit_names.return_value = []
     mock_pool.execute_command = AsyncMock(return_value="[]")
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert result == []
+    assert result.containers == []
     # Only one call (ps), no stats call needed
     assert mock_pool.execute_command.call_count == 1
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_ssh_error_returns_empty_list(mock_pool):
+async def test_ssh_error_returns_empty_list(mock_pool, mock_unit_names):
     """SSH errors are caught and logged; an empty list is returned."""
+    mock_unit_names.return_value = []
     mock_pool.execute_command = AsyncMock(side_effect=Exception("Connection refused"))
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert result == []
+    assert result.containers == []
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_invalid_json_returns_empty_list(mock_pool):
+async def test_invalid_json_returns_empty_list(mock_pool, mock_unit_names):
     """If podman stats returns garbage, we return an empty list."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{"Names": "app", "HealthStatus": ""}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, "not json"])
 
     result = await _fetch_scope_stats(server_id=1, rootful=True)
 
-    assert result == []
+    assert result.containers == []
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_fetch_scope_stats_uses_json_ps_format(mock_pool):
+async def test_fetch_scope_stats_uses_json_ps_format(mock_pool, mock_unit_names):
     """podman ps must use --format json so health status can be parsed."""
+    mock_unit_names.return_value = []
     stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
     ps_json = json.dumps([{"Names": "app", "HealthStatus": "healthy"}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
@@ -232,47 +245,53 @@ async def test_fetch_scope_stats_uses_json_ps_format(mock_pool):
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_health_status_included_in_result(mock_pool):
+async def test_health_status_included_in_result(mock_pool, mock_unit_names):
     """Containers with a healthcheck must have their health status in the result dict."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{"Names": "nginx", "HealthStatus": "healthy"}])
     stats_json = json.dumps([{"name": "nginx", "cpu_percent": "5%", "mem_percent": "10%"}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert len(result) == 1
-    assert result[0]["health"] == "healthy"
+    assert len(result.containers) == 1
+    assert result.containers[0]["health"] == "healthy"
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_health_status_defaults_to_empty_when_absent(mock_pool):
+async def test_health_status_defaults_to_empty_when_absent(mock_pool, mock_unit_names):
     """Containers without a healthcheck definition have health == '' (not an error)."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{"Names": "redis", "HealthStatus": ""}])
     stats_json = json.dumps([{"name": "redis", "cpu_percent": "1%", "mem_percent": "2%"}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert result[0]["health"] == ""
+    assert result.containers[0]["health"] == ""
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_health_status_names_as_list(mock_pool):
+async def test_health_status_names_as_list(mock_pool, mock_unit_names):
     """Names returned as a JSON array (older Podman) must still be parsed correctly."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{"Names": ["app"], "HealthStatus": "unhealthy"}])
     stats_json = json.dumps([{"name": "app", "cpu_percent": "1%", "mem_percent": "2%"}])
     mock_pool.execute_command = AsyncMock(side_effect=[ps_json, stats_json])
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert result[0]["name"] == "app"
-    assert result[0]["health"] == "unhealthy"
+    assert result.containers[0]["name"] == "app"
+    assert result.containers[0]["health"] == "unhealthy"
 
 
 @pytest.mark.asyncio
@@ -341,7 +360,7 @@ async def test_deduplicates_same_name_container_across_scopes(mock_get_db, mock_
     nginx_global = {"name": "nginx", "cpu": "1%", "mem": "2%",
                     "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}
 
-    mock_fetch.side_effect = [[nginx_user], [nginx_global]]
+    mock_fetch.side_effect = [ScopeResult([nginx_user], {}), ScopeResult([nginx_global], {})]
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()
@@ -369,7 +388,7 @@ async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_p
                           "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "2"}]
 
     # _fetch_scope_stats is called twice: once rootful=False, once rootful=True
-    mock_fetch.side_effect = [user_containers, global_containers]
+    mock_fetch.side_effect = [ScopeResult(user_containers, {}), ScopeResult(global_containers, {})]
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()
@@ -397,7 +416,7 @@ async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_p
     """When no containers run in either scope, publish empty update."""
     mock_get_db.side_effect = _make_db_mock([(2, "emptybox")])
 
-    mock_fetch.side_effect = [[], []]
+    mock_fetch.side_effect = [ScopeResult([], {}), ScopeResult([], {})]
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()
@@ -406,6 +425,7 @@ async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_p
         "server_id": 2,
         "server_name": "emptybox",
         "containers": [],
+        "units": [],
     })
 
 
@@ -446,7 +466,10 @@ async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publi
                      "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
     containers_b = [{"name": "app-b", "cpu": "3%", "mem": "4%",
                      "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
-    mock_fetch.side_effect = [containers_a, [], [], containers_b]
+    mock_fetch.side_effect = [
+        ScopeResult(containers_a, {}), ScopeResult([], {}),
+        ScopeResult([], {}), ScopeResult(containers_b, {}),
+    ]
     mock_publisher.publish = AsyncMock()
 
     await fetch_server_stats()
@@ -609,15 +632,17 @@ _HEALTH_TABLE_DDL = """
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_health_extracted_from_status_string_when_health_fields_absent(mock_pool):
+async def test_health_extracted_from_status_string_when_health_fields_absent(mock_pool, mock_unit_names):
     """When HealthStatus and Health are both absent/empty, parse the health state
     from the Status field (e.g. 'Up 3 hours (healthy)').
 
     Some Podman versions omit HealthStatus from `podman ps --format json` while
     still encoding health inside the human-readable Status string.
     """
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{
         "Names": "homepage",
         "HealthStatus": "",
@@ -628,18 +653,20 @@ async def test_health_extracted_from_status_string_when_health_fields_absent(moc
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert len(result) == 1
-    assert result[0]["health"] == "healthy", (
+    assert len(result.containers) == 1
+    assert result.containers[0]["health"] == "healthy", (
         "Expected health='healthy' parsed from Status string; got "
-        f"{result[0]['health']!r}"
+        f"{result.containers[0]['health']!r}"
     )
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_health_extracted_from_status_string_unhealthy(mock_pool):
+async def test_health_extracted_from_status_string_unhealthy(mock_pool, mock_unit_names):
     """Unhealthy state parsed from Status string when HealthStatus is absent."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{
         "Names": "app",
         "Status": "Up 10 minutes (unhealthy)"
@@ -649,14 +676,16 @@ async def test_health_extracted_from_status_string_unhealthy(mock_pool):
 
     result = await _fetch_scope_stats(server_id=1, rootful=True)
 
-    assert result[0]["health"] == "unhealthy"
+    assert result.containers[0]["health"] == "unhealthy"
 
 
 @pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
 @patch("services.stats_engine.pool")
 @pytest.mark.unit
-async def test_no_health_when_status_string_has_no_parenthetical(mock_pool):
+async def test_no_health_when_status_string_has_no_parenthetical(mock_pool, mock_unit_names):
     """Container with no healthcheck: Status has no (healthy) suffix, health stays empty."""
+    mock_unit_names.return_value = []
     ps_json = json.dumps([{
         "Names": "redis",
         "Status": "Up 2 days"
@@ -666,7 +695,7 @@ async def test_no_health_when_status_string_has_no_parenthetical(mock_pool):
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
 
-    assert result[0]["health"] == ""
+    assert result.containers[0]["health"] == ""
 
 
 @pytest.mark.asyncio
@@ -699,3 +728,85 @@ async def test_record_health_history_persists_health_status_to_real_db():
 
     assert row is not None, "No row was inserted for 'homepage'"
     assert row[0] == "healthy", f"Expected 'healthy' in DB, got {row[0]!r}"
+
+
+# =============================================================================
+# Helper unit tests (extracted from _fetch_scope_stats to cap its complexity)
+# =============================================================================
+
+@pytest.mark.unit
+def test_build_podman_commands():
+    """Verify _build_podman_commands returns correct ps and stats commands for rootful and rootless scopes."""
+    from services.stats_engine import _build_podman_commands, ROOTLESS_ENV_PREFIX
+
+    rootful_ps, rootful_stats = _build_podman_commands(rootful=True)
+    assert rootful_ps == "sudo podman ps --format json"
+    assert rootful_stats == "sudo podman stats"
+
+    rootless_ps, rootless_stats = _build_podman_commands(rootful=False)
+    assert rootless_ps == f"{ROOTLESS_ENV_PREFIX} podman ps --format json"
+    assert rootless_stats == f"{ROOTLESS_ENV_PREFIX} podman stats"
+
+
+@pytest.mark.unit
+def test_extract_single_container_health():
+    """Verify _extract_single_container_health handles HealthStatus, Health dict, and Status string fallbacks."""
+    from services.stats_engine import _extract_single_container_health
+
+    # Direct HealthStatus field
+    assert _extract_single_container_health({"HealthStatus": "healthy"}) == "healthy"
+    assert _extract_single_container_health({"HealthStatus": "UNHEALTHY"}) == "unhealthy"
+
+    # Health dict structure
+    assert _extract_single_container_health({"Health": {"Status": "healthy"}}) == "healthy"
+
+    # Fallback to Status string regex
+    assert _extract_single_container_health({"Status": "Up 3 hours (healthy)"}) == "healthy"
+    assert _extract_single_container_health({"Status": "Up 5 minutes (unhealthy)"}) == "unhealthy"
+    assert _extract_single_container_health({"Status": "Up 2 seconds (starting)"}) == "starting"
+
+    # No health status available
+    assert _extract_single_container_health({"Status": "Up 10 hours"}) == ""
+    assert _extract_single_container_health({}) == ""
+
+
+@pytest.mark.unit
+def test_parse_running_containers_and_health():
+    """Verify _parse_running_containers_and_health returns running names and health map."""
+    from services.stats_engine import _parse_running_containers_and_health
+
+    ps_data = [
+        {"Names": "c1", "HealthStatus": "healthy"},
+        {"Names": ["c2"], "Status": "Up 10 minutes (unhealthy)"},
+        {"Names": "", "HealthStatus": "healthy"},  # Empty name should be skipped
+    ]
+
+    names, health_map = _parse_running_containers_and_health(ps_data)
+    assert names == ["c1", "c2"]
+    assert health_map == {"c1": "healthy", "c2": "unhealthy"}
+
+
+@pytest.mark.unit
+def test_merge_stats_and_health_attaches_health_and_defaults_to_empty():
+    """Verify _merge_stats_and_health normalises stats and attaches matching health."""
+    from services.stats_engine import _merge_stats_and_health
+
+    stats_data = [
+        {"name": "c1", "cpu_percent": "5%", "mem_percent": "10%"},
+        {"name": "unknown-to-ps", "cpu_percent": "1%", "mem_percent": "2%"},
+    ]
+
+    merged = _merge_stats_and_health(stats_data, {"c1": "healthy"})
+    assert [c["name"] for c in merged] == ["c1", "unknown-to-ps"]
+    assert merged[0]["health"] == "healthy"
+    assert merged[1]["health"] == ""
+
+
+@pytest.mark.unit
+def test_split_batched_output_without_sentinel_returns_whole_output():
+    """Unbatched responses (no quadlet units in scope) must pass through untouched."""
+    from services.stats_engine import _split_batched_output
+
+    ps_json, unit_states = _split_batched_output('[{"Names": "c1"}]')
+    assert ps_json == '[{"Names": "c1"}]'
+    assert unit_states == {}
