@@ -13,6 +13,8 @@ from services.stats_engine import (
     normalize_container_stats,
     fetch_server_stats,
     _fetch_scope_stats,
+    _fetch_scope_units,
+    _record_unit_events,
     _parse_pct,
     _record_health_history,
     ROOTLESS_ENV_PREFIX,
@@ -294,6 +296,168 @@ async def test_record_health_history_includes_health_status(mock_get_db):
     assert records[0].health_status == "healthy"
 
 
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_fetch_scope_units_bulk_collects_unit_state(mock_get_db, mock_pool):
+    """_fetch_scope_units must collect systemd unit state for the server's
+    Quadlet-managed containers in a single bulk SSH call, returning the
+    parsed per-unit state for each unit."""
+    mock_get_db.side_effect = _make_db_mock([
+        ("/etc/containers/systemd/web.container",),
+        ("/etc/containers/systemd/db.container",),
+    ])
+
+    systemctl_output = (
+        "Id=web.service\n"
+        "LoadState=loaded\n"
+        "ActiveState=active\n"
+        "SubState=running\n"
+        "NRestarts=0\n"
+        "\n"
+        "Id=db.service\n"
+        "LoadState=loaded\n"
+        "ActiveState=failed\n"
+        "SubState=failed\n"
+        "NRestarts=42\n"
+    )
+    mock_pool.execute_command = AsyncMock(return_value=systemctl_output)
+
+    result = await _fetch_scope_units(server_id=1, rootful=True)
+
+    assert result == [
+        {"unit": "web.service", "scope": "global", "load": "loaded", "state": "active", "sub": "running", "n_restarts": 0},
+        {"unit": "db.service", "scope": "global", "load": "loaded", "state": "failed", "sub": "failed", "n_restarts": 42},
+    ]
+    assert mock_pool.execute_command.call_count == 1
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_fetch_scope_units_carries_load_state(mock_get_db, mock_pool):
+    """_fetch_scope_units must carry LoadState through as `load`.
+
+    A quadlet file whose unit systemd does not know (`not-found`, usually a
+    missing `daemon-reload`) must be distinguishable from a unit that is
+    merely stopped, and must not be silently dropped."""
+    mock_get_db.side_effect = _make_db_mock([
+        ("/etc/containers/systemd/web.container",),
+        ("/etc/containers/systemd/ghost.container",),
+    ])
+
+    systemctl_output = (
+        "Id=web.service\n"
+        "LoadState=loaded\n"
+        "ActiveState=active\n"
+        "SubState=running\n"
+        "NRestarts=0\n"
+        "\n"
+        "Id=ghost.service\n"
+        "LoadState=not-found\n"
+        "ActiveState=inactive\n"
+        "SubState=dead\n"
+        "NRestarts=0\n"
+    )
+    mock_pool.execute_command = AsyncMock(return_value=systemctl_output)
+
+    result = await _fetch_scope_units(server_id=1, rootful=True)
+
+    assert result == [
+        {"unit": "web.service", "scope": "global", "load": "loaded", "state": "active", "sub": "running", "n_restarts": 0},
+        {"unit": "ghost.service", "scope": "global", "load": "not-found", "state": "inactive", "sub": "dead", "n_restarts": 0},
+    ]
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_fetch_scope_units_labels_user_scope(mock_get_db, mock_pool):
+    """Units must be labelled with the scope they came from so that
+    identically-named global and user units remain distinguishable."""
+    mock_get_db.side_effect = _make_db_mock([
+        ("/etc/containers/systemd/web.container",),
+    ])
+
+    systemctl_output = (
+        "Id=web.service\n"
+        "LoadState=loaded\n"
+        "ActiveState=active\n"
+        "SubState=running\n"
+        "NRestarts=0\n"
+    )
+    mock_pool.execute_command = AsyncMock(return_value=systemctl_output)
+
+    result = await _fetch_scope_units(server_id=1, rootful=False)
+
+    assert result == [
+        {"unit": "web.service", "scope": "user", "load": "loaded", "state": "active", "sub": "running", "n_restarts": 0},
+    ]
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.pool")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_fetch_scope_units_returns_empty_on_db_error(mock_get_db, mock_pool):
+    """A DB failure while reading the quadlet inventory must degrade to an
+    empty list rather than propagate out of _fetch_scope_units and take down
+    the caller's stats cycle."""
+    mock_get_db.side_effect = Exception("database is locked")
+
+    result = await _fetch_scope_units(server_id=1, rootful=True)
+
+    assert result == []
+    mock_pool.execute_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.record_container_event", new_callable=AsyncMock)
+@pytest.mark.unit
+async def test_record_unit_events_emits_failure_on_transition_to_failed(mock_record):
+    """A unit entering the failed state must be recorded as a durable
+    `failure` event keyed by the quadlet stem, matching how `api/routes.py`
+    already keys user-initiated events.
+
+    The event must also record which scope the unit came from, since the
+    quadlet stem alone cannot distinguish a global `web.service` from a
+    user `web.service`."""
+    import services.stats_engine as se
+    se._prev_unit_state_by_sid[1] = {("global", "web.service"): {"state": "active", "n_restarts": 0}}
+    try:
+        await _record_unit_events(1, [
+            {"unit": "web.service", "scope": "global", "load": "loaded",
+             "state": "failed", "sub": "failed", "n_restarts": 0},
+        ])
+
+        mock_record.assert_awaited_once_with(1, "web", "failure", triggered_by="poller", details="scope=global")
+    finally:
+        se._prev_unit_state_by_sid.pop(1, None)
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine.record_container_event", new_callable=AsyncMock)
+@pytest.mark.unit
+async def test_record_unit_events_seeds_silently_on_first_poll(mock_record):
+    """The first poll after process start has no baseline, so it must seed
+    silently rather than replay every pre-existing failed unit as a fresh
+    event."""
+    import services.stats_engine as se
+    se._prev_unit_state_by_sid.pop(2, None)
+    try:
+        await _record_unit_events(2, [
+            {"unit": "web.service", "scope": "global", "load": "loaded",
+             "state": "failed", "sub": "failed", "n_restarts": 7},
+        ])
+
+        mock_record.assert_not_awaited()
+    finally:
+        se._prev_unit_state_by_sid.pop(2, None)
+
+
 # =============================================================================
 # TestFetchServerStats - async tests for fetch_server_stats()
 # =============================================================================
@@ -406,6 +570,7 @@ async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_p
         "server_id": 2,
         "server_name": "emptybox",
         "containers": [],
+        "units": [],
     })
 
 
@@ -460,6 +625,72 @@ async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publi
     second_call = mock_publisher.publish.call_args_list[1][0]
     assert second_call[1]["server_name"] == "server-b"
     assert second_call[1]["containers"][0]["name"] == "app-b"
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine._record_unit_events", new_callable=AsyncMock)
+@patch("services.stats_engine._fetch_scope_units")
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
+@patch("services.stats_engine.publisher")
+@patch("services.stats_engine._fetch_scope_stats")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_publishes_units_merged_across_scopes(mock_get_db, mock_fetch, mock_publisher, mock_record, mock_fetch_units, mock_record_unit_events):
+    """Units are collected per scope and merged into one array on the frame."""
+    mock_get_db.side_effect = _make_db_mock([(1, "testbox", "both")])
+
+    mock_fetch.side_effect = [[], []]
+
+    user_units = [{"unit": "user-app.service", "scope": "user", "load": "loaded", "state": "active", "sub": "running", "n_restarts": 0}]
+    global_units = [{"unit": "sys-app.service", "scope": "global", "load": "loaded", "state": "failed", "sub": "failed", "n_restarts": 7}]
+    mock_fetch_units.side_effect = [user_units, global_units]
+
+    mock_publisher.publish = AsyncMock()
+
+    await fetch_server_stats()
+
+    call_args = mock_publisher.publish.call_args
+    assert call_args[0][0] == "stats_update"
+    payload = call_args[0][1]
+
+    assert len(payload["units"]) == 2
+    assert user_units[0] in payload["units"]
+    assert global_units[0] in payload["units"]
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine._record_unit_events", new_callable=AsyncMock)
+@patch("services.stats_engine._fetch_scope_units")
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
+@patch("services.stats_engine.publisher")
+@patch("services.stats_engine._fetch_scope_stats")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_fetch_server_stats_records_unit_events(mock_get_db, mock_fetch, mock_publisher, mock_record, mock_fetch_units, mock_record_unit_events):
+    """The poller must persist unit transitions, not merely broadcast current
+    state over SSE, otherwise nothing survives a page refresh or a process
+    restart."""
+    mock_get_db.side_effect = _make_db_mock([(1, "testbox", "both")])
+
+    mock_fetch.side_effect = [[], []]
+
+    user_units = [{"unit": "user-app.service", "scope": "user", "load": "loaded",
+                   "state": "active", "sub": "running", "n_restarts": 0}]
+    global_units = [{"unit": "sys-app.service", "scope": "global", "load": "loaded",
+                      "state": "failed", "sub": "failed", "n_restarts": 7}]
+    mock_fetch_units.side_effect = [user_units, global_units]
+
+    mock_publisher.publish = AsyncMock()
+
+    await fetch_server_stats()
+
+    mock_record_unit_events.assert_awaited_once()
+    call_args = mock_record_unit_events.call_args
+    assert call_args[0][0] == 1
+    units_arg = call_args[0][1]
+    assert len(units_arg) == 2
+    assert user_units[0] in units_arg
+    assert global_units[0] in units_arg
 
 
 # =============================================================================

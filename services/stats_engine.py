@@ -1,13 +1,16 @@
 import asyncio
 import json
 import logging
+import os
 import re
 import shlex
 import time
 from collections import namedtuple
 from core.database import get_db_connection
+from services.quadlet_naming import base_name_of, quadlet_type_of, unit_name_for
 from services.ssh_manager import pool
 from core.events_manager import publisher
+from services.container_events import record_container_event
 
 # Mirrors the INSERT column order for container_health_history.
 # Using a namedtuple here lets tests assert by field name rather than magic index.
@@ -26,6 +29,10 @@ _last_rollup_time: float = 0
 # Track previously-running containers per server so we can write is_running=0
 # records when a container disappears.
 _prev_running_by_sid: dict[int, set] = {}
+
+# Track previous unit state per server so we can detect transitions (e.g.
+# entering the failed state) and record them as durable container events.
+_prev_unit_state_by_sid: dict[int, dict] = {}
 
 
 def _parse_pct(val) -> float:
@@ -155,6 +162,7 @@ async def rollup_health_history() -> None:
 
 PODMAN_PS_TIMEOUT = 5   # seconds – `podman ps` is near-instant; fail fast if Podman is frozen
 STATS_CMD_TIMEOUT = 15  # seconds – --no-stream should return quickly
+SYSTEMCTL_SHOW_TIMEOUT = 10  # seconds -- `systemctl show` is near-instant; fail fast if systemd is frozen
 
 # Rootless podman over non-interactive SSH needs XDG_RUNTIME_DIR so it can
 # locate the user session (socket, cgroup delegates, etc.).  Without this
@@ -257,6 +265,128 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> list[dict]:
         return []
 
 
+async def _fetch_scope_units(server_id: int, rootful: bool) -> list[dict]:
+    """Fetch systemd unit state for one scope's Quadlet-managed container units.
+
+    Reads the quadlet inventory for this server/scope, converts the
+    container Quadlet files to their systemd unit names, then issues a
+    single bulk `systemctl show` call to collect load/active/sub state
+    and restart counts.
+
+    Returns a list of unit state dicts, or an empty list on error.
+    """
+    scope = "global" if rootful else "user"
+
+    try:
+        async with get_db_connection() as db:
+            async with db.execute(
+                "SELECT file_path FROM quadlets WHERE server_id = ? AND scope = ?",
+                (server_id, scope),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        unit_names: list[str] = []
+        for row in rows:
+            basename = os.path.basename(row[0])
+            if quadlet_type_of(basename) == "container":
+                unit_names.append(unit_name_for(basename))
+
+        if not unit_names:
+            return []
+
+        units_arg = " ".join(shlex.quote(n) for n in unit_names)
+        if rootful:
+            cmd = f"sudo systemctl show --property=Id,LoadState,ActiveState,SubState,NRestarts {units_arg}"
+        else:
+            cmd = (
+                f"{ROOTLESS_ENV_PREFIX} systemctl --user show "
+                f"--property=Id,LoadState,ActiveState,SubState,NRestarts {units_arg}"
+            )
+
+        output = await pool.execute_command(
+            server_id, cmd, timeout=SYSTEMCTL_SHOW_TIMEOUT,
+        )
+
+        result = []
+        for block in output.split("\n\n"):
+            block = block.strip("\n")
+            if not block.strip():
+                continue
+            props: dict[str, str] = {}
+            for line in block.splitlines():
+                if "=" in line:
+                    key, _, value = line.partition("=")
+                    props[key] = value
+
+            unit_id = props.get("Id")
+            if not unit_id:
+                continue
+
+            try:
+                n_restarts = int(props.get("NRestarts", "0"))
+            except (TypeError, ValueError):
+                n_restarts = 0
+
+            result.append({
+                "unit": unit_id,
+                "scope": scope,
+                "load": props.get("LoadState", ""),
+                "state": props.get("ActiveState", ""),
+                "sub": props.get("SubState", ""),
+                "n_restarts": n_restarts,
+            })
+
+        return result
+
+    except Exception as e:
+        logger.warning(
+            f"Could not fetch {scope}-scope unit state for server {server_id}: {e}"
+        )
+        return []
+
+
+async def _record_unit_events(server_id: int, units: list[dict]) -> None:
+    """Detect durable unit-state transitions and record them as events.
+
+    Compares each unit's current state/restart count against its state on
+    the previous poll and records `restart` and `failure` events on
+    transitions only, not on every poll where a unit happens to be in a
+    given state. `triggered_by="poller"` distinguishes these from the
+    user-initiated events written by `api/routes.py`.
+    """
+    current = {
+        (u["scope"], u["unit"]): {
+            "state": u.get("state", ""),
+            "n_restarts": u.get("n_restarts", 0),
+        }
+        for u in units
+    }
+
+    prev = _prev_unit_state_by_sid.get(server_id)
+    _prev_unit_state_by_sid[server_id] = current
+
+    if prev is None:
+        # First poll after process start: no baseline to compare against,
+        # so seed silently rather than replaying every pre-existing failed
+        # unit as a fresh event.
+        return
+
+    for key, curr_entry in current.items():
+        prev_entry = prev.get(key)
+        if prev_entry is None:
+            # Unit appeared mid-run: no baseline for it either, skip.
+            continue
+
+        scope, unit_name = key
+        stem = base_name_of(unit_name)
+
+        if curr_entry["n_restarts"] > prev_entry["n_restarts"]:
+            await record_container_event(server_id, stem, "restart", triggered_by="poller", details=f"scope={scope}")
+
+        if curr_entry["state"] == "failed" and prev_entry["state"] != "failed":
+            await record_container_event(server_id, stem, "failure", triggered_by="poller", details=f"scope={scope}")
+
+
 async def fetch_server_stats():
     """Polls all registered servers for Podman stats and pushes via SSE."""
     async with get_db_connection() as db:
@@ -269,25 +399,34 @@ async def fetch_server_stats():
         scope_filter = server[2] if len(server) > 2 else "both"
         try:
             # Fetch containers only for the scopes configured on this server.
-            tasks = []
+            stats_tasks = []
+            unit_tasks = []
             if scope_filter in ("both", "user"):
-                tasks.append(_fetch_scope_stats(server_id, rootful=False))
+                stats_tasks.append(_fetch_scope_stats(server_id, rootful=False))
+                unit_tasks.append(_fetch_scope_units(server_id, rootful=False))
             if scope_filter in ("both", "global"):
-                tasks.append(_fetch_scope_stats(server_id, rootful=True))
+                stats_tasks.append(_fetch_scope_stats(server_id, rootful=True))
+                unit_tasks.append(_fetch_scope_units(server_id, rootful=True))
 
-            results = await asyncio.gather(*tasks)
+            results, unit_results = await asyncio.gather(
+                asyncio.gather(*stats_tasks),
+                asyncio.gather(*unit_tasks),
+            )
             seen: dict[str, dict] = {}
             for c in (c for scope_result in results for c in scope_result):
                 if c["name"] not in seen:
                     seen[c["name"]] = c
             containers = list(seen.values())
+            units = [u for scope_result in unit_results for u in scope_result]
 
             await publisher.publish("stats_update", {
                 "server_id": server_id,
                 "server_name": server_name,
                 "containers": containers,
+                "units": units,
             })
             await _record_health_history(server_id, containers)
+            await _record_unit_events(server_id, units)
 
         except Exception as e:
             logger.error(f"Error polling stats for server {server_id} ({server_name}): {e}")
