@@ -608,6 +608,10 @@ const runningContainersBySid = window.runningContainersBySid = {};
 // Empty string means show all containers.
 let monitorContainerFilter = '';
 
+// Last unhealthy count announced to #monitor-health-status, so repeated
+// SSE ticks with an unchanged count do not re-trigger the live region.
+let lastAnnouncedUnhealthy = null;
+
 // Currently selected container stem in the inspector (lowercase).
 window._selectedContainerStem = null;
 window._selectedContainerServerId = null;
@@ -1144,6 +1148,23 @@ function getHealthBadgeInfo(health) {
     return { badgeClass: 'unhealthy', label: h };
 }
 
+function applyPercentSeverity(td, severityClass) {
+    if (!severityClass) return;
+    const glyph = severityClass === 'cell-danger' ? '▲' : '●';
+    const word = severityClass === 'cell-danger' ? 'high' : 'elevated';
+
+    const flag = document.createElement('span');
+    flag.className = 'cell-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = glyph;
+    td.appendChild(flag);
+
+    const hidden = document.createElement('span');
+    hidden.className = 'visually-hidden';
+    hidden.textContent = word;
+    td.appendChild(hidden);
+}
+
 function renderContainerRow(c) {
     const cpuClass = getPercentClass(parsePercent(c.cpu));
     const memClass = getPercentClass(parsePercent(c.mem));
@@ -1168,11 +1189,13 @@ function renderContainerRow(c) {
     const tdCpu = document.createElement('td');
     tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
     tdCpu.textContent = c.cpu;
+    applyPercentSeverity(tdCpu, cpuClass);
     tr.appendChild(tdCpu);
 
     const tdMem = document.createElement('td');
     tdMem.className = 'p-4 text-right' + (memClass ? ' ' + memClass : '');
     tdMem.textContent = c.mem;
+    applyPercentSeverity(tdMem, memClass);
     tr.appendChild(tdMem);
 
     const tdNet = document.createElement('td');
@@ -1216,9 +1239,18 @@ function renderContainerStatsTable(tableElId, data) {
     headers.forEach(function(h) {
         const th = document.createElement('th');
         th.className = (h.align === 'left' ? 'text-left p-4' : 'p-4 text-right');
+        th.scope = 'col';
         th.textContent = h.text;
         headerRow.appendChild(th);
     });
+
+    // <caption> must be the table's first child per the HTML spec, so it is
+    // appended before <thead>.
+    const caption = document.createElement('caption');
+    caption.className = 'visually-hidden';
+    caption.textContent = 'Container resource usage for ' + (data.server_name || 'server');
+    table.appendChild(caption);
+
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
@@ -1773,10 +1805,33 @@ function updateSummaryStrip(data) {
   if (elUnhealthy) {
     elUnhealthy.textContent = unhealthy;
     elUnhealthy.classList.toggle('danger', unhealthy > 0);
+    if (unhealthy > 0) {
+      const flag = document.createElement('span');
+      flag.className = 'monitor-stat-flag';
+      flag.setAttribute('aria-hidden', 'true');
+      flag.textContent = '⚠';
+      elUnhealthy.appendChild(flag);
+    }
   }
   if (elCpu) elCpu.textContent = containers.length > 0 ? totals.cpu.toFixed(1) + '%' : '—';
   if (elMem) elMem.textContent = containers.length > 0 ? totals.mem.toFixed(1) + '%' : '—';
   if (elBar) elBar.style.display = '';
+
+  // Only rewrite the live region's text when the unhealthy count actually
+  // changes, so unchanged SSE ticks do not re-announce the same state.
+  if (unhealthy !== lastAnnouncedUnhealthy) {
+    const elHealthStatus = document.getElementById('monitor-health-status');
+    if (elHealthStatus) {
+      if (unhealthy === 0) {
+        elHealthStatus.textContent = 'All containers healthy';
+      } else if (unhealthy === 1) {
+        elHealthStatus.textContent = '1 container unhealthy';
+      } else {
+        elHealthStatus.textContent = unhealthy + ' containers unhealthy';
+      }
+    }
+    lastAnnouncedUnhealthy = unhealthy;
+  }
 }
 
 function populateServerSelector() {
