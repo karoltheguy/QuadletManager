@@ -1203,7 +1203,7 @@ function renderContainerStatsTable(tableElId, data) {
 
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    headerRow.className = 'text-muted border-b';
+    headerRow.className = 'text-muted';
 
     const headers = [
         { text: 'Container', align: 'left' },
