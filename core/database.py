@@ -8,9 +8,9 @@ logger = logging.getLogger("quadlet-manager.db")
 
 DATABASE_PATH = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
 
-# Baseline squash: version 1 IS the current schema. Bump this whenever a new
+# Baseline squash: version 1 was the baseline schema. Bump this whenever a new
 # entry is appended to _MIGRATIONS.
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 
 def _is_duplicate_column_error(exc: Exception) -> bool:
@@ -179,21 +179,6 @@ async def _migration_001_baseline(db):
     ])
 
     await db.execute("""
-        CREATE TABLE IF NOT EXISTS unit_state (
-            server_id INTEGER NOT NULL,
-            unit_name TEXT NOT NULL,
-            scope TEXT NOT NULL CHECK(scope IN ('global', 'user')),
-            load_state TEXT,
-            active_state TEXT,
-            sub_state TEXT,
-            n_restarts INTEGER NOT NULL DEFAULT 0,
-            recorded_at INTEGER NOT NULL,
-            PRIMARY KEY (server_id, unit_name, scope),
-            FOREIGN KEY(server_id) REFERENCES servers(id)
-        )
-    """)
-
-    await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_health_history_server_time
         ON container_health_history(server_id, recorded_at)
     """)
@@ -262,7 +247,32 @@ async def _migration_001_baseline(db):
     await db.execute("UPDATE users SET is_admin = 1 WHERE id = 1 AND is_admin = 0")
 
 
-_MIGRATIONS = [_migration_001_baseline]
+async def _migration_002_unit_state(db):
+    """Add the unit_state table holding the latest systemd state per unit.
+
+    Keyed by (server_id, unit_name, scope) and upserted by the stats poller,
+    so it holds current state rather than append-only history and needs no
+    pruning. Quadlet units run `podman run --rm`, so a failed unit has no
+    container and therefore no container_health_history row; unit state has
+    to be keyed by unit instead.
+    """
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS unit_state (
+            server_id INTEGER NOT NULL,
+            unit_name TEXT NOT NULL,
+            scope TEXT NOT NULL CHECK(scope IN ('global', 'user')),
+            load_state TEXT,
+            active_state TEXT,
+            sub_state TEXT,
+            n_restarts INTEGER NOT NULL DEFAULT 0,
+            recorded_at INTEGER NOT NULL,
+            PRIMARY KEY (server_id, unit_name, scope),
+            FOREIGN KEY(server_id) REFERENCES servers(id)
+        )
+    """)
+
+
+_MIGRATIONS = [_migration_001_baseline, _migration_002_unit_state]
 
 
 async def init_db():
