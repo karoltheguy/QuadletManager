@@ -2651,10 +2651,22 @@ window.confirmDeleteFile = function(serverId, path, scope) {
 window.executeDeleteFile = async function(serverId, path, scope) {
     document.getElementById('delete-confirm-modal')?.remove();
 
-    const url = '/api/files?server_id=' + encodeURIComponent(serverId) +
-              '&path=' + encodeURIComponent(path) +
-              '&scope=' + encodeURIComponent(scope);
-    const response = await fetch(url, { method: 'DELETE' });
+    const targetUrl = new URL('/api/files', window.location.origin);
+    targetUrl.searchParams.set('server_id', serverId);
+    targetUrl.searchParams.set('path', path);
+    targetUrl.searchParams.set('scope', scope);
+
+    if (targetUrl.origin !== window.location.origin || targetUrl.pathname !== '/api/files') {
+        console.error('Security Error: Disallowed target URL');
+        return;
+    }
+
+    const response = await fetch(targetUrl.toString(), {
+        method: 'DELETE',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
     const html = await response.text();
 
     const toast = document.getElementById('status-toast');
