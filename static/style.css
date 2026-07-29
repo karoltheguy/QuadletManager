@@ -839,6 +839,7 @@ ul { list-style: none; }
 .mt-6 { margin-top: 1.5rem; }
 .pl-4 { padding-left: 1rem; }
 .p-4 { padding: 1rem; }
+.border-b { border-bottom: 1px solid var(--border-color); }
 
 .text-left { text-align: left; }
 .text-center { text-align: center; }
@@ -1053,9 +1054,10 @@ ul { list-style: none; }
 }
 
 /* Header stays legible while the rows compress, and survives the scroll.
-   The rule must live on the cell, not the row: the markup's `border-b` class
-   is never defined in this stylesheet, and a collapsed-border row rule would
-   scroll away from the stuck cells anyway. */
+   The separator lives on the cell as a box-shadow, not a row border: the
+   table is border-collapse, so a row-level border here would double this
+   line and would scroll away from the stuck cells anyway. That's why the
+   header row deliberately doesn't carry the border-b class body rows use. */
 .monitoring-content #monitoring-stats-table thead th {
     position: sticky;
     top: 0;
@@ -1074,6 +1076,12 @@ ul { list-style: none; }
 #stats-table tbody tr:hover,
 #monitoring-stats-table tbody tr:hover {
     background-color: var(--bg-element);
+}
+
+/* Avoids doubling against the .stats-table-wrapper border (style.css:1015). */
+#stats-table tbody tr:last-child,
+#monitoring-stats-table tbody tr:last-child {
+    border-bottom: none;
 }
 
 /* Toast */
