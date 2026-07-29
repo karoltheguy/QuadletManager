@@ -1,10 +1,10 @@
 /* global htmx, Chart, Terminal, closeLogTab, closeTerminalTab, connectTerminal, healthHistoryChart, loadMonitorCharts, monitoringChart, openBottomPanel, selectMonitoringServer, switchBottomTab, switchLogTab, switchTerminalTab, tailLogsFromPanel, require */
 // ── Server Collapse ───────────────────────────────────────
 window.toggleServerCollapse = function(serverId) {
-    var li = document.querySelector('li[data-server-id="' + serverId + '"]');
+    const li = document.querySelector('li[data-server-id="' + serverId + '"]');
     if (!li) return;
-    var collapsed = li.classList.toggle('is-collapsed');
-    var btn = li.querySelector('.server-row-toggle');
+    const collapsed = li.classList.toggle('is-collapsed');
+    const btn = li.querySelector('.server-row-toggle');
     if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     try {
         localStorage.setItem('qm-server-collapsed-' + serverId, collapsed ? '1' : '0');
@@ -15,8 +15,8 @@ window.toggleServerCollapse = function(serverId) {
 
 function restoreServerCollapseStates() {
     document.querySelectorAll('li[data-server-id]').forEach(function(li) {
-        var id = li.dataset.serverId;
-        var saved;
+        const id = li.dataset.serverId;
+        let saved;
         try {
             saved = localStorage.getItem('qm-server-collapsed-' + id);
         } catch {
@@ -24,14 +24,14 @@ function restoreServerCollapseStates() {
         }
         if (saved === '1') {
             li.classList.add('is-collapsed');
-            var btn = li.querySelector('.server-row-toggle');
+            const btn = li.querySelector('.server-row-toggle');
             if (btn) btn.setAttribute('aria-expanded', 'false');
         }
     });
 }
 
 function handleServerCollapseKey(e, li, sid) {
-    var key = e.key;
+    const key = e.key;
     if (key === 'ArrowLeft' && !li.classList.contains('is-collapsed')) {
         e.preventDefault();
         window.toggleServerCollapse(sid);
@@ -45,9 +45,9 @@ function handleServerCollapseKey(e, li, sid) {
 }
 
 function handleGlobalKeydown(e) {
-    var toggle = e.target.closest('.server-row-toggle');
+    const toggle = e.target.closest('.server-row-toggle');
     if (!toggle) return;
-    var li = toggle.closest('li[data-server-id]');
+    const li = toggle.closest('li[data-server-id]');
     if (!li) return;
     handleServerCollapseKey(e, li, li.dataset.serverId);
 }
@@ -56,13 +56,13 @@ document.addEventListener('keydown', handleGlobalKeydown);
 // ── Profile Menu ─────────────────────────────────────────
 function toggleProfileMenu(event) {
     event.stopPropagation();
-    var menu = document.getElementById('profile-menu');
+    const menu = document.getElementById('profile-menu');
     menu.hidden = !menu.hidden;
 }
 window.toggleProfileMenu = toggleProfileMenu;
 
 document.addEventListener('click', function() {
-    var menu = document.getElementById('profile-menu');
+    const menu = document.getElementById('profile-menu');
     if (menu) menu.hidden = true;
 });
 
@@ -71,12 +71,12 @@ document.addEventListener('click', function() {
 // First click reads the currently-resolved theme and flips to the
 // opposite, then persists to localStorage so the override sticks.
 function toggleTheme() {
-    var root = document.documentElement;
-    var current = root.getAttribute('data-theme');
+    const root = document.documentElement;
+    let current = root.getAttribute('data-theme');
     if (!current) {
         current = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
-    var next = current === 'light' ? 'dark' : 'light';
+    const next = current === 'light' ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
     try {
         localStorage.setItem('qm-theme-override', next);
@@ -90,7 +90,7 @@ window.toggleTheme = toggleTheme;
 
 // ── Density Toggle ───────────────────────────────────────
 window.toggleDensity = function(value) {
-    var root = document.documentElement;
+    const root = document.documentElement;
     if (value === 'compact') {
         root.setAttribute('data-density', 'compact');
     } else {
@@ -104,13 +104,13 @@ window.toggleDensity = function(value) {
 };
 
 function initDensityRadio() {
-    var stored = 'relaxed';
+    let stored = 'relaxed';
     try {
         stored = localStorage.getItem('qm-density') || 'relaxed';
     } catch {
         // Ignore localStorage restrictions
     }
-    var radio = document.getElementById('density-' + stored);
+    const radio = document.getElementById('density-' + stored);
     if (radio) radio.checked = true;
 }
 
@@ -125,13 +125,13 @@ window.toggleEditorTheme = function(value) {
 };
 
 function initEditorThemeRadio() {
-    var stored = 'follow';
+    let stored = 'follow';
     try {
         stored = localStorage.getItem('qm-editor-theme') || 'follow';
     } catch {
         // Ignore localStorage restrictions
     }
-    var radio = document.getElementById('editor-theme-' + stored);
+    const radio = document.getElementById('editor-theme-' + stored);
     if (radio) radio.checked = true;
 }
 
@@ -148,10 +148,10 @@ function linearize(channel) {
 }
 
 function relativeLuminance(hexColor) {
-    var hex = hexColor.replace(/^#/, '');
-    var r = parseInt(hex.substring(0, 2), 16) / 255;
-    var g = parseInt(hex.substring(2, 4), 16) / 255;
-    var b = parseInt(hex.substring(4, 6), 16) / 255;
+    const hex = hexColor.replace(/^#/, '');
+    let r = parseInt(hex.substring(0, 2), 16) / 255;
+    let g = parseInt(hex.substring(2, 4), 16) / 255;
+    let b = parseInt(hex.substring(4, 6), 16) / 255;
     r = linearize(r);
     g = linearize(g);
     b = linearize(b);
@@ -159,19 +159,19 @@ function relativeLuminance(hexColor) {
 }
 
 function contrastRatio(hexA, hexB) {
-    var la = relativeLuminance(hexA);
-    var lb = relativeLuminance(hexB);
-    var lighter = Math.max(la, lb);
-    var darker = Math.min(la, lb);
+    const la = relativeLuminance(hexA);
+    const lb = relativeLuminance(hexB);
+    const lighter = Math.max(la, lb);
+    const darker = Math.min(la, lb);
     return (lighter + 0.05) / (darker + 0.05);
 }
 
-var ON_PRIMARY_CANDIDATES = ['#1c1f24', '#ffffff', '#000000'];
-var WCAG_AA_MIN = 4.5;
+const ON_PRIMARY_CANDIDATES = ['#1c1f24', '#ffffff', '#000000'];
+const WCAG_AA_MIN = 4.5;
 
 function onPrimaryFor(brandHex) {
-    for (var i = 0; i < ON_PRIMARY_CANDIDATES.length; i++) {
-        var candidate = ON_PRIMARY_CANDIDATES[i];
+    for (let i = 0; i < ON_PRIMARY_CANDIDATES.length; i++) {
+        const candidate = ON_PRIMARY_CANDIDATES[i];
         if (contrastRatio(candidate, brandHex) >= WCAG_AA_MIN) return candidate;
     }
     return '#ffffff';
@@ -184,9 +184,9 @@ function onPrimaryFor(brandHex) {
 // #0e7268 -> #ffffff), so emitting it unconditionally here matches what the
 // server would compute either way.
 function applyThemePreview(form) {
-    var mode = form.dataset.mode;
-    var rules = '';
-    var brandPrimary = null;
+    const mode = form.dataset.mode;
+    let rules = '';
+    let brandPrimary = null;
     form.querySelectorAll('input[type="color"][name]').forEach(function(inp) {
         rules += '--' + inp.name.replace(/_/g, '-') + ':' + inp.value + ';';
         if (inp.name === 'brand_primary') brandPrimary = inp.value;
@@ -194,12 +194,12 @@ function applyThemePreview(form) {
     if (brandPrimary) {
         rules += '--brand-on-primary:' + onPrimaryFor(brandPrimary) + ';';
     }
-    var css = ':root[data-theme="' + mode + '"]{' + rules + '}';
-    var el = document.getElementById('qm-theme-preview');
+    const css = ':root[data-theme="' + mode + '"]{' + rules + '}';
+    let el = document.getElementById('qm-theme-preview');
     if (!el) {
         el = document.createElement('style');
         el.id = 'qm-theme-preview';
-        var anchor = document.getElementById('qm-theme-overrides');
+        const anchor = document.getElementById('qm-theme-overrides');
         if (anchor) anchor.insertAdjacentElement('afterend', el);
         else document.head.appendChild(el);
     }
@@ -208,23 +208,23 @@ function applyThemePreview(form) {
 window.applyThemePreview = applyThemePreview;
 
 function clearThemePreview() {
-    var el = document.getElementById('qm-theme-preview');
+    const el = document.getElementById('qm-theme-preview');
     if (el) el.remove();
 }
 
 // ── Hex ⇄ Color-picker sync (event delegation on #themes-root) ───────────────
 document.addEventListener('change', function(e) {
     if (e.target.type === 'color' && e.target.dataset.hexId) {
-        var txt = document.getElementById(e.target.dataset.hexId);
+        const txt = document.getElementById(e.target.dataset.hexId);
         if (txt) txt.value = e.target.value;
     }
 });
 function handleGlobalInput(e) {
     if (!e.target.classList.contains('hex-input')) return;
-    var val = e.target.value;
+    const val = e.target.value;
     if (/^#[0-9a-fA-F]{6}$/.test(val)) {
         e.target.style.outline = '';
-        var picker = document.querySelector('input[type="color"][data-hex-id="' + e.target.id + '"]');
+        const picker = document.querySelector('input[type="color"][data-hex-id="' + e.target.id + '"]');
         if (picker) picker.value = val;
     } else {
         e.target.style.outline = '2px solid red';
@@ -253,10 +253,10 @@ window.setSelectedQuadletBtn = setSelectedQuadletBtn;
 // set by selectContainerStem() — the editor pane is the real state, we're
 // just re-syncing the sidebar visual to match.
 function reapplyQuadletSelection() {
-    var stem = window._selectedContainerStem;
-    var sid  = window._selectedContainerServerId;
+    const stem = window._selectedContainerStem;
+    const sid  = window._selectedContainerServerId;
     if (!stem || !sid) return;
-    var btn = document.querySelector(
+    const btn = document.querySelector(
         '.quadlet-tree-btn[data-stem="' + stem + '"][data-server-id="' + sid + '"]'
     );
     if (btn) btn.classList.add('is-selected');
@@ -265,14 +265,14 @@ function reapplyQuadletSelection() {
 // Uses a once-flag so subsequent tree re-renders don't clobber user clicks.
 function restoreQuadletSelection() {
     if (window._quadletRestored) return;
-    var saved;
+    let saved;
     try {
         saved = JSON.parse(localStorage.getItem('qm-selected-quadlet'));
     } catch {
         // Ignore localStorage restrictions or parsing errors
     }
     if (!saved || !saved.stem || !saved.serverId) return;
-    var btn = document.querySelector(
+    const btn = document.querySelector(
         '.quadlet-tree-btn[data-stem="' + saved.stem + '"][data-server-id="' + saved.serverId + '"]'
     );
     if (!btn) return;
@@ -317,10 +317,10 @@ const manualStops = new Set(); // tracks serverId:stem that we intentionally sto
 const pendingStarts = {}; // tracks stems waiting for active status
 
 function el(tag, attrs, children) {
-    var element = document.createElement(tag);
+    const element = document.createElement(tag);
     if (attrs) {
         Object.keys(attrs).forEach(function(k) {
-            var val = Reflect.get(attrs, k);
+            const val = Reflect.get(attrs, k);
             if (k === 'className') {
                 element.className = val;
             } else if (k === 'style' && typeof val === 'object') {
@@ -359,8 +359,8 @@ function sendNotification(title, body) {
 function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
     Reflect.deleteProperty(pendingStarts, watchId);
     
-    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
-    var isRunning = false;
+    const running = Reflect.get(runningContainersBySid, serverId) || new Set();
+    let isRunning = false;
     running.forEach(function(name) {
         if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
             isRunning = true;
@@ -371,15 +371,15 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
         sendNotification('Success', 'Quadlet ' + stem + ' started successfully');
     } else {
         // Fetch status HTML to extract the error message
-        var statusUrl = '/api/systemctl/status/' + serverId + '?unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope);
+        const statusUrl = '/api/systemctl/status/' + serverId + '?unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope);
         fetch(statusUrl)
             .then(function(res) { return res.text(); })
             .then(function(html) {
-                var doc = new window.DOMParser().parseFromString(html, 'text/html');
-                var lines = doc.body.textContent.split('\n');
-                var errorMsg = 'Unknown error';
-                for (var line of lines) {
-                    var trimmed = line.trim();
+                const doc = new window.DOMParser().parseFromString(html, 'text/html');
+                const lines = doc.body.textContent.split('\n');
+                let errorMsg = 'Unknown error';
+                for (const line of lines) {
+                    const trimmed = line.trim();
                     if (trimmed.indexOf('Failed') !== -1 || trimmed.indexOf('failed with') !== -1 || trimmed.indexOf('error') !== -1) {
                         errorMsg = trimmed;
                         break;
@@ -394,17 +394,17 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
 }
 
 document.body.addEventListener('htmx:beforeRequest', function(evt) {
-    var path = evt.detail.pathInfo.requestPath;
-    var params = evt.detail.requestConfig.parameters || {};
-    var unitName = '';
-    var serverId = null;
-    var scope = '';
-    var action = '';
+    const path = evt.detail.pathInfo.requestPath;
+    const params = evt.detail.requestConfig.parameters || {};
+    let unitName = '';
+    let serverId = null;
+    let scope = '';
+    let action = '';
     
     if (path.indexOf('/api/systemctl/') !== -1) {
-        var urlParts = path.split('?');
+        const urlParts = path.split('?');
         serverId = parseInt(urlParts[0].split('/').pop(), 10);
-        var searchParams = new URLSearchParams(urlParts[1] || window.location.search);
+        const searchParams = new URLSearchParams(urlParts[1] || window.location.search);
         unitName = params.unit || searchParams.get('unit') || '';
         scope = params.scope || searchParams.get('scope') || '';
         action = params.action || searchParams.get('action') || '';
@@ -416,14 +416,14 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
     }
     
     if (unitName && serverId) {
-        var stem = unitName.replace('.service', '').toLowerCase();
-        var watchId = serverId + ':' + stem;
+        const stem = unitName.replace('.service', '').toLowerCase();
+        const watchId = serverId + ':' + stem;
         
         if (action === 'stop') {
             manualStops.add(watchId);
         } else if (action === 'start' || action === 'restart') {
             manualStops.delete(watchId);
-            var pending = Reflect.get(pendingStarts, watchId);
+            const pending = Reflect.get(pendingStarts, watchId);
             if (pending) clearTimeout(pending.timer);
             Reflect.set(pendingStarts, watchId, {
                 unit: unitName,
@@ -438,14 +438,14 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
 });
 
 document.body.addEventListener('htmx:responseError', function(evt) {
-    var xhr = evt.detail.xhr;
-    var toast = document.getElementById('status-toast');
+    const xhr = evt.detail.xhr;
+    const toast = document.getElementById('status-toast');
     if (!toast) return;
 
-    var message = '';
-    var responseText = xhr.responseText || '';
+    let message = '';
+    const responseText = xhr.responseText || '';
     try {
-        var parsed = JSON.parse(responseText);
+        const parsed = JSON.parse(responseText);
         if (parsed && typeof parsed.detail !== 'undefined') {
             message = parsed.detail;
         } else {
@@ -471,10 +471,10 @@ document.body.addEventListener('htmx:responseError', function(evt) {
 });
 
 document.body.addEventListener('user-updated', function(evt) {
-    var toast = document.getElementById('status-toast');
+    const toast = document.getElementById('status-toast');
     if (!toast) return;
 
-    var message = (evt.detail && evt.detail.message) || 'User updated';
+    const message = (evt.detail && evt.detail.message) || 'User updated';
 
     toast.textContent = '';
     toast.appendChild(
@@ -506,17 +506,17 @@ const HISTORY_COLORS = [
 ];
 
 function hexToRgba(hex, alpha) {
-    var r = parseInt(hex.slice(1, 3), 16);
-    var g = parseInt(hex.slice(3, 5), 16);
-    var b = parseInt(hex.slice(5, 7), 16);
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
     return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
 }
 
 function getChartTheme() {
-    var s = getComputedStyle(document.documentElement);
-    var get = function(v) { return s.getPropertyValue(v).trim(); };
-    var brand = get('--brand-primary');
-    var border = get('--border-color');
+    const s = getComputedStyle(document.documentElement);
+    const get = function(v) { return s.getPropertyValue(v).trim(); };
+    const brand = get('--brand-primary');
+    const border = get('--border-color');
     return {
         accent:       brand,
         accentBg:     hexToRgba(brand, 0.6),
@@ -544,8 +544,8 @@ function patchChartOptions(opts, t) {
 }
 
 function applyChartTheme() {
-    var t = getChartTheme();
-    var charts = [statsChart];
+    const t = getChartTheme();
+    const charts = [statsChart];
     if (typeof monitoringChart !== 'undefined' && monitoringChart) {
         charts.push(monitoringChart);
     }
@@ -573,7 +573,7 @@ function applyChartTheme() {
 
 function applyEditorTheme() {
     if (!window.monaco || !window.editor) return;
-    var pref = 'follow';
+    let pref = 'follow';
     try {
         pref = localStorage.getItem('qm-editor-theme') || 'follow';
     } catch {
@@ -584,7 +584,7 @@ function applyEditorTheme() {
     } else if (pref === 'dark') {
         window.monaco.editor.setTheme('vs-dark');
     } else {
-        var resolved = document.documentElement.getAttribute('data-theme');
+        const resolved = document.documentElement.getAttribute('data-theme');
         window.monaco.editor.setTheme(resolved === 'light' ? 'vs' : 'vs-dark');
     }
 }
@@ -601,8 +601,8 @@ const lastStatsPerServer = {};
 
 // Per-server map of currently running container name stems.
 // Key: serverId (int), Value: Set<string> of lowercase container name stems.
-// Declared as var (not const) so page.evaluate() in tests can access it via window.
-var runningContainersBySid = {};
+// Explicitly attached to window so page.evaluate() in tests can access it.
+const runningContainersBySid = window.runningContainersBySid = {};
 
 // Active container name filter for the Monitor view (lowercase substring).
 // Empty string means show all containers.
@@ -629,32 +629,32 @@ window.selectContainerStem = function(stem, serverId, scope) {
     } catch {
         // Ignore localStorage restrictions
     }
-    var emptyEl = document.getElementById('inspector-empty-state');
+    const emptyEl = document.getElementById('inspector-empty-state');
     if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
     updateInspectorStatsCard();
     updateInspectorActivityLog();
 };
 
 function updateInspectorStatsCard() {
-    var card = document.getElementById('container-stats-card');
+    const card = document.getElementById('container-stats-card');
     if (!card) return;
 
-    var stem = window._selectedContainerStem;
-    var serverId = window._selectedContainerServerId;
+    const stem = window._selectedContainerStem;
+    const serverId = window._selectedContainerServerId;
     if (!stem || !serverId) {
         card.classList.add('hidden');
         hideTerminalSection();
         return;
     }
 
-    var serverStats = Reflect.get(lastStatsPerServer, serverId);
-    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
+    const serverStats = Reflect.get(lastStatsPerServer, serverId);
+    const running = Reflect.get(runningContainersBySid, serverId) || new Set();
 
     // Find matching container in stats data
-    var matched = null;
+    let matched = null;
     if (serverStats) {
         (serverStats.containers || []).forEach(function(c) {
-            var cName = (c.name || '').toLowerCase();
+            const cName = (c.name || '').toLowerCase();
             if (cName.indexOf(stem) !== -1 || stem.indexOf(cName) !== -1) {
                 matched = c;
             }
@@ -662,7 +662,7 @@ function updateInspectorStatsCard() {
     }
 
     // Check if container is running (even if stats haven't arrived yet)
-    var isRunning = false;
+    let isRunning = false;
     running.forEach(function(name) {
         if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
             isRunning = true;
@@ -672,7 +672,7 @@ function updateInspectorStatsCard() {
     card.classList.remove('hidden');
 
     // Enable/disable terminal connect button based on running state
-    var connectBtn = document.getElementById('terminal-connect-btn');
+    const connectBtn = document.getElementById('terminal-connect-btn');
     if (connectBtn) connectBtn.disabled = !isRunning;
     // Tabs are user-managed; do not auto-close an existing session when the container stops.
 
@@ -680,7 +680,7 @@ function updateInspectorStatsCard() {
     card.textContent = '';
 
     if (matched) {
-        var gridItems = [
+        const gridItems = [
             { label: 'CPU', value: matched.cpu },
             { label: 'Memory', value: matched.mem },
             { label: 'Net I/O', value: matched.net_io },
@@ -710,11 +710,11 @@ function updateInspectorStatsCard() {
 }
 
 function updateInspectorActivityLog() {
-    var activityLog = document.getElementById('container-activity-log');
+    const activityLog = document.getElementById('container-activity-log');
     if (!activityLog) return;
 
-    var stem = window._selectedContainerStem;
-    var serverId = window._selectedContainerServerId;
+    const stem = window._selectedContainerStem;
+    const serverId = window._selectedContainerServerId;
     if (!stem || !serverId) {
         activityLog.classList.add('hidden');
         return;
@@ -729,10 +729,10 @@ function updateInspectorActivityLog() {
             return response.json();
         })
         .then(function(data) {
-            var listEl = activityLog.querySelector('.activity-list');
+            const listEl = activityLog.querySelector('.activity-list');
             listEl.innerHTML = '';
             if (!data.events || data.events.length === 0) {
-                var emptyDiv = document.createElement('div');
+                const emptyDiv = document.createElement('div');
                 emptyDiv.className = 'text-muted italic p-2';
                 emptyDiv.textContent = 'No events recorded';
                 listEl.appendChild(emptyDiv);
@@ -740,7 +740,7 @@ function updateInspectorActivityLog() {
             }
 
             data.events.forEach(function(event) {
-                var icon = '';
+                let icon = '';
                 switch (event.event_type) {
                     case 'start': icon = '▶'; break;
                     case 'stop': icon = '⏹'; break;
@@ -749,28 +749,28 @@ function updateInspectorActivityLog() {
                     default: icon = '•';
                 }
 
-                var relTime = getRelativeTime(event.occurred_at);
-                var triggeredBy = event.triggered_by ? ' by ' + event.triggered_by : '';
+                const relTime = getRelativeTime(event.occurred_at);
+                const triggeredBy = event.triggered_by ? ' by ' + event.triggered_by : '';
 
-                var itemDiv = document.createElement('div');
+                const itemDiv = document.createElement('div');
                 itemDiv.className = 'activity-item';
 
-                var iconSpan = document.createElement('span');
+                const iconSpan = document.createElement('span');
                 iconSpan.className = 'activity-icon';
                 iconSpan.textContent = icon;
                 itemDiv.appendChild(iconSpan);
 
-                var typeSpan = document.createElement('span');
+                const typeSpan = document.createElement('span');
                 typeSpan.className = 'activity-type';
                 typeSpan.textContent = event.event_type;
                 itemDiv.appendChild(typeSpan);
 
-                var timeSpan = document.createElement('span');
+                const timeSpan = document.createElement('span');
                 timeSpan.className = 'activity-time';
                 timeSpan.textContent = relTime;
                 itemDiv.appendChild(timeSpan);
 
-                var userSpan = document.createElement('span');
+                const userSpan = document.createElement('span');
                 userSpan.className = 'activity-user';
                 userSpan.textContent = triggeredBy;
                 itemDiv.appendChild(userSpan);
@@ -780,9 +780,9 @@ function updateInspectorActivityLog() {
         })
         .catch(function(err) {
             console.error('Error fetching activity:', err);
-            var listEl = activityLog.querySelector('.activity-list');
+            const listEl = activityLog.querySelector('.activity-list');
             listEl.innerHTML = '';
-            var errorDiv = document.createElement('div');
+            const errorDiv = document.createElement('div');
             errorDiv.className = 'text-muted italic p-2';
             errorDiv.textContent = 'Failed to load activity';
             listEl.appendChild(errorDiv);
@@ -790,8 +790,8 @@ function updateInspectorActivityLog() {
 }
 
 function getRelativeTime(timestamp) {
-    var now = Math.floor(Date.now() / 1000);
-    var diff = now - timestamp;
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
 
     if (diff < 60) return 'just now';
     if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
@@ -806,13 +806,13 @@ window.setActiveServer = function(serverId) {
     if (window.activeServerId === serverId) return;
     window.activeServerId = serverId;
     // Re-render immediately with cached data for this server, if we have it.
-    var cached = Reflect.get(lastStatsPerServer, serverId);
+    const cached = Reflect.get(lastStatsPerServer, serverId);
     if (cached) {
         updateStats(cached);
         applyStatusDots(serverId);
     } else {
         // No data yet for this server – show a waiting message.
-        var tableEl = document.getElementById('stats-table');
+        const tableEl = document.getElementById('stats-table');
         if (tableEl) {
             tableEl.textContent = '';
             tableEl.appendChild(el('div', { className: 'p-4 text-muted italic' }, 'Waiting for stats data...'));
@@ -839,24 +839,24 @@ window.setActiveServer = function(serverId) {
  * @param {number} serverId
  */
 function applyStatusDots(serverId) {
-    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
-    var serverStats = Reflect.get(lastStatsPerServer, serverId);
-    var containersByName = {};
+    const running = Reflect.get(runningContainersBySid, serverId) || new Set();
+    const serverStats = Reflect.get(lastStatsPerServer, serverId);
+    const containersByName = {};
     if (serverStats) {
         (serverStats.containers || []).forEach(function(c) {
             Reflect.set(containersByName, (c.name || '').toLowerCase(), c);
         });
     }
 
-    var dots = document.querySelectorAll('.status-dot[data-server-id="' + serverId + '"]');
+    const dots = document.querySelectorAll('.status-dot[data-server-id="' + serverId + '"]');
     dots.forEach(function(dot) {
-        var stem = (dot.dataset.unitStem || '').toLowerCase();
-        var isRunning = false;
-        var matchedContainer = null;
+        const stem = (dot.dataset.unitStem || '').toLowerCase();
+        let isRunning = false;
+        let matchedContainer = null;
         running.forEach(function(name) {
             if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
                 isRunning = true;
-                var matched = Reflect.get(containersByName, name);
+                const matched = Reflect.get(containersByName, name);
                 if (matched) matchedContainer = matched;
             }
         });
@@ -875,7 +875,7 @@ function applyStatusDots(serverId) {
 
 
 function buildBarChartConfig() {
-  var t = getChartTheme();
+  const t = getChartTheme();
   return {
     type: 'bar',
     data: {
@@ -954,7 +954,7 @@ function initStatsChart() {
 }
 
 function _buildTimeSeriesConfig() {
-  var t = getChartTheme();
+  const t = getChartTheme();
   return {
     type: 'line',
     data: { labels: [], datasets: [] },
@@ -1005,13 +1005,13 @@ function _buildTimeSeriesConfig() {
 }
 
 function initCpuChart() {
-  var ctx = document.getElementById('cpu-history-chart');
+  const ctx = document.getElementById('cpu-history-chart');
   if (!ctx) return;
   cpuHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
 
 function initMemChart() {
-  var ctx = document.getElementById('mem-history-chart');
+  const ctx = document.getElementById('mem-history-chart');
   if (!ctx) return;
   memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
@@ -1026,14 +1026,14 @@ window.loadMonitorCharts = function(minutes, btnEl) {
     btnEl.classList.add('active');
   }
 
-  var serverId = window.activeServerId;
+  const serverId = window.activeServerId;
   if (!serverId) return;
 
   fetch('/api/health/history/' + serverId + '?minutes=' + minutes)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var emptyEl = document.getElementById('monitor-charts-empty');
-      var errorEl = document.getElementById('monitor-charts-error');
+      const emptyEl = document.getElementById('monitor-charts-empty');
+      const errorEl = document.getElementById('monitor-charts-error');
       if (errorEl) errorEl.style.display = 'none';
 
       if (!data || data.length === 0) {
@@ -1045,17 +1045,17 @@ window.loadMonitorCharts = function(minutes, btnEl) {
       if (!cpuHistoryChart || !memHistoryChart) return;
 
       // Build unified sorted timestamp labels from all containers
-      var tsSet = new Set();
+      const tsSet = new Set();
       data.forEach(function(c) { c.history.forEach(function(p) { tsSet.add(p.ts); }); });
-      var tsSorted = Array.from(tsSet).sort(function(a, b) { return a - b; });
+      const tsSorted = Array.from(tsSet).sort(function(a, b) { return a - b; });
 
-      var _rangeMinutes = window._monitorChartMinutes;
-      var _dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      var labels = tsSorted.map(function(ts) {
-        var d = new Date(ts * 1000);
-        var hh = d.getHours().toString().padStart(2, '0');
-        var mm = d.getMinutes().toString().padStart(2, '0');
-        var ss = d.getSeconds().toString().padStart(2, '0');
+      const _rangeMinutes = window._monitorChartMinutes;
+      const _dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const labels = tsSorted.map(function(ts) {
+        const d = new Date(ts * 1000);
+        const hh = d.getHours().toString().padStart(2, '0');
+        const mm = d.getMinutes().toString().padStart(2, '0');
+        const ss = d.getSeconds().toString().padStart(2, '0');
         if (_rangeMinutes <= 60) {
           return hh + ':' + mm + ':' + ss;
         } else if (_rangeMinutes <= 1440) {
@@ -1066,18 +1066,18 @@ window.loadMonitorCharts = function(minutes, btnEl) {
       });
 
       // Apply container filter to chart data
-      var filteredData = monitorContainerFilter
+      const filteredData = monitorContainerFilter
         ? data.filter(function(c) { return (c.container_name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
         : data;
 
-      var cpuDatasets = filteredData.map(function(c, i) {
-        var byTs = {};
+      const cpuDatasets = filteredData.map(function(c, i) {
+        const byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.cpu !== null ? p.cpu : null); });
-        var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
+        const color = HISTORY_COLORS[i % HISTORY_COLORS.length];
         return {
           label: c.container_name,
           data: tsSorted.map(function(ts) {
-            var val = Reflect.get(byTs, ts);
+            const val = Reflect.get(byTs, ts);
             return val !== undefined ? val : null;
           }),
           borderColor: color,
@@ -1089,14 +1089,14 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         };
       });
 
-      var memDatasets = filteredData.map(function(c, i) {
-        var byTs = {};
+      const memDatasets = filteredData.map(function(c, i) {
+        const byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.mem !== null ? p.mem : null); });
-        var color = HISTORY_COLORS[i % HISTORY_COLORS.length];
+        const color = HISTORY_COLORS[i % HISTORY_COLORS.length];
         return {
           label: c.container_name,
           data: tsSorted.map(function(ts) {
-            var val = Reflect.get(byTs, ts);
+            const val = Reflect.get(byTs, ts);
             return val !== undefined ? val : null;
           }),
           borderColor: color,
@@ -1118,7 +1118,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
     })
     .catch(function(err) {
       console.error('Monitor chart fetch error:', err);
-      var errorEl = document.getElementById('monitor-charts-error');
+      const errorEl = document.getElementById('monitor-charts-error');
       if (errorEl) errorEl.style.display = '';
     });
 };
@@ -1137,7 +1137,7 @@ function getPercentClass(val) {
 }
 
 function getHealthBadgeInfo(health) {
-    var h = health || '';
+    const h = health || '';
     if (h === '') return { badgeClass: 'running', label: 'running' };
     if (h === 'healthy') return { badgeClass: 'healthy', label: h };
     if (h === 'starting') return { badgeClass: 'starting', label: h };
@@ -1145,37 +1145,37 @@ function getHealthBadgeInfo(health) {
 }
 
 function renderContainerRow(c) {
-    var cpuClass = getPercentClass(parsePercent(c.cpu));
-    var memClass = getPercentClass(parsePercent(c.mem));
-    var badgeInfo = getHealthBadgeInfo(c.health);
+    const cpuClass = getPercentClass(parsePercent(c.cpu));
+    const memClass = getPercentClass(parsePercent(c.mem));
+    const badgeInfo = getHealthBadgeInfo(c.health);
 
-    var tr = document.createElement('tr');
+    const tr = document.createElement('tr');
     tr.className = 'border-b';
 
-    var tdName = document.createElement('td');
+    const tdName = document.createElement('td');
     tdName.className = 'text-left p-4 text-accent font-semibold';
     tdName.textContent = c.name;
     tr.appendChild(tdName);
 
-    var tdStatus = document.createElement('td');
+    const tdStatus = document.createElement('td');
     tdStatus.className = 'p-4 text-left';
-    var badgeSpan = document.createElement('span');
+    const badgeSpan = document.createElement('span');
     badgeSpan.className = 'stat-badge ' + badgeInfo.badgeClass;
     badgeSpan.textContent = badgeInfo.label;
     tdStatus.appendChild(badgeSpan);
     tr.appendChild(tdStatus);
 
-    var tdCpu = document.createElement('td');
+    const tdCpu = document.createElement('td');
     tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
     tdCpu.textContent = c.cpu;
     tr.appendChild(tdCpu);
 
-    var tdMem = document.createElement('td');
+    const tdMem = document.createElement('td');
     tdMem.className = 'p-4 text-right' + (memClass ? ' ' + memClass : '');
     tdMem.textContent = c.mem;
     tr.appendChild(tdMem);
 
-    var tdNet = document.createElement('td');
+    const tdNet = document.createElement('td');
     tdNet.className = 'p-4 text-right net-io-cell';
     tdNet.textContent = c.net_io;
     tr.appendChild(tdNet);
@@ -1184,28 +1184,28 @@ function renderContainerRow(c) {
 }
 
 function renderContainerStatsTable(tableElId, data) {
-    var tableEl = document.getElementById(tableElId);
+    const tableEl = document.getElementById(tableElId);
     if (!tableEl) return;
 
     tableEl.innerHTML = '';
     const containers = data.containers || [];
 
     if (containers.length === 0) {
-        var emptyDiv = document.createElement('div');
+        const emptyDiv = document.createElement('div');
         emptyDiv.className = 'p-4 text-muted italic';
         emptyDiv.textContent = 'No containers running on ' + (data.server_name || 'server');
         tableEl.appendChild(emptyDiv);
         return;
     }
 
-    var table = document.createElement('table');
+    const table = document.createElement('table');
     table.className = 'w-full';
 
-    var thead = document.createElement('thead');
-    var headerRow = document.createElement('tr');
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
     headerRow.className = 'text-muted border-b';
 
-    var headers = [
+    const headers = [
         { text: 'Container', align: 'left' },
         { text: 'Status', align: 'left' },
         { text: 'CPU', align: 'right' },
@@ -1214,7 +1214,7 @@ function renderContainerStatsTable(tableElId, data) {
     ];
 
     headers.forEach(function(h) {
-        var th = document.createElement('th');
+        const th = document.createElement('th');
         th.className = (h.align === 'left' ? 'text-left p-4' : 'p-4 text-right');
         th.textContent = h.text;
         headerRow.appendChild(th);
@@ -1222,15 +1222,15 @@ function renderContainerStatsTable(tableElId, data) {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    var tbody = document.createElement('tbody');
+    const tbody = document.createElement('tbody');
     containers.forEach(function(c) {
-        var tr = renderContainerRow(c);
+        const tr = renderContainerRow(c);
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     tableEl.appendChild(table);
 
-    var footerDiv = document.createElement('div');
+    const footerDiv = document.createElement('div');
     footerDiv.className = 'p-4 text-muted text-right text-xs';
     footerDiv.textContent = data.server_name || '';
     tableEl.appendChild(footerDiv);
@@ -1252,11 +1252,11 @@ function updateStats(data) {
 
 
 function isManualStop(serverId, oldName) {
-  var wasManual = false;
+  let wasManual = false;
   manualStops.forEach(function(manualKey) {
-    var parts = manualKey.split(':');
-    var mServerId = parseInt(parts[0], 10);
-    var mStem = parts[1];
+    const parts = manualKey.split(':');
+    const mServerId = parseInt(parts[0], 10);
+    const mStem = parts[1];
     if (mServerId === serverId && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
       wasManual = true;
     }
@@ -1277,9 +1277,9 @@ function detectUnexpectedlyStopped(serverId, oldSet, runningSet) {
 function cacheServerStats(data) {
   Reflect.set(lastStatsPerServer, data.server_id, data);
 
-  var oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
+  const oldSet = Reflect.get(runningContainersBySid, data.server_id) || new Set();
 
-  var runningSet = new Set();
+  const runningSet = new Set();
   (data.containers || []).forEach(function(c) {
     runningSet.add((c.name || '').toLowerCase());
   });
@@ -1290,11 +1290,11 @@ function cacheServerStats(data) {
 
 function handleStatsUpdate(e) {
   try {
-    var data = JSON.parse(e.data);
+    const data = JSON.parse(e.data);
     _statsReceived = true;
     if (_statsWaitTimeout) { clearTimeout(_statsWaitTimeout); _statsWaitTimeout = null; }
 
-    var sets = cacheServerStats(data);
+    const sets = cacheServerStats(data);
 
     detectUnexpectedlyStopped(data.server_id, sets.oldSet, sets.runningSet);
 
@@ -1312,7 +1312,7 @@ function handleStatsUpdate(e) {
 
     if (data.server_id !== window.activeServerId) return;
 
-    var tableEl = document.getElementById('stats-table');
+    const tableEl = document.getElementById('stats-table');
     if (tableEl) tableEl.classList.remove('stats-error');
     updateStats(data);
     updateMonitoringView(data);
@@ -1322,12 +1322,12 @@ function handleStatsUpdate(e) {
 }
 
 // ── Poll Health Badges ───────────────────────────────────
-var _pollHealthState = {};
+const _pollHealthState = {};
 
 function updatePollHealth(data) {
   if (!data || data.scope !== 'server') return;
   _pollHealthState[data.server_id] = data;
-  var badge = document.querySelector(".server-poll-warning[data-server-id=\"" + data.server_id + "\"]");
+  const badge = document.querySelector(".server-poll-warning[data-server-id=\"" + data.server_id + "\"]");
   if (!badge) return;
   if (data.healthy) {
     badge.setAttribute('hidden', '');
@@ -1350,7 +1350,7 @@ function applyPollHealthBadges() {
 
 function updateCycleIndicator(cycle) {
   if (!cycle) return;
-  var indicator = document.getElementById('sync-cycle-indicator');
+  const indicator = document.getElementById('sync-cycle-indicator');
   if (!indicator) return;
   indicator.textContent = 'Sync cycle: ' + Number(cycle.duration).toFixed(1) + 's / ' + cycle.interval + 's';
   indicator.removeAttribute('hidden');
@@ -1362,7 +1362,7 @@ function fetchPollHealthSnapshot() {
     .then(function(resp) { return resp.json(); })
     .then(function(snapshot) {
       Object.keys(snapshot.servers || {}).forEach(function(serverId) {
-        var entry = snapshot.servers[serverId];
+        const entry = snapshot.servers[serverId];
         _pollHealthState[serverId] = {
           scope: 'server',
           server_id: serverId,
@@ -1382,7 +1382,7 @@ function fetchPollHealthSnapshot() {
 
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
-  var evtSource = new EventSource('/api/events');
+  const evtSource = new EventSource('/api/events');
 
   // Stats updates (every 5s from stats_engine)
   evtSource.addEventListener('stats_update', handleStatsUpdate);
@@ -1398,7 +1398,7 @@ function connectSSE() {
   // Poll health events (from sync poller, per-server scope only)
   evtSource.addEventListener('poll_health', function(e) {
     try {
-      var data = JSON.parse(e.data);
+      const data = JSON.parse(e.data);
       if (data.scope === 'cycle') {
         updateCycleIndicator(data);
       } else {
@@ -1412,15 +1412,15 @@ function connectSSE() {
   // Stats error events (when podman is unreachable/timed out)
   evtSource.addEventListener('stats_error', function(e) {
     try {
-      var data = JSON.parse(e.data);
-      var tableEl = document.getElementById('stats-table');
+      const data = JSON.parse(e.data);
+      const tableEl = document.getElementById('stats-table');
       if (tableEl) {
         tableEl.classList.add('stats-error');
         tableEl.textContent = '';
         tableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
       }
       // Also show error in monitoring table
-      var monitoringTableEl = document.getElementById('monitoring-stats-table');
+      const monitoringTableEl = document.getElementById('monitoring-stats-table');
       if (monitoringTableEl) {
         monitoringTableEl.textContent = '';
         monitoringTableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
@@ -1433,8 +1433,8 @@ function connectSSE() {
     // File change notifications (from sync_engine)
     evtSource.addEventListener('file_changed', function(e) {
         try {
-            var data = JSON.parse(e.data);
-            var toast = document.getElementById('status-toast');
+            const data = JSON.parse(e.data);
+            const toast = document.getElementById('status-toast');
             if (toast) {
                 toast.textContent = '';
                 toast.appendChild(
@@ -1469,11 +1469,11 @@ function handleContainersTabActivation() {
   if (localStorage.getItem('qm-inspector-expanded') === 'true') {
     document.body.classList.add('inspector-expanded');
   }
-  var panelOpen = localStorage.getItem('qm-bottom-panel-open');
+  const panelOpen = localStorage.getItem('qm-bottom-panel-open');
   if (panelOpen !== '0') {
     openBottomPanel();
   }
-  var panel = document.getElementById('bottom-panel');
+  const panel = document.getElementById('bottom-panel');
   if (panel && panel.classList.contains('is-expanded')) {
     document.body.classList.add('bottom-panel-expanded');
   }
@@ -1519,7 +1519,7 @@ window.switchTab = function(tabId) {
 // settings pane is display:none, making HTMX event-timing unreliable. Refresh
 // explicitly whenever the dropdown becomes visible instead (issue #86).
 function refreshSshKeyDropdown() {
-  var sel = document.querySelector('select[name="ssh_key_id"]');
+  const sel = document.querySelector('select[name="ssh_key_id"]');
   if (sel) htmx.ajax('GET', '/api/keys/options', {target: sel, swap: 'innerHTML'});
 }
 
@@ -1529,7 +1529,7 @@ window.showSettingsSection = function(name) {
     g.style.display = g.dataset.group === name ? 'grid' : 'none';
   });
   document.querySelectorAll('.settings-sidenav-item').forEach(function(btn) {
-    var isActive = btn.dataset.section === name;
+    const isActive = btn.dataset.section === name;
     btn.classList.toggle('active', isActive);
     if (isActive) {
       btn.setAttribute('aria-current', 'true');
@@ -1545,15 +1545,15 @@ window.showSettingsSection = function(name) {
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
 function syncInspectorToggleBtn() {
-  var btn = document.getElementById('inspector-expand-btn');
+  const btn = document.getElementById('inspector-expand-btn');
   if (!btn) return;
-  var expanded = document.body.classList.contains('inspector-expanded');
+  const expanded = document.body.classList.contains('inspector-expanded');
   btn.title = expanded ? 'Restore inspector' : 'Collapse inspector';
   btn.setAttribute('aria-label', btn.title);
 }
 
 window.toggleInspectorExpand = function() {
-  var expanded = document.body.classList.toggle('inspector-expanded');
+  const expanded = document.body.classList.toggle('inspector-expanded');
   localStorage.setItem('qm-inspector-expanded', expanded ? 'true' : 'false');
   syncInspectorToggleBtn();
   // Monaco must re-layout after the inspector width changes
@@ -1564,18 +1564,18 @@ window.toggleInspectorExpand = function() {
 function showMonitoringEmptyState(emptyEl, contentEl) {
   if (emptyEl) emptyEl.style.display = '';
   if (contentEl) contentEl.style.display = 'none';
-  var barEl = document.getElementById('monitor-stat-bar');
+  const barEl = document.getElementById('monitor-stat-bar');
   if (barEl) barEl.style.display = 'none';
   window._monitoringServerId = null;
 }
 
 function renderMonitoringServerStats(numId) {
-  var cached = Reflect.get(lastStatsPerServer, numId);
+  const cached = Reflect.get(lastStatsPerServer, numId);
   if (cached) {
     updateMonitoringView(cached);
     loadMonitorCharts(window._monitorChartMinutes || 15);
   } else {
-    var tableEl = document.getElementById('monitoring-stats-table');
+    const tableEl = document.getElementById('monitoring-stats-table');
     if (tableEl) {
       tableEl.textContent = '';
       tableEl.appendChild(el('div', { className: 'p-4 text-muted italic' }, 'Waiting for stats data...'));
@@ -1595,9 +1595,9 @@ window.selectMonitoringServer = function(serverId) {
   } catch {
     // Ignore localStorage restrictions
   }
-  var numId = parseInt(serverId, 10);
-  var emptyEl = document.getElementById('monitoring-empty-state');
-  var contentEl = document.getElementById('monitoring-content');
+  const numId = parseInt(serverId, 10);
+  const emptyEl = document.getElementById('monitoring-empty-state');
+  const contentEl = document.getElementById('monitoring-content');
 
   if (!numId) {
     showMonitoringEmptyState(emptyEl, contentEl);
@@ -1622,8 +1622,8 @@ function updateMonitoringView(data) {
   // Apply the active filter to every part of the pane: table, charts and the
   // glance bar all narrow together, so the numbers always describe what is
   // on screen.
-  var allContainers = data.containers || [];
-  var containers = monitorContainerFilter
+  const allContainers = data.containers || [];
+  const containers = monitorContainerFilter
     ? allContainers.filter(function(c) {
         return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1;
       })
@@ -1633,36 +1633,36 @@ function updateMonitoringView(data) {
 
   // Append the latest SSE data point to the live time-series charts.
   if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
-    var now = new Date();
-    var timeLabel = now.getHours().toString().padStart(2, '0') + ':' +
+    const now = new Date();
+    const timeLabel = now.getHours().toString().padStart(2, '0') + ':' +
                     now.getMinutes().toString().padStart(2, '0') + ':' +
                     now.getSeconds().toString().padStart(2, '0');
-    var windowSec = (window._monitorChartMinutes || 15) * 60;
+    const windowSec = (window._monitorChartMinutes || 15) * 60;
 
-    var appendToChart = function(chart, valueKey) {
+    const appendToChart = function(chart, valueKey) {
       if (!chart) return;
-      var containersToShow = monitorContainerFilter
+      const containersToShow = monitorContainerFilter
         ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
         : allContainers;
 
       // Drop datasets for containers the filter no longer matches; otherwise a
       // series drawn before the filter was typed stays on the canvas with
       // nothing appending to it, since this path never refetches history.
-      var visibleNames = {};
+      const visibleNames = {};
       containersToShow.forEach(function(c) { visibleNames[c.name] = true; });
       chart.data.datasets = chart.data.datasets.filter(function(ds) { return visibleNames[ds.label]; });
 
       // Build a map of current dataset labels for quick lookup
-      var datasetByName = {};
+      const datasetByName = {};
       chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
 
       containersToShow.forEach(function(c) {
-        var val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
+        const val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
         if (datasetByName[c.name]) {
           datasetByName[c.name].data.push(val);
         } else {
           // New container not yet in chart — add a new dataset
-          var color = HISTORY_COLORS[chart.data.datasets.length % HISTORY_COLORS.length];
+          const color = HISTORY_COLORS[chart.data.datasets.length % HISTORY_COLORS.length];
           chart.data.datasets.push({
             label: c.name,
             data: [val],
@@ -1700,7 +1700,7 @@ function updateMonitoringView(data) {
 // container list, so this reports what the table and charts are showing and
 // not the stopped containers the glance bar also counts.
 function updateFilterCount(shown, total) {
-  var el = document.getElementById('monitor-filter-count');
+  const el = document.getElementById('monitor-filter-count');
   if (!el) return;
 
   if (!monitorContainerFilter) {
@@ -1715,8 +1715,8 @@ function updateFilterCount(shown, total) {
 
 function applyContainerFilter(value) {
   monitorContainerFilter = (value || '').toLowerCase().trim();
-  var serverId = window._monitoringServerId;
-  var cached = Reflect.get(lastStatsPerServer, serverId);
+  const serverId = window._monitoringServerId;
+  const cached = Reflect.get(lastStatsPerServer, serverId);
   if (serverId && cached) {
     updateMonitoringView(cached);
   }
@@ -1724,8 +1724,8 @@ function applyContainerFilter(value) {
 window.applyContainerFilter = applyContainerFilter;
 
 function computeServerTotals(containers) {
-  var list = containers || [];
-  var totals = { cpu: 0, mem: 0 };
+  const list = containers || [];
+  const totals = { cpu: 0, mem: 0 };
   list.forEach(function(c) {
     totals.cpu += parsePercent(c.cpu);
     totals.mem += parsePercent(c.mem);
@@ -1735,7 +1735,7 @@ function computeServerTotals(containers) {
 
 function updateSummaryStrip(data) {
   const containers = data.containers || [];
-  var units = data.units;
+  const units = data.units;
 
   let total, running, stopped;
   if (units === undefined || units === null) {
@@ -1754,18 +1754,18 @@ function updateSummaryStrip(data) {
     stopped = total - running;
   }
 
-  var unhealthy = containers.filter(function(c) {
+  const unhealthy = containers.filter(function(c) {
     return c.health && c.health !== 'healthy';
   }).length;
-  var totals = computeServerTotals(containers);
+  const totals = computeServerTotals(containers);
 
-  var elTotal     = document.getElementById('mstat-total');
-  var elRunning   = document.getElementById('mstat-running');
-  var elStopped   = document.getElementById('mstat-stopped');
-  var elUnhealthy = document.getElementById('mstat-unhealthy');
-  var elCpu       = document.getElementById('mstat-cpu');
-  var elMem       = document.getElementById('mstat-mem');
-  var elBar       = document.getElementById('monitor-stat-bar');
+  const elTotal     = document.getElementById('mstat-total');
+  const elRunning   = document.getElementById('mstat-running');
+  const elStopped   = document.getElementById('mstat-stopped');
+  const elUnhealthy = document.getElementById('mstat-unhealthy');
+  const elCpu       = document.getElementById('mstat-cpu');
+  const elMem       = document.getElementById('mstat-mem');
+  const elBar       = document.getElementById('monitor-stat-bar');
 
   if (elTotal)     elTotal.textContent     = total;
   if (elRunning)   elRunning.textContent   = running;
@@ -1780,7 +1780,7 @@ function updateSummaryStrip(data) {
 }
 
 function populateServerSelector() {
-  var select = document.getElementById('monitoring-server-select');
+  const select = document.getElementById('monitoring-server-select');
   if (!select) return;
 
   // Clear existing options except the placeholder
@@ -1789,8 +1789,8 @@ function populateServerSelector() {
 
   // Add servers from the cached stats data
   Object.keys(lastStatsPerServer).forEach(function(serverId) {
-    var data = Reflect.get(lastStatsPerServer, serverId);
-    var option = document.createElement('option');
+    const data = Reflect.get(lastStatsPerServer, serverId);
+    const option = document.createElement('option');
     option.value = serverId;
     option.textContent = data.server_name || ('Server ' + serverId);
     if (parseInt(serverId, 10) === window.activeServerId) {
@@ -1801,13 +1801,13 @@ function populateServerSelector() {
 
   // Restore saved monitor server on first population if not yet selected.
   if (!window._monitoringServerId) {
-    var savedServer;
+    let savedServer;
     try {
       savedServer = localStorage.getItem('qm-monitor-server');
     } catch {
       // Ignore localStorage restrictions
     }
-    var cachedSaved = Reflect.get(lastStatsPerServer, savedServer);
+    const cachedSaved = Reflect.get(lastStatsPerServer, savedServer);
     if (savedServer && cachedSaved) {
       select.value = savedServer;
       selectMonitoringServer(savedServer);
@@ -1825,9 +1825,9 @@ function loadFitAddon(callback) {
 // Sessions strip (#terminal-conn-tabs) is shared by terminal and log chips, so its
 // .has-tabs visibility must reflect both maps, not just whichever kind changed.
 function refreshSessionsStripVisibility() {
-    var tabsEl = document.getElementById('terminal-conn-tabs');
+    const tabsEl = document.getElementById('terminal-conn-tabs');
     if (!tabsEl) return;
-    var hasAny = window._terminalTabs.size > 0 || window._logTabs.size > 0;
+    const hasAny = window._terminalTabs.size > 0 || window._logTabs.size > 0;
     tabsEl.classList.toggle('has-tabs', hasAny);
 }
 
@@ -1836,7 +1836,7 @@ function hideTerminalSection() {
 }
 
 function showTerminalMessage(msg) {
-    var hint = document.getElementById('terminal-empty-hint');
+    const hint = document.getElementById('terminal-empty-hint');
     if (hint) {
         hint.textContent = msg;
         hint.style.display = '';
@@ -1850,37 +1850,37 @@ function showTerminalMessage(msg) {
 
 // ── Bottom Panel Management ───────────────────────────────
 window.openBottomPanel = function(tab) {
-    var panel = document.getElementById('bottom-panel');
+    const panel = document.getElementById('bottom-panel');
     if (!panel) return;
     panel.classList.remove('is-collapsed');
-    var body = panel.querySelector('.bottom-panel-body');
-    var handle = document.getElementById('bottom-panel-resize-handle');
+    const body = panel.querySelector('.bottom-panel-body');
+    const handle = document.getElementById('bottom-panel-resize-handle');
     if (body) body.classList.remove('hidden');
     if (handle) handle.classList.remove('hidden');
     localStorage.setItem('qm-bottom-panel-open', '1');
     if (tab) switchBottomTab(tab);
-    var key = window._activeTerminalTabKey;
+    const key = window._activeTerminalTabKey;
     if (key) {
-        var session = window._terminalTabs.get(key);
+        const session = window._terminalTabs.get(key);
         if (session && session.fitAddon) session.fitAddon.fit();
     }
 };
 
 function fitActiveTerminal() {
-    var key = window._activeTerminalTabKey;
+    const key = window._activeTerminalTabKey;
     if (!key) return;
-    var session = window._terminalTabs.get(key);
+    const session = window._terminalTabs.get(key);
     if (session && session.fitAddon) {
         session.fitAddon.fit();
     }
 }
 
 window.toggleBottomPanel = function() {
-    var panel = document.getElementById('bottom-panel');
+    const panel = document.getElementById('bottom-panel');
     if (!panel) return;
-    var isCollapsed = panel.classList.toggle('is-collapsed');
-    var body = panel.querySelector('.bottom-panel-body');
-    var handle = document.getElementById('bottom-panel-resize-handle');
+    const isCollapsed = panel.classList.toggle('is-collapsed');
+    const body = panel.querySelector('.bottom-panel-body');
+    const handle = document.getElementById('bottom-panel-resize-handle');
     if (body) body.classList.toggle('hidden', isCollapsed);
     if (handle) handle.classList.toggle('hidden', isCollapsed);
     localStorage.setItem('qm-bottom-panel-open', isCollapsed ? '0' : '1');
@@ -1890,19 +1890,19 @@ window.toggleBottomPanel = function() {
 };
 
 window.toggleBottomPanelExpand = function() {
-    var panel = document.getElementById('bottom-panel');
+    const panel = document.getElementById('bottom-panel');
     if (!panel) return;
-    var expanded = panel.classList.toggle('is-expanded');
+    const expanded = panel.classList.toggle('is-expanded');
     document.body.classList.toggle('bottom-panel-expanded', expanded);
     localStorage.setItem('qm-bottom-panel-expanded', expanded ? '1' : '0');
-    var btn = document.getElementById('bottom-panel-expand-btn');
+    const btn = document.getElementById('bottom-panel-expand-btn');
     if (btn) {
         btn.title = expanded ? 'Align with editor' : 'Expand panel to full width';
         btn.setAttribute('aria-label', btn.title);
     }
-    var key = window._activeTerminalTabKey;
+    const key = window._activeTerminalTabKey;
     if (key) {
-        var session = window._terminalTabs.get(key);
+        const session = window._terminalTabs.get(key);
         if (session && session.fitAddon) session.fitAddon.fit();
     }
 };
@@ -1914,33 +1914,33 @@ window.switchBottomTab = function(pane) {
         // Ignore localStorage restrictions
     }
     document.querySelectorAll('.bottom-tab').forEach(function(btn) {
-        var isActive = btn.dataset.pane === pane;
+        const isActive = btn.dataset.pane === pane;
         btn.classList.toggle('is-active', isActive);
         btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
     document.querySelectorAll('.bottom-pane').forEach(function(p) {
         p.classList.toggle('hidden', p.id !== 'bottom-' + pane + '-pane');
     });
-    var controls = document.querySelector('.terminal-controls');
+    const controls = document.querySelector('.terminal-controls');
     if (controls) controls.classList.toggle('hidden', pane !== 'terminal');
-    var logsControls = document.querySelector('.logs-controls');
+    const logsControls = document.querySelector('.logs-controls');
     if (logsControls) logsControls.classList.toggle('hidden', pane !== 'logs');
     document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
         el.classList.remove('is-active');
     });
     if (pane === 'terminal') {
-        var key = window._activeTerminalTabKey;
+        const key = window._activeTerminalTabKey;
         if (key) {
             document.querySelectorAll('.terminal-conn-tab').forEach(function(el) {
                 el.classList.toggle('is-active', el.dataset.key === key);
             });
-            var session = window._terminalTabs.get(key);
+            const session = window._terminalTabs.get(key);
             if (session && session.fitAddon) {
                 setTimeout(function() { session.fitAddon.fit(); }, 50);
             }
         }
     } else if (pane === 'logs') {
-        var logKey = window._activeLogTabKey;
+        const logKey = window._activeLogTabKey;
         if (logKey) {
             document.querySelectorAll('.log-conn-tab').forEach(function(el) {
                 el.classList.toggle('is-active', el.dataset.key === logKey);
@@ -1950,7 +1950,7 @@ window.switchBottomTab = function(pane) {
 };
 
 function findActualRunningContainerName(running, stem) {
-    var actualName = null;
+    let actualName = null;
     running.forEach(function(name) {
         if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
             actualName = name;
@@ -1960,33 +1960,33 @@ function findActualRunningContainerName(running, stem) {
 }
 
 function getTerminalShellCommand() {
-    var shellSelect = document.getElementById('terminal-shell-select');
-    var shell = shellSelect ? shellSelect.value : 'bash';
+    const shellSelect = document.getElementById('terminal-shell-select');
+    const shell = shellSelect ? shellSelect.value : 'bash';
     if (shell === 'custom') {
-        var customInput = document.getElementById('terminal-custom-cmd-input');
+        const customInput = document.getElementById('terminal-custom-cmd-input');
         return (customInput ? customInput.value.trim() : '') || 'bash';
     }
     return shell;
 }
 
 window.connectTerminal = function() {
-    var stem = window._selectedContainerStem;
-    var serverId = window._selectedContainerServerId;
-    var scope = window._selectedContainerScope || 'global';
+    const stem = window._selectedContainerStem;
+    const serverId = window._selectedContainerServerId;
+    const scope = window._selectedContainerScope || 'global';
     if (!stem || !serverId) {
         showTerminalMessage('Select a container from the sidebar first.');
         return;
     }
 
-    var running = Reflect.get(runningContainersBySid, serverId) || new Set();
-    var actualContainerName = findActualRunningContainerName(running, stem);
+    const running = Reflect.get(runningContainersBySid, serverId) || new Set();
+    const actualContainerName = findActualRunningContainerName(running, stem);
 
     if (!actualContainerName) {
         showTerminalMessage('Container must be running to open a terminal.');
         return;
     }
 
-    var tabKey = serverId + ':' + actualContainerName;
+    const tabKey = serverId + ':' + actualContainerName;
 
     // Already open → just switch to it
     if (window._terminalTabs.has(tabKey)) {
@@ -1995,7 +1995,7 @@ window.connectTerminal = function() {
         return;
     }
 
-    var cmd = getTerminalShellCommand();
+    const cmd = getTerminalShellCommand();
     if (!cmd) {
         showTerminalMessage('Enter a command first.');
         return;
@@ -2008,22 +2008,22 @@ window.connectTerminal = function() {
 };
 
 function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
-    var cached = Reflect.get(lastStatsPerServer, serverId);
-    var serverName = (cached && cached.server_name)
+    const cached = Reflect.get(lastStatsPerServer, serverId);
+    const serverName = (cached && cached.server_name)
         || ('srv-' + serverId);
-    var label = serverName + ':' + containerName;
+    const label = serverName + ':' + containerName;
 
     // ── Tab button ──────────────────────────────────────
-    var tabEl = document.createElement('button');
+    const tabEl = document.createElement('button');
     tabEl.className = 'terminal-conn-tab';
     tabEl.dataset.key = tabKey;
     tabEl.setAttribute('title', label);
 
-    var labelSpan = document.createElement('span');
+    const labelSpan = document.createElement('span');
     labelSpan.className = 'terminal-conn-tab-label';
     labelSpan.textContent = label;
 
-    var closeBtn = document.createElement('button');
+    const closeBtn = document.createElement('button');
     closeBtn.className = 'terminal-conn-tab-close';
     closeBtn.setAttribute('aria-label', 'Close ' + label);
     closeBtn.textContent = '×';
@@ -2037,26 +2037,26 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     tabEl.appendChild(closeBtn);
     tabEl.addEventListener('click', function() { switchTerminalTab(tabKey); });
 
-    var tabsEl = document.getElementById('terminal-conn-tabs');
+    const tabsEl = document.getElementById('terminal-conn-tabs');
     if (tabsEl) {
         tabsEl.appendChild(tabEl);
         tabsEl.classList.add('has-tabs');
     }
 
     // ── xterm pane div ──────────────────────────────────
-    var paneEl = document.createElement('div');
+    const paneEl = document.createElement('div');
     paneEl.className = 'terminal-tab-pane hidden';
     paneEl.dataset.key = tabKey;
 
-    var xtermDiv = document.createElement('div');
+    const xtermDiv = document.createElement('div');
     xtermDiv.className = 'xterm-container';
     paneEl.appendChild(xtermDiv);
 
-    var bodyEl = document.getElementById('terminal-tabs-body');
+    const bodyEl = document.getElementById('terminal-tabs-body');
     if (bodyEl) bodyEl.appendChild(paneEl);
 
     // Hide empty hint
-    var hint = document.getElementById('terminal-empty-hint');
+    const hint = document.getElementById('terminal-empty-hint');
     if (hint) hint.style.display = 'none';
 
     // Toggle DOM visibility BEFORE creating xterm to avoid 0x0 size calculation
@@ -2064,23 +2064,23 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     switchTerminalTab(tabKey);
 
     // ── xterm instance ──────────────────────────────────
-    var term = new Terminal({ rows: 24, cols: 80, cursorBlink: true });
+    const term = new Terminal({ rows: 24, cols: 80, cursorBlink: true });
     term.open(xtermDiv);
 
-    var fitAddon = new window.FitAddon.FitAddon();
+    const fitAddon = new window.FitAddon.FitAddon();
     term.loadAddon(fitAddon);
 
     // ── WebSocket ───────────────────────────────────────
-    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var wsUrl = protocol + '//' + window.location.host
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = protocol + '//' + window.location.host
         + '/ws/exec/' + serverId + '/' + encodeURIComponent(containerName)
         + '?scope=' + encodeURIComponent(scope) + '&cmd=' + encodeURIComponent(cmd);
-    var ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = function() {
         fitAddon.fit();
-        var dims = fitAddon.proposeDimensions();
+        const dims = fitAddon.proposeDimensions();
         ws.send(JSON.stringify({
             type: 'resize',
             cols: dims ? dims.cols : 80,
@@ -2129,7 +2129,7 @@ window.switchTerminalTab = function(key) {
 
     switchBottomTab('terminal');
 
-    var session = window._terminalTabs.get(key);
+    const session = window._terminalTabs.get(key);
     if (session && session.fitAddon) {
         setTimeout(function() { session.fitAddon.fit(); }, 50);
     }
@@ -2153,7 +2153,7 @@ function removeTerminalDOM(session) {
 
 function handleClosedTabFallback(key) {
     if (window._terminalTabs.size === 0) {
-        var hint = document.getElementById('terminal-empty-hint');
+        const hint = document.getElementById('terminal-empty-hint');
         if (hint) hint.style.display = '';
         window._activeTerminalTabKey = null;
     } else if (window._activeTerminalTabKey === key) {
@@ -2163,7 +2163,7 @@ function handleClosedTabFallback(key) {
 }
 
 window.closeTerminalTab = function(key) {
-    var session = window._terminalTabs.get(key);
+    const session = window._terminalTabs.get(key);
     if (!session) return;
 
     disposeTerminalSession(session);
@@ -2174,13 +2174,13 @@ window.closeTerminalTab = function(key) {
 };
 
 window.disconnectTerminal = function() {
-    var key = window._activeTerminalTabKey;
+    const key = window._activeTerminalTabKey;
     if (key) closeTerminalTab(key);
 };
 
 window.sessionAddNew = function() {
-    var activeTab = document.querySelector('.bottom-tab.is-active');
-    var pane = activeTab ? activeTab.dataset.pane : 'terminal';
+    const activeTab = document.querySelector('.bottom-tab.is-active');
+    const pane = activeTab ? activeTab.dataset.pane : 'terminal';
     if (pane === 'logs') {
         tailLogsFromPanel();
     } else {
@@ -2189,11 +2189,11 @@ window.sessionAddNew = function() {
 };
 
 // Handle shell selector changes (setup after DOM is ready)
-var setupShellSelector = function() {
-    var shellSelect = document.getElementById('terminal-shell-select');
+const setupShellSelector = function() {
+    const shellSelect = document.getElementById('terminal-shell-select');
     if (shellSelect) {
         shellSelect.addEventListener('change', function() {
-            var customRow = document.getElementById('terminal-custom-cmd-row');
+            const customRow = document.getElementById('terminal-custom-cmd-row');
             if (this.value === 'custom' && customRow) {
                 customRow.classList.remove('hidden');
             } else if (customRow) {
@@ -2204,19 +2204,19 @@ var setupShellSelector = function() {
 };
 
 // Handle log time-range selector changes (setup after DOM is ready)
-var setupLogSinceSelector = function() {
-    var sinceSelect = document.getElementById('log-since-select');
+const setupLogSinceSelector = function() {
+    const sinceSelect = document.getElementById('log-since-select');
     if (sinceSelect) {
         sinceSelect.addEventListener('change', function() {
-            var value = this.value;
+            const value = this.value;
             try {
                 localStorage.setItem('qm-log-since-range', value);
             } catch {
                 // Ignore localStorage restrictions
             }
 
-            var key = window._activeLogTabKey;
-            var entry = key ? window._logTabs.get(key) : null;
+            const key = window._activeLogTabKey;
+            const entry = key ? window._logTabs.get(key) : null;
             if (!entry) return;
 
             entry.since = value;
@@ -2230,9 +2230,9 @@ var setupLogSinceSelector = function() {
 // Ctrl+1 / Ctrl+2 — switch bottom panel tabs when panel is open
 document.addEventListener('keydown', function(e) {
     if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
-    var tag = e.target.tagName;
+    const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    var panel = document.getElementById('bottom-panel');
+    const panel = document.getElementById('bottom-panel');
     if (!panel || panel.classList.contains('is-collapsed')) return;
     if (e.key === '1') { e.preventDefault(); switchBottomTab('terminal'); }
     else if (e.key === '2') { e.preventDefault(); switchBottomTab('logs'); }
@@ -2240,13 +2240,13 @@ document.addEventListener('keydown', function(e) {
 
 // ── Global window resize handler for the active terminal tab ────────────────
 window.addEventListener('resize', function() {
-    var key = window._activeTerminalTabKey;
+    const key = window._activeTerminalTabKey;
     if (!key) return;
-    var session = window._terminalTabs.get(key);
+    const session = window._terminalTabs.get(key);
     if (!session || !session.fitAddon) return;
     session.fitAddon.fit();
     if (session.ws && session.ws.readyState === WebSocket.OPEN) {
-        var dims = session.fitAddon.proposeDimensions();
+        const dims = session.fitAddon.proposeDimensions();
         session.ws.send(JSON.stringify({
             type: 'resize',
             cols: dims ? dims.cols : 80,
@@ -2257,25 +2257,25 @@ window.addEventListener('resize', function() {
 
 // ── Resizable Panel Handles ──────────────────────────────
 function initResizableHandles() {
-    var SIDEBAR_MIN = 180, SIDEBAR_MAX = 500;
-    var INSPECTOR_MIN = 220, INSPECTOR_MAX = 900;
-    var SETTINGS_SIDENAV_MIN = 160, SETTINGS_SIDENAV_MAX = 480;
-    var BOTTOM_PANEL_MIN = 100, BOTTOM_PANEL_MAX = Math.floor(window.innerHeight * 0.75);
+    const SIDEBAR_MIN = 180, SIDEBAR_MAX = 500;
+    const INSPECTOR_MIN = 220, INSPECTOR_MAX = 900;
+    const SETTINGS_SIDENAV_MIN = 160, SETTINGS_SIDENAV_MAX = 480;
+    const BOTTOM_PANEL_MIN = 100, BOTTOM_PANEL_MAX = Math.floor(window.innerHeight * 0.75);
 
     function makeDraggable(handleEl, cssVar, storageKey, minPx, maxPx, getInitialPx) {
         if (!handleEl) return;
 
         handleEl.addEventListener('mousedown', function(e) {
             e.preventDefault();
-            var startX = e.clientX;
-            var startPx = getInitialPx();
+            const startX = e.clientX;
+            const startPx = getInitialPx();
 
             handleEl.classList.add('dragging');
             document.body.classList.add('is-resizing');
 
             function onMove(e) {
-                var delta = e.clientX - startX;
-                var newPx = Math.min(maxPx, Math.max(minPx, startPx + delta));
+                const delta = e.clientX - startX;
+                const newPx = Math.min(maxPx, Math.max(minPx, startPx + delta));
                 document.documentElement.style.setProperty(cssVar, newPx + 'px');
                 if (statsChart) statsChart.resize();
             }
@@ -2287,7 +2287,7 @@ function initResizableHandles() {
                 document.removeEventListener('mouseup', onUp);
 
                 // Persist width to localStorage
-                var finalPx = getComputedStyle(document.documentElement)
+                const finalPx = getComputedStyle(document.documentElement)
                     .getPropertyValue(cssVar).trim();
                 localStorage.setItem(storageKey, finalPx);
 
@@ -2308,7 +2308,7 @@ function initResizableHandles() {
         'qm-sidebar-width',
         SIDEBAR_MIN, SIDEBAR_MAX,
         function() {
-            var sidebar = document.getElementById('navigator');
+            const sidebar = document.getElementById('navigator');
             return sidebar ? sidebar.getBoundingClientRect().width : 300;
         }
     );
@@ -2320,26 +2320,26 @@ function initResizableHandles() {
         'qm-settings-sidenav-width',
         SETTINGS_SIDENAV_MIN, SETTINGS_SIDENAV_MAX,
         function() {
-            var sn = document.querySelector('.settings-sidenav');
+            const sn = document.querySelector('.settings-sidenav');
             return sn ? sn.getBoundingClientRect().width : 220;
         }
     );
 
     // Right handle: controls inspector width (drag left = bigger inspector)
-    var rightHandle = document.getElementById('resize-handle-right');
+    const rightHandle = document.getElementById('resize-handle-right');
     if (rightHandle) {
         rightHandle.addEventListener('mousedown', function(e) {
             e.preventDefault();
-            var startX = e.clientX;
-            var inspector = document.getElementById('inspector');
-            var startPx = inspector ? inspector.getBoundingClientRect().width : 320;
+            const startX = e.clientX;
+            const inspector = document.getElementById('inspector');
+            const startPx = inspector ? inspector.getBoundingClientRect().width : 320;
 
             rightHandle.classList.add('dragging');
             document.body.classList.add('is-resizing');
 
             function onMove(e) {
-                var delta = startX - e.clientX;   // dragging left widens inspector
-                var newPx = Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, startPx + delta));
+                const delta = startX - e.clientX;   // dragging left widens inspector
+                const newPx = Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, startPx + delta));
                 document.documentElement.style.setProperty('--inspector-width', newPx + 'px');
                 if (statsChart) statsChart.resize();
             }
@@ -2349,7 +2349,7 @@ function initResizableHandles() {
                 document.body.classList.remove('is-resizing');
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
-                var finalPx = getComputedStyle(document.documentElement)
+                const finalPx = getComputedStyle(document.documentElement)
                     .getPropertyValue('--inspector-width').trim();
                 localStorage.setItem('qm-inspector-width', finalPx);
                 if (window.editor) window.editor.layout();
@@ -2362,23 +2362,23 @@ function initResizableHandles() {
     }
 
     // Bottom panel handle: drag up = taller panel
-    var bottomHandle = document.getElementById('bottom-panel-resize-handle');
+    const bottomHandle = document.getElementById('bottom-panel-resize-handle');
     if (bottomHandle) {
         bottomHandle.addEventListener('mousedown', function(e) {
             e.preventDefault();
-            var startY = e.clientY;
-            var panel = document.getElementById('bottom-panel');
-            var startH = panel ? panel.getBoundingClientRect().height : 300;
+            const startY = e.clientY;
+            const panel = document.getElementById('bottom-panel');
+            const startH = panel ? panel.getBoundingClientRect().height : 300;
 
             bottomHandle.classList.add('dragging');
             document.body.classList.add('is-resizing');
 
             function onMove(e) {
-                var delta = startY - e.clientY; // dragging up increases height
-                var newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
+                const delta = startY - e.clientY; // dragging up increases height
+                const newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
                 document.documentElement.style.setProperty('--bottom-panel-height', newH + 'px');
-                var _rk = window._activeTerminalTabKey;
-                if (_rk) { var _rs = window._terminalTabs.get(_rk); if (_rs && _rs.fitAddon) _rs.fitAddon.fit(); }
+                const _rk = window._activeTerminalTabKey;
+                if (_rk) { const _rs = window._terminalTabs.get(_rk); if (_rs && _rs.fitAddon) _rs.fitAddon.fit(); }
             }
 
             function onUp() {
@@ -2386,11 +2386,11 @@ function initResizableHandles() {
                 document.body.classList.remove('is-resizing');
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
-                var finalH = getComputedStyle(document.documentElement)
+                const finalH = getComputedStyle(document.documentElement)
                     .getPropertyValue('--bottom-panel-height').trim();
                 localStorage.setItem('qm-bottom-panel-height', finalH);
-                var _uk = window._activeTerminalTabKey;
-                if (_uk) { var _us = window._terminalTabs.get(_uk); if (_us && _us.fitAddon) _us.fitAddon.fit(); }
+                const _uk = window._activeTerminalTabKey;
+                if (_uk) { const _us = window._terminalTabs.get(_uk); if (_us && _us.fitAddon) _us.fitAddon.fit(); }
             }
 
             document.addEventListener('mousemove', onMove);
@@ -2403,7 +2403,7 @@ function initResizableHandles() {
 document.addEventListener('DOMContentLoaded', function() {
 // Restore persisted panel widths before first paint
 (function restorePanelWidths() {
-  var saved = {
+  const saved = {
     sidebar: localStorage.getItem('qm-sidebar-width'),
     inspector: localStorage.getItem('qm-inspector-width'),
     settingsSidenav: localStorage.getItem('qm-settings-sidenav-width'),
@@ -2414,7 +2414,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (saved.settingsSidenav) document.documentElement.style.setProperty('--settings-sidenav-width', saved.settingsSidenav);
   if (saved.bottomPanel) document.documentElement.style.setProperty('--bottom-panel-height', saved.bottomPanel);
   if (localStorage.getItem('qm-bottom-panel-expanded') === '1') {
-    var panel = document.getElementById('bottom-panel');
+    const panel = document.getElementById('bottom-panel');
     if (panel) panel.classList.add('is-expanded');
     document.body.classList.add('bottom-panel-expanded');
   }
@@ -2428,8 +2428,8 @@ initMemChart();
 setupShellSelector();
 setupLogSinceSelector();
 try {
-    var storedLogSince = localStorage.getItem('qm-log-since-range');
-    var logSinceSelect = document.getElementById('log-since-select');
+    const storedLogSince = localStorage.getItem('qm-log-since-range');
+    const logSinceSelect = document.getElementById('log-since-select');
     if (storedLogSince && logSinceSelect) logSinceSelect.value = storedLogSince;
 } catch {
     // Ignore localStorage restrictions
@@ -2437,7 +2437,7 @@ try {
 connectSSE();
 fetchPollHealthSnapshot();
 setInterval(function() {
-  var pane = document.getElementById('monitoring-pane');
+  const pane = document.getElementById('monitoring-pane');
   if (pane && pane.offsetParent !== null) {
     fetchPollHealthSnapshot();
   }
@@ -2446,7 +2446,7 @@ initResizableHandles();
 
 // ── Reconnect Banner ──────────────────────────────────────
 (function() {
-    var pending = null;
+    let pending = null;
     try {
         pending = JSON.parse(localStorage.getItem('qm-pending-reconnect'));
     } catch {
@@ -2455,17 +2455,17 @@ initResizableHandles();
     if (!pending || (pending.terminals.length === 0 && (!pending.logTails || pending.logTails.length === 0))) return;
     localStorage.removeItem('qm-pending-reconnect');
 
-    var parts = [];
+    const parts = [];
     if (pending.terminals.length > 0) parts.push(pending.terminals.length + ' terminal' + (pending.terminals.length > 1 ? 's' : ''));
     if (pending.logTails && pending.logTails.length > 0) parts.push(pending.logTails.length + ' log tail' + (pending.logTails.length > 1 ? 's' : ''));
 
-    var banner = el('div', { id: 'reconnect-banner', className: 'reconnect-banner' }, [
+    const banner = el('div', { id: 'reconnect-banner', className: 'reconnect-banner' }, [
         el('span', { className: 'reconnect-banner-msg' }, 'You had ' + parts.join(' and ') + ' open before the last reload.'),
         el('button', { className: 'btn btn-sm btn-primary', id: 'reconnect-yes-btn' }, 'Reconnect'),
         el('button', { className: 'btn btn-sm btn-secondary', id: 'reconnect-no-btn' }, 'Dismiss')
     ]);
 
-    var nav = document.querySelector('.top-nav');
+    const nav = document.querySelector('.top-nav');
     if (nav) nav.parentNode.insertBefore(banner, nav.nextSibling);
 
     document.getElementById('reconnect-no-btn').addEventListener('click', function() {
@@ -2499,12 +2499,12 @@ initResizableHandles();
 // so the user isn't left staring at "Waiting for stats data..." forever.
 _statsWaitTimeout = setTimeout(function() {
   if (!_statsReceived) {
-    var tableEl = document.getElementById('stats-table');
+    const tableEl = document.getElementById('stats-table');
     if (tableEl) {
       tableEl.textContent = '';
       tableEl.appendChild(el('div', { className: 'p-4 text-warning italic' }, 'No stats received yet — verify server connectivity.'));
     }
-    var monitoringTableEl = document.getElementById('monitoring-stats-table');
+    const monitoringTableEl = document.getElementById('monitoring-stats-table');
     if (monitoringTableEl) {
       monitoringTableEl.textContent = '';
       monitoringTableEl.appendChild(el('div', { className: 'p-4 text-warning italic' }, 'No stats received yet — verify server connectivity.'));
@@ -2521,23 +2521,23 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
 
     if (_ctxMenu) _ctxMenu.remove();
 
-    var fileName = path.split('/').pop();
-    var stem = fileName.replace(/\.[^.]+$/, '');
-    var unitName = stem + '.service';
-    var quadletType = fileName.indexOf('.') !== -1 ? fileName.split('.').pop().toLowerCase() : '';
-    var isPod = quadletType === 'pod';
+    const fileName = path.split('/').pop();
+    const stem = fileName.replace(/\.[^.]+$/, '');
+    const unitName = stem + '.service';
+    const quadletType = fileName.indexOf('.') !== -1 ? fileName.split('.').pop().toLowerCase() : '';
+    const isPod = quadletType === 'pod';
 
     _ctxMenu = document.createElement('div');
     _ctxMenu.className = 'context-menu';
     _ctxMenu.style.cssText = 'position:fixed;left:' + event.clientX + 'px;top:' + event.clientY + 'px';
 
-    var editBtn = document.createElement('button');
+    const editBtn = document.createElement('button');
     editBtn.className = 'context-menu-item';
     editBtn.textContent = 'Edit';
     editBtn.onclick = function() {
         _ctxMenu.remove();
         _ctxMenu = null;
-        var treeBtn = document.querySelector('.quadlet-tree-btn[data-server-id="' + serverId + '"][data-path="' + path + '"]');
+        const treeBtn = document.querySelector('.quadlet-tree-btn[data-server-id="' + serverId + '"][data-path="' + path + '"]');
         window.setSelectedQuadletBtn(treeBtn || null);
         window.setActiveServer(serverId);
         window.selectContainerStem(stem, serverId);
@@ -2549,7 +2549,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     };
     _ctxMenu.appendChild(editBtn);
 
-    var startBtn = document.createElement('button');
+    const startBtn = document.createElement('button');
     startBtn.className = 'context-menu-item';
     startBtn.textContent = 'Start';
     startBtn.onclick = function() {
@@ -2563,7 +2563,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     };
     _ctxMenu.appendChild(startBtn);
 
-    var stopBtn = document.createElement('button');
+    const stopBtn = document.createElement('button');
     stopBtn.className = 'context-menu-item';
     stopBtn.textContent = 'Stop';
     stopBtn.onclick = function() {
@@ -2577,7 +2577,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     };
     _ctxMenu.appendChild(stopBtn);
 
-    var deleteBtn = document.createElement('button');
+    const deleteBtn = document.createElement('button');
     deleteBtn.className = 'context-menu-item context-menu-danger';
     deleteBtn.textContent = 'Delete';
     deleteBtn.onclick = function() {
@@ -2597,36 +2597,36 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
 };
 
 window.confirmDeleteFile = function(serverId, path, scope) {
-    var existing = document.getElementById('delete-confirm-modal');
+    const existing = document.getElementById('delete-confirm-modal');
     if (existing) existing.remove();
 
-    var fileName = path.split('/').pop();
+    const fileName = path.split('/').pop();
 
-    var modal = document.createElement('div');
+    const modal = document.createElement('div');
     modal.id = 'delete-confirm-modal';
     modal.className = 'modal-overlay';
 
-    var content = document.createElement('div');
+    const content = document.createElement('div');
     content.className = 'modal-content';
 
-    var h2 = document.createElement('h2');
+    const h2 = document.createElement('h2');
     h2.className = 'panel-title mb-4';
     h2.textContent = 'Delete File';
     content.appendChild(h2);
 
-    var p = document.createElement('p');
+    const p = document.createElement('p');
     p.className = 'text-sm mb-6';
     p.textContent = 'Delete ';
-    var strong = document.createElement('strong');
+    const strong = document.createElement('strong');
     strong.textContent = fileName;
     p.appendChild(strong);
     p.appendChild(document.createTextNode('? This cannot be undone.'));
     content.appendChild(p);
 
-    var btnContainer = document.createElement('div');
+    const btnContainer = document.createElement('div');
     btnContainer.className = 'flex justify-end space-x-2';
 
-    var cancelBtn = document.createElement('button');
+    const cancelBtn = document.createElement('button');
     cancelBtn.className = 'btn btn-secondary';
     cancelBtn.textContent = 'Cancel';
     cancelBtn.addEventListener('click', function() {
@@ -2634,7 +2634,7 @@ window.confirmDeleteFile = function(serverId, path, scope) {
     });
     btnContainer.appendChild(cancelBtn);
 
-    var deleteBtn = document.createElement('button');
+    const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-danger';
     deleteBtn.textContent = 'Delete';
     deleteBtn.addEventListener('click', function() {
@@ -2651,20 +2651,32 @@ window.confirmDeleteFile = function(serverId, path, scope) {
 window.executeDeleteFile = async function(serverId, path, scope) {
     document.getElementById('delete-confirm-modal')?.remove();
 
-    var url = '/api/files?server_id=' + encodeURIComponent(serverId) +
-              '&path=' + encodeURIComponent(path) +
-              '&scope=' + encodeURIComponent(scope);
-    var response = await fetch(url, { method: 'DELETE' });
-    var html = await response.text();
+    const targetUrl = new URL('/api/files', window.location.origin);
+    targetUrl.searchParams.set('server_id', serverId);
+    targetUrl.searchParams.set('path', path);
+    targetUrl.searchParams.set('scope', scope);
 
-    var toast = document.getElementById('status-toast');
+    if (targetUrl.origin !== window.location.origin || targetUrl.pathname !== '/api/files') {
+        console.error('Security Error: Disallowed target URL');
+        return;
+    }
+
+    const response = await fetch(targetUrl.toString(), {
+        method: 'DELETE',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
+    const html = await response.text();
+
+    const toast = document.getElementById('status-toast');
     if (toast) {
         toast.innerHTML = '';
-        var parser = new window.DOMParser();
-        var doc = parser.parseFromString(html, 'text/html');
-        var toastMsg = doc.querySelector('.toast-msg');
+        const parser = new window.DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const toastMsg = doc.querySelector('.toast-msg');
         if (toastMsg) {
-            var div = document.createElement('div');
+            const div = document.createElement('div');
             div.className = toastMsg.className;
             div.textContent = toastMsg.textContent;
             toast.appendChild(div);
@@ -2681,7 +2693,7 @@ window._logTabs = new Map();   // tabKey → { ws, logDiv, tabEl, paneEl, server
 window._activeLogTabKey = null;
 
 function showLogMessage(msg) {
-    var hint = document.getElementById('log-empty-hint');
+    const hint = document.getElementById('log-empty-hint');
     if (hint) {
         hint.textContent = msg;
         hint.style.display = '';
@@ -2694,16 +2706,16 @@ function showLogMessage(msg) {
 }
 
 window.tailLogsFromPanel = function() {
-    var stem = window._selectedContainerStem;
-    var serverId = window._selectedContainerServerId;
-    var scope = window._selectedContainerScope || 'global';
+    const stem = window._selectedContainerStem;
+    const serverId = window._selectedContainerServerId;
+    const scope = window._selectedContainerScope || 'global';
     if (!stem || !serverId) {
         showLogMessage('Select a container from the sidebar first.');
         return;
     }
 
-    var unitName = stem + '.service';
-    var tabKey = 'log:' + serverId + ':' + unitName;
+    const unitName = stem + '.service';
+    const tabKey = 'log:' + serverId + ':' + unitName;
 
     openBottomPanel('logs');
 
@@ -2717,21 +2729,21 @@ window.tailLogsFromPanel = function() {
 };
 
 function createLogTab(tabKey, serverId, unitName, scope) {
-    var cached = Reflect.get(lastStatsPerServer, serverId);
-    var serverName = (cached && cached.server_name) || ('srv-' + serverId);
-    var label = serverName + ':' + unitName.replace(/\.service$/, '');
+    const cached = Reflect.get(lastStatsPerServer, serverId);
+    const serverName = (cached && cached.server_name) || ('srv-' + serverId);
+    const label = serverName + ':' + unitName.replace(/\.service$/, '');
 
     // ── Chip ──────────────────────────────────────
-    var tabEl = document.createElement('button');
+    const tabEl = document.createElement('button');
     tabEl.className = 'log-conn-tab';
     tabEl.dataset.key = tabKey;
     tabEl.setAttribute('title', label);
 
-    var labelSpan = document.createElement('span');
+    const labelSpan = document.createElement('span');
     labelSpan.className = 'log-conn-tab-label';
     labelSpan.textContent = label;
 
-    var closeBtn = document.createElement('button');
+    const closeBtn = document.createElement('button');
     closeBtn.className = 'log-conn-tab-close';
     closeBtn.setAttribute('aria-label', 'Close ' + label);
     closeBtn.textContent = '×';
@@ -2745,30 +2757,30 @@ function createLogTab(tabKey, serverId, unitName, scope) {
     tabEl.appendChild(closeBtn);
     tabEl.addEventListener('click', function() { switchLogTab(tabKey); });
 
-    var tabsEl = document.getElementById('terminal-conn-tabs');
+    const tabsEl = document.getElementById('terminal-conn-tabs');
     if (tabsEl) {
         tabsEl.appendChild(tabEl);
         tabsEl.classList.add('has-tabs');
     }
 
     // ── Log pane ──────────────────────────────────
-    var paneEl = document.createElement('div');
+    const paneEl = document.createElement('div');
     paneEl.className = 'log-tab-pane hidden';
     paneEl.dataset.key = tabKey;
 
-    var logDiv = document.createElement('div');
+    const logDiv = document.createElement('div');
     logDiv.className = 'log-stream';
     logDiv.textContent = 'Connecting to log stream...\n';
     paneEl.appendChild(logDiv);
 
-    var bodyEl = document.getElementById('log-tabs-body');
+    const bodyEl = document.getElementById('log-tabs-body');
     if (bodyEl) bodyEl.appendChild(paneEl);
 
-    var hint = document.getElementById('log-empty-hint');
+    const hint = document.getElementById('log-empty-hint');
     if (hint) hint.style.display = 'none';
 
-    var sinceSelect = document.getElementById('log-since-select');
-    var since = sinceSelect ? sinceSelect.value : '15m';
+    const sinceSelect = document.getElementById('log-since-select');
+    const since = sinceSelect ? sinceSelect.value : '15m';
 
     window._logTabs.set(tabKey, { logDiv: logDiv, tabEl: tabEl, paneEl: paneEl, serverId: serverId, unitName: unitName, scope: scope, since: since });
     switchLogTab(tabKey);
@@ -2778,24 +2790,23 @@ function createLogTab(tabKey, serverId, unitName, scope) {
 }
 
 function openLogSocket(tabKey) {
-    var entry = window._logTabs.get(tabKey);
+    const entry = window._logTabs.get(tabKey);
     if (!entry) return;
 
-    var serverId = entry.serverId;
-    var unitName = entry.unitName;
-    var scope = entry.scope;
-    var logDiv = entry.logDiv;
-    var tabEl = entry.tabEl;
+    const serverId = entry.serverId;
+    const unitName = entry.unitName;
+    const scope = entry.scope;
+    const logDiv = entry.logDiv;
+    const tabEl = entry.tabEl;
 
-    // ws:// fallback is intentional: this app supports non-TLS deployments (e.g. internal
-    // networks) with no reverse proxy/cert in front of it. Forcing wss:// unconditionally
-    // would break log streaming for those setups since there's no TLS to terminate against.
-    // Accepted risk for non-TLS deployments — see #161.
-    var wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
+    const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const baseUrl = `${scheme}//${window.location.host}/ws/logs/${encodeURIComponent(serverId)}/${encodeURIComponent(unitName)}`;
+    const wsUrl = new URL(baseUrl);
+    wsUrl.searchParams.set('scope', scope);
     if (entry.since && entry.since !== 'All') {
-        wsUrl += '&since=' + encodeURIComponent(entry.since);
+        wsUrl.searchParams.set('since', entry.since);
     }
-    var ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl.toString());
 
     ws.onmessage = function(event) {
         logDiv.appendChild(document.createTextNode(event.data));
@@ -2830,9 +2841,9 @@ window.switchLogTab = function(key) {
         el.classList.toggle('hidden', el.dataset.key !== key);
     });
 
-    var sinceSelect = document.getElementById('log-since-select');
+    const sinceSelect = document.getElementById('log-since-select');
     if (sinceSelect) {
-        var entry = window._logTabs.get(key);
+        const entry = window._logTabs.get(key);
         sinceSelect.value = (entry && entry.since) || '15m';
     }
 
@@ -2841,7 +2852,7 @@ window.switchLogTab = function(key) {
 
 function handleClosedLogTabFallback(key) {
     if (window._logTabs.size === 0) {
-        var hint = document.getElementById('log-empty-hint');
+        const hint = document.getElementById('log-empty-hint');
         if (hint) hint.style.display = '';
         window._activeLogTabKey = null;
     } else if (window._activeLogTabKey === key) {
@@ -2851,7 +2862,7 @@ function handleClosedLogTabFallback(key) {
 }
 
 window.closeLogTab = function(key) {
-    var session = window._logTabs.get(key);
+    const session = window._logTabs.get(key);
     if (!session) return;
 
     if (session.ws && session.ws.readyState !== WebSocket.CLOSED) {
@@ -2867,7 +2878,7 @@ window.closeLogTab = function(key) {
 
 // ── Session Save / Reload / Reconnect ────────────────────
 function saveActiveSessionsToStorage() {
-    var sessions = { terminals: [], logTails: [] };
+    const sessions = { terminals: [], logTails: [] };
     window._terminalTabs.forEach(function(session, tabKey) {
         if (session.serverId && session.containerName) {
             sessions.terminals.push({
@@ -2912,7 +2923,7 @@ window.addEventListener('beforeunload', _beforeunloadHandler);
 
 // Guard htmx swaps of the editor pane when there are unsaved changes.
 document.body.addEventListener('htmx:confirm', function(evt) {
-    var target = evt.detail && evt.detail.target;
+    const target = evt.detail && evt.detail.target;
     if (!target || target.id !== 'editor-pane' || !window._editorDirty) {
         return;
     }
@@ -2925,7 +2936,7 @@ document.body.addEventListener('htmx:confirm', function(evt) {
 // The server sets HX-Trigger: quadlet-saved on a successful /api/save response.
 document.body.addEventListener('quadlet-saved', function() {
     window._editorDirty = false;
-    var indicator = document.getElementById('unsaved-indicator');
+    const indicator = document.getElementById('unsaved-indicator');
     if (indicator) indicator.setAttribute('hidden', '');
 });
 
@@ -2942,34 +2953,34 @@ window.softRefresh = function() {
 
 // ── Editor Validation / Save ────────────────────────────────
 window.validateQuadlet = async function() {
-    var form = document.getElementById('save-form');
-    var serverId = form.querySelector('[name="server_id"]').value;
-    var filePath = form.querySelector('[name="file_path"]').value;
-    var scope = form.querySelector('[name="scope"]').value;
-    var content = window.editor.getValue();
+    const form = document.getElementById('save-form');
+    const serverId = form.querySelector('[name="server_id"]').value;
+    const filePath = form.querySelector('[name="file_path"]').value;
+    const scope = form.querySelector('[name="scope"]').value;
+    const content = window.editor.getValue();
 
-    var body = new FormData();
+    const body = new FormData();
     body.append('file_path', filePath);
     body.append('scope', scope);
     body.append('content', content);
 
-    var response = await fetch('/api/validate/' + encodeURIComponent(serverId), {
+    const response = await fetch('/api/validate/' + encodeURIComponent(serverId), {
         method: 'POST',
         body: body
     });
     if (!response.ok) {
         throw new Error('Validation request failed with status ' + response.status);
     }
-    var verdict = await response.json();
-    var issues = verdict.issues || [];
-    var lines = content.split('\n');
+    const verdict = await response.json();
+    const issues = verdict.issues || [];
+    const lines = content.split('\n');
 
-    var markers = [];
+    const markers = [];
     issues.forEach(function(issue) {
         if (!issue.key) return;
-        for (var i = 0; i < lines.length; i++) {
-            var trimmed = lines[i].replace(/^\s+/, '');
-            var rest = trimmed.slice(issue.key.length).replace(/^\s+/, '');
+        for (let i = 0; i < lines.length; i++) {
+            const trimmed = lines[i].replace(/^\s+/, '');
+            const rest = trimmed.slice(issue.key.length).replace(/^\s+/, '');
             if (trimmed.indexOf(issue.key) === 0 && rest.charAt(0) === '=') {
                 markers.push({
                     severity: issue.level === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
@@ -2985,7 +2996,7 @@ window.validateQuadlet = async function() {
     });
     monaco.editor.setModelMarkers(window.editor.getModel(), 'quadlet', markers);
 
-    var resultsEl = document.getElementById('validation-results');
+    const resultsEl = document.getElementById('validation-results');
     if (resultsEl) {
         resultsEl.innerHTML = '';
         if (verdict.valid && issues.length === 0) {
@@ -2993,13 +3004,13 @@ window.validateQuadlet = async function() {
         } else {
             resultsEl.removeAttribute('hidden');
             issues.forEach(function(issue) {
-                var line = document.createElement('div');
+                const line = document.createElement('div');
                 line.className = 'validation-issue validation-issue-' + issue.level;
                 line.textContent = issue.level + ': ' + issue.message;
                 resultsEl.appendChild(line);
             });
             if (verdict.local_only) {
-                var note = document.createElement('div');
+                const note = document.createElement('div');
                 note.className = 'validation-note';
                 note.textContent = 'local validation only';
                 resultsEl.appendChild(note);
@@ -3012,7 +3023,7 @@ window.validateQuadlet = async function() {
 
 window.saveQuadlet = async function saveQuadlet() {
     try {
-        var verdict = await validateQuadlet();
+        const verdict = await validateQuadlet();
         if (!verdict.valid && !confirm('Validation found errors. Save anyway?')) {
             return;
         }
@@ -3026,11 +3037,11 @@ window.saveQuadlet = async function saveQuadlet() {
 
 // ── Modal Dismissal Handlers ───────────────────────────────
 window.setupModalDismissal = function(modalId) {
-  var modal = document.getElementById(modalId);
+  const modal = document.getElementById(modalId);
   if (!modal) return;
 
   // Close on ESC key
-  var escHandler = function(e) {
+  const escHandler = function(e) {
     if (e.key === 'Escape' || e.key === 'Esc') {
       modal.remove();
       document.removeEventListener('keydown', escHandler);
@@ -3049,10 +3060,10 @@ window.setupModalDismissal = function(modalId) {
 
 // Auto-setup for modals added via HTMX
 document.body.addEventListener('htmx:afterSwap', function() {
-  var modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
+  const modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
   modals.forEach(function(modal) {
     modal.setAttribute('data-dismissal-setup', 'true');
-    var escHandler = function(e) {
+    const escHandler = function(e) {
       if (e.key === 'Escape' || e.key === 'Esc') {
         modal.remove();
         document.removeEventListener('keydown', escHandler);
