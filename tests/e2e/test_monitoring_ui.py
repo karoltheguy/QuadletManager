@@ -45,19 +45,28 @@ def open_monitor_pane(page: Page, history=None):
     expect(page.locator("#monitoring-pane")).to_be_visible()
 
 
-def inject_stats(page: Page, server_id, server_name, containers):
-    """Push a stats frame straight into the client, bypassing the SSE stream."""
+def inject_stats(page: Page, server_id, server_name, containers, units=None):
+    """Push a stats frame straight into the client, bypassing the SSE stream.
+
+    When `units` is not None, a `units` key is included in the injected
+    payload; when it is None, the key is omitted entirely (an absent `units`
+    key is a distinct, meaningful state and must not become `[]`).
+    """
     page.evaluate(
-        """([serverId, serverName, containers]) => {
+        """([serverId, serverName, containers, units]) => {
+            const payload = {
+                server_id: serverId,
+                server_name: serverName,
+                containers: containers,
+            };
+            if (units !== null) {
+                payload.units = units;
+            }
             window.handleStatsUpdate({
-                data: JSON.stringify({
-                    server_id: serverId,
-                    server_name: serverName,
-                    containers: containers,
-                })
+                data: JSON.stringify(payload)
             });
         }""",
-        [server_id, server_name, containers],
+        [server_id, server_name, containers, units],
     )
 
 
@@ -303,7 +312,12 @@ def test_monitor_filter_narrows_glance_bar_and_shows_match_count(page: Page):
     """
     open_monitor_pane(page, history=[])
 
-    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER])
+    units = [
+        {"unit": "web.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "db.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "cache.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+    ]
+    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER], units=units)
     select_injected_server(page, 1, option_count=2)
 
     count_el = page.locator("#monitor-filter-count")
@@ -336,3 +350,30 @@ def test_monitor_filter_narrows_glance_bar_and_shows_match_count(page: Page):
 
     expect(count_el).to_be_hidden()
     expect(page.locator("#mstat-running")).to_have_text("3")
+
+
+@pytest.mark.e2e
+def test_glance_bar_counts_come_from_unit_state(page: Page):
+    """TOTAL, RUNNING and STOPPED must be derived from the `units` array in
+    the stats payload, not from the containers list.
+
+    Regression guard for issue #258: the old Set-based derivation
+    (`allSeenContainersBySid`, seeded only from running containers) would
+    report 1 / 1 / 0 from the stray container alone, ignoring the actual
+    Quadlet unit state entirely.
+    """
+    open_monitor_pane(page, history=[])
+
+    stray_container = {"name": "stray", "cpu": "1.0%", "mem": "1.0%", "net_io": "1kB / 1kB", "health": "healthy"}
+    units = [
+        {"unit": "web.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "db.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "cache.service", "scope": "user", "load_state": "loaded", "active_state": "inactive", "sub_state": "dead", "n_restarts": 0},
+    ]
+
+    inject_stats(page, 1, "Server A", [stray_container], units=units)
+    select_injected_server(page, 1, option_count=2)
+
+    expect(page.locator("#mstat-total")).to_have_text("3")
+    expect(page.locator("#mstat-running")).to_have_text("2")
+    expect(page.locator("#mstat-stopped")).to_have_text("1")
