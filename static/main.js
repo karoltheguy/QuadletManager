@@ -1629,7 +1629,7 @@ function updateMonitoringView(data) {
       })
     : allContainers;
 
-  var filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers, units: data.units };
+  const filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers, units: data.units };
 
   // Append the latest SSE data point to the live time-series charts.
   if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
@@ -1734,10 +1734,10 @@ function computeServerTotals(containers) {
 }
 
 function updateSummaryStrip(data) {
-  var containers = data.containers || [];
+  const containers = data.containers || [];
   var units = data.units;
 
-  var total, running, stopped;
+  let total, running, stopped;
   if (units === undefined || units === null) {
     total = '—';
     running = '—';
@@ -1745,8 +1745,8 @@ function updateSummaryStrip(data) {
   } else {
     // Units are matched against the same lowercase substring filter used for
     // container names, keyed off the unit stem (name without ".service").
-    var filteredUnits = units.filter(function(u) {
-      var stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
+    const filteredUnits = units.filter(function(u) {
+      const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
       return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
     });
     total = filteredUnits.length;
