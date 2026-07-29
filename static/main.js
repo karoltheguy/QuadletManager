@@ -2799,15 +2799,14 @@ function openLogSocket(tabKey) {
     const logDiv = entry.logDiv;
     const tabEl = entry.tabEl;
 
-    // ws:// fallback is intentional: this app supports non-TLS deployments (e.g. internal
-    // networks) with no reverse proxy/cert in front of it. Forcing wss:// unconditionally
-    // would break log streaming for those setups since there's no TLS to terminate against.
-    // Accepted risk for non-TLS deployments — see #161.
-    let wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/logs/' + serverId + '/' + unitName + '?scope=' + scope;
+    const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const baseUrl = `${scheme}//${window.location.host}/ws/logs/${encodeURIComponent(serverId)}/${encodeURIComponent(unitName)}`;
+    const wsUrl = new URL(baseUrl);
+    wsUrl.searchParams.set('scope', scope);
     if (entry.since && entry.since !== 'All') {
-        wsUrl += '&since=' + encodeURIComponent(entry.since);
+        wsUrl.searchParams.set('since', entry.since);
     }
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl.toString());
 
     ws.onmessage = function(event) {
         logDiv.appendChild(document.createTextNode(event.data));
