@@ -728,3 +728,85 @@ async def test_record_health_history_persists_health_status_to_real_db():
 
     assert row is not None, "No row was inserted for 'homepage'"
     assert row[0] == "healthy", f"Expected 'healthy' in DB, got {row[0]!r}"
+
+
+# =============================================================================
+# Helper unit tests (extracted from _fetch_scope_stats to cap its complexity)
+# =============================================================================
+
+@pytest.mark.unit
+def test_build_podman_commands():
+    """Verify _build_podman_commands returns correct ps and stats commands for rootful and rootless scopes."""
+    from services.stats_engine import _build_podman_commands, ROOTLESS_ENV_PREFIX
+
+    rootful_ps, rootful_stats = _build_podman_commands(rootful=True)
+    assert rootful_ps == "sudo podman ps --format json"
+    assert rootful_stats == "sudo podman stats"
+
+    rootless_ps, rootless_stats = _build_podman_commands(rootful=False)
+    assert rootless_ps == f"{ROOTLESS_ENV_PREFIX} podman ps --format json"
+    assert rootless_stats == f"{ROOTLESS_ENV_PREFIX} podman stats"
+
+
+@pytest.mark.unit
+def test_extract_single_container_health():
+    """Verify _extract_single_container_health handles HealthStatus, Health dict, and Status string fallbacks."""
+    from services.stats_engine import _extract_single_container_health
+
+    # Direct HealthStatus field
+    assert _extract_single_container_health({"HealthStatus": "healthy"}) == "healthy"
+    assert _extract_single_container_health({"HealthStatus": "UNHEALTHY"}) == "unhealthy"
+
+    # Health dict structure
+    assert _extract_single_container_health({"Health": {"Status": "healthy"}}) == "healthy"
+
+    # Fallback to Status string regex
+    assert _extract_single_container_health({"Status": "Up 3 hours (healthy)"}) == "healthy"
+    assert _extract_single_container_health({"Status": "Up 5 minutes (unhealthy)"}) == "unhealthy"
+    assert _extract_single_container_health({"Status": "Up 2 seconds (starting)"}) == "starting"
+
+    # No health status available
+    assert _extract_single_container_health({"Status": "Up 10 hours"}) == ""
+    assert _extract_single_container_health({}) == ""
+
+
+@pytest.mark.unit
+def test_parse_running_containers_and_health():
+    """Verify _parse_running_containers_and_health returns running names and health map."""
+    from services.stats_engine import _parse_running_containers_and_health
+
+    ps_data = [
+        {"Names": "c1", "HealthStatus": "healthy"},
+        {"Names": ["c2"], "Status": "Up 10 minutes (unhealthy)"},
+        {"Names": "", "HealthStatus": "healthy"},  # Empty name should be skipped
+    ]
+
+    names, health_map = _parse_running_containers_and_health(ps_data)
+    assert names == ["c1", "c2"]
+    assert health_map == {"c1": "healthy", "c2": "unhealthy"}
+
+
+@pytest.mark.unit
+def test_merge_stats_and_health_attaches_health_and_defaults_to_empty():
+    """Verify _merge_stats_and_health normalises stats and attaches matching health."""
+    from services.stats_engine import _merge_stats_and_health
+
+    stats_data = [
+        {"name": "c1", "cpu_percent": "5%", "mem_percent": "10%"},
+        {"name": "unknown-to-ps", "cpu_percent": "1%", "mem_percent": "2%"},
+    ]
+
+    merged = _merge_stats_and_health(stats_data, {"c1": "healthy"})
+    assert [c["name"] for c in merged] == ["c1", "unknown-to-ps"]
+    assert merged[0]["health"] == "healthy"
+    assert merged[1]["health"] == ""
+
+
+@pytest.mark.unit
+def test_split_batched_output_without_sentinel_returns_whole_output():
+    """Unbatched responses (no quadlet units in scope) must pass through untouched."""
+    from services.stats_engine import _split_batched_output
+
+    ps_json, unit_states = _split_batched_output('[{"Names": "c1"}]')
+    assert ps_json == '[{"Names": "c1"}]'
+    assert unit_states == {}

@@ -24,7 +24,7 @@ def build_unit_state_command(unit_names: list[str], scope: str) -> str:
     """Build the `systemctl show` command for a batch of unit names.
 
     Validates every name against _UNIT_NAME_RE and shell-quotes each before
-    interpolation. Does NOT include `sudo` — callers apply their own sudo
+    interpolation. Does NOT include `sudo`; callers apply their own sudo
     convention (either literally embedding `sudo ` or passing use_sudo=True
     to pool.execute_command).
 
