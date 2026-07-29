@@ -604,10 +604,6 @@ const lastStatsPerServer = {};
 // Declared as var (not const) so page.evaluate() in tests can access it via window.
 var runningContainersBySid = {};
 
-// Superset of all container names ever seen per server (includes stopped).
-// Used by the Monitor summary strip to compute a stopped count.
-const allSeenContainersBySid = {};
-
 // Active container name filter for the Monitor view (lowercase substring).
 // Empty string means show all containers.
 let monitorContainerFilter = '';
@@ -1289,10 +1285,6 @@ function cacheServerStats(data) {
   });
   Reflect.set(runningContainersBySid, data.server_id, runningSet);
 
-  var allSeen = Reflect.get(allSeenContainersBySid, data.server_id) || new Set();
-  runningSet.forEach(function(name) { allSeen.add(name); });
-  Reflect.set(allSeenContainersBySid, data.server_id, allSeen);
-
   return { oldSet: oldSet, runningSet: runningSet };
 }
 
@@ -1637,7 +1629,7 @@ function updateMonitoringView(data) {
       })
     : allContainers;
 
-  var filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers };
+  var filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers, units: data.units };
 
   // Append the latest SSE data point to the live time-series charts.
   if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
@@ -1743,23 +1735,25 @@ function computeServerTotals(containers) {
 
 function updateSummaryStrip(data) {
   var containers = data.containers || [];
-  var serverId = data.server_id;
-  var allSeen = Reflect.get(allSeenContainersBySid, serverId) || new Set();
+  var units = data.units;
 
-  // allSeen holds every container name seen on this server, including stopped
-  // ones. It must be narrowed by the same filter as the running list, or the
-  // containers the filter excluded would be counted as stopped. Its names are
-  // already lowercase, as is monitorContainerFilter.
-  var seenNames = Array.from(allSeen);
-  if (monitorContainerFilter) {
-    seenNames = seenNames.filter(function(name) {
-      return name.indexOf(monitorContainerFilter) !== -1;
+  var total, running, stopped;
+  if (units === undefined || units === null) {
+    total = '—';
+    running = '—';
+    stopped = '—';
+  } else {
+    // Units are matched against the same lowercase substring filter used for
+    // container names, keyed off the unit stem (name without ".service").
+    var filteredUnits = units.filter(function(u) {
+      var stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
+      return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
     });
+    total = filteredUnits.length;
+    running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
+    stopped = total - running;
   }
 
-  var running = containers.length;
-  var total = Math.max(seenNames.length, running);
-  var stopped = total - running;
   var unhealthy = containers.filter(function(c) {
     return c.health && c.health !== 'healthy';
   }).length;
