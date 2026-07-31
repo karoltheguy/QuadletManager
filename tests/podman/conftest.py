@@ -92,24 +92,47 @@ async def list_e2e_files(server_id: int, scope: str) -> list[str]:
     ]
 
 
+def generated_unit_name(file_name: str) -> str:
+    """The unit name podman's generator actually produces for a quadlet file.
+
+    Deliberately NOT services.quadlet_naming.unit_name_for, which maps every
+    type to `<base>.service`. Only containers are named that way; podman suffixes
+    the others by type. Verified against podman 5.8.4's generator:
+
+        e2e-sleep.container -> e2e-sleep.service
+        e2e-test.pod        -> e2e-test-pod.service
+        e2e-test.volume     -> e2e-test-volume.service
+        e2e-test.network    -> e2e-test-network.service
+
+    Using the wrong name here is not cosmetic: teardown then stops a unit that
+    does not exist, the real one keeps running, and its file is deleted out from
+    under it. That is exactly how a pod and its infra container survived a
+    full green run.
+    """
+    base, _, extension = file_name.rpartition(".")
+    if extension == "container":
+        return f"{base}.service"
+    return f"{base}-{extension}.service"
+
+
 async def remove_e2e_files(server_id: int, scope: str) -> list[str]:
     """Stop and delete every e2e- unit in one scope. Returns what it removed."""
-    from services.quadlet_naming import unit_name_for
-
     paths = await list_e2e_files(server_id, scope)
     use_sudo = is_global_scope(scope)
 
     for path in paths:
         assert_safe_to_delete(path)
 
-    # Stop first: deleting the file out from under a running unit leaves the
-    # container alive with no unit to manage it.
+    # Stop first, and stop *every* type. Deleting the file out from under a
+    # running unit leaves the container or pod alive with nothing managing it.
     for path in paths:
-        name = os.path.basename(path)
-        if name.endswith(".container"):
-            await systemctl_action(
-                server_id, "stop", unit_name_for(name), scope=scope, allow_failure=True
-            )
+        await systemctl_action(
+            server_id,
+            "stop",
+            generated_unit_name(os.path.basename(path)),
+            scope=scope,
+            allow_failure=True,
+        )
 
     for path in paths:
         await pool.execute_command(
@@ -121,6 +144,37 @@ async def remove_e2e_files(server_id: int, scope: str) -> list[str]:
             server_id, "daemon-reload", "", scope=scope, allow_failure=True
         )
     return paths
+
+
+async def sweep_e2e_podman_objects(server_id: int, scope: str) -> None:
+    """Belt and braces: remove any leftover e2e- pods and containers.
+
+    Stopping the units should be enough. This exists because on the loopback
+    target a stray container keeps running on the developer's own machine, and
+    because a test that creates a pod directly has nothing else sweeping up
+    after it. Every name is checked against E2E_PREFIX first, so this can only
+    ever remove objects this suite named.
+    """
+    from services.systemd_manager import ROOTLESS_ENV_PREFIX
+
+    prefix = "" if is_global_scope(scope) else f"{ROOTLESS_ENV_PREFIX} "
+    use_sudo = is_global_scope(scope)
+
+    for kind, list_cmd, rm_cmd in (
+        ("container", "podman ps -a --format '{{.Names}}'", "podman rm -f"),
+        ("pod", "podman pod ps --format '{{.Name}}'", "podman pod rm -f"),
+    ):
+        listing = await pool.execute_command(
+            server_id, f"{prefix}{list_cmd} 2>/dev/null || true", use_sudo=use_sudo
+        )
+        for name in (line.strip() for line in listing.splitlines()):
+            if not name or not name.startswith(E2E_PREFIX):
+                continue
+            await pool.execute_command(
+                server_id,
+                f"{prefix}{rm_cmd} {shlex.quote(name)} 2>/dev/null || true",
+                use_sudo=use_sudo,
+            )
 
 
 async def ensure_quadlet_dir(server_id: int, scope: str) -> str:
@@ -249,6 +303,7 @@ async def podman_server(podman_target, isolated_database, monkeypatch):
         for scope in SCOPES:
             try:
                 await remove_e2e_files(server_id, scope)
+                await sweep_e2e_podman_objects(server_id, scope)
             except Exception as exc:  # noqa: BLE001 - teardown must not mask the test's own failure
                 print(f"warning: teardown failed for scope {scope}: {exc}")
         await pool.close_all()
