@@ -183,6 +183,32 @@ documented sudoers policy is actually sufficient to run the app.
 Both targets must produce the same result on the same commit. If they diverge,
 the container is the source of truth, because it is what CI runs.
 
+### Running the browser journeys
+
+`tests/e2e/test_podman_e2e.py` needs an app instance whose database has been
+seeded with the podman host. If you already have a dev server on port 8000, run
+a second instance against a scratch database rather than seeding your real one:
+
+```bash
+export QUADLET_DB_PATH=/tmp/qm-podman/app.db
+export QUADLET_MASTER_KEY=$(python -c "print('0'*64)")
+
+mkdir -p /tmp/qm-podman
+python -c "import asyncio, core.database as d; asyncio.run(d.init_db())"
+QM_SEED_PODMAN=1 QM_PODMAN_HOST=localhost:2223 python scripts/seed_test_db.py
+
+DEV_AUTO_LOGIN=1 PYTHONPATH=. uvicorn main:app --port 8001 &
+
+QM_APP_URL=http://localhost:8001 python -m pytest tests/ -m podman
+```
+
+`QUADLET_MASTER_KEY` must match between the seeder and the app, or the encrypted
+SSH key cannot be decrypted and the host is unreachable from the UI while
+remaining perfectly reachable from the service-level tests.
+
+Re-run the seeder after any `podman-e2e.sh up`, since a rebuilt host presents a
+new SSH host key. See the host-key trap below.
+
 ### Safety rails
 
 The loopback target writes global-scope units to your real
