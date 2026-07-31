@@ -170,6 +170,15 @@ jobs:
             esac
             sleep 2
           done
+          # Without this the loop simply falls through when systemd never comes
+          # up at all, and the failure is reported two stages later as "cannot
+          # ssh to the podman host", which points at the wrong thing.
+          [ "${state:-}" = "running" ] || {
+            echo "systemd did not reach running in 120s (last state: ${state:-none})"
+            docker compose -f docker-compose.test.yml exec -T podman-host \
+              systemctl list-jobs --no-pager || true
+            exit 1
+          }
 
           # ssh refuses a private key readable by group or other, and the
           # committed fixture is mode 644 because git records only the
@@ -194,6 +203,23 @@ jobs:
             $SSH 'podman info' || true
             echo "rootless podman is not usable (linger? newuidmap filecaps?)"
             exit 1
+          }
+
+          # The image is preloaded into both stores at boot by
+          # load-test-image.service, because rootless and rootful keep entirely
+          # separate ones. If that unit failed, every fixture fails at container
+          # start with an image-not-found error that says nothing about why.
+          # Pull instead of dying: a working run costs a network fetch, and the
+          # warning is on screen either way. Mirrors wait_ready() in
+          # scripts/podman-e2e.sh, which has had this from the start.
+          echo "Checking the preloaded test image in both stores..."
+          $SSH 'podman image exists quay.io/quay/busybox:latest' || {
+            echo "::warning::preloaded image missing from the rootless store; pulling"
+            $SSH 'podman pull quay.io/quay/busybox:latest'
+          }
+          $SSH 'sudo podman image exists quay.io/quay/busybox:latest' || {
+            echo "::warning::preloaded image missing from the rootful store; pulling"
+            $SSH 'sudo podman pull quay.io/quay/busybox:latest'
           }
 
           # Seed the app's database with the podman host. The app container
