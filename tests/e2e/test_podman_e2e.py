@@ -26,6 +26,7 @@ import tempfile
 import time
 
 import pytest
+from playwright.sync_api import expect
 
 pytestmark = pytest.mark.podman
 
@@ -91,6 +92,23 @@ def _remove_e2e_quadlet(file_name: str) -> None:
 
 def _open_app(page):
     page.goto(f"{BASE_URL}/", wait_until="domcontentloaded")
+
+    # Reset server collapse state, then reload so the tree renders from a known
+    # starting point with every group expanded.
+    #
+    # main.js persists it to localStorage as qm-server-collapsed-<serverId>, and
+    # the package-scoped browser context is shared across this module, so
+    # whether a group starts open otherwise depends on what an earlier test did.
+    # Inferring the state from whether an entry is visible yet cannot work: it
+    # is indistinguishable from htmx not having finished rendering, and acting
+    # on that guess closes a group that was already open.
+    page.evaluate(
+        """() => Object.keys(localStorage)
+               .filter(k => k.startsWith('qm-server-collapsed-'))
+               .forEach(k => localStorage.removeItem(k))"""
+    )
+    page.reload(wait_until="domcontentloaded")
+
     # The app polls continuously, so networkidle never settles. Wait for the
     # marker the package conftest's robust_goto also keys on.
     page.wait_for_function(
@@ -158,25 +176,18 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
         page.get_by_role("button", name="Containers").click()
         page.get_by_role("button", name="Refresh data").click()
 
-        # The tree is htmx-driven, and each server group is collapsible. The
-        # entry can be present in the DOM but hidden inside a collapsed group,
-        # so expand it before asserting visibility rather than asserting on
-        # mere presence, which would pass while the user could see nothing.
+        # Assert visibility, not mere presence: the entry can sit in the DOM
+        # inside a collapsed group, which would pass while the user sees
+        # nothing. _open_app has cleared the persisted collapse state, so every
+        # group is expanded and no toggling is needed here.
+        #
+        # expect(), not wait_for() plus is_visible(). The app re-renders the
+        # tree on its poll cycle, so a point-in-time check can resolve the
+        # element, have it swapped out underneath, and report False having just
+        # waited successfully for it to appear. expect() retries until the
+        # condition holds.
         entry = page.get_by_text(file_name, exact=False).first
-        entry.wait_for(state="attached", timeout=30000)
-
-        # Give htmx a chance to finish rendering before deciding the group is
-        # collapsed. Toggling on a mere "not visible yet" would *close* an
-        # already-open group, and the app persists collapse state across
-        # loads, so whether it starts open depends on what earlier tests did.
-        # That made this pass in isolation and fail in a full run.
-        try:
-            entry.wait_for(state="visible", timeout=5000)
-        except Exception:
-            page.get_by_role("button", name=SERVER_LABEL, exact=False).first.click()
-            entry.wait_for(state="visible", timeout=30000)
-
-        assert entry.is_visible()
+        expect(entry).to_be_visible(timeout=30000)
     finally:
         _remove_e2e_quadlet(file_name)
 
