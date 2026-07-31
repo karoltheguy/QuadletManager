@@ -142,12 +142,19 @@ that are read in one place (`tests/podman/conftest.py`) and mirrored by
 
 ```bash
 sudo ./scripts/podman-e2e.sh up      # build and boot the host
+./scripts/podman-e2e.sh status       # is it reachable?
 ./scripts/podman-e2e.sh test         # pytest -m podman
 sudo ./scripts/podman-e2e.sh down
 ```
 
-`up` and `down` are the only subcommands needing root. `test`, `shell` and
-`logs` go over SSH and never prompt.
+`up` and `down` are the only subcommands needing root. `status`, `test`, `shell`
+and `logs` go over SSH and never prompt.
+
+**Your own `podman ps` will not show this container.** It runs under *rootful*
+podman, and rootful and rootless keep entirely separate container stores, so the
+host looks like it never started. Use `sudo podman ps`, or
+`./scripts/podman-e2e.sh status`, which checks the thing that actually matters
+to the tests, namely SSH reachability, and needs no password.
 
 This script deliberately does **not** use compose. A podman-only machine has no
 compose provider at all, so every `docker compose -f docker-compose.test.yml`
@@ -235,6 +242,21 @@ lifecycle test cannot tell a clean stop from a crash. See
 it, and `sync_engine.check_quadlets()` only polls rows that already exist. A
 stats test must insert rows itself, or `unit_states` comes back empty and every
 assertion passes vacuously.
+
+**Rebuilding the host invalidates the app's pinned SSH host key.** Host keys are
+TOFU-pinned into `servers.host_key` on first connect, and a rebuilt container
+presents a brand new one, so the app fails with `HostKeyMismatchError`. The
+symptom is misleading: the host is reachable over `ssh` from your terminal and
+the service-level tests all pass, while only the *app* cannot talk to it, so the
+browser journeys time out for no visible reason. Re-run the seeder, which clears
+the stale pin:
+
+```bash
+QM_SEED_PODMAN=1 QM_PODMAN_HOST=localhost:2223 python scripts/seed_test_db.py
+```
+
+In CI this cannot happen, because `compose down -v` discards the volume with
+the database in it.
 
 **The committed test key is mode 644.** Git records only the executable bit, so
 every clone gets a world-readable private key, which `ssh` refuses before

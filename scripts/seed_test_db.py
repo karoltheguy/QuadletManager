@@ -69,10 +69,32 @@ async def _ensure_server(db, name: str, ip_address: str, ssh_user: str, ssh_key_
     connect, and a rebuilt container presents a new one; a stale pin raises
     HostKeyMismatchError against a reused database.
     """
-    async with db.execute("SELECT id FROM servers WHERE name = ?", (name,)) as cursor:
-        if await cursor.fetchone():
+    async with db.execute(
+        "SELECT id, host_key FROM servers WHERE name = ?", (name,)
+    ) as cursor:
+        existing = await cursor.fetchone()
+
+    if existing:
+        # Clear any pinned host key on re-seed.
+        #
+        # Host keys are TOFU-pinned on first connect. The test host is
+        # disposable and gets a brand new key every time its image is rebuilt,
+        # so a pin from a previous container makes every later connection fail
+        # with HostKeyMismatchError. The symptom is misleading: the app looks
+        # healthy, the host is reachable over ssh from a terminal, and only the
+        # app cannot talk to it.
+        #
+        # Safe here precisely because this is a seeder for a throwaway test
+        # host. Never do this to a real server; that is what "Re-pin host key"
+        # in Settings is for.
+        if existing[1] is not None:
+            await db.execute(
+                "UPDATE servers SET host_key = NULL WHERE id = ?", (existing[0],)
+            )
+            print(f"Server '{name}' already seeded; cleared its stale pinned host key.")
+        else:
             print(f"Server '{name}' already seeded. Skipping.")
-            return
+        return
 
     await db.execute(
         "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter) "

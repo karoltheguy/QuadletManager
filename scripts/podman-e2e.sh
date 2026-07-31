@@ -37,6 +37,8 @@ SUDOERS_FILE=/etc/sudoers.d/quadlet-test
 # Rootful is also simply the reliable choice here: it is the equivalent of
 # Docker's privileged mode, whereas rootless podman-in-podman with systemd as
 # PID 1 is the flakiest configuration available. Do not "simplify" this.
+# Consequence worth knowing: the host container is therefore invisible to a
+# plain `podman ps` run as your own user. Use `sudo podman ps`, or `$0 status`.
 PODMAN="sudo podman"
 
 log()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -49,6 +51,7 @@ Usage: scripts/podman-e2e.sh <command> [args]
 
 Container target (default, matches CI):
   up                    build the image and start the podman host
+  status                is the host reachable? (no sudo needed)
   down                  stop and remove the container
   test [pytest args]    run `pytest -m podman` against the selected target
   shell                 ssh into the target with the test key
@@ -155,6 +158,44 @@ wait_ready() {
     fi
 
     log "Ready: $($PODMAN exec "$CONTAINER" cat /etc/podman-version)"
+
+    # Say this out loud. The container runs under ROOTFUL podman, and rootful
+    # and rootless have entirely separate container stores, so a plain
+    # `podman ps` as your own user shows nothing at all and the host looks like
+    # it failed to start.
+    cat <<EOF
+
+The host runs under rootful podman, so your own \`podman ps\` will NOT show it.
+  see it:     sudo podman ps
+  check it:   $0 status
+  run tests:  $0 test
+EOF
+}
+
+cmd_status() {
+    # Deliberately does not use sudo. Reachability over SSH is the thing that
+    # actually matters to the tests, and checking it needs no password.
+    local host port
+    host="$(target_host)"; port="$(target_port)"
+
+    if ! (exec 3<>"/dev/tcp/$host/$port") 2>/dev/null; then
+        echo "DOWN: nothing listening on $host:$port"
+        echo "  start it with: sudo $0 up"
+        return 1
+    fi
+    echo "port $host:$port is open"
+
+    if ! ssh_target true 2>/dev/null; then
+        echo "DOWN: port is open but ssh failed"
+        ssh_target true || true
+        return 1
+    fi
+
+    echo "UP: $(ssh_target 'podman --version') as $(ssh_target whoami)"
+    echo "rootless podman inside: $(ssh_target 'podman info --format "{{.Host.Security.Rootless}}"' 2>/dev/null)"
+    echo
+    echo "Note: this container runs under rootful podman. Your own \`podman ps\`"
+    echo "will not list it; use \`sudo podman ps\`."
 }
 
 cmd_down() {
@@ -189,14 +230,20 @@ _KEY_COPY=""
 # to password auth. The committed fixture is mode 644 because git records only
 # the executable bit, so every fresh clone hits this. Copy it to a private
 # temp file rather than chmod-ing a file in the developer's working tree.
-private_key_path() {
-    if [ -z "$_KEY_COPY" ]; then
+#
+# MUST be called as a plain statement, never as `$(ensure_key_copy)`. Command
+# substitution runs the function in a subshell, so the assignment below would be
+# discarded and, worse, the EXIT trap would fire when that subshell ended and
+# delete the key before ssh ever opened it. The symptom is
+# "Identity file /tmp/tmp.XXXX not accessible" followed by a permission-denied,
+# which reads like a broken key rather than a shell scoping mistake.
+ensure_key_copy() {
+    if [ -z "$_KEY_COPY" ] || [ ! -f "$_KEY_COPY" ]; then
         _KEY_COPY="$(mktemp)"
         chmod 600 "$_KEY_COPY"
         cat "$(target_key)" > "$_KEY_COPY"
         trap 'rm -f "$_KEY_COPY"' EXIT
     fi
-    printf '%s' "$_KEY_COPY"
 }
 
 ssh_target() {
@@ -204,7 +251,8 @@ ssh_target() {
     # that ssh declines to use turns into an interactive password prompt --
     # and because DISPLAY is set, ssh pops a *graphical* one, once per retry
     # in the readiness loop, asking for the container account's password.
-    ssh -i "$(private_key_path)" -p "$(target_port)" \
+    ensure_key_copy
+    ssh -i "$_KEY_COPY" -p "$(target_port)" \
         -o BatchMode=yes \
         -o PreferredAuthentications=publickey \
         -o PasswordAuthentication=no \
@@ -337,6 +385,7 @@ cmd_teardown_local() {
 
 case "${1:-}" in
     up)             shift; cmd_up "$@" ;;
+    status)         shift; cmd_status "$@" ;;
     down)           shift; cmd_down "$@" ;;
     test)           shift; cmd_test "$@" ;;
     shell)          shift; cmd_shell "$@" ;;
