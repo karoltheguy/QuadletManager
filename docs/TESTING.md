@@ -124,6 +124,10 @@ These run against a real, version-pinned Podman 5 host over SSH: real systemd,
 real `podman`, and the real quadlet generator. They are marked `podman` and are
 excluded from every other suite's marker expression.
 
+This section covers using the fixture *here*. For what it is, a diagram of the
+three targets, and how to lift it into another project, see
+[The Podman test host](PODMAN_TEST_HOST.md).
+
 ### The two targets
 
 One suite, two interchangeable hosts, chosen entirely by environment variables
