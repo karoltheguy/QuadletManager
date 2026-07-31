@@ -82,7 +82,8 @@ RUN useradd -m -u 1000 -s /bin/bash editor \
     && echo "editor ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && install -d -m 700 -o editor -g editor /home/editor/.ssh
 
-# sudo has to work, and on a GitHub runner the stock PAM stack refuses it:
+# sudo has to work. On a GitHub runner it once failed like this, before sshd's
+# account stage was fixed:
 #
 #   sudo: PAM account management error: Authentication service cannot retrieve
 #         authentication info
@@ -96,16 +97,21 @@ RUN useradd -m -u 1000 -s /bin/bash editor \
 # authentication failure: sudo never asks for a password, it fails the
 # *account* stage before getting that far.
 #
-# The replacement stack grants exactly what the sudoers line above already
-# grants, so nothing about this container's security posture changes. Verified
-# against fedora:43 that it does not regress where the stock stack works.
-RUN printf '%s\n' \
-        'auth       sufficient   pam_rootok.so' \
-        'auth       required     pam_permit.so' \
-        'account    required     pam_permit.so' \
-        'session    required     pam_permit.so' \
-    > /etc/pam.d/sudo \
-    && runuser -u editor -- sudo -n true \
+# The stock stack is used. /etc/pam.d/sudo was replaced for a while, with
+# pam_rootok + pam_permit, and that opt-out was added before the sshd stack was
+# understood: all three failures shared one cause and fixing sshd's account
+# stage may have been enough on its own. The assertion below is what tells us,
+# and it is why the replacement can be removed without guessing.
+#
+# If this build starts failing here again, the replacement is the known remedy,
+# and it changes nothing about this container's security posture because the
+# NOPASSWD sudoers line above already grants exactly what it allows:
+#
+#     auth       sufficient   pam_rootok.so
+#     auth       required     pam_permit.so
+#     account    required     pam_permit.so
+#     session    required     pam_permit.so
+RUN runuser -u editor -- sudo -n true \
     || ( echo "sudo is refused inside this image; every global-scope test would fail"; \
          runuser -u editor -- sudo -n true; \
          exit 1 )
@@ -213,11 +219,18 @@ RUN printf '%s\n' \
 # is the canary for exactly this.
 RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
 
-# Stop the user manager from demanding a PAM session.
+# The user manager runs on the stock `systemd-user` PAM stack.
 #
-# Linger alone is not enough. user@.service runs `systemd --user` through the
-# `systemd-user` PAM stack, and inside a container on a host with audit enabled
-# that stack cannot complete. Observed on a GitHub runner (PR #284, run
+# It did not always. A drop-in on user@.service carried `PAMName=` for a while,
+# added before the sshd stack was understood. All three PAM failures on this
+# host shared one cause, so fixing sshd's account stage may have been enough on
+# its own, and every opt-out removed is a way this fixture stops diverging from
+# a real host. tests/podman/test_podman_host_env.py is the canary if this was
+# wrong: `systemctl --user is-system-running` returns empty rather than
+# erroring when the user manager is dead.
+#
+# The two failure modes to recognise, and the remedy, because neither is
+# guessable from the symptom. First, observed on a GitHub runner (PR #284, run
 # 30657079978):
 #
 #   user@1000.service: PAM failed: Authentication service cannot retrieve
@@ -226,37 +239,24 @@ RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
 #   user@1000.service: Failed at step PAM spawning /usr/lib/systemd/systemd
 #   user@1000.service: Main process exited, status=224/PAM
 #
-# The failure is environment-dependent, which is the worst property it could
-# have: the identical image boots clean under local rootful podman and fails
-# under the runner's Docker, so the two targets disagree on the same commit.
-# `pam_loginuid.so` cannot write /proc/self/loginuid there, and the account
-# lookup is the other half of the message.
+# `pam_loginuid.so` cannot write /proc/self/loginuid inside a container on an
+# audit-enabled host, and the account lookup is the other half of the message.
+# Environment-dependent, which is the worst property it could have: the
+# identical image boots clean under local rootful podman.
 #
-# `PAMName=` (empty) resets the setting, so no PAM session is set up at all.
-# Nothing here needs one: linger plus user-runtime-dir@.service already create
-# /run/user/1000, which is the only thing ROOTLESS_ENV_PREFIX depends on. A
-# session bus the user manager would otherwise provide is what rootless podman
-# complains about losing ("could not determine address of session bus"), and
-# that returns with the manager.
+# Second, and only reachable *after* fixing the first: dropping PAM also drops
+# pam_systemd, which is what exports XDG_RUNTIME_DIR into the manager's
+# environment. `systemd --user` then starts, finds no runtime directory and
+# exits immediately, logging nothing to the system journal. It looks nothing
+# like the first failure: status=1/FAILURE with no message at all.
 #
-# XDG_RUNTIME_DIR has to be set here for the same reason. It is normally
-# pam_systemd, reached through the systemd-user PAM stack, that exports it into
-# the manager's environment; user@.service itself sets no such variable. Drop
-# PAM without replacing it and `systemd --user` starts, finds no runtime
-# directory and exits 1 immediately, logging nothing to the system journal.
-# That was the second failure on the same run, and it looks nothing like the
-# first: status=1/FAILURE with no message at all.
+# So the remedy is both lines together, never PAMName= alone, applied to the
+# template rather than to user@1000.service so it survives a uid change:
 #
-# %i is the uid for this template, so this resolves to the directory
-# user-runtime-dir@.service has already created.
-#
-# Applied to the template, not user@1000.service, so it survives a uid change.
-RUN mkdir -p /etc/systemd/system/user@.service.d \
-    && printf '%s\n' \
-        '[Service]' \
-        'PAMName=' \
-        'Environment=XDG_RUNTIME_DIR=/run/user/%i' \
-    > /etc/systemd/system/user@.service.d/10-no-pam.conf
+#     /etc/systemd/system/user@.service.d/10-no-pam.conf
+#     [Service]
+#     PAMName=
+#     Environment=XDG_RUNTIME_DIR=/run/user/%i
 
 # These four mount kernel pseudo-filesystems that a container cannot have, so
 # they always fail and always leave `systemctl is-system-running` at "degraded".
