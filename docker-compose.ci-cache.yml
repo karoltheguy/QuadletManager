@@ -1,0 +1,25 @@
+# Build-cache overlay for CI only. Layered on top of docker-compose.test.yml
+# with a second -f, never used locally.
+#
+# It lives in its own file rather than in docker-compose.test.yml because a
+# cache backend is a property of the machine doing the build, not of the
+# fixture. A contributor running `docker compose --profile podman build` on
+# their own machine would otherwise inherit a cache directory that means
+# nothing to them, and `cache_to` fails outright on the default docker driver.
+#
+# `type=local` rather than `type=gha`: the gha backend needs
+# ACTIONS_RUNTIME_TOKEN and friends, which GitHub exposes to JavaScript actions
+# but strips from `run:` steps, so driving it from a compose command means
+# re-exporting them by hand. A local directory paired with actions/cache needs
+# none of that and keeps the cache visible as an ordinary artifact.
+#
+# Worth caching because this image is a full Fedora dnf install plus a skopeo
+# pull of the test image, and none of it changes between runs unless
+# Dockerfile.podman-host does. The workflow keys the cache on exactly that.
+services:
+  podman-host:
+    build:
+      cache_from:
+        - type=local,src=/tmp/podman-host-cache
+      cache_to:
+        - type=local,dest=/tmp/podman-host-cache-new,mode=max

@@ -137,10 +137,46 @@ jobs:
         if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: playwright install --with-deps
 
+      # Only the podman host is worth caching, and only it gets these two
+      # steps. Building it is a full Fedora dnf install plus a skopeo pull of
+      # the test image, none of which changes unless the Dockerfile or the
+      # files it copies do, which is exactly what the key hashes.
+      #
+      # Buildx with the docker-container driver is required, not optional: the
+      # default docker driver cannot export a build cache at all.
+      - name: Set up Buildx for the podman host image
+        if: ${{ matrix.compose_profile != '' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache the podman host image layers
+        if: ${{ matrix.compose_profile != '' }}
+        uses: actions/cache@v6
+        with:
+          path: /tmp/podman-host-cache
+          key: podman-host-${{ hashFiles('Dockerfile.podman-host', 'tests/fixtures/podman-host/**', 'tests/fixtures/test_key.pub') }}
+          # A stale cache is still most of the layers, so a near miss beats a
+          # cold build: buildx revalidates and rebuilds from the first changed
+          # layer onwards.
+          restore-keys: podman-host-
+
       - name: Start Mock Environment
         if: ${{ matrix.needs_docker }}
         run: |
-          docker compose -f docker-compose.test.yml ${{ matrix.compose_profile }} up -d --build
+          # The cache overlay applies to the podman host only, and only in CI.
+          # See docker-compose.ci-cache.yml for why it is not in the main file.
+          COMPOSE_FILES="-f docker-compose.test.yml"
+          if [ -n "${{ matrix.compose_profile }}" ]; then
+            COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.ci-cache.yml"
+          fi
+          docker compose $COMPOSE_FILES ${{ matrix.compose_profile }} up -d --build
+
+          # cache_to writes to a separate directory so it never appends to the
+          # one it just read, which is how a local buildx cache grows without
+          # bound. Rotate it into place for actions/cache to save.
+          if [ -d /tmp/podman-host-cache-new ]; then
+            rm -rf /tmp/podman-host-cache
+            mv /tmp/podman-host-cache-new /tmp/podman-host-cache
+          fi
           echo "Waiting for app to start..."
           python -c '
           import urllib.request, time
