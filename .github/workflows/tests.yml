@@ -190,12 +190,29 @@ jobs:
             -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             -o LogLevel=ERROR -o ConnectTimeout=10 editor@localhost"
 
+          # Note the `|| true` on every diagnostic below. Without it `set -e`
+          # kills the script on the re-run itself, before anything is printed:
+          # that is how this stage first failed with a bare "exit code 255" and
+          # not one word about why.
           echo "Waiting for sshd on 2223..."
+          ssh_ok=""
           for i in $(seq 1 30); do
-            if $SSH true 2>/dev/null; then echo "ssh is up"; break; fi
+            if $SSH true 2>/dev/null; then ssh_ok=1; echo "ssh is up"; break; fi
             sleep 2
           done
-          $SSH true || { $SSH true; echo "cannot ssh to the podman host"; exit 1; }
+          if [ -z "$ssh_ok" ]; then
+            echo "cannot ssh to the podman host. Last attempt, verbosely:"
+            $SSH -v true || true
+            echo "--- is the port published? ---"
+            docker compose -f docker-compose.test.yml ps || true
+            docker compose -f docker-compose.test.yml port podman-host 22 || true
+            echo "--- is sshd actually up in there? ---"
+            docker compose -f docker-compose.test.yml exec -T podman-host \
+              systemctl status sshd -l --no-pager || true
+            docker compose -f docker-compose.test.yml exec -T podman-host \
+              ss -lntp || true
+            exit 1
+          fi
 
           echo "Checking podman as editor..."
           $SSH 'podman --version'
