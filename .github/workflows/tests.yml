@@ -122,8 +122,18 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install Node.js dependencies
+      - name: Cache Node.js modules
         if: ${{ matrix.needs_node }}
+        id: node-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            node_modules
+            static/vendor
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Node.js dependencies
+        if: ${{ matrix.needs_node && steps.node-cache.outputs.cache-hit != 'true' }}
         run: npm ci
 
       - name: Set up Python
@@ -148,6 +158,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt', 'requirements-test.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Install Playwright Browsers
         if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
@@ -359,6 +371,15 @@ jobs:
             -e QM_PODMAN_USER=editor \
             quadlet-manager python scripts/seed_test_db.py
 
+      - name: Cache pytest data
+        uses: actions/cache@v6
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-${{ matrix.suite }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-${{ matrix.suite }}-
+            ${{ runner.os }}-pytest-
+
       - name: Run ${{ matrix.suite }} tests
         id: run_tests
         env:
@@ -532,8 +553,18 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install Node.js dependencies
+      - name: Cache Node.js modules
         if: ${{ matrix.needs_node }}
+        id: node-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            node_modules
+            static/vendor
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Node.js dependencies
+        if: ${{ matrix.needs_node && steps.node-cache.outputs.cache-hit != 'true' }}
         run: npm ci
 
       - name: Set up Python
@@ -558,6 +589,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt', 'requirements-test.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Install Playwright Browsers
         if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
@@ -579,6 +612,15 @@ jobs:
               time.sleep(1)
           print("App failed to start in time"); exit(1)
           '
+
+      - name: Cache pytest data
+        uses: actions/cache@v6
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-${{ matrix.suite }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-${{ matrix.suite }}-
+            ${{ runner.os }}-pytest-
 
       - name: Run ${{ matrix.suite }} tests
         env:
