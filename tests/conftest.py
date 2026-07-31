@@ -83,12 +83,19 @@ def pytest_collection_modifyitems(config, items):
         if "page" in getattr(item, "fixturenames", []):
             item.add_marker(skip)
 
+# Must stay identical to the `unmarked` suite's marker in
+# .github/workflows/tests.yml, in both matrix blocks. The two are matched by
+# string equality below, so a change to one without the other silently stops
+# the exit-5 conversion and the job goes red on an empty collection.
+UNMARKED_MARKEXPR = "not unit and not integration and not e2e and not podman"
+
+
 def pytest_sessionfinish(session, exitstatus):
     """
     Return exit code 0 if pytest exits with code 5 (no tests collected) on condition.
-    This prevents CI from failing when marker "not unit and not integration and not e2e" matches 0 tests.
+    This prevents CI from failing when the `unmarked` suite's marker matches 0 tests.
     """
     if exitstatus == 5:
         markexpr = getattr(session.config.option, "markexpr", "")
-        if markexpr == "not unit and not integration and not e2e":
+        if markexpr == UNMARKED_MARKEXPR:
             session.exitstatus = 0

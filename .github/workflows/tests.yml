@@ -32,7 +32,9 @@ jobs:
     # Backstop for a hang that pytest's own timeout cannot catch (a wedge in
     # docker compose or playwright install, outside the test run). Without it
     # the job inherits GitHub's 360-minute default and burns runner time.
-    timeout-minutes: 20
+    # 30 rather than 20: the podman suite builds a Fedora image and boots
+    # systemd in it before the first test runs.
+    timeout-minutes: 30
     permissions:
       contents: write
 
@@ -44,25 +46,47 @@ jobs:
             marker: unit
             needs_docker: false
             needs_playwright: false
+            compose_profile: ""
             xdist_args: "-n auto"
 
+          # The marker expression must exclude podman too. Without that this
+          # suite collects the podman tests on a runner that has no podman host.
+          # tests/conftest.py's pytest_sessionfinish hardcodes the same string
+          # and must be kept in sync with it.
           - suite: unmarked
-            marker: "not unit and not integration and not e2e"
+            marker: "not unit and not integration and not e2e and not podman"
             needs_docker: false
             needs_playwright: false
+            compose_profile: ""
             xdist_args: "-n auto"
 
           - suite: integration
             marker: integration
             needs_docker: true
             needs_playwright: false
+            compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
           - suite: e2e
             marker: e2e
             needs_docker: true
             needs_playwright: true
+            compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
+
+          # GitHub runner only. test-forgejo runs inside
+          # ghcr.io/catthehacker/ubuntu:act-latest, where a privileged
+          # nested-systemd container is unlikely to work, and a permanently red
+          # job is worse than no job.
+          #
+          # Concurrency is deliberately low: every test in this suite shares one
+          # podman host and one systemd instance.
+          - suite: podman
+            marker: podman
+            needs_docker: true
+            needs_playwright: true
+            compose_profile: "--profile podman"
+            xdist_args: "--dist=loadfile -n 2"
 
     steps:
       - name: Checkout
@@ -108,7 +132,7 @@ jobs:
       - name: Start Mock Environment
         if: ${{ matrix.needs_docker }}
         run: |
-          docker compose -f docker-compose.test.yml up -d --build
+          docker compose -f docker-compose.test.yml ${{ matrix.compose_profile }} up -d --build
           echo "Waiting for app to start..."
           python -c '
           import urllib.request, time
@@ -121,6 +145,64 @@ jobs:
               time.sleep(1)
           print("App failed to start in time"); exit(1)
           '
+
+      # The podman host boots real systemd, sshd and nested podman, so it needs
+      # its own readiness gate. Staged, because each stage failing means
+      # something different: systemd up, then sshd answering, then rootless
+      # podman actually usable (linger and newuidmap filecaps both surface here).
+      - name: Wait for the podman host
+        if: ${{ matrix.compose_profile != '' }}
+        run: |
+          set -euo pipefail
+
+          echo "Waiting for systemd inside podman-host..."
+          for i in $(seq 1 60); do
+            state=$(docker compose -f docker-compose.test.yml exec -T podman-host \
+              systemctl is-system-running 2>/dev/null || true)
+            case "$state" in
+              running) echo "systemd is running"; break ;;
+              degraded)
+                echo "systemd came up degraded:"
+                docker compose -f docker-compose.test.yml exec -T podman-host \
+                  systemctl --failed --no-pager || true
+                exit 1
+                ;;
+            esac
+            sleep 2
+          done
+
+          # ssh refuses a private key readable by group or other, and the
+          # committed fixture is mode 644 because git records only the
+          # executable bit. Copy it before use, and never allow a password
+          # prompt: BatchMode makes a rejected key a loud failure.
+          install -m 600 tests/fixtures/test_key /tmp/qm_test_key
+          SSH="ssh -i /tmp/qm_test_key -p 2223 -o BatchMode=yes \
+            -o PreferredAuthentications=publickey \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o LogLevel=ERROR -o ConnectTimeout=10 editor@localhost"
+
+          echo "Waiting for sshd on 2223..."
+          for i in $(seq 1 30); do
+            if $SSH true 2>/dev/null; then echo "ssh is up"; break; fi
+            sleep 2
+          done
+          $SSH true || { $SSH true; echo "cannot ssh to the podman host"; exit 1; }
+
+          echo "Checking podman as editor..."
+          $SSH 'podman --version'
+          $SSH 'podman info >/dev/null' || {
+            $SSH 'podman info' || true
+            echo "rootless podman is not usable (linger? newuidmap filecaps?)"
+            exit 1
+          }
+
+          # Seed the app's database with the podman host. The app container
+          # reaches it by service name, not through the published port.
+          docker compose -f docker-compose.test.yml exec -T \
+            -e QM_SEED_PODMAN=1 \
+            -e QM_PODMAN_HOST=podman-host:22 \
+            -e QM_PODMAN_USER=editor \
+            quadlet-manager python scripts/seed_test_db.py
 
       - name: Run ${{ matrix.suite }} tests
         id: run_tests
@@ -142,10 +224,22 @@ jobs:
         run: |
           docker compose -f docker-compose.test.yml logs
 
+      # compose logs show almost nothing for this container: its PID 1 is
+      # systemd, so the interesting output is in the journal, not on stdout.
+      - name: Show podman host diagnostics on failure
+        if: ${{ failure() && matrix.compose_profile != '' }}
+        run: |
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            journalctl --no-pager -n 200 || true
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            systemctl --failed --no-pager || true
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            sudo -u editor podman ps -a || true
+
       - name: Stop Mock Environment
         if: ${{ always() && matrix.needs_docker }}
         run: |
-          docker compose -f docker-compose.test.yml down -v
+          docker compose -f docker-compose.test.yml ${{ matrix.compose_profile }} down -v
 
       - name: Upload test results
         if: always()
@@ -155,7 +249,7 @@ jobs:
           path: test-results/
 
       - name: Update badge
-        if: ${{ always() && github.ref == 'refs/heads/main' && contains(fromJson('["unit","integration","e2e"]'), matrix.suite) }}
+        if: ${{ always() && github.ref == 'refs/heads/main' && contains(fromJson('["unit","integration","e2e","podman"]'), matrix.suite) }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SUITE: ${{ matrix.suite }}
@@ -223,24 +317,32 @@ jobs:
             marker: unit
             needs_docker: false
             needs_playwright: false
+            compose_profile: ""
             xdist_args: "-n auto"
 
+          # The marker expression must exclude podman too. Without that this
+          # suite collects the podman tests on a runner that has no podman host.
+          # tests/conftest.py's pytest_sessionfinish hardcodes the same string
+          # and must be kept in sync with it.
           - suite: unmarked
-            marker: "not unit and not integration and not e2e"
+            marker: "not unit and not integration and not e2e and not podman"
             needs_docker: false
             needs_playwright: false
+            compose_profile: ""
             xdist_args: "-n auto"
 
           - suite: integration
             marker: integration
             needs_docker: true
             needs_playwright: false
+            compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
           - suite: e2e
             marker: e2e
             needs_docker: true
             needs_playwright: true
+            compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
     steps:
@@ -287,7 +389,7 @@ jobs:
       - name: Start Mock Environment
         if: ${{ matrix.needs_docker }}
         run: |
-          docker compose -f docker-compose.test.yml up -d --build
+          docker compose -f docker-compose.test.yml ${{ matrix.compose_profile }} up -d --build
           echo "Waiting for app to start..."
           python -c '
           import urllib.request, time
@@ -323,7 +425,7 @@ jobs:
       - name: Stop Mock Environment
         if: ${{ always() && matrix.needs_docker }}
         run: |
-          docker compose -f docker-compose.test.yml down -v
+          docker compose -f docker-compose.test.yml ${{ matrix.compose_profile }} down -v
 
       - name: Upload test results
         if: always()
