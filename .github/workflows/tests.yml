@@ -46,6 +46,7 @@ jobs:
             marker: unit
             needs_docker: false
             needs_playwright: false
+            needs_node: false
             compose_profile: ""
             xdist_args: "-n auto"
 
@@ -57,6 +58,7 @@ jobs:
             marker: "not unit and not integration and not e2e and not podman"
             needs_docker: false
             needs_playwright: false
+            needs_node: false
             compose_profile: ""
             xdist_args: "-n auto"
 
@@ -64,6 +66,7 @@ jobs:
             marker: integration
             needs_docker: true
             needs_playwright: false
+            needs_node: true
             compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
@@ -71,6 +74,7 @@ jobs:
             marker: e2e
             needs_docker: true
             needs_playwright: true
+            needs_node: true
             compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
@@ -93,6 +97,7 @@ jobs:
             marker: podman
             needs_docker: true
             needs_playwright: true
+            needs_node: true
             compose_profile: "--profile podman"
             xdist_args: ""
 
@@ -100,7 +105,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Only the suites that consume npm's output. `npm ci` runs the
+      # postinstall hook, which vendors monaco, xterm and quadlet-lint into
+      # static/vendor/, and docker-compose.test.yml bind-mounts `.:/app` over
+      # the app container, so for every docker suite the host tree is what the
+      # app actually serves. `unit` and `unmarked` neither build the image nor
+      # open a browser: verified by running both with static/vendor and
+      # node_modules removed, 843 passed / 3 skipped and 47 passed, unchanged.
+      # Worth roughly 16s each (5s setup, 11s install) on two jobs that run in
+      # 66s and 56s.
       - name: Set up Node.js
+        if: ${{ matrix.needs_node }}
         uses: actions/setup-node@v7
         with:
           node-version: "20"
@@ -108,6 +123,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install Node.js dependencies
+        if: ${{ matrix.needs_node }}
         run: npm ci
 
       - name: Set up Python
@@ -463,6 +479,7 @@ jobs:
             marker: unit
             needs_docker: false
             needs_playwright: false
+            needs_node: false
             compose_profile: ""
             xdist_args: "-n auto"
 
@@ -474,6 +491,7 @@ jobs:
             marker: "not unit and not integration and not e2e and not podman"
             needs_docker: false
             needs_playwright: false
+            needs_node: false
             compose_profile: ""
             xdist_args: "-n auto"
 
@@ -481,6 +499,7 @@ jobs:
             marker: integration
             needs_docker: true
             needs_playwright: false
+            needs_node: true
             compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
@@ -488,6 +507,7 @@ jobs:
             marker: e2e
             needs_docker: true
             needs_playwright: true
+            needs_node: true
             compose_profile: ""
             xdist_args: "-n auto --dist=loadfile"
 
@@ -495,7 +515,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Only the suites that consume npm's output. `npm ci` runs the
+      # postinstall hook, which vendors monaco, xterm and quadlet-lint into
+      # static/vendor/, and docker-compose.test.yml bind-mounts `.:/app` over
+      # the app container, so for every docker suite the host tree is what the
+      # app actually serves. `unit` and `unmarked` neither build the image nor
+      # open a browser: verified by running both with static/vendor and
+      # node_modules removed, 843 passed / 3 skipped and 47 passed, unchanged.
+      # Worth roughly 16s each (5s setup, 11s install) on two jobs that run in
+      # 66s and 56s.
       - name: Set up Node.js
+        if: ${{ matrix.needs_node }}
         uses: actions/setup-node@v7
         with:
           node-version: "20"
@@ -503,6 +533,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install Node.js dependencies
+        if: ${{ matrix.needs_node }}
         run: npm ci
 
       - name: Set up Python
