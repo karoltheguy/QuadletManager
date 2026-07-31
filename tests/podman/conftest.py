@@ -42,6 +42,27 @@ DEFAULT_USER = "editor"
 DEFAULT_KEY = "tests/fixtures/test_key"
 
 
+def pytest_configure(config):
+    """Refuse to run in parallel. This suite has exactly one host.
+
+    Every test writes e2e- fixtures into the same two quadlet directories on
+    the same machine, and the names are fixed, so two workers are two writers
+    to one set of files. The pre-flight check below then does its job and
+    refuses to start, because it finds files this worker did not write.
+
+    That is not hypothetical: `--dist=loadfile -n 2` in CI produced 16 errors
+    from a single collision, gw0 tripping over the e2e-test.pod that gw1 had
+    just installed. Failing here says so in one line instead.
+    """
+    worker_count = os.environ.get("PYTEST_XDIST_WORKER_COUNT")
+    if worker_count and int(worker_count) > 1:
+        raise pytest.UsageError(
+            f"The podman suite must run serially, but pytest-xdist started "
+            f"{worker_count} workers. Every test shares one host, one systemd "
+            "instance and one set of e2e- fixture names. Drop -n, or use -n0."
+        )
+
+
 def target_address() -> str:
     return os.environ.get("QM_PODMAN_HOST", DEFAULT_HOST)
 

@@ -79,14 +79,22 @@ jobs:
           # nested-systemd container is unlikely to work, and a permanently red
           # job is worse than no job.
           #
-          # Concurrency is deliberately low: every test in this suite shares one
-          # podman host and one systemd instance.
+          # Serial, and it has to be. Every test shares one podman host, one
+          # systemd instance and one set of e2e- fixture names, so two workers
+          # are two writers to the same directories. `--dist=loadfile -n 2` was
+          # tried and failed exactly there: gw0 ran the validator module while
+          # gw1 installed e2e-test.pod, and gw0's pre-flight then refused to
+          # start because it found files it had not written. 16 errors from one
+          # collision. The safety rail was right; the concurrency was wrong.
+          #
+          # tests/podman/conftest.py refuses to run under more than one xdist
+          # worker, so this cannot be reintroduced by accident.
           - suite: podman
             marker: podman
             needs_docker: true
             needs_playwright: true
             compose_profile: "--profile podman"
-            xdist_args: "--dist=loadfile -n 2"
+            xdist_args: ""
 
     steps:
       - name: Checkout
