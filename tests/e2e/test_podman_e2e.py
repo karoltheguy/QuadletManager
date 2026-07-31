@@ -20,6 +20,7 @@ process cannot resolve the server row the *app* is using.
 """
 
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -45,12 +46,22 @@ MONITOR_CONTAINER = "e2e-monitor"
 USER_QUADLET_DIR = "~/.config/containers/systemd"
 
 
-def _ssh(command: str) -> str:
+def _ssh(command: str, check: bool = True) -> str:
     """Run a command on the podman host over plain ssh.
 
     The committed key is mode 644, which ssh refuses outright, so it is copied
     to a private temp file first. BatchMode=yes guarantees a failure rather than
     an interactive (and, with DISPLAY set, graphical) password prompt.
+
+    Raises on a non-zero exit by default. Returning stdout unconditionally,
+    which is what this did originally, turns an unreachable host or a failed
+    daemon-reload into an empty string, and that surfaces two steps later as an
+    assertion about the UI not showing a file. The failure then points at the
+    app rather than at the ssh that never ran.
+
+    Pass check=False where a non-zero exit is a legitimate answer rather than an
+    error. `systemctl is-active` is the one that matters here: it exits non-zero
+    precisely when it has something to tell you.
     """
     host, _, port = PODMAN_HOST.rpartition(":")
     host = host or PODMAN_HOST
@@ -74,6 +85,12 @@ def _ssh(command: str) -> str:
             ],
             capture_output=True, text=True, timeout=90,
         )
+        if check and result.returncode != 0:
+            raise RuntimeError(
+                f"ssh command failed with exit {result.returncode}: {command}\n"
+                f"stdout: {result.stdout.strip()!r}\n"
+                f"stderr: {result.stderr.strip()!r}"
+            )
         return result.stdout
     finally:
         os.unlink(key_copy)
@@ -117,12 +134,13 @@ def _open_app(page):
 
 
 # Per-test ceilings rather than a higher global one. pytest.ini's `timeout = 120`
-# exists for a documented reason and covers the whole suite; these three are the
-# outliers. Each waits on a real host: a unit reaching active, a scanner pass, or
-# a stats poll cycle, none of which are instant on a cold CI runner. The monitor
-# journey below can legitimately spend 60s on the first and 90s on the last,
-# which blows the global ceiling and fails as an opaque timeout rather than as
-# the assertion that would name the problem.
+# exists for a documented reason and covers the whole suite; the tests in this
+# module are the outliers. Each waits on a real host: a unit reaching active, a
+# scanner pass, or a stats poll cycle, none of which are instant on a cold CI
+# runner. The monitor journeys below can legitimately spend 60s waiting for the
+# unit and 90s waiting for the stats poll, which blows the global ceiling and
+# fails as an opaque timeout rather than as the assertion that would name the
+# problem.
 @pytest.mark.timeout(300)
 def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
     """Create a quadlet through the modal and confirm it exists on the host.
@@ -175,9 +193,15 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
     """
     file_name = f"{UI_QUADLET}.container"
     _remove_e2e_quadlet(file_name)
+
+    # %b, not %s. printf '%s' does not expand \n, so the original wrote a single
+    # literal line reading `[Container]\nImage=...`, which is not a quadlet at
+    # all. The test passed anyway, because it only checks that the tree lists
+    # the file name, and the scanner lists a file whatever is inside it.
+    content = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
     _ssh(
         f"mkdir -p {USER_QUADLET_DIR} && "
-        f"printf '%s' '[Container]\\nImage=quay.io/quay/busybox:latest\\n' "
+        f"printf '%b' {shlex.quote(content)} "
         f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
     )
     try:
@@ -201,12 +225,18 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
         _remove_e2e_quadlet(file_name)
 
 
-@pytest.mark.timeout(300)
-def test_monitor_glance_bar_counts_a_really_running_container(page):
-    """The Monitor glance bar reflects a container that is genuinely up.
+@pytest.fixture(scope="module")
+def running_monitor_container():
+    """One genuinely running container on the host, for the Monitor journeys.
 
-    This is the behaviour changed in #276/#278, and the counts come from
-    systemd unit state via the Quadlet inventory rather than from `podman ps`.
+    Module-scoped because standing this up costs a daemon-reload, a real
+    container start and up to 60s waiting for the unit to reach active, and
+    both Monitor tests below need exactly the same thing running.
+
+    RunInit=yes and the TERM trap are both load-bearing. Without an init the
+    payload is PID 1 and ignores SIGTERM, so podman SIGKILLs it (137); with an
+    init but no trap it dies *by* SIGTERM (143). systemd calls both a failure,
+    which would leave teardown looking like a crash.
     """
     file_name = f"{MONITOR_CONTAINER}.container"
     unit = f"{MONITOR_CONTAINER}.service"
@@ -229,31 +259,93 @@ def test_monitor_glance_bar_counts_a_really_running_container(page):
     try:
         state = ""
         for _ in range(30):
-            state = _ssh(f"systemctl --user is-active {shlex.quote(unit)}").strip()
+            # check=False: is-active exits non-zero exactly when the unit is not
+            # active, which is the answer this loop is waiting to change.
+            state = _ssh(
+                f"systemctl --user is-active {shlex.quote(unit)}", check=False
+            ).strip()
             if state == "active":
                 break
             time.sleep(2)
         assert state == "active", (
-            f"{unit} never became active on the host ({state!r}), so the glance "
-            "bar assertion below would not be testing anything."
+            f"{unit} never became active on the host ({state!r}), so neither "
+            "Monitor assertion below would be testing anything."
         )
-
-        _open_app(page)
-        page.get_by_role("button", name="Monitor").click()
-        page.get_by_role("combobox").first.select_option(label=SERVER_LABEL)
-
-        # Stats poll on an interval, so the count appears a cycle or two later.
-        deadline = time.time() + 90
-        text = ""
-        while time.time() < deadline:
-            text = page.locator("body").inner_text()
-            if MONITOR_CONTAINER in text:
-                break
-            page.wait_for_timeout(2000)
-
-        assert MONITOR_CONTAINER in text, (
-            f"{MONITOR_CONTAINER} is active on the host but never appeared in "
-            "the Monitor tab"
-        )
+        yield MONITOR_CONTAINER
     finally:
         _remove_e2e_quadlet(file_name)
+
+
+def _open_monitor_for_podman_host(page):
+    _open_app(page)
+    page.get_by_role("button", name="Monitor").click()
+    page.get_by_role("combobox").first.select_option(label=SERVER_LABEL)
+
+
+@pytest.mark.timeout(300)
+def test_monitor_stats_table_lists_a_really_running_container(
+    page, running_monitor_container
+):
+    """A genuinely running container appears in the Monitor stats table.
+
+    Scoped to #monitoring-stats-table on purpose. The obvious assertion,
+    `MONITOR_CONTAINER in page.locator("body").inner_text()`, does not test
+    Monitor at all: #navigator (templates/dashboard.html) is a direct child of
+    .app-container, outside the tab panes, so the server tree renders on *every*
+    tab and quadlet_tree.html prints each file name. That assertion goes green
+    the moment the scanner sees the file, on whichever tab happens to be open,
+    whether or not Monitor ever received a stats payload.
+
+    This table is fed by `containers`, which is real `podman ps` output, so it
+    is the part of the tab that genuinely depends on the host.
+    """
+    _open_monitor_for_podman_host(page)
+
+    # Stats arrive on a poll cycle, so the row appears a cycle or two later.
+    # expect() retries; a point-in-time inner_text() can miss the re-render.
+    row_name = page.locator("#monitoring-stats-table").get_by_text(
+        running_monitor_container, exact=False
+    ).first
+    expect(row_name).to_be_visible(timeout=90000)
+
+
+@pytest.mark.timeout(300)
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "#281: the glance bar's Total/Running/Stopped are computed from "
+        "data.units, which _unit_names_for_scope reads out of the `quadlets` "
+        "table. Nothing in production ever inserts into that table, only "
+        "UPDATE, DELETE and reads, so units is always [] and the bar always "
+        "reads 0. Flips to XPASS, and so to a failure, the day #281 is fixed."
+    ),
+)
+def test_monitor_glance_bar_counts_a_really_running_container(
+    page, running_monitor_container
+):
+    """The Monitor glance bar counts a container that is genuinely up.
+
+    Executable form of #281 rather than a claim in a document. This suite is
+    the only thing that can catch it end to end, since the bug needs a real
+    host, a real running unit and the browser all at once.
+
+    Deliberately waits for the stats table first. Both are written by the same
+    updateMonitoringView call, so once the table has the row the payload has
+    arrived and the bar has already been written. That keeps this at a short
+    assertion timeout instead of burning 90s on every run to reach a failure
+    that is expected, and it makes the failure specific: stats arrived, the
+    table shows the container, and the bar still says 0.
+    """
+    _open_monitor_for_podman_host(page)
+
+    table_row = page.locator("#monitoring-stats-table").get_by_text(
+        running_monitor_container, exact=False
+    ).first
+    expect(table_row).to_be_visible(timeout=90000)
+
+    # A positive integer, not exactly "1": once #281 is fixed the count covers
+    # every quadlet-backed unit in the scope, and a host that legitimately has
+    # others should not fail this.
+    expect(page.locator("#mstat-running")).to_have_text(
+        re.compile(r"^[1-9]\d*$"), timeout=15000
+    )
