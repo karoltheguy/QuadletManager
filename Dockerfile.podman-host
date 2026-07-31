@@ -127,11 +127,23 @@ RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
 # complains about losing ("could not determine address of session bus"), and
 # that returns with the manager.
 #
+# XDG_RUNTIME_DIR has to be set here for the same reason. It is normally
+# pam_systemd, reached through the systemd-user PAM stack, that exports it into
+# the manager's environment; user@.service itself sets no such variable. Drop
+# PAM without replacing it and `systemd --user` starts, finds no runtime
+# directory and exits 1 immediately, logging nothing to the system journal.
+# That was the second failure on the same run, and it looks nothing like the
+# first: status=1/FAILURE with no message at all.
+#
+# %i is the uid for this template, so this resolves to the directory
+# user-runtime-dir@.service has already created.
+#
 # Applied to the template, not user@1000.service, so it survives a uid change.
 RUN mkdir -p /etc/systemd/system/user@.service.d \
     && printf '%s\n' \
         '[Service]' \
         'PAMName=' \
+        'Environment=XDG_RUNTIME_DIR=/run/user/%i' \
     > /etc/systemd/system/user@.service.d/10-no-pam.conf
 
 # These four mount kernel pseudo-filesystems that a container cannot have, so

@@ -259,6 +259,13 @@ jobs:
             journalctl --no-pager -n 200 || true
           docker compose -f docker-compose.test.yml exec -T podman-host \
             systemctl --failed --no-pager || true
+          # The rootless half of this suite lives or dies with the user manager,
+          # and its own output is attributed to the unit rather than to PID 1, so
+          # a plain `journalctl -n 200` can show the failure without the reason.
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            systemctl status user@1000.service -l --no-pager || true
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            journalctl -u user@1000.service --no-pager -n 50 || true
           docker compose -f docker-compose.test.yml exec -T podman-host \
             sudo -u editor podman ps -a || true
 
