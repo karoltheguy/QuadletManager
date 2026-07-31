@@ -26,10 +26,21 @@ Environment (read identically here and in tests/podman/conftest.py):
 import asyncio
 import os
 import sys
+from pathlib import Path
 
 import aiosqlite
 
-from core.crypto import encrypt_private_key
+# Put the repo root on sys.path before importing anything from it.
+#
+# Every caller runs this as `python scripts/seed_test_db.py`, which puts
+# `scripts/` on sys.path and NOT the repo root, so `import core` fails. That is
+# not hypothetical: adding the core.crypto import below is what broke the e2e
+# job, and it broke it silently. The script died, nothing was seeded, and the
+# symptom was twenty browser tests failing on "No servers configured yet"
+# with the traceback buried in an earlier step's output.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from core.crypto import encrypt_private_key  # noqa: E402 - needs the path above
 
 KEY_NAME = "test_key"
 MOCK_SERVER_NAME = "Mock Server"
