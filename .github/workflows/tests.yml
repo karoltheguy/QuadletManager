@@ -222,6 +222,18 @@ jobs:
             exit 1
           }
 
+          # sudo, on its own, before anything that merely uses it. Every
+          # global-scope test in this suite goes through it, so a failure here
+          # is half the suite rather than one stage of this script, and it is
+          # worth saying so in its own words rather than surfacing as a
+          # confusing "image missing from the rootful store".
+          echo "Checking sudo as editor..."
+          $SSH 'sudo -n true' || {
+            $SSH 'sudo -n true' || true
+            echo "sudo is refused on the host; every global-scope test will fail"
+            exit 1
+          }
+
           # The image is preloaded into both stores at boot by
           # load-test-image.service, because rootless and rootful keep entirely
           # separate ones. If that unit failed, every fixture fails at container

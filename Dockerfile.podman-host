@@ -82,6 +82,34 @@ RUN useradd -m -u 1000 -s /bin/bash editor \
     && echo "editor ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && install -d -m 700 -o editor -g editor /home/editor/.ssh
 
+# sudo has to work, and on a GitHub runner the stock PAM stack refuses it:
+#
+#   sudo: PAM account management error: Authentication service cannot retrieve
+#         authentication info
+#   sudo: a password is required
+#
+# Third service on this host to fail the same way, after user@.service and
+# sshd, and the most damaging of the three. Every global-scope test reaches the
+# host through use_sudo=True, and services/remote_fs.py writes
+# /etc/containers/systemd that way, so without sudo it is not one broken test
+# but half the suite. NOPASSWD is already granted above, so this is not an
+# authentication failure: sudo never asks for a password, it fails the
+# *account* stage before getting that far.
+#
+# The replacement stack grants exactly what the sudoers line above already
+# grants, so nothing about this container's security posture changes. Verified
+# against fedora:43 that it does not regress where the stock stack works.
+RUN printf '%s\n' \
+        'auth       sufficient   pam_rootok.so' \
+        'auth       required     pam_permit.so' \
+        'account    required     pam_permit.so' \
+        'session    required     pam_permit.so' \
+    > /etc/pam.d/sudo \
+    && runuser -u editor -- sudo -n true \
+    || ( echo "sudo is refused inside this image; every global-scope test would fail"; \
+         runuser -u editor -- sudo -n true; \
+         exit 1 )
+
 COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
 RUN chown editor:editor /home/editor/.ssh/authorized_keys \
     && chmod 600 /home/editor/.ssh/authorized_keys
