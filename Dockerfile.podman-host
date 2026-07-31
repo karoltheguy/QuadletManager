@@ -166,6 +166,21 @@ RUN chown editor:editor /home/editor/.ssh/authorized_keys \
 #
 # auth is pam_permit because publickey auth never reaches it, and the drop-in
 # below turns off every interactive method so it cannot be reached at all.
+#
+# The assertion reads `sshd -G`, not `sshd -T`, and the difference matters twice.
+# -T refuses to run without a host key, and this image has none until
+# sshd-keygen makes them at first boot, so the -T form had to generate a
+# throwaway ed25519 key and delete it again. That is a private key written into
+# a build layer, which is what static analysis flags and is a fair thing to
+# flag. -G parses the same config, follows the same Include of
+# 50-redhat.conf, and needs no key and no root. Verified on fedora:43
+# (OpenSSH 10.0p2): -T exits 1 with no host keys present, -G prints
+# `usepam yes` inherited from the Include.
+#
+# Reading the effective config rather than trusting the write is the whole
+# point. An earlier version used `sed -i 's/^#*UsePAM .*/UsePAM no/'`, which
+# exited 0 while changing nothing, because the value comes from the Included
+# 50-redhat.conf and sshd keeps the first one it sees.
 RUN printf '%s\n' \
         'auth       required     pam_permit.so' \
         'account    required     pam_permit.so' \
@@ -179,12 +194,11 @@ RUN printf '%s\n' \
         'PasswordAuthentication no' \
         'KbdInteractiveAuthentication no' \
     > /etc/ssh/sshd_config.d/00-quadlet-test.conf \
-    && ssh-keygen -q -t ed25519 -N '' -f /tmp/assert_hostkey \
-    && effective="$(/usr/sbin/sshd -T -o HostKey=/tmp/assert_hostkey \
-         | grep -iE '^(usepam|passwordauthentication) ')" \
-    && rm -f /tmp/assert_hostkey /tmp/assert_hostkey.pub \
+    && effective="$(/usr/sbin/sshd -G \
+         | grep -iE '^(usepam|passwordauthentication|kbdinteractiveauthentication) ')" \
     && { printf '%s\n' "$effective" | grep -qx 'usepam yes' \
          && printf '%s\n' "$effective" | grep -qx 'passwordauthentication no' \
+         && printf '%s\n' "$effective" | grep -qx 'kbdinteractiveauthentication no' \
          || ( echo "unexpected effective sshd config:"; printf '%s\n' "$effective"; \
               exit 1 ); } \
     && systemctl enable sshd
