@@ -142,23 +142,51 @@ RUN chown editor:editor /home/editor/.ssh/authorized_keys \
 # reports exactly the message above. It also explains why `runuser` worked
 # throughout: its stack does not make that lookup where it matters.
 #
-# This fixture has no systemd dynamic users to resolve, so nothing needs
-# nss-systemd for groups. Dropping it is smaller than any PAM surgery and, if
-# the theory holds, removes the cause of all three failures rather than opting
-# each service out of PAM one at a time. The readiness gate prints
-# `getent group editor` and systemd-userdbd's state so the next run can confirm
-# or refute this rather than leaving it a good story.
+# nsswitch was TESTED AND RULED OUT, on the runner, in run 30663777881. With
+# `group: files` in place, `getent group editor` returned rc=0 in 0.001s and
+# sshd failed identically. Recorded here so nobody spends the round again.
 #
-# Consequence worth stating: sshd therefore keeps Fedora's stock PAM stack.
-# That matters beyond auth. pam_systemd is what exports XDG_RUNTIME_DIR into an
-# ssh session, and services/systemd_manager.py's systemctl_action runs a bare
-# `systemctl --user`, relying on the session to provide it exactly as a real
-# host does. An earlier attempt here set `UsePAM no`, which fixed the login and
-# then broke every user-scope test with "Failed to connect to user scope bus:
-# $XDG_RUNTIME_DIR not defined". A test host that needs PAM disabled is no
-# longer the real host this suite exists to exercise.
-RUN sed -i 's/^group:.*/group:      files/' /etc/nsswitch.conf \
-    && grep -q '^group:      files$' /etc/nsswitch.conf \
+# So the account stage is replaced, and only the account stage. Fedora's
+# /etc/pam.d/sshd is left behind entirely rather than patched, because the
+# failure is inside a module that works everywhere else and the cause is still
+# unknown; a stack this small has nothing left to fail.
+#
+# What is deliberately KEPT is the session stage, and pam_systemd above all.
+# That is what registers a logind session and exports XDG_RUNTIME_DIR into it,
+# and services/systemd_manager.py's systemctl_action runs a bare
+# `systemctl --user` that relies on the session providing it, exactly as it
+# does against a real host. The previous attempt here set `UsePAM no`, which
+# fixed the login and then failed all 17 user-scope tests on "Failed to connect
+# to user scope bus: $XDG_RUNTIME_DIR not defined". A host that needs PAM
+# switched off is no longer the host this suite exists to exercise.
+#
+# pam_loginuid is optional, not required: writing /proc/self/loginuid needs an
+# audit subsystem this container does not have, and that is the one module here
+# with a documented reason to fail.
+#
+# auth is pam_permit because publickey auth never reaches it, and the drop-in
+# below turns off every interactive method so it cannot be reached at all.
+RUN printf '%s\n' \
+        'auth       required     pam_permit.so' \
+        'account    required     pam_permit.so' \
+        'password   required     pam_permit.so' \
+        'session    optional     pam_loginuid.so' \
+        'session    optional     pam_keyinit.so force revoke' \
+        'session    required     pam_limits.so' \
+        'session    optional     pam_systemd.so' \
+    > /etc/pam.d/sshd \
+    && printf '%s\n' \
+        'PasswordAuthentication no' \
+        'KbdInteractiveAuthentication no' \
+    > /etc/ssh/sshd_config.d/00-quadlet-test.conf \
+    && ssh-keygen -q -t ed25519 -N '' -f /tmp/assert_hostkey \
+    && effective="$(/usr/sbin/sshd -T -o HostKey=/tmp/assert_hostkey \
+         | grep -iE '^(usepam|passwordauthentication) ')" \
+    && rm -f /tmp/assert_hostkey /tmp/assert_hostkey.pub \
+    && { printf '%s\n' "$effective" | grep -qx 'usepam yes' \
+         && printf '%s\n' "$effective" | grep -qx 'passwordauthentication no' \
+         || ( echo "unexpected effective sshd config:"; printf '%s\n' "$effective"; \
+              exit 1 ); } \
     && systemctl enable sshd
 
 # Linger. `loginctl enable-linger` needs a running systemd, which a build layer

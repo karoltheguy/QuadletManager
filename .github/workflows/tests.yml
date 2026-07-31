@@ -234,6 +234,26 @@ jobs:
             exit 1
           fi
 
+          # An ssh session must carry XDG_RUNTIME_DIR, because
+          # systemd_manager.systemctl_action runs a bare `systemctl --user` and
+          # relies on the session for it, as it does against a real host.
+          # pam_systemd is what puts it there. When that was missing, the gate
+          # sailed past and 17 user-scope tests errored on "Failed to connect
+          # to user scope bus" instead, which named the symptom and not the
+          # cause.
+          echo "Checking the rootless session..."
+          runtime_dir="$($SSH 'echo "$XDG_RUNTIME_DIR"' 2>/dev/null || true)"
+          if [ -z "$runtime_dir" ]; then
+            echo "ssh sessions carry no XDG_RUNTIME_DIR, so pam_systemd is not"
+            echo "registering a session; every user-scope test would fail."
+            $SSH 'systemctl --user is-system-running' || true
+            docker compose -f docker-compose.test.yml exec -T podman-host \
+              journalctl -u systemd-logind --no-pager -n 30 || true
+            exit 1
+          fi
+          echo "XDG_RUNTIME_DIR=$runtime_dir"
+          $SSH 'systemctl --user is-system-running' || true
+
           echo "Checking podman as editor..."
           $SSH 'podman --version'
           $SSH 'podman info >/dev/null' || {
