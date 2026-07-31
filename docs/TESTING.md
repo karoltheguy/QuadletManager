@@ -185,6 +185,26 @@ documented sudoers policy is actually sufficient to run the app.
 Both targets must produce the same result on the same commit. If they diverge,
 the container is the source of truth, because it is what CI runs.
 
+### Never run this suite in parallel
+
+Whatever else you pass, do not pass `-n`. Every other suite here runs `-n auto`
+and should; this one must not. There is exactly one host, and every test writes
+`e2e-` fixtures under fixed names into the same two quadlet directories on it,
+so two workers are two writers to one set of files. What you get is not a clean
+failure in one test: `--dist=loadfile -n 2` produced 16 errors from a single
+collision, with one worker's pre-flight tripping over the `e2e-test.pod` the
+other had just installed.
+
+`tests/podman/conftest.py` refuses to start under more than one worker, so this
+costs a run rather than a debugging session. The check lives in a fixture rather
+than in `pytest_configure`, deliberately: a conftest is imported whenever its
+directory is *collected*, even when `-m` then deselects everything in it, so
+raising at configure time took down `unit`, `unmarked`, `integration` and `e2e`
+too.
+
+`./scripts/podman-e2e.sh test` already gets this right. Use `-n0` if something
+in your environment adds `-n auto` for you.
+
 ### Running the browser journeys
 
 `tests/e2e/test_podman_e2e.py` needs an app instance whose database has been

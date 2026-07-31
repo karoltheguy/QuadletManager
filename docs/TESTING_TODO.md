@@ -1,36 +1,77 @@
 # Testing follow-ups
 
 Open items left by the `podman` suite work. Each was found by running the suite
-against a real host, and each was deliberately left undone rather than
-overlooked, with the reason recorded.
+against a real host, locally or in CI, and each was deliberately left undone
+rather than overlooked, with the reason recorded.
 
 Order is roughly by how much it matters, not by effort.
 
 ---
 
-## 1. The podman CI job has never actually run
+## 1. The two targets have never agreed on a single commit
 
-**Status: unknown, not merely unverified.**
+**Status: Target A is green in CI, and unverified locally since the image
+changed underneath it.**
 
-The workflow entry, compose profile and readiness gate are written and their
-YAML parses, but no push has exercised them. Everything about the podman suite
-that is proven is proven *locally*, on one machine, against a container built by
-`scripts/podman-e2e.sh` rather than by compose.
+The `GitHub / podman` job runs on every push and is green: 37 passed, 1029
+deselected, 44.87s of test time on run 30671299931. Getting there took twelve
+rounds, and the image changed substantially on the way:
 
-Plausible differences on a GitHub runner:
+* a `PAMName=` drop-in on `user@.service`, plus an explicit
+  `Environment=XDG_RUNTIME_DIR=/run/user/%i`,
+* a replaced `/etc/pam.d/sshd`, account stage only, with `pam_systemd` kept,
+* a replaced `/etc/pam.d/sudo`,
+* an `/etc/ssh/sshd_config.d` drop-in and a build-time assertion that reads the
+  effective config back out of `sshd -G`,
+* serial execution, enforced in `tests/podman/conftest.py`.
 
-* the compose build path differs from the local `podman build`,
-* the runner's Docker daemon is rootful by default, which is what the image
-  needs, but its storage driver and cgroup setup are not identical,
-* the readiness gate's staged waits have never had their timeouts tested
-  against a cold runner.
+None of that has been run under local rootful podman. The last full local run,
+37 green, predates all of it. The design rule is that both targets produce the
+same result on the same commit, and today they have never been compared on any
+commit after the first CI round. That is the exact inversion of the situation
+this file was first written to describe.
 
-**Next step:** push the branch and watch the `GitHub / podman` job. Treat the
-first run as an experiment, not a formality.
+**Next step:** `sudo ./scripts/podman-e2e.sh up` for a rebuild, then
+`pytest tests/ -m podman`. Until that runs, "it works locally" is a statement
+about an older image.
 
 ---
 
-## 2. The loopback target has never been run
+## 2. Why PAM fails inside this container is still unknown
+
+**Status: every fix so far treats a symptom.**
+
+Three separate failures on this host, all reporting PAM_AUTHINFO_UNAVAIL out of
+the account stage: the user manager (`user@1000.service`, status=224/PAM), then
+sshd (`Access denied for user editor by PAM account configuration`), then sudo.
+Each became visible only once the previous one was fixed. All three happen on a
+GitHub runner and none happen under local rootful podman, on the same
+Dockerfile. What actually causes that difference was never established.
+
+Ruled out by direct test, on the runner, and recorded here so nobody spends the
+round again:
+
+* sssd, faillock and sepermit: not in fedora:43's `local` authselect profile at
+  all, so they were never in the stack.
+* nss-systemd in group lookups: with `group: files` in place, `getent group
+  editor` returned rc=0 in 0.001s and sshd failed identically (run
+  30663777881).
+
+Two opt-outs remain: `PAMName=` on `user@.service`, and the replaced
+`/etc/pam.d/sudo`. Both were added to fix a symptom before the sshd stack was
+understood, and whether either is still needed is untested. Every one that can
+come out is a way this fixture stops diverging from a real host.
+
+Consequence to plan for: a runner image change can move this in either
+direction without warning. The build-time assertions in
+`Dockerfile.podman-host` are what would catch it.
+
+**Next step:** one CI round with both opt-outs removed, to find out which are
+still load-bearing.
+
+---
+
+## 3. The loopback target has never been run
 
 **Status: written and syntax-checked, never executed.**
 
@@ -57,7 +98,7 @@ because this target writes to the real `/etc/containers/systemd`.
 
 ---
 
-## 3. `unit_name_for` is wrong for non-container quadlets
+## 4. `unit_name_for` is wrong for non-container quadlets
 
 **Status: confirmed app bug, pre-existing, out of scope for the podman PR.**
 
@@ -86,12 +127,12 @@ stopped a unit that did not exist while the real one kept running, leaving a pod
 and its infra container alive after a fully green run. See
 `generated_unit_name` in `tests/podman/conftest.py` for the correct mapping.
 
-**Next step:** file an issue. Decide whether `unit_name_for` should take the
-quadlet type, or whether callers should use a type-aware helper.
+**Filed as #286.** Decide there whether `unit_name_for` should take the quadlet
+type, or whether callers should use a type-aware helper.
 
 ---
 
-## 4. The new-quadlet modal's selects have no accessible name
+## 5. The new-quadlet modal's selects have no accessible name
 
 **Status: confirmed accessibility gap, pre-existing.**
 
@@ -113,8 +154,32 @@ Adding labels fixes a real accessibility problem *and* lets that test use
 `get_by_role` throughout, so the testing benefit is a side effect rather than
 the motivation.
 
-**Next step:** file an issue. Fits naturally alongside the Monitor
-accessibility work on `issue-262-monitor-a11y`.
+**Filed as #287.** Fits naturally alongside the Monitor accessibility work on
+`issue-262-monitor-a11y` (#262).
+
+Note for whoever picks it up: the labels are *present and visible*, they are
+just not associated. The selects carry no `id` and the labels no `for`, so the
+accessible name is empty. It is a smaller fix than "add labels" suggests.
+
+---
+
+## Filed elsewhere
+
+Two more defects this work surfaced live in the tracker rather than here,
+because neither is a testing follow-up:
+
+* **#285**, `systemctl_action` issues a bare `systemctl --user` while
+  `build_unit_state_command` beside it supplies `ROOTLESS_ENV_PREFIX`. Proven
+  live in CI: `test_rootless_session_is_live` passed, because it builds the
+  prefix itself, while all 17 tests going through `systemctl_action` errored.
+* **#288**, the pre-existing `e2e` flake in
+  `test_monitor_filter_narrows_glance_bar_and_shows_match_count`. Seen once
+  during this branch's CI rounds, passed three times after on the same code, and
+  this branch touches no frontend at all.
+
+The glance bar bug the browser journeys exercise is **#281**, and
+`tests/e2e/test_podman_e2e.py` carries a `xfail(strict=True)` test that flips to
+a failure the day it is fixed.
 
 ---
 

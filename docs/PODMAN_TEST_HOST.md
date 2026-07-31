@@ -202,6 +202,68 @@ store while `sudo podman run` looks in root's.
 
 ---
 
+## PAM, and why this image replaces three stacks
+
+This is the most expensive thing in the file: twelve CI rounds, and the part
+most likely to bite an adaptation, because **it does not reproduce everywhere**.
+Under local rootful podman none of it happens. On a GitHub runner's Docker
+daemon, on the same Dockerfile, PAM's *account* stage returns
+PAM_AUTHINFO_UNAVAIL and takes down three things in turn. Each one only became
+visible once the previous was fixed:
+
+| Victim | Symptom |
+|---|---|
+| `user@<uid>.service` | `Failed at step PAM`, `Main process exited, status=224/PAM` |
+| `sshd` | `fatal: Access denied for user <u> by PAM account configuration [preauth]` |
+| `sudo` | authentication failure, though `sudo` is `NOPASSWD` and never prompts |
+
+**The root cause was never found.** Ruled out by direct test on the runner:
+sssd, faillock and sepermit are not in fedora:43's `local` authselect profile at
+all, and nss-systemd is not it either (with `group: files`, `getent group` was
+fine and sshd failed identically). A future runner image can move this in either
+direction, which is why the build-time assertions matter.
+
+What the image does about it, and what each piece is load-bearing for:
+
+**`user@.service` gets `PAMName=` (empty, which resets it) *and*
+`Environment=XDG_RUNTIME_DIR=/run/user/%i`.** The second half is not optional
+and is not obvious. `pam_systemd` is normally what exports `XDG_RUNTIME_DIR`
+into the user manager's environment, so switching PAM off takes it with it, and
+`systemd --user` then exits immediately. It fails as `status=1/FAILURE` with no
+message anywhere, because the output is attributed to the unit rather than to
+PID 1, so a 200-line journal dump shows the failure without the reason.
+
+**`/etc/pam.d/sshd` is replaced, but only its account stage is neutralised.**
+`account required pam_permit.so`, and critically **`session optional
+pam_systemd.so` is kept**. `pam_loginuid` drops to `optional`, since writing
+`/proc/self/loginuid` needs an audit subsystem a container does not have, and
+that is the one module here with a documented reason to fail.
+
+**Do not reach for `UsePAM no`.** It looks like the fix, it makes the login
+work, and it then breaks every rootless test: with no `pam_systemd` an SSH
+session gets no logind session and no `XDG_RUNTIME_DIR`, so anything running a
+bare `systemctl --user` fails with `Failed to connect to user scope bus:
+$DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined`. That cost 17 of 37
+tests in one round. A host that needs PAM switched off is no longer the host the
+suite exists to exercise, and worse, it hides exactly the kind of app dependency
+this fixture is for.
+
+**On Fedora, patching `UsePAM` with `sed` is a silent no-op.** The recipe
+inherited from simpler images,
+`sed -i 's/^#*UsePAM .*/UsePAM no/' /etc/ssh/sshd_config`, exits 0 and changes
+nothing that matters: on Fedora the value comes from
+`/etc/ssh/sshd_config.d/50-redhat.conf`, `Include`d at the top, and sshd keeps
+the **first** value it sees. Write a `00-` drop-in so yours is first, then
+assert the result rather than trusting the write.
+
+**Assert with `sshd -G`, not `sshd -T`.** `-T` refuses to run without a host
+key, and an image that leaves key generation to first boot has none, so `-T`
+forces you to generate a throwaway private key inside a build layer. `-G`
+parses the same config, follows the same `Include`, and needs neither a key nor
+root.
+
+---
+
 ## Traps when writing tests against it
 
 **A `podman run` over SSH can hang forever on an inherited fd.** netavark starts
@@ -243,7 +305,10 @@ Have a canary module that runs before anything else and asserts, in order:
 2. `podman --version` is the major version you require.
 3. The generator or tool binary you shell out to exists.
 4. **Rootless** `systemctl --user is-system-running` returns something. This is
-   the linger canary and the single most valuable check here.
+   the single most valuable check here: it is the canary for linger, for a
+   `user@<uid>.service` killed by PAM, and for an SSH session that reached the
+   host without a logind session. All three surface as empty output rather than
+   as an error.
 5. Rootless and rootful podman are both usable.
 6. Your test image is present in **both** stores.
 
