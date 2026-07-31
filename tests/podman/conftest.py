@@ -42,7 +42,7 @@ DEFAULT_USER = "editor"
 DEFAULT_KEY = "tests/fixtures/test_key"
 
 
-def pytest_configure(config):
+def refuse_parallel_execution() -> None:
     """Refuse to run in parallel. This suite has exactly one host.
 
     Every test writes e2e- fixtures into the same two quadlet directories on
@@ -50,13 +50,20 @@ def pytest_configure(config):
     to one set of files. The pre-flight check below then does its job and
     refuses to start, because it finds files this worker did not write.
 
-    That is not hypothetical: `--dist=loadfile -n 2` in CI produced 16 errors
-    from a single collision, gw0 tripping over the e2e-test.pod that gw1 had
-    just installed. Failing here says so in one line instead.
+    Not hypothetical: `--dist=loadfile -n 2` in CI produced 16 errors from a
+    single collision, gw0 tripping over the e2e-test.pod that gw1 had just
+    installed.
+
+    Called from the fixture rather than from pytest_configure, and that
+    placement is the whole point. A conftest is imported whenever its
+    directory is *collected*, even when every test in it is then deselected by
+    -m, so a pytest_configure that raises here took down `unit`, `unmarked`,
+    `integration` and `e2e` as well, all of which legitimately run -n auto and
+    none of which go anywhere near this host.
     """
     worker_count = os.environ.get("PYTEST_XDIST_WORKER_COUNT")
     if worker_count and int(worker_count) > 1:
-        raise pytest.UsageError(
+        raise RuntimeError(
             f"The podman suite must run serially, but pytest-xdist started "
             f"{worker_count} workers. Every test shares one host, one systemd "
             "instance and one set of e2e- fixture names. Drop -n, or use -n0."
@@ -258,6 +265,7 @@ def podman_target():
     tests/test_ssh_systemd_integration.py: a developer without the test host up
     should get a skip, not a wall of red.
     """
+    refuse_parallel_execution()
     host, port = target_host_port()
     try:
         with socket.create_connection((host, port), timeout=2):
