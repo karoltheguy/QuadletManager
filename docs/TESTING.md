@@ -228,6 +228,12 @@ QM_APP_URL=http://localhost:8001 python -m pytest tests/ -m podman
 SSH key cannot be decrypted and the host is unreachable from the UI while
 remaining perfectly reachable from the service-level tests.
 
+`QM_APP_URL` has to be set for the *whole* pytest invocation, not just for the
+app. The root `tests/conftest.py` reads it to decide whether an app is
+reachable at all, and skips every `page`-fixture test when nothing answers.
+Point it at an app that is not running and the browser journeys skip rather than
+fail, which reads as a green run.
+
 Re-run the seeder after any `podman-e2e.sh up`, since a rebuilt host presents a
 new SSH host key. See the host-key trap below.
 

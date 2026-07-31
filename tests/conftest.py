@@ -1,6 +1,9 @@
 import asyncio
+import os
 import shutil
 import socket
+from urllib.parse import urlparse
+
 import pytest
 
 
@@ -56,9 +59,24 @@ def isolated_database(_database_template, tmp_path, monkeypatch):
     return db_path
 
 
-def _server_is_up(host: str = "localhost", port: int = 8000) -> bool:
+def _app_base_url() -> str:
+    """Where the browser tests expect to find a running app.
+
+    Must agree with tests/e2e/test_podman_e2e.py, which reads the same variable
+    to build its BASE_URL. When the two disagree the failure is silent in the
+    worst direction: docs/TESTING.md documents running a second instance on
+    :8001 with QM_APP_URL, and a gate hardcoded to :8000 then skips every
+    page-fixture test. On a machine without a dev server on :8000 that recipe
+    produced a green run with zero browser coverage.
+    """
+    return os.environ.get("QM_APP_URL", "http://localhost:8000")
+
+
+def _server_is_up(url: str | None = None) -> bool:
+    parsed = urlparse(url or _app_base_url())
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
-        with socket.create_connection((host, port), timeout=1):
+        with socket.create_connection((parsed.hostname or "localhost", port), timeout=1):
             return True
     except OSError:
         return False
@@ -75,10 +93,11 @@ def pytest_collection_modifyitems(config, items):
             if item.fspath.basename == "test_code_quality.py":
                 item.add_marker(skip_quality)
 
-    if _server_is_up():
+    base_url = _app_base_url()
+    if _server_is_up(base_url):
         return
 
-    skip = pytest.mark.skip(reason="Live server not running on localhost:8000")
+    skip = pytest.mark.skip(reason=f"Live server not running on {base_url}")
     for item in items:
         if "page" in getattr(item, "fixturenames", []):
             item.add_marker(skip)
