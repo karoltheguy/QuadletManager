@@ -114,38 +114,51 @@ COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
 RUN chown editor:editor /home/editor/.ssh/authorized_keys \
     && chmod 600 /home/editor/.ssh/authorized_keys
 
-# UsePAM no, and this time actually in effect.
+# Keep nss-systemd out of group lookups, and leave PAM alone entirely.
 #
-# The same PAM account check that killed the user manager also rejects every
-# ssh login, and it does it *after* accepting the key, which reads like a
-# network fault rather than a policy one:
+# On a GitHub runner, but never under local podman, PAM's *account* stage
+# failed for three different services on this image, each visible only once the
+# previous was fixed:
 #
-#   client: Server accepts key: /tmp/qm_test_key ED25519 ... explicit
-#           Connection closed by ::1 port 2223
-#   sshd:   fatal: Access denied for user editor by PAM account configuration
+#   user@1000.service: PAM failed: Authentication service cannot retrieve
+#                      authentication info                    (status=224/PAM)
+#   sshd:              Access denied for user editor by PAM account
+#                      configuration [preauth]   (after accepting the key)
+#   sudo:              PAM account management error: Authentication service
+#                      cannot retrieve authentication info
 #
-# This image previously ran `sed -i 's/^#*UsePAM .*/UsePAM no/'` on
-# sshd_config, borrowed from Dockerfile.test.systemd where it does work. On
-# Fedora it changes nothing that matters: the setting arrives from
-# /etc/ssh/sshd_config.d/50-redhat.conf, which is Included at the top of
-# sshd_config, and sshd keeps the FIRST value it sees. Verified directly
-# against fedora:43: after that sed, `sshd -T` still reports `usepam yes`.
-# The sed exited 0 the whole time, so the build stayed green while the intent
-# was silently dropped.
+# All three are PAM_AUTHINFO_UNAVAIL, and the suspects that usually cause it
+# are not even in this stack: `authselect current` on fedora:43 reports the
+# `local` profile, whose entire account stage is `account required pam_unix.so`.
+# No sssd, no faillock, no sepermit.
 #
-# A drop-in is the supported mechanism, and the 00- prefix sorts ahead of
-# Fedora's 50-. The assertion is the point of this stanza: it reads the
-# effective configuration rather than trusting a substitution. The throwaway
-# host key exists only for `sshd -T`, which refuses to parse without one, and
-# is removed in the same layer; baking real host keys in would defeat the TOFU
-# re-pinning the docs describe.
-RUN printf '%s\n' 'UsePAM no' > /etc/ssh/sshd_config.d/00-quadlet-test.conf \
-    && ssh-keygen -q -t ed25519 -N '' -f /tmp/assert_hostkey \
-    && effective="$(/usr/sbin/sshd -T -o HostKey=/tmp/assert_hostkey | grep -i '^usepam')" \
-    && rm -f /tmp/assert_hostkey /tmp/assert_hostkey.pub \
-    && { [ "$effective" = "usepam no" ] \
-         || ( echo "sshd reports '$effective'; ssh logins would be refused by PAM"; \
-              exit 1 ); } \
+# What is unusual is nsswitch.conf. `passwd` and `shadow` are `files systemd`,
+# which stops at the first success, so a real local account never reaches
+# nss-systemd. `group` is `files [SUCCESS=merge] systemd`, and merge means
+# nss-systemd is consulted on *every* group lookup and can never short-circuit.
+# That puts a Varlink round trip to systemd-userdbd in the path of pam_unix's
+# account phase, of sshd building supplementary groups, and of sudo's own group
+# check. If that call errors rather than returning "not found", the caller
+# reports exactly the message above. It also explains why `runuser` worked
+# throughout: its stack does not make that lookup where it matters.
+#
+# This fixture has no systemd dynamic users to resolve, so nothing needs
+# nss-systemd for groups. Dropping it is smaller than any PAM surgery and, if
+# the theory holds, removes the cause of all three failures rather than opting
+# each service out of PAM one at a time. The readiness gate prints
+# `getent group editor` and systemd-userdbd's state so the next run can confirm
+# or refute this rather than leaving it a good story.
+#
+# Consequence worth stating: sshd therefore keeps Fedora's stock PAM stack.
+# That matters beyond auth. pam_systemd is what exports XDG_RUNTIME_DIR into an
+# ssh session, and services/systemd_manager.py's systemctl_action runs a bare
+# `systemctl --user`, relying on the session to provide it exactly as a real
+# host does. An earlier attempt here set `UsePAM no`, which fixed the login and
+# then broke every user-scope test with "Failed to connect to user scope bus:
+# $XDG_RUNTIME_DIR not defined". A test host that needs PAM disabled is no
+# longer the real host this suite exists to exercise.
+RUN sed -i 's/^group:.*/group:      files/' /etc/nsswitch.conf \
+    && grep -q '^group:      files$' /etc/nsswitch.conf \
     && systemctl enable sshd
 
 # Linger. `loginctl enable-linger` needs a running systemd, which a build layer

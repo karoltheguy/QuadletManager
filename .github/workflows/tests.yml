@@ -180,6 +180,26 @@ jobs:
             exit 1
           }
 
+          # Name resolution, printed on every run rather than only on failure.
+          #
+          # Three services on this image have been refused by PAM's account
+          # stage on a runner and never locally, all with
+          # PAM_AUTHINFO_UNAVAIL. The suspect is nsswitch: Fedora ships
+          # `group: files [SUCCESS=merge] systemd`, and merge means every group
+          # lookup makes a Varlink call to systemd-userdbd that can never
+          # short-circuit, which sits in the path of pam_unix's account phase.
+          # The image now drops nss-systemd from that line; these three
+          # commands are how we tell whether that was actually the cause.
+          # Goes through `docker compose exec`, not ssh, so it still reports
+          # when ssh itself is what is broken.
+          echo "--- name resolution and userdb, the PAM_AUTHINFO_UNAVAIL suspect ---"
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            grep -E '^(passwd|group|shadow):' /etc/nsswitch.conf || true
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            sh -c 'time getent group editor; echo "getent group rc=$?"' || true
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            systemctl is-active systemd-userdbd.socket systemd-userdbd.service || true
+
           # ssh refuses a private key readable by group or other, and the
           # committed fixture is mode 644 because git records only the
           # executable bit. Copy it before use, and never allow a password
