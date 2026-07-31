@@ -1,0 +1,23 @@
+# Deliberately invalid, to drive real generator diagnostics through
+# services/quadlet_validator.py:parse_generator_stderr, which until this
+# suite existed had never seen output from an actual generator.
+#
+# Verified against podman 5.8.4's generator. The stderr is:
+#
+#   quadlet-generator[N]: Loading source unit file /path/e2e-broken.container
+#   quadlet-generator[N]: converting "e2e-broken.container": unsupported key
+#       'ThisKeyDoesNotExist' in group 'Container' in /path/e2e-broken.container
+#   quadlet-generator[N]: processing encountered some errors
+#
+# The first and last lines are skipped by the parser; the middle one yields
+# exactly one issue with level "error" and key "ThisKeyDoesNotExist". An
+# unsupported key is used rather than a malformed value because it is the only
+# failure mode whose message reliably carries the key '...' the parser extracts.
+#
+# Do not "fix" this file.
+[Unit]
+Description=QuadletManager e2e intentionally-invalid container
+
+[Container]
+Image=quay.io/quay/busybox:latest
+ThisKeyDoesNotExist=nonsense

@@ -1,0 +1,22 @@
+# Long-running container for lifecycle and stats tests.
+#
+# Every fixture name in this directory starts with "e2e-". That prefix is the
+# safety rail for the loopback target, which writes global-scope units to the
+# real /etc/containers/systemd on the dev machine: the teardown helper refuses
+# to delete anything not matching it.
+#
+# `sleep 86400` rather than `sleep infinity`, because the busybox build pinned
+# for these tests predates infinity support in its sleep applet.
+[Unit]
+Description=QuadletManager e2e sleeping container
+
+[Container]
+ContainerName=e2e-sleep
+Image=quay.io/quay/busybox:latest
+Exec=sleep 86400
+
+[Service]
+Restart=no
+
+[Install]
+WantedBy=default.target

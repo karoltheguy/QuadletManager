@@ -1,0 +1,163 @@
+# A real Podman 5 host, over SSH, with real systemd and a real quadlet generator.
+#
+# This exists alongside Dockerfile.test.systemd rather than replacing it. That
+# image (Ubuntu 22.04 + systemd + sshd, no podman) backs the `integration`
+# suite; changing it would ripple into tests unrelated to this one.
+#
+# Fedora is the base because it ships podman 5 and the quadlet generator in the
+# distro packages, so the version is pinned by the base image tag rather than by
+# a third-party repo. The build asserts the major version below, so bumping
+# FEDORA_VERSION can never silently drop back to podman 4.
+ARG FEDORA_VERSION=43
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+
+# iptables-nft, netavark and aardvark-dns are what podman actually uses for
+# container networking on Fedora; without them `podman run` fails at network
+# setup rather than at image pull, which is a confusing place to debug.
+# skopeo is build-time only: it copies images without needing a container
+# runtime, which a build layer cannot have (see the image preload below).
+# util-linux (for `runuser`, which load-test-image.sh needs to reach the
+# rootless image store) and libcap (for `setcap`, below) are listed explicitly
+# rather than relied on as transitive dependencies of something else.
+RUN dnf install -y \
+        systemd \
+        openssh-server \
+        sudo \
+        shadow-utils \
+        podman \
+        crun \
+        fuse-overlayfs \
+        iptables-nft \
+        netavark \
+        aardvark-dns \
+        catatonit \
+        skopeo \
+        procps-ng \
+        util-linux \
+        libcap \
+    && dnf clean all
+
+# Guard the whole premise of this image. If a base bump ever ships podman 4,
+# fail the build loudly here instead of failing every podman test mysteriously.
+RUN podman --version | grep -Eq 'version 5\.' || (podman --version; exit 1) \
+    && podman --version > /etc/podman-version
+
+# Restore the file capabilities on newuidmap/newgidmap.
+#
+# The host RPM ships /usr/bin/newuidmap with cap_setuid=ep, but Fedora's
+# *container* base image does not: getcap returns empty inside a freshly pulled
+# fedora:43, rootless and rootful alike. Nothing warns about it at build time.
+#
+# Without these, rootless podman inside this container fails with
+#   "cannot set up namespace using /usr/bin/newuidmap:
+#    should have setuid or have filecaps setuid"
+# which reads like a broken linger setup and points nowhere near the image.
+# Since the rootless (`user`) scope is half of what this suite exists to cover,
+# that failure would take out `test_quadlet_lifecycle_user.py` and the rootless
+# half of the validator and stats tests.
+#
+# Verified as the actual root cause on 2026-07-31, after first misdiagnosing it
+# as a rootless-build xattr-stripping problem.
+RUN setcap cap_setuid+ep /usr/bin/newuidmap \
+    && setcap cap_setgid+ep /usr/bin/newgidmap \
+    && getcap /usr/bin/newuidmap | grep -q cap_setuid \
+    && getcap /usr/bin/newgidmap | grep -q cap_setgid \
+    || ( echo "could not set file capabilities on newuidmap/newgidmap;"; \
+         echo "rootless podman inside this container will not work."; \
+         exit 1 )
+
+# The quadlet generator is the reason this image exists: it is what
+# services/quadlet_validator.py shells out to, and what has never been
+# exercised for real. Fail now if the podman package stopped shipping it.
+RUN test -x /usr/lib/systemd/system-generators/podman-system-generator \
+    || test -x /usr/libexec/podman/quadlet \
+    || (echo "no quadlet generator at either _GENERATOR_PATHS entry"; exit 1)
+
+# 'editor' with passwordless sudo, matching Dockerfile.test.systemd so the two
+# fake hosts are interchangeable from the test's point of view. The uid is
+# pinned because the linger and image-preload units below refer to /run/user/1000.
+RUN useradd -m -u 1000 -s /bin/bash editor \
+    && echo "editor:password" | chpasswd \
+    && usermod -aG wheel editor \
+    && echo "editor ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && install -d -m 700 -o editor -g editor /home/editor/.ssh
+
+COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
+RUN chown editor:editor /home/editor/.ssh/authorized_keys \
+    && chmod 600 /home/editor/.ssh/authorized_keys
+
+# UsePAM no: key-based auth for an account with no usable password fails under
+# PAM's account checks otherwise. Same reasoning as Dockerfile.test.systemd.
+RUN sed -i 's/^#*UsePAM .*/UsePAM no/' /etc/ssh/sshd_config \
+    && systemctl enable sshd
+
+# Linger. `loginctl enable-linger` needs a running systemd, which a build layer
+# does not have, so create the marker file it would have written.
+#
+# This is the single most load-bearing line in the file. Without it there is no
+# /run/user/1000, so ROOTLESS_ENV_PREFIX ('XDG_RUNTIME_DIR=/run/user/$(id -u)')
+# points at nothing and every rootless systemctl over non-interactive SSH
+# returns empty output instead of an error. tests/podman/test_podman_host_env.py
+# is the canary for exactly this.
+RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
+
+# These four mount kernel pseudo-filesystems that a container cannot have, so
+# they always fail and always leave `systemctl is-system-running` at "degraded".
+# Masking them means the readiness gate can insist on a clean "running" and a
+# genuine boot failure is not hidden in the noise.
+RUN systemctl mask \
+        proc-sys-fs-binfmt_misc.automount \
+        sys-kernel-config.mount \
+        sys-kernel-debug.mount \
+        sys-kernel-tracing.mount
+
+# Nested storage. The host's own container filesystem is already overlay, and
+# native overlay-on-overlay is refused by the kernel, so both stores must go
+# through fuse-overlayfs. Symptom when this is missing: a storage-driver error
+# on the very first `podman run`, rootless and rootful alike.
+#
+# chown -R on .config rather than `install -d -o editor`: install applies
+# ownership only to the last path component, leaving .config itself root-owned,
+# and rootless podman refuses to start on a config dir it does not own.
+RUN printf '%s\n' \
+        '[storage]' \
+        'driver = "overlay"' \
+        'runroot = "/run/containers/storage"' \
+        'graphroot = "/var/lib/containers/storage"' \
+        '[storage.options]' \
+        'mount_program = "/usr/bin/fuse-overlayfs"' \
+    > /etc/containers/storage.conf \
+    && mkdir -p /home/editor/.config/containers \
+    && printf '%s\n' \
+        '[storage]' \
+        'driver = "overlay"' \
+        '[storage.options]' \
+        'mount_program = "/usr/bin/fuse-overlayfs"' \
+    > /home/editor/.config/containers/storage.conf \
+    && chown -R editor:editor /home/editor/.config
+
+# The global quadlet directory services/remote_fs.py writes to. Podman creates
+# it lazily on some builds; the tests assume it is there.
+RUN install -d -m 755 /etc/containers/systemd
+
+# Preload the test image at build time. skopeo needs no container runtime, so
+# this works in a build layer where `podman pull` would not. docker-archive
+# (rather than oci-archive) is used because it carries the repo tag through
+# `podman load`, so the fixtures can reference the image by name.
+#
+# quay.io throughout, not docker.io: anonymous docker.io pulls are rate-limited
+# and CI shares an IP with every other runner.
+RUN skopeo copy \
+        docker://quay.io/quay/busybox:latest \
+        docker-archive:/opt/test-image.tar:quay.io/quay/busybox:latest
+
+# Rootless and rootful have entirely separate image stores, so the archive has
+# to be loaded twice. Doing it at boot rather than at build time keeps the
+# build unprivileged; doing it at all keeps a network pull out of every test run.
+COPY tests/fixtures/podman-host/load-test-image.sh /usr/local/bin/load-test-image.sh
+COPY tests/fixtures/podman-host/load-test-image.service /etc/systemd/system/load-test-image.service
+RUN chmod 755 /usr/local/bin/load-test-image.sh \
+    && systemctl enable load-test-image.service
+
+EXPOSE 22
+CMD ["/usr/sbin/init"]
