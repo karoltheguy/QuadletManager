@@ -8,18 +8,28 @@
 # `sleep 86400` rather than `sleep infinity`, because the busybox build pinned
 # for these tests predates infinity support in its sleep applet.
 #
-# RunInit=yes is load-bearing, not decoration. Without it `sleep` is PID 1 in
-# the container, and the kernel does not apply default signal actions to PID 1,
-# so SIGTERM is ignored, podman waits 10s and SIGKILLs, the unit exits 137, and
-# `systemctl stop` leaves the service `failed` instead of `inactive`. RunInit
-# puts catatonit at PID 1 to forward signals, so stop is clean.
+# Stopping this container has to exit 0, or `systemctl stop` leaves the unit
+# `failed` and the lifecycle tests cannot tell a clean stop from a crash. Two
+# separate things are needed for that, and each was found by a failing run:
+#
+# 1. The payload must handle SIGTERM. A bare `sleep` as PID 1 gets no default
+#    signal action from the kernel, so SIGTERM is ignored, podman gives up
+#    after 10s and SIGKILLs, and the unit exits 137.
+# 2. It must exit *zero*. Even with signals delivered, a process killed by
+#    SIGTERM exits 143, which systemd also counts as failure. Hence the trap.
+#
+# RunInit=yes puts catatonit at PID 1 to forward signals, which is what a
+# well-behaved real-world quadlet does; the trap is what makes the exit clean.
+#
+# `sleep 86400` rather than `sleep infinity`: the pinned busybox predates
+# infinity support in its sleep applet.
 [Unit]
 Description=QuadletManager e2e sleeping container
 
 [Container]
 ContainerName=e2e-sleep
 Image=quay.io/quay/busybox:latest
-Exec=sleep 86400
+Exec=sh -c 'trap "exit 0" TERM; sleep 86400 & wait'
 RunInit=yes
 
 [Service]
