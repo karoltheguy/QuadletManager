@@ -126,7 +126,9 @@ excluded from every other suite's marker expression.
 
 This section covers using the fixture *here*. For what it is, a diagram of the
 three targets, and how to lift it into another project, see
-[The Podman test host](PODMAN_TEST_HOST.md).
+[The Podman test host](PODMAN_TEST_HOST.md). For what this work left undone,
+including two app defects it uncovered, see
+[Testing follow-ups](TESTING_TODO.md).
 
 ### The two targets
 
