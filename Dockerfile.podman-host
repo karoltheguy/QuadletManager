@@ -86,9 +86,38 @@ COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
 RUN chown editor:editor /home/editor/.ssh/authorized_keys \
     && chmod 600 /home/editor/.ssh/authorized_keys
 
-# UsePAM no: key-based auth for an account with no usable password fails under
-# PAM's account checks otherwise. Same reasoning as Dockerfile.test.systemd.
-RUN sed -i 's/^#*UsePAM .*/UsePAM no/' /etc/ssh/sshd_config \
+# UsePAM no, and this time actually in effect.
+#
+# The same PAM account check that killed the user manager also rejects every
+# ssh login, and it does it *after* accepting the key, which reads like a
+# network fault rather than a policy one:
+#
+#   client: Server accepts key: /tmp/qm_test_key ED25519 ... explicit
+#           Connection closed by ::1 port 2223
+#   sshd:   fatal: Access denied for user editor by PAM account configuration
+#
+# This image previously ran `sed -i 's/^#*UsePAM .*/UsePAM no/'` on
+# sshd_config, borrowed from Dockerfile.test.systemd where it does work. On
+# Fedora it changes nothing that matters: the setting arrives from
+# /etc/ssh/sshd_config.d/50-redhat.conf, which is Included at the top of
+# sshd_config, and sshd keeps the FIRST value it sees. Verified directly
+# against fedora:43: after that sed, `sshd -T` still reports `usepam yes`.
+# The sed exited 0 the whole time, so the build stayed green while the intent
+# was silently dropped.
+#
+# A drop-in is the supported mechanism, and the 00- prefix sorts ahead of
+# Fedora's 50-. The assertion is the point of this stanza: it reads the
+# effective configuration rather than trusting a substitution. The throwaway
+# host key exists only for `sshd -T`, which refuses to parse without one, and
+# is removed in the same layer; baking real host keys in would defeat the TOFU
+# re-pinning the docs describe.
+RUN printf '%s\n' 'UsePAM no' > /etc/ssh/sshd_config.d/00-quadlet-test.conf \
+    && ssh-keygen -q -t ed25519 -N '' -f /tmp/assert_hostkey \
+    && effective="$(/usr/sbin/sshd -T -o HostKey=/tmp/assert_hostkey | grep -i '^usepam')" \
+    && rm -f /tmp/assert_hostkey /tmp/assert_hostkey.pub \
+    && { [ "$effective" = "usepam no" ] \
+         || ( echo "sshd reports '$effective'; ssh logins would be refused by PAM"; \
+              exit 1 ); } \
     && systemctl enable sshd
 
 # Linger. `loginctl enable-linger` needs a running systemd, which a build layer

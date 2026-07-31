@@ -62,8 +62,13 @@ async def _ensure_ssh_key(db, key_path: str) -> int:
     if not os.path.exists(key_path):
         raise SystemExit(f"SSH key not found at {key_path}; set QM_PODMAN_KEY.")
 
-    with open(key_path, "r", encoding="utf-8") as handle:
-        private_key = handle.read()
+    # to_thread rather than a plain open(): this function is async, and a
+    # synchronous read blocks the event loop. The file is tiny and this script
+    # is short-lived, so the cost is theoretical, but the rule is not worth an
+    # exception and the stdlib already has the answer.
+    private_key = await asyncio.to_thread(
+        Path(key_path).read_text, encoding="utf-8"
+    )
 
     cursor = await db.execute(
         "INSERT INTO ssh_keys (key_name, encrypted_private_key) VALUES (?, ?)",

@@ -97,7 +97,8 @@ async def test_sentinel_batching_round_trips_through_real_output(running_health_
 
     # Left half is still parseable JSON after the split.
     ps_data = json.loads(ps_json_str)
-    assert isinstance(ps_data, list) and ps_data, "no containers in podman ps output"
+    assert isinstance(ps_data, list), f"podman ps did not return a JSON list: {ps_data!r}"
+    assert ps_data, "no containers in podman ps output"
 
     # Right half parsed into real systemd state.
     assert UNIT in unit_states, f"{UNIT} missing from {list(unit_states)}"
