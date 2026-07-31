@@ -57,17 +57,37 @@ round again:
   editor` returned rc=0 in 0.001s and sshd failed identically (run
   30663777881).
 
-Two opt-outs remain: `PAMName=` on `user@.service`, and the replaced
-`/etc/pam.d/sudo`. Both were added to fix a symptom before the sshd stack was
-understood, and whether either is still needed is untested. Every one that can
-come out is a way this fixture stops diverging from a real host.
+Two opt-outs remain, `PAMName=` on `user@.service` and the replaced
+`/etc/pam.d/sudo`, and **both were tested on the runner and both are still
+load-bearing**:
+
+* Removing `/etc/pam.d/sudo` failed the *build* (run 30673576555), at the layer
+  that asserts `runuser -u editor -- sudo -n true`.
+* Removing the `user@.service` drop-in put systemd into `degraded` with
+  `user@1000.service loaded failed failed`, one second into the readiness gate
+  (run 30673677574).
+
+So the theory they were added under is wrong: fixing sshd's account stage did
+not make either redundant, and the three failures do not share one fixable
+cause the way they appeared to.
+
+**The useful finding is where sudo failed.** It reproduces at *build* time, in
+a plain `docker build` layer, before systemd, sshd, linger, any drop-in, or any
+privileged runtime flag exists. Whatever the cause is, it belongs to the base
+image and the runner rather than to anything running inside the container or to
+how the container is started. That rules out every explanation needing a
+session, a logind registration or a container runtime setting, which is most of
+what was on the list, and it is the first *positive* constraint on this rather
+than another elimination.
+
+It also makes the next experiment cheap. A plain
+`docker run fedora:43` on a runner, with nothing but `useradd` and a NOPASSWD
+sudoers line, should reproduce it in isolation, with no part of this image
+involved.
 
 Consequence to plan for: a runner image change can move this in either
 direction without warning. The build-time assertions in
 `Dockerfile.podman-host` are what would catch it.
-
-**Next step:** one CI round with both opt-outs removed, to find out which are
-still load-bearing.
 
 ---
 

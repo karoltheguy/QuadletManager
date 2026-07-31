@@ -228,15 +228,15 @@ RUN printf '%s\n' \
 # is the canary for exactly this.
 RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
 
-# The user manager runs on the stock `systemd-user` PAM stack.
+# Stop the user manager from demanding a PAM session.
 #
-# It did not always. A drop-in on user@.service carried `PAMName=` for a while,
-# added before the sshd stack was understood. All three PAM failures on this
-# host shared one cause, so fixing sshd's account stage may have been enough on
-# its own, and every opt-out removed is a way this fixture stops diverging from
-# a real host. tests/podman/test_podman_host_env.py is the canary if this was
-# wrong: `systemctl --user is-system-running` returns empty rather than
-# erroring when the user manager is dead.
+# TESTED AND FOUND STILL NECESSARY, on the runner, in run 30673677574.
+# Removing this drop-in put systemd into `degraded` with
+# `user@1000.service loaded failed failed`, one second into the readiness gate.
+# Do not remove it again without a new reason. Together with run 30673576555
+# for /etc/pam.d/sudo, that settles both opt-outs: fixing sshd's account stage
+# did *not* make either redundant, so the three failures do not share a single
+# fixable cause the way they appeared to.
 #
 # The two failure modes to recognise, and the remedy, because neither is
 # guessable from the symptom. First, observed on a GitHub runner (PR #284, run
@@ -259,13 +259,18 @@ RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
 # exits immediately, logging nothing to the system journal. It looks nothing
 # like the first failure: status=1/FAILURE with no message at all.
 #
-# So the remedy is both lines together, never PAMName= alone, applied to the
-# template rather than to user@1000.service so it survives a uid change:
+# So it is both lines together, never PAMName= alone. Applied to the template
+# rather than to user@1000.service, so it survives a uid change.
 #
-#     /etc/systemd/system/user@.service.d/10-no-pam.conf
-#     [Service]
-#     PAMName=
-#     Environment=XDG_RUNTIME_DIR=/run/user/%i
+# tests/podman/test_podman_host_env.py is the canary if this ever regresses
+# past the gate: `systemctl --user is-system-running` returns empty output
+# rather than erroring when the user manager is dead.
+RUN mkdir -p /etc/systemd/system/user@.service.d \
+    && printf '%s\n' \
+        '[Service]' \
+        'PAMName=' \
+        'Environment=XDG_RUNTIME_DIR=/run/user/%i' \
+    > /etc/systemd/system/user@.service.d/10-no-pam.conf
 
 # These four mount kernel pseudo-filesystems that a container cannot have, so
 # they always fail and always leave `systemctl is-system-running` at "degraded".
