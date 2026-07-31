@@ -7,6 +7,12 @@
 #
 # `sleep 86400` rather than `sleep infinity`, because the busybox build pinned
 # for these tests predates infinity support in its sleep applet.
+#
+# RunInit=yes is load-bearing, not decoration. Without it `sleep` is PID 1 in
+# the container, and the kernel does not apply default signal actions to PID 1,
+# so SIGTERM is ignored, podman waits 10s and SIGKILLs, the unit exits 137, and
+# `systemctl stop` leaves the service `failed` instead of `inactive`. RunInit
+# puts catatonit at PID 1 to forward signals, so stop is clean.
 [Unit]
 Description=QuadletManager e2e sleeping container
 
@@ -14,6 +20,7 @@ Description=QuadletManager e2e sleeping container
 ContainerName=e2e-sleep
 Image=quay.io/quay/busybox:latest
 Exec=sleep 86400
+RunInit=yes
 
 [Service]
 Restart=no

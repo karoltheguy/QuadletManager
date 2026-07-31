@@ -140,6 +140,23 @@ RUN printf '%s\n' \
 # it lazily on some builds; the tests assume it is there.
 RUN install -d -m 755 /etc/containers/systemd
 
+# Move the nested default network off 10.88.0.0/16.
+#
+# That is podman's default for the rootful scope both outside and inside this
+# container. The first global-scope quadlet to start makes nested podman create
+# podman0 on the same subnet the container's own address belongs to, which
+# blackholes its route back to the host: sshd keeps listening, the published
+# port keeps accepting, and every new connection fails with "No route to host".
+# The test host then looks dead while nothing has actually crashed.
+#
+# 10.201.0.0/16 is chosen to sit clear of both that default and of the
+# 10.203.51.0/24 used by tests/fixtures/quadlets/e2e-test.network.
+RUN install -d -m 755 /etc/containers/containers.conf.d \
+    && printf '%s\n' \
+        '[network]' \
+        'default_subnet = "10.201.0.0/16"' \
+    > /etc/containers/containers.conf.d/99-nested-subnet.conf
+
 # Preload the test image at build time. skopeo needs no container runtime, so
 # this works in a build layer where `podman pull` would not. docker-archive
 # (rather than oci-archive) is used because it carries the repo tag through

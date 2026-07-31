@@ -123,6 +123,58 @@ async def remove_e2e_files(server_id: int, scope: str) -> list[str]:
     return paths
 
 
+async def ensure_quadlet_dir(server_id: int, scope: str) -> str:
+    """Create the scope's quadlet directory if it is not already there.
+
+    The user-scope directory does not exist on a fresh account, and
+    write_remote_file does not create parents.
+    """
+    directory = await quadlet_dir_for_scope(server_id, scope)
+    use_sudo = is_global_scope(scope)
+    await pool.execute_command(
+        server_id, f"mkdir -p {shlex.quote(directory)}", use_sudo=use_sudo
+    )
+    return directory
+
+
+async def install_fixture(server_id: int, scope: str, file_name: str) -> str:
+    """Write one tests/fixtures/quadlets file into a scope. Returns its path."""
+    from services.remote_fs import write_remote_file
+
+    assert_safe_to_delete(file_name)  # every fixture must carry the prefix
+    directory = await ensure_quadlet_dir(server_id, scope)
+    path = f"{directory}/{file_name}"
+    await write_remote_file(
+        server_id, path, fixture_content(file_name), use_sudo=is_global_scope(scope)
+    )
+    return path
+
+
+async def wait_for_active_state(
+    server_id: int, unit_name: str, scope: str, expected: set[str], timeout: float = 60.0
+) -> str:
+    """Poll fetch_unit_states until ActiveState lands in `expected`.
+
+    Starting a container is not instantaneous, and asserting immediately after
+    `systemctl start` returns is the classic way to get a flaky suite.
+    """
+    import asyncio
+
+    from services.systemd_manager import fetch_unit_states
+
+    deadline = asyncio.get_event_loop().time() + timeout
+    state = "(never queried)"
+    while asyncio.get_event_loop().time() < deadline:
+        states = await fetch_unit_states(server_id, [unit_name], scope=scope)
+        state = states.get(unit_name, {}).get("active_state", "(absent)")
+        if state in expected:
+            return state
+        await asyncio.sleep(2)
+    raise AssertionError(
+        f"{unit_name} in scope {scope} was {state!r} after {timeout}s; expected one of {expected}"
+    )
+
+
 @pytest.fixture
 def podman_target():
     """Target coordinates, or skip if nothing is listening.

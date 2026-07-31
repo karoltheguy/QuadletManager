@@ -12,6 +12,9 @@ Description=QuadletManager e2e container with a healthcheck
 ContainerName=e2e-health
 Image=quay.io/quay/busybox:latest
 Exec=sleep 86400
+# See e2e-sleep.container: without an init at PID 1, SIGTERM is ignored and
+# `systemctl stop` leaves the unit failed rather than inactive.
+RunInit=yes
 HealthCmd=/bin/true
 HealthInterval=2s
 HealthStartPeriod=1s
