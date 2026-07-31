@@ -82,8 +82,7 @@ RUN useradd -m -u 1000 -s /bin/bash editor \
     && echo "editor ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && install -d -m 700 -o editor -g editor /home/editor/.ssh
 
-# sudo has to work. On a GitHub runner it once failed like this, before sshd's
-# account stage was fixed:
+# sudo has to work, and on a GitHub runner the stock PAM stack refuses it:
 #
 #   sudo: PAM account management error: Authentication service cannot retrieve
 #         authentication info
@@ -97,21 +96,31 @@ RUN useradd -m -u 1000 -s /bin/bash editor \
 # authentication failure: sudo never asks for a password, it fails the
 # *account* stage before getting that far.
 #
-# The stock stack is used. /etc/pam.d/sudo was replaced for a while, with
-# pam_rootok + pam_permit, and that opt-out was added before the sshd stack was
-# understood: all three failures shared one cause and fixing sshd's account
-# stage may have been enough on its own. The assertion below is what tells us,
-# and it is why the replacement can be removed without guessing.
+# This replacement was TESTED AND FOUND STILL NECESSARY, on the runner, in run
+# 30673576555. Removing it failed the build at this layer with the exact error
+# above. Do not remove it again without a new reason.
 #
-# If this build starts failing here again, the replacement is the known remedy,
-# and it changes nothing about this container's security posture because the
-# NOPASSWD sudoers line above already grants exactly what it allows:
+# That run also killed the theory this opt-out was added under. The three PAM
+# failures on this host were assumed to share one cause, so fixing sshd's
+# account stage should have made this redundant. It did not, and the way it
+# failed says why: **the failure reproduces at build time**, in a plain
+# `docker build` layer, with no systemd, no sshd, no privileged runtime flags,
+# and nothing this image has configured yet. Whatever the cause is, it belongs
+# to the base image and the runner, not to anything running inside the
+# container. That is the strongest constraint we have on it, and it rules out
+# every explanation that needs a session, a logind registration, or a
+# container runtime setting.
 #
-#     auth       sufficient   pam_rootok.so
-#     auth       required     pam_permit.so
-#     account    required     pam_permit.so
-#     session    required     pam_permit.so
-RUN runuser -u editor -- sudo -n true \
+# The replacement grants exactly what the NOPASSWD sudoers line above already
+# grants, so nothing about this container's security posture changes. Verified
+# against fedora:43 that it does not regress where the stock stack works.
+RUN printf '%s\n' \
+        'auth       sufficient   pam_rootok.so' \
+        'auth       required     pam_permit.so' \
+        'account    required     pam_permit.so' \
+        'session    required     pam_permit.so' \
+    > /etc/pam.d/sudo \
+    && runuser -u editor -- sudo -n true \
     || ( echo "sudo is refused inside this image; every global-scope test would fail"; \
          runuser -u editor -- sudo -n true; \
          exit 1 )
