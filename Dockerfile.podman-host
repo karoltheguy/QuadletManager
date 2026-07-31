@@ -101,6 +101,39 @@ RUN sed -i 's/^#*UsePAM .*/UsePAM no/' /etc/ssh/sshd_config \
 # is the canary for exactly this.
 RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
 
+# Stop the user manager from demanding a PAM session.
+#
+# Linger alone is not enough. user@.service runs `systemd --user` through the
+# `systemd-user` PAM stack, and inside a container on a host with audit enabled
+# that stack cannot complete. Observed on a GitHub runner (PR #284, run
+# 30657079978):
+#
+#   user@1000.service: PAM failed: Authentication service cannot retrieve
+#                      authentication info
+#   user@1000.service: Failed to set up PAM session: Operation not permitted
+#   user@1000.service: Failed at step PAM spawning /usr/lib/systemd/systemd
+#   user@1000.service: Main process exited, status=224/PAM
+#
+# The failure is environment-dependent, which is the worst property it could
+# have: the identical image boots clean under local rootful podman and fails
+# under the runner's Docker, so the two targets disagree on the same commit.
+# `pam_loginuid.so` cannot write /proc/self/loginuid there, and the account
+# lookup is the other half of the message.
+#
+# `PAMName=` (empty) resets the setting, so no PAM session is set up at all.
+# Nothing here needs one: linger plus user-runtime-dir@.service already create
+# /run/user/1000, which is the only thing ROOTLESS_ENV_PREFIX depends on. A
+# session bus the user manager would otherwise provide is what rootless podman
+# complains about losing ("could not determine address of session bus"), and
+# that returns with the manager.
+#
+# Applied to the template, not user@1000.service, so it survives a uid change.
+RUN mkdir -p /etc/systemd/system/user@.service.d \
+    && printf '%s\n' \
+        '[Service]' \
+        'PAMName=' \
+    > /etc/systemd/system/user@.service.d/10-no-pam.conf
+
 # These four mount kernel pseudo-filesystems that a container cannot have, so
 # they always fail and always leave `systemctl is-system-running` at "degraded".
 # Masking them means the readiness gate can insist on a clean "running" and a
