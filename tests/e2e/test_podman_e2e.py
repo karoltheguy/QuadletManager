@@ -116,6 +116,14 @@ def _open_app(page):
     )
 
 
+# Per-test ceilings rather than a higher global one. pytest.ini's `timeout = 120`
+# exists for a documented reason and covers the whole suite; these three are the
+# outliers. Each waits on a real host: a unit reaching active, a scanner pass, or
+# a stats poll cycle, none of which are instant on a cold CI runner. The monitor
+# journey below can legitimately spend 60s on the first and 90s on the last,
+# which blows the global ceiling and fails as an opaque timeout rather than as
+# the assertion that would name the problem.
+@pytest.mark.timeout(300)
 def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
     """Create a quadlet through the modal and confirm it exists on the host.
 
@@ -158,6 +166,7 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
         _remove_e2e_quadlet(f"{UI_QUADLET}.container")
 
 
+@pytest.mark.timeout(300)
 def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
     """A file written directly on the host shows up in the server tree.
 
@@ -192,6 +201,7 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
         _remove_e2e_quadlet(file_name)
 
 
+@pytest.mark.timeout(300)
 def test_monitor_glance_bar_counts_a_really_running_container(page):
     """The Monitor glance bar reflects a container that is genuinely up.
 
