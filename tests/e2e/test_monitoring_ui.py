@@ -206,6 +206,16 @@ def test_monitor_charts_show_error_on_history_fetch_failure(page: Page):
         if not candidate_values:
             pytest.skip("No servers available to select for this test.")
         select.select_option(candidate_values[0])
+        page.evaluate(
+            """([id]) => {
+                const sel = document.getElementById('monitoring-server-select');
+                if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+                if (window.selectMonitoringServer) {
+                    window.selectMonitoringServer(id);
+                }
+            }""",
+            [candidate_values[0]],
+        )
 
     expect(page.locator("#monitoring-content")).to_be_visible()
 
