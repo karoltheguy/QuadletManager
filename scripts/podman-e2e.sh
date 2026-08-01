@@ -99,7 +99,7 @@ cmd_up() {
     # --cgroupns=private: let the nested systemd own its own cgroup namespace.
     #   Deliberately no /sys/fs/cgroup bind mount. On a cgroup v2 host that
     #   read-only bind prevents nested podman from delegating cgroups.
-    $PODMAN run -d --name "$CONTAINER" \
+    $PODMAN run -d -t --name "$CONTAINER" \
         --privileged --cgroupns=private --device /dev/fuse \
         --security-opt seccomp=unconfined --security-opt label=disable \
         --tmpfs /run --tmpfs /tmp \

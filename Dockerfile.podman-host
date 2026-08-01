@@ -282,6 +282,14 @@ RUN systemctl mask \
         sys-kernel-debug.mount \
         sys-kernel-tracing.mount
 
+# Prevent getty@.service from rapid restart-looping into `start-limit-hit`
+# when running in container environments.
+RUN mkdir -p /etc/systemd/system/getty@.service.d \
+    && printf '%s\n' \
+        '[Service]' \
+        'RestartSec=2s' \
+    > /etc/systemd/system/getty@.service.d/10-restart-delay.conf
+
 # Nested storage. The host's own container filesystem is already overlay, and
 # native overlay-on-overlay is refused by the kernel, so both stores must go
 # through fuse-overlayfs. Symptom when this is missing: a storage-driver error
