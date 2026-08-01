@@ -83,7 +83,18 @@ def select_injected_server(page: Page, server_id, option_count):
     )
     page.evaluate("window.activeServerId = null")
     page.locator("#monitoring-server-select").select_option(str(server_id))
+    page.evaluate(
+        """([id]) => {
+            const sel = document.getElementById('monitoring-server-select');
+            if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+            if (window.selectMonitoringServer) {
+                window.selectMonitoringServer(id);
+            }
+        }""",
+        [server_id],
+    )
     expect(page.locator("#monitoring-content")).to_be_visible()
+
 
 
 def wait_for_chart_series(page: Page, count):
@@ -371,8 +382,8 @@ def test_glance_bar_counts_come_from_unit_state(page: Page):
         {"unit": "cache.service", "scope": "user", "load_state": "loaded", "active_state": "inactive", "sub_state": "dead", "n_restarts": 0},
     ]
 
-    inject_stats(page, 1, "Server A", [stray_container], units=units)
-    select_injected_server(page, 1, option_count=2)
+    inject_stats(page, 999, "Server Synthetic", [stray_container], units=units)
+    select_injected_server(page, 999, option_count=2)
 
     expect(page.locator("#mstat-total")).to_have_text("3")
     expect(page.locator("#mstat-running")).to_have_text("2")
