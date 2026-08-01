@@ -608,6 +608,10 @@ const runningContainersBySid = window.runningContainersBySid = {};
 // Empty string means show all containers.
 let monitorContainerFilter = '';
 
+// Last unhealthy count announced to #monitor-health-status, so repeated
+// SSE ticks with an unchanged count do not re-trigger the live region.
+let lastAnnouncedUnhealthy = null;
+
 // Currently selected container stem in the inspector (lowercase).
 window._selectedContainerStem = null;
 window._selectedContainerServerId = null;
@@ -1144,6 +1148,23 @@ function getHealthBadgeInfo(health) {
     return { badgeClass: 'unhealthy', label: h };
 }
 
+function applyPercentSeverity(td, severityClass) {
+    if (!severityClass) return;
+    const glyph = severityClass === 'cell-danger' ? '▲' : '●';
+    const word = severityClass === 'cell-danger' ? 'high' : 'elevated';
+
+    const flag = document.createElement('span');
+    flag.className = 'cell-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = glyph;
+    td.appendChild(flag);
+
+    const hidden = document.createElement('span');
+    hidden.className = 'visually-hidden';
+    hidden.textContent = word;
+    td.appendChild(hidden);
+}
+
 function renderContainerRow(c) {
     const cpuClass = getPercentClass(parsePercent(c.cpu));
     const memClass = getPercentClass(parsePercent(c.mem));
@@ -1168,11 +1189,13 @@ function renderContainerRow(c) {
     const tdCpu = document.createElement('td');
     tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
     tdCpu.textContent = c.cpu;
+    applyPercentSeverity(tdCpu, cpuClass);
     tr.appendChild(tdCpu);
 
     const tdMem = document.createElement('td');
     tdMem.className = 'p-4 text-right' + (memClass ? ' ' + memClass : '');
     tdMem.textContent = c.mem;
+    applyPercentSeverity(tdMem, memClass);
     tr.appendChild(tdMem);
 
     const tdNet = document.createElement('td');
@@ -1216,9 +1239,18 @@ function renderContainerStatsTable(tableElId, data) {
     headers.forEach(function(h) {
         const th = document.createElement('th');
         th.className = (h.align === 'left' ? 'text-left p-4' : 'p-4 text-right');
+        th.scope = 'col';
         th.textContent = h.text;
         headerRow.appendChild(th);
     });
+
+    // <caption> must be the table's first child per the HTML spec, so it is
+    // appended before <thead>.
+    const caption = document.createElement('caption');
+    caption.className = 'visually-hidden';
+    caption.textContent = 'Container resource usage for ' + (data.server_name || 'server');
+    table.appendChild(caption);
+
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
@@ -1733,50 +1765,90 @@ function computeServerTotals(containers) {
   return totals;
 }
 
+// U+2014 EM DASH: the "nothing reported yet" placeholder, matching what the
+// stats engine sends for container fields it could not read.
+const STAT_PLACEHOLDER = '\u2014';
+
+// Units are the source of truth for the fleet counts; containers only supply
+// health and load. A server that has not reported units yet shows placeholders
+// rather than a misleading zero.
+function computeUnitCounts(units) {
+  if (units === undefined || units === null) {
+    return {
+      total: STAT_PLACEHOLDER,
+      running: STAT_PLACEHOLDER,
+      stopped: STAT_PLACEHOLDER
+    };
+  }
+  // Units are matched against the same lowercase substring filter used for
+  // container names, keyed off the unit stem (name without ".service").
+  const filteredUnits = units.filter(function(u) {
+    const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
+    return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
+  });
+  const total = filteredUnits.length;
+  const running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
+  return { total: total, running: running, stopped: total - running };
+}
+
+function setStatText(id, value) {
+  const node = document.getElementById(id);
+  if (node) node.textContent = value;
+}
+
+// The 'danger' class carries the unhealthy state by colour alone, so repeat it
+// as a glyph for anyone who cannot perceive that.
+function renderUnhealthyStat(unhealthy) {
+  const elUnhealthy = document.getElementById('mstat-unhealthy');
+  if (!elUnhealthy) return;
+  elUnhealthy.textContent = unhealthy;
+  elUnhealthy.classList.toggle('danger', unhealthy > 0);
+  if (unhealthy > 0) {
+    const flag = document.createElement('span');
+    flag.className = 'monitor-stat-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = '⚠';
+    elUnhealthy.appendChild(flag);
+  }
+}
+
+function healthAnnouncement(unhealthy) {
+  if (unhealthy === 0) return 'All containers healthy';
+  if (unhealthy === 1) return '1 container unhealthy';
+  return unhealthy + ' containers unhealthy';
+}
+
+// Only rewrite the live region's text when the unhealthy count actually
+// changes, so unchanged SSE ticks do not re-announce the same state.
+function announceHealthChange(unhealthy) {
+  if (unhealthy === lastAnnouncedUnhealthy) return;
+  const elHealthStatus = document.getElementById('monitor-health-status');
+  if (elHealthStatus) {
+    elHealthStatus.textContent = healthAnnouncement(unhealthy);
+  }
+  lastAnnouncedUnhealthy = unhealthy;
+}
+
 function updateSummaryStrip(data) {
   const containers = data.containers || [];
-  const units = data.units;
-
-  let total, running, stopped;
-  if (units === undefined || units === null) {
-    total = '—';
-    running = '—';
-    stopped = '—';
-  } else {
-    // Units are matched against the same lowercase substring filter used for
-    // container names, keyed off the unit stem (name without ".service").
-    const filteredUnits = units.filter(function(u) {
-      const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
-      return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
-    });
-    total = filteredUnits.length;
-    running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
-    stopped = total - running;
-  }
-
+  const counts = computeUnitCounts(data.units);
   const unhealthy = containers.filter(function(c) {
     return c.health && c.health !== 'healthy';
   }).length;
   const totals = computeServerTotals(containers);
+  const hasLoad = containers.length > 0;
 
-  const elTotal     = document.getElementById('mstat-total');
-  const elRunning   = document.getElementById('mstat-running');
-  const elStopped   = document.getElementById('mstat-stopped');
-  const elUnhealthy = document.getElementById('mstat-unhealthy');
-  const elCpu       = document.getElementById('mstat-cpu');
-  const elMem       = document.getElementById('mstat-mem');
-  const elBar       = document.getElementById('monitor-stat-bar');
+  setStatText('mstat-total', counts.total);
+  setStatText('mstat-running', counts.running);
+  setStatText('mstat-stopped', counts.stopped);
+  renderUnhealthyStat(unhealthy);
+  setStatText('mstat-cpu', hasLoad ? totals.cpu.toFixed(1) + '%' : STAT_PLACEHOLDER);
+  setStatText('mstat-mem', hasLoad ? totals.mem.toFixed(1) + '%' : STAT_PLACEHOLDER);
 
-  if (elTotal)     elTotal.textContent     = total;
-  if (elRunning)   elRunning.textContent   = running;
-  if (elStopped)   elStopped.textContent   = stopped;
-  if (elUnhealthy) {
-    elUnhealthy.textContent = unhealthy;
-    elUnhealthy.classList.toggle('danger', unhealthy > 0);
-  }
-  if (elCpu) elCpu.textContent = containers.length > 0 ? totals.cpu.toFixed(1) + '%' : '—';
-  if (elMem) elMem.textContent = containers.length > 0 ? totals.mem.toFixed(1) + '%' : '—';
+  const elBar = document.getElementById('monitor-stat-bar');
   if (elBar) elBar.style.display = '';
+
+  announceHealthChange(unhealthy);
 }
 
 function populateServerSelector() {

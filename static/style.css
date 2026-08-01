@@ -728,6 +728,10 @@ body.view-monitor #monitoring-pane { display: flex !important; }
   color: var(--danger);
 }
 
+.monitor-stat-flag {
+  margin-left: 0.25rem;
+}
+
 /* Load is context for the counts above it, not a peer — same idiom, less weight. */
 .monitor-stat-group-load .monitor-stat-num {
   font-size: 1.25rem;
@@ -1251,6 +1255,7 @@ ul { list-style: none; }
 
 .cell-warn   { color: #d97706; }
 .cell-danger { color: var(--danger); font-weight: 600; }
+.cell-flag   { margin-left: 0.25rem; }
 .net-io-cell { color: var(--text-muted); font-size: 0.8rem; }
 
 /* Health History Section */
