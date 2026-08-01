@@ -1865,7 +1865,7 @@ function populateServerSelector() {
     const option = document.createElement('option');
     option.value = serverId;
     option.textContent = data.server_name || ('Server ' + serverId);
-    if (parseInt(serverId, 10) === window.activeServerId) {
+    if (window._monitoringServerId && parseInt(serverId, 10) === window._monitoringServerId) {
       option.selected = true;
     }
     select.appendChild(option);

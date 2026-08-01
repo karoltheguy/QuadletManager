@@ -24,7 +24,18 @@ For user-level quadlets, no special permissions are required. The agent will rea
 ## 3. Global Quadlets (Sudoers Setup)
 To manage system-wide Quadlets, you must grant the agent (`quadlet-agent`) passwordless sudo access strictly for `systemd` and `tee` interactions.
 
-Create a file on the target server at `/etc/sudoers.d/quadlet-manager`:
+These rules ship as [`deploy/quadlet-manager.sudoers`](../deploy/quadlet-manager.sudoers), with `%AGENT%` where the account name goes. Install it rather than retyping it:
+
+```bash
+sed 's/%AGENT%/quadlet-agent/' deploy/quadlet-manager.sudoers \
+  | sudo tee /etc/sudoers.d/quadlet-manager >/dev/null
+sudo chmod 440 /etc/sudoers.d/quadlet-manager
+sudo visudo -cf /etc/sudoers.d/quadlet-manager
+```
+
+For reference, that grants the following. This is the only place the rules are
+written out a second time, and `tests/test_sudo_allowlist_sync.py` fails if this
+copy drifts from the file above:
 
 ```bash
 # Allow agent to execute daemon-reload and interact with services
@@ -41,6 +52,13 @@ quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
 # Allow agent to read resource usage for global-scope containers
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
 ```
+
+> **Known gap.** These rules are not currently sufficient. The app runs about
+> twice as many commands under `sudo` than they permit, so several global-scope
+> features fail on a server set up exactly as above. See
+> [issue #289](https://github.com/karoltheguy/QuadletManager/issues/289) and
+> [SUDO_PERMISSIONS.md](SUDO_PERMISSIONS.md), which records the full list and is
+> the source these rules are copied from.
 
 ## 4. Installation
 Before running the application, you need to set up a Python virtual environment and install the required dependencies:

@@ -98,6 +98,32 @@ direction without warning. The build-time assertions in
 
 **Status: run on 2026-08-01. The target works; what it found is an app bug.**
 
+**Update, 2026-08-02.** The two tests this section asked for now exist, so the
+gap is pinned rather than only written down. The list of what the app runs
+under sudo moved to [SUDO_PERMISSIONS.md](SUDO_PERMISSIONS.md); the table below
+is kept as the record of the run that found it.
+
+The allowlist itself is no longer written out four times. It ships as
+`deploy/quadlet-manager.sudoers`, with `%AGENT%` where the account name goes,
+and every installer substitutes into that file: `scripts/podman-e2e.sh` for the
+loopback target, `Dockerfile.podman-host` for the container target's new
+`narrow` account, and the reader of `docs/SETUP.MD` for a real server.
+`README.MD` links to `docs/SETUP.MD` rather than repeating it, leaving one
+prose copy. `tests/test_sudo_allowlist_sync.py` pins that copy to the original
+in the `unit` job, and fails if an installer goes back to embedding rules.
+
+`tests/podman/test_sudo_policy.py` probes a real sudo as the `narrow` account
+and is `xfail(strict=True)` until the policy and the app agree. The fix itself,
+and the narrowing of `editor` described at the end of this section, are still
+open.
+
+Probing a real sudo also found two commands this table missed, both in
+`api/sockets.py`, which embeds `sudo` in the string it hands to
+`conn.create_process` instead of passing `use_sudo=True`. Live log streaming
+(`journalctl -u <unit> -f -n 100`) turns out to be **permitted**, because a
+trailing sudoers `*` matches across argument boundaries. The terminal
+(`podman exec -it`) is **not**, so that tab is broken in global scope too.
+
 The loopback target was run for the first time, on Fedora 44 with podman 5.8.4:
 `31 passed, 6 failed, 1029 deselected, 1 xfailed`. Three failures are the
 browser journeys, which ran against a dev instance that had no Podman Host row

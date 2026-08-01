@@ -24,6 +24,7 @@ SSH_PORT=2223
 TEST_KEY=tests/fixtures/test_key
 LOOPBACK_USER=quadlet-test
 SUDOERS_FILE=/etc/sudoers.d/quadlet-test
+SUDOERS_TEMPLATE="$REPO_ROOT/deploy/quadlet-manager.sudoers"
 
 # Rootful podman for BOTH build and run, via one variable, for two reasons:
 #
@@ -65,6 +66,7 @@ Environment (read identically here and in tests/podman/conftest.py):
   QM_PODMAN_HOST   default localhost:2223   host:port of the target
   QM_PODMAN_USER   default editor           ssh user
   QM_PODMAN_KEY    default tests/fixtures/test_key
+  QM_PODMAN_NARROW_USER  default narrow     ssh user for the sudo policy test
 EOF
 }
 
@@ -332,22 +334,21 @@ cmd_setup_local() {
     chown "$LOOPBACK_USER:$LOOPBACK_USER" "$authkeys"
     chmod 600 "$authkeys"
 
-    # The narrow allowlist from README.MD / docs/SETUP.MD rather than
-    # NOPASSWD:ALL. This makes the loopback target double as the only check that
-    # the documented sudoers policy is actually sufficient to run the app.
-    cat > "$SUDOERS_FILE" <<EOF
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
-$LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
-EOF
+    # The published allowlist rather than NOPASSWD:ALL, which is what makes this
+    # target able to notice a policy too small to run the app. It is no longer
+    # the only such check: Dockerfile.podman-host now carries a `narrow` account
+    # installing the same file, so CI can see it too.
+    #
+    # Substituted from deploy/quadlet-manager.sudoers, the file a real server
+    # installs, so this target is guaranteed to be testing the published policy
+    # and not a copy of it that has drifted.
+    [ -f "$SUDOERS_TEMPLATE" ] || die "missing $SUDOERS_TEMPLATE"
+    sed "s/%AGENT%/$LOOPBACK_USER/g" "$SUDOERS_TEMPLATE" > "$SUDOERS_FILE"
+    grep -q "^$LOOPBACK_USER ALL=(ALL) NOPASSWD:" "$SUDOERS_FILE" \
+        || die "$SUDOERS_FILE has no rules after substitution; did $SUDOERS_TEMPLATE change its placeholder?"
     chmod 440 "$SUDOERS_FILE"
     visudo -cf "$SUDOERS_FILE" >/dev/null || die "generated an invalid $SUDOERS_FILE"
-    changed+=("wrote $SUDOERS_FILE")
+    changed+=("wrote $SUDOERS_FILE from $SUDOERS_TEMPLATE")
 
     log "Done. Changes made:"
     if [ "${#changed[@]}" -eq 0 ]; then
@@ -362,7 +363,13 @@ Undo everything with:
 
 Run the suite against this target with:
   QM_PODMAN_HOST=localhost:22 QM_PODMAN_USER=$LOOPBACK_USER \\
+    QM_PODMAN_NARROW_USER=$LOOPBACK_USER \\
     PYTHONPATH=. python -m pytest tests/ -m podman -v
+
+QM_PODMAN_NARROW_USER is what tests/podman/test_sudo_policy.py connects as. On
+this target the SSH account already holds exactly the published allowlist, so it
+is its own narrow account; on the container target the default (\`narrow\`) is a
+separate unprivileged account.
 EOF
 }
 
