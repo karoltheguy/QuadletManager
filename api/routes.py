@@ -19,7 +19,7 @@ from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool, SSHCommandError, SSHTimeoutError
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
-from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
+from services.remote_fs import ensure_within_quadlet_dir, is_global_scope, quadlet_dir_for_scope, write_remote_file
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
 from services.quadlet_validator import validate_remote
@@ -565,6 +565,11 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
 
 @router.get("/api/file/{server_id}", response_class=HTMLResponse)
 async def fetch_file(request: Request, server_id: int, path: str, scope: str, name: str, role: str = Depends(get_current_user_role)):
+    try:
+        ensure_within_quadlet_dir(path, scope)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
+
     use_sudo = is_global_scope(scope)
     cmd = f"cat {shlex.quote(path)}"
     try:
@@ -605,6 +610,11 @@ async def save_file(
 ):
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot save files.")
+
+    try:
+        ensure_within_quadlet_dir(file_path, scope)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
 
     quadlet_type = quadlet_type_of(file_path)
     if quadlet_type in ('container', 'volume', 'network', 'pod', 'kube'):
@@ -793,12 +803,18 @@ async def create_new_quadlet(
     try:
         target_dir = await quadlet_dir_for_scope(server_id, scope)
         file_path = f"{target_dir}/{file_name}"
+        try:
+            ensure_within_quadlet_dir(file_path, scope)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
         await pool.execute_command(server_id, f"mkdir -p {shlex.quote(target_dir)}", use_sudo=use_sudo)
         await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
 
         response = _toast(request, "green", f"Created {file_name}!")
         response.headers["HX-Trigger"] = "reload-servers"
         return response
+    except HTTPException:
+        raise
     except Exception as e:
         ref = _log_error_ref("Failed to create quadlet", e)
         return _toast(request, "red", f"Creation Failed (ref: {ref})")
@@ -1671,6 +1687,11 @@ async def delete_file(
 ):
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot delete files.")
+
+    try:
+        ensure_within_quadlet_dir(path, scope)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
 
     use_sudo = is_global_scope(scope)
     cmd = f"sudo rm -f {shlex.quote(path)}" if use_sudo else f"rm -f {shlex.quote(path)}"

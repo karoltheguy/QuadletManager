@@ -61,7 +61,7 @@ def test_api_file_db_error(client):
     with patch("api.routes.get_db_connection") as mock_conn:
         mock_conn.side_effect = Exception("DB Error")
         
-        response = client.get("/api/file/1?path=test&scope=user&name=test")
+        response = client.get("/api/file/1?path=/home/quadlet/.config/containers/systemd/myapp.container&scope=user&name=test")
         assert response.status_code == 200
         assert "Failed to load file content" in response.text
 
@@ -69,7 +69,7 @@ def test_api_file_db_error(client):
 def test_api_save_exception(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("SSH Error")
-        response = client.post("/api/save", data={"server_id": 1, "file_path": "test", "scope": "user", "unit_name": "test", "content": "data"}, follow_redirects=False)
+        response = client.post("/api/save", data={"server_id": 1, "file_path": "/home/quadlet/.config/containers/systemd/myapp", "scope": "user", "unit_name": "test", "content": "data"}, follow_redirects=False)
         assert response.status_code == 200
         assert "Failed to save" in response.text
 
@@ -122,7 +122,7 @@ def test_api_create_exception(client):
 def test_api_save_exception_no_stack_trace_leak(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("SENTINEL_LEAK_/etc/secret/path")
-        response = client.post("/api/save", data={"server_id": 1, "file_path": "test", "scope": "user", "unit_name": "test", "content": "data"}, follow_redirects=False)
+        response = client.post("/api/save", data={"server_id": 1, "file_path": "/home/quadlet/.config/containers/systemd/myapp", "scope": "user", "unit_name": "test", "content": "data"}, follow_redirects=False)
         assert response.status_code == 200
         assert "SENTINEL_LEAK_/etc/secret/path" not in response.text
         assert "Failed to save" in response.text
@@ -143,7 +143,7 @@ def test_api_delete_exception_no_stack_trace_leak(client):
         response = client.request(
             "DELETE",
             "/api/files",
-            params={"server_id": 1, "path": "/etc/containers/systemd/test.container", "scope": "user"},
+            params={"server_id": 1, "path": "/home/quadlet/.config/containers/systemd/test.container", "scope": "user"},
             follow_redirects=False,
         )
         assert response.status_code == 200
