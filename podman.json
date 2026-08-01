@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "podman",
-  "message": "passing",
-  "color": "brightgreen"
+  "message": "unknown",
+  "color": "lightgrey"
 }
