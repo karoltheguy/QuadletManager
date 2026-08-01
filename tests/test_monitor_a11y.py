@@ -1,15 +1,18 @@
 """Tests for Monitor pane accessibility (Issue #262).
 
 Covers:
-- templates/dashboard.html's monitor stat bar exposes its two
-  `.monitor-stat-group` containers as `role="list"` and its six
-  `.monitor-stat-block` children as `role="listitem"`, so the glance-bar
-  counters read as a coherent list to assistive tech instead of a run of
-  unrelated `<div>`s.
+- templates/dashboard.html's monitor stat bar builds its two
+  `.monitor-stat-group` containers as native `<ul>` elements and its six
+  `.monitor-stat-block` children as native `<li>` elements, so the
+  glance-bar counters read as a coherent list to assistive tech instead of
+  a run of unrelated `<div>`s. The native tags are used in preference to
+  `role="list"` / `role="listitem"` on `<div>`s, which SonarQube flags
+  (S6819) because ARIA roles are less reliably supported than the elements
+  they imitate.
 - templates/dashboard.html defines a `#monitor-health-status` live region
-  that carries both `role="status"` and the existing `visually-hidden`
-  class, so unhealthy-container changes can be announced without a
-  visible element.
+  as a native `<output>` element (implicit `role="status"`, again per
+  S6819) carrying the existing `visually-hidden` class, so
+  unhealthy-container changes can be announced without a visible element.
 - static/main.js's stats-update logic (the function that maintains the
   `#mstat-unhealthy` glance-bar cell) gives an unhealthy count a
   non-colour indicator (an `aria-hidden` flag element with class
@@ -63,7 +66,7 @@ class TestMonitorStatBarListSemantics:
 
     def _stat_group_open_tags(self):
         return re.findall(
-            r'<div\s+class\s*=\s*["\']monitor-stat-group(?:\s+monitor-stat-group-load)?["\'][^>]*>',
+            r'<(\w+)\s+class\s*=\s*["\']monitor-stat-group(?:\s+monitor-stat-group-load)?["\'][^>]*>',
             self.html,
         )
 
@@ -75,25 +78,39 @@ class TestMonitorStatBarListSemantics:
             f"dashboard.html, found {len(tags)}: {tags!r}"
         )
         for tag in tags:
-            assert re.search(r'role\s*=\s*["\']list["\']', tag), (
-                "expected every .monitor-stat-group div to carry "
-                f'role="list", found: {tag!r}'
+            assert tag == "ul", (
+                "expected every .monitor-stat-group to be a native <ul>, "
+                f"found: <{tag}>"
             )
 
     @pytest.mark.unit
     def test_stat_blocks_are_listitems(self):
         tags = re.findall(
-            r'<div\s+class\s*=\s*["\']monitor-stat-block["\'][^>]*>', self.html
+            r'<(\w+)\s+class\s*=\s*["\']monitor-stat-block["\'][^>]*>', self.html
         )
         assert len(tags) == 6, (
             "expected exactly six .monitor-stat-block opening tags in "
             f"dashboard.html, found {len(tags)}: {tags!r}"
         )
         for tag in tags:
-            assert re.search(r'role\s*=\s*["\']listitem["\']', tag), (
-                "expected every .monitor-stat-block div to carry "
-                f'role="listitem", found: {tag!r}'
+            assert tag == "li", (
+                "expected every .monitor-stat-block to be a native <li>, "
+                f"found: <{tag}>"
             )
+
+    @pytest.mark.unit
+    def test_stat_bar_uses_no_redundant_list_roles(self):
+        """Native <ul>/<li> already imply the roles; restating them is what
+        SonarQube S6819 flags."""
+        bar = re.search(
+            r'<div id="monitor-stat-bar".*?(?=<div id="monitoring-content")',
+            self.html,
+            re.DOTALL,
+        )
+        assert bar, "expected to find the monitor-stat-bar div in dashboard.html"
+        assert not re.search(
+            r'role\s*=\s*["\'](?:list|listitem)["\']', bar.group(0)
+        ), 'expected no role="list"/"listitem" left inside the monitor stat bar'
 
 
 # =============================================================================
@@ -108,7 +125,7 @@ class TestMonitorHealthStatusRegion:
     @pytest.mark.unit
     def test_health_status_region_exists(self):
         match = re.search(
-            r'<[a-zA-Z0-9]+[^>]*\bid\s*=\s*["\']monitor-health-status["\'][^>]*>',
+            r'<([a-zA-Z0-9]+)[^>]*\bid\s*=\s*["\']monitor-health-status["\'][^>]*>',
             self.html,
         )
         assert match, (
@@ -116,8 +133,13 @@ class TestMonitorHealthStatusRegion:
             "in dashboard.html"
         )
         tag = match.group(0)
-        assert re.search(r'role\s*=\s*["\']status["\']', tag), (
-            'expected #monitor-health-status to carry role="status", '
+        assert match.group(1) == "output", (
+            "expected #monitor-health-status to be a native <output> "
+            "element, whose implicit role is status, rather than a span "
+            f'carrying role="status", found: {tag!r}'
+        )
+        assert not re.search(r'role\s*=\s*["\']status["\']', tag), (
+            'expected no redundant role="status" on the <output> element, '
             f"found: {tag!r}"
         )
         assert re.search(r'class\s*=\s*["\'][^"\']*\bvisually-hidden\b[^"\']*["\']', tag), (
@@ -135,28 +157,44 @@ class TestMainJsUnhealthyIndicatorAndAnnouncement:
     def setup_method(self):
         self.js = _js()
 
-    def _stats_update_region(self):
-        # The function that maintains #mstat-unhealthy (currently named
-        # updateStats; tolerate a rename to updateMonitorStats by locating
-        # it via the unique mstat-unhealthy marker rather than a hardcoded
-        # function name).
-        marker = "getElementById('mstat-unhealthy')"
+    def _region_around(self, marker, what):
+        """Return the body of the top-level function containing `marker`.
+
+        Each concern is located by its own marker rather than by function
+        name, so these tests keep holding whether the summary-strip logic
+        lives in one function or is split across several helpers.
+        """
         start = self.js.find(marker)
         assert start != -1, (
-            "expected to locate the code that reads #mstat-unhealthy in "
-            "main.js"
+            f"expected to locate the code that {what} in main.js"
         )
         # Walk backwards to the start of the enclosing function.
         fn_start = self.js.rfind("function ", 0, start)
         assert fn_start != -1, (
-            "expected the #mstat-unhealthy code to live inside a "
-            "top-level function in main.js"
+            f"expected the code that {what} to live inside a top-level "
+            "function in main.js"
         )
         # Walk forwards to the next top-level function declaration to
         # bound the region.
         next_fn = self.js.find("\nfunction ", start)
         end = next_fn if next_fn != -1 else len(self.js)
         return self.js[fn_start:end]
+
+    def _stats_update_region(self):
+        return self._region_around(
+            "getElementById('mstat-unhealthy')", "reads #mstat-unhealthy"
+        )
+
+    def _announce_region(self):
+        return self._region_around(
+            "getElementById('monitor-health-status')",
+            "writes to #monitor-health-status",
+        )
+
+    def _announcement_text_region(self):
+        return self._region_around(
+            "'All containers healthy'", "builds the announcement string"
+        )
 
     @pytest.mark.unit
     def test_unhealthy_count_has_non_colour_indicator(self):
@@ -187,30 +225,32 @@ class TestMainJsUnhealthyIndicatorAndAnnouncement:
             "declared in main.js"
         )
 
-        region = self._stats_update_region()
+        region = self._announce_region()
         assert "lastAnnouncedUnhealthy" in region, (
-            "expected the stats-update function to reference "
+            "expected the announcing function to reference "
             f"lastAnnouncedUnhealthy, region: {region!r}"
         )
         assert re.search(
-            r"unhealthy\s*(?:!==|!=)\s*lastAnnouncedUnhealthy"
-            r"|lastAnnouncedUnhealthy\s*(?:!==|!=)\s*unhealthy",
+            r"unhealthy\s*(?:!==|!=|===|==)\s*lastAnnouncedUnhealthy"
+            r"|lastAnnouncedUnhealthy\s*(?:!==|!=|===|==)\s*unhealthy",
             region,
         ), (
             "expected a comparison of the new unhealthy count against "
             f"lastAnnouncedUnhealthy to guard the announcement, region: {region!r}"
         )
-        assert re.search(r"monitor-health-status", region), (
-            "expected the stats-update function to write to "
-            f"#monitor-health-status, region: {region!r}"
+        assert re.search(r"lastAnnouncedUnhealthy\s*=\s*unhealthy", region), (
+            "expected the announcing function to record the count it just "
+            f"announced, region: {region!r}"
         )
-        assert "containers unhealthy" in region, (
+
+        text_region = self._announcement_text_region()
+        assert "containers unhealthy" in text_region, (
             "expected an announcement string mentioning 'containers "
-            f"unhealthy', region: {region!r}"
+            f"unhealthy', region: {text_region!r}"
         )
-        assert "All containers healthy" in region, (
-            "expected an announcement string 'All containers healthy', "
-            f"region: {region!r}"
+        assert "container unhealthy" in text_region, (
+            "expected a singular announcement string mentioning "
+            f"'container unhealthy', region: {text_region!r}"
         )
 
 

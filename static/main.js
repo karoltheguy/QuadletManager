@@ -1765,73 +1765,90 @@ function computeServerTotals(containers) {
   return totals;
 }
 
+// U+2014 EM DASH: the "nothing reported yet" placeholder, matching what the
+// stats engine sends for container fields it could not read.
+const STAT_PLACEHOLDER = '\u2014';
+
+// Units are the source of truth for the fleet counts; containers only supply
+// health and load. A server that has not reported units yet shows placeholders
+// rather than a misleading zero.
+function computeUnitCounts(units) {
+  if (units === undefined || units === null) {
+    return {
+      total: STAT_PLACEHOLDER,
+      running: STAT_PLACEHOLDER,
+      stopped: STAT_PLACEHOLDER
+    };
+  }
+  // Units are matched against the same lowercase substring filter used for
+  // container names, keyed off the unit stem (name without ".service").
+  const filteredUnits = units.filter(function(u) {
+    const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
+    return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
+  });
+  const total = filteredUnits.length;
+  const running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
+  return { total: total, running: running, stopped: total - running };
+}
+
+function setStatText(id, value) {
+  const node = document.getElementById(id);
+  if (node) node.textContent = value;
+}
+
+// The 'danger' class carries the unhealthy state by colour alone, so repeat it
+// as a glyph for anyone who cannot perceive that.
+function renderUnhealthyStat(unhealthy) {
+  const elUnhealthy = document.getElementById('mstat-unhealthy');
+  if (!elUnhealthy) return;
+  elUnhealthy.textContent = unhealthy;
+  elUnhealthy.classList.toggle('danger', unhealthy > 0);
+  if (unhealthy > 0) {
+    const flag = document.createElement('span');
+    flag.className = 'monitor-stat-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = '⚠';
+    elUnhealthy.appendChild(flag);
+  }
+}
+
+function healthAnnouncement(unhealthy) {
+  if (unhealthy === 0) return 'All containers healthy';
+  if (unhealthy === 1) return '1 container unhealthy';
+  return unhealthy + ' containers unhealthy';
+}
+
+// Only rewrite the live region's text when the unhealthy count actually
+// changes, so unchanged SSE ticks do not re-announce the same state.
+function announceHealthChange(unhealthy) {
+  if (unhealthy === lastAnnouncedUnhealthy) return;
+  const elHealthStatus = document.getElementById('monitor-health-status');
+  if (elHealthStatus) {
+    elHealthStatus.textContent = healthAnnouncement(unhealthy);
+  }
+  lastAnnouncedUnhealthy = unhealthy;
+}
+
 function updateSummaryStrip(data) {
   const containers = data.containers || [];
-  const units = data.units;
-
-  let total, running, stopped;
-  if (units === undefined || units === null) {
-    total = '—';
-    running = '—';
-    stopped = '—';
-  } else {
-    // Units are matched against the same lowercase substring filter used for
-    // container names, keyed off the unit stem (name without ".service").
-    const filteredUnits = units.filter(function(u) {
-      const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
-      return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
-    });
-    total = filteredUnits.length;
-    running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
-    stopped = total - running;
-  }
-
+  const counts = computeUnitCounts(data.units);
   const unhealthy = containers.filter(function(c) {
     return c.health && c.health !== 'healthy';
   }).length;
   const totals = computeServerTotals(containers);
+  const hasLoad = containers.length > 0;
 
-  const elTotal     = document.getElementById('mstat-total');
-  const elRunning   = document.getElementById('mstat-running');
-  const elStopped   = document.getElementById('mstat-stopped');
-  const elUnhealthy = document.getElementById('mstat-unhealthy');
-  const elCpu       = document.getElementById('mstat-cpu');
-  const elMem       = document.getElementById('mstat-mem');
-  const elBar       = document.getElementById('monitor-stat-bar');
+  setStatText('mstat-total', counts.total);
+  setStatText('mstat-running', counts.running);
+  setStatText('mstat-stopped', counts.stopped);
+  renderUnhealthyStat(unhealthy);
+  setStatText('mstat-cpu', hasLoad ? totals.cpu.toFixed(1) + '%' : STAT_PLACEHOLDER);
+  setStatText('mstat-mem', hasLoad ? totals.mem.toFixed(1) + '%' : STAT_PLACEHOLDER);
 
-  if (elTotal)     elTotal.textContent     = total;
-  if (elRunning)   elRunning.textContent   = running;
-  if (elStopped)   elStopped.textContent   = stopped;
-  if (elUnhealthy) {
-    elUnhealthy.textContent = unhealthy;
-    elUnhealthy.classList.toggle('danger', unhealthy > 0);
-    if (unhealthy > 0) {
-      const flag = document.createElement('span');
-      flag.className = 'monitor-stat-flag';
-      flag.setAttribute('aria-hidden', 'true');
-      flag.textContent = '⚠';
-      elUnhealthy.appendChild(flag);
-    }
-  }
-  if (elCpu) elCpu.textContent = containers.length > 0 ? totals.cpu.toFixed(1) + '%' : '—';
-  if (elMem) elMem.textContent = containers.length > 0 ? totals.mem.toFixed(1) + '%' : '—';
+  const elBar = document.getElementById('monitor-stat-bar');
   if (elBar) elBar.style.display = '';
 
-  // Only rewrite the live region's text when the unhealthy count actually
-  // changes, so unchanged SSE ticks do not re-announce the same state.
-  if (unhealthy !== lastAnnouncedUnhealthy) {
-    const elHealthStatus = document.getElementById('monitor-health-status');
-    if (elHealthStatus) {
-      if (unhealthy === 0) {
-        elHealthStatus.textContent = 'All containers healthy';
-      } else if (unhealthy === 1) {
-        elHealthStatus.textContent = '1 container unhealthy';
-      } else {
-        elHealthStatus.textContent = unhealthy + ' containers unhealthy';
-      }
-    }
-    lastAnnouncedUnhealthy = unhealthy;
-  }
+  announceHealthChange(unhealthy);
 }
 
 function populateServerSelector() {

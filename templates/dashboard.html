@@ -108,36 +108,36 @@
       <p class="monitoring-empty-title">No server selected</p>
       <p class="monitoring-empty-hint">Choose a server from the dropdown above to view its charts and stats.</p>
     </div>
-    <span id="monitor-health-status" class="visually-hidden" role="status"></span>
+    <output id="monitor-health-status" class="visually-hidden"></output>
     <div id="monitor-stat-bar" class="monitor-stat-bar" style="display:none;">
-      <div class="monitor-stat-group" role="list">
-        <div class="monitor-stat-block" role="listitem">
+      <ul class="monitor-stat-group">
+        <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-total">—</span>
           <span class="monitor-stat-lbl">Total</span>
-        </div>
-        <div class="monitor-stat-block" role="listitem">
+        </li>
+        <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-running">—</span>
           <span class="monitor-stat-lbl">Running</span>
-        </div>
-        <div class="monitor-stat-block" role="listitem">
+        </li>
+        <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-stopped">—</span>
           <span class="monitor-stat-lbl">Stopped</span>
-        </div>
-        <div class="monitor-stat-block" role="listitem">
+        </li>
+        <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-unhealthy">—</span>
           <span class="monitor-stat-lbl">Unhealthy</span>
-        </div>
-      </div>
-      <div class="monitor-stat-group monitor-stat-group-load" role="list">
-        <div class="monitor-stat-block" role="listitem">
+        </li>
+      </ul>
+      <ul class="monitor-stat-group monitor-stat-group-load">
+        <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-cpu">—</span>
           <span class="monitor-stat-lbl">CPU</span>
-        </div>
-        <div class="monitor-stat-block" role="listitem">
+        </li>
+        <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-mem">—</span>
           <span class="monitor-stat-lbl">MEM</span>
-        </div>
-      </div>
+        </li>
+      </ul>
     </div>
     <div id="monitoring-content" class="monitoring-content" style="display:none;">
       <div id="monitoring-stats-table" class="stats-table-wrapper">
