@@ -53,17 +53,22 @@ See [docs/SETUP.MD](docs/SETUP.MD) if you want to point it at a real server.
 
 ## Running the tests
 
-CI splits the suite into four jobs by pytest marker. Running the same split
+CI splits the suite into five jobs by pytest marker. Running the same split
 locally is the most reliable way to know your PR will go green:
 
 | Suite | Command | Needs |
 |---|---|---|
 | `unit` | `python -m pytest tests/ -m unit -n auto` | nothing |
-| `unmarked` | `python -m pytest tests/ -m "not unit and not integration and not e2e" -n auto` | nothing |
+| `unmarked` | `python -m pytest tests/ -m "not unit and not integration and not e2e and not podman" -n auto` | nothing |
 | `integration` | `python -m pytest tests/ -m integration -n auto --dist=loadfile` | mock environment |
 | `e2e` | `python -m pytest tests/ -m e2e -n auto --dist=loadfile` | mock environment + Chromium |
+| `podman` | `./scripts/podman-e2e.sh test` | a live Podman 5 host |
 
 The first two run fully mocked in a couple of seconds and cover most changes.
+
+If you change the `unmarked` marker expression, change
+`UNMARKED_MARKEXPR` in `tests/conftest.py` to match. They are compared by string
+equality; `tests/test_unmarked_marker_sync.py` fails if they drift.
 
 For `integration` and `e2e`, start the mock environment first. It boots a
 container running real systemd to stand in for a remote host:
@@ -74,6 +79,20 @@ playwright install chromium          # one-time, for e2e only
 # ... run tests ...
 docker compose -f docker-compose.test.yml down -v
 ```
+
+The `podman` suite is the exception: it does not use compose locally.
+
+```bash
+sudo ./scripts/podman-e2e.sh up      # build and boot a real Podman 5 host
+./scripts/podman-e2e.sh test
+sudo ./scripts/podman-e2e.sh down
+```
+
+That matters if you are on a podman-only machine, where no compose provider is
+installed and the three compose-based suites cannot run at all. The podman suite
+still can, and `scripts/podman-e2e.sh setup-local` offers a second target that
+runs against your own podman with no nesting. Both targets and their safety
+rails are documented in [docs/TESTING.md](docs/TESTING.md#podman-tests).
 
 **Use `python -m pytest`, not bare `pytest`.** The `python -m` form puts the
 current directory on `sys.path`, which is what makes the top-level `core/`,
@@ -107,7 +126,7 @@ the same one every change goes through.
 2. Make the change, with a test that fails before it and passes after.
 3. Push and open a PR. Say what problem it solves. The diff already shows
    what you did, so spend the words on why.
-4. Wait for checks. The four test suites and the container build must pass.
+4. Wait for checks. The five test suites and the container build must pass.
    Codacy, SonarCloud, CodeQL and GitGuardian also report; they're advisory,
    but a legitimate finding should be addressed rather than ignored.
 5. If it fixes an issue, put `fixes #123` in the PR body so it closes on merge.

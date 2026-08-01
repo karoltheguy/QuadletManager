@@ -1,0 +1,28 @@
+# Container with a healthcheck, so the health-extraction paths in
+# services/stats_engine.py run against real podman output: both
+# _extract_single_container_health and its "(healthy|unhealthy|starting)"
+# regex fallback over the Status field.
+#
+# The interval is deliberately short so a test does not have to wait 30s for
+# the first probe to flip the status away from "starting".
+[Unit]
+Description=QuadletManager e2e container with a healthcheck
+
+[Container]
+ContainerName=e2e-health
+Image=quay.io/quay/busybox:latest
+# See e2e-sleep.container for why this needs both a TERM trap and RunInit:
+# without them `systemctl stop` leaves the unit failed rather than inactive.
+Exec=sh -c 'trap "exit 0" TERM; sleep 86400 & wait'
+RunInit=yes
+HealthCmd=/bin/true
+HealthInterval=2s
+HealthStartPeriod=1s
+HealthRetries=1
+HealthTimeout=2s
+
+[Service]
+Restart=no
+
+[Install]
+WantedBy=default.target
