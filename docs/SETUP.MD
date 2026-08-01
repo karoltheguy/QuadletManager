@@ -37,6 +37,9 @@ quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
 
 # Allow agent to write files exclusively into the quadlet directory via tee
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
+
+# Allow agent to read resource usage for global-scope containers
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
 ```
 
 ## 4. Installation

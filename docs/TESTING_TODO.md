@@ -94,30 +94,76 @@ direction without warning. The build-time assertions in
 
 ---
 
-## 3. The loopback target has never been run
+## 3. The documented sudoers allowlist is not sufficient for global scope
 
-**Status: written and syntax-checked, never executed.**
+**Status: run on 2026-08-01. The target works; what it found is an app bug.**
 
-`scripts/podman-e2e.sh setup-local` and `teardown-local` implement the second
-target described in [TESTING.md](TESTING.md#the-two-targets), but neither has
-been run once.
+The loopback target was run for the first time, on Fedora 44 with podman 5.8.4:
+`31 passed, 6 failed, 1029 deselected, 1 xfailed`. Three failures are the
+browser journeys, which ran against a dev instance that had no Podman Host row
+and are not evidence of anything. The three that matter are all one cause.
 
-They were left alone on purpose: `setup-local` creates a real `quadlet-test`
-system user, enables linger for it, and writes `/etc/sudoers.d/quadlet-test` on
-the developer's own machine. That is not something to do unasked.
+`setup-local` grants exactly the eight-line allowlist published in `README.MD`,
+which is the entire point of the target. The app needs considerably more than
+that. Asked directly, with `sudo -n -l`, that policy answers:
 
-Two things make this worth doing rather than deleting:
+| Command the app issues under sudo | Allowed? | Call site |
+|---|---|---|
+| `tee /etc/containers/systemd/*` | yes | `services/remote_fs.py:58` |
+| `systemctl daemon-reload` | yes | `services/systemd_manager.py:137` |
+| `systemctl start/stop/restart/status <unit>` | yes | `services/systemd_manager.py:137` |
+| `journalctl -u <unit>` | yes | `scripts/podman-e2e.sh` logs |
+| `podman stats --no-stream --format json <names>` | yes | `services/stats_engine.py:331` |
+| `systemctl show <units> --property=...` | **no** | `services/systemd_manager.py:99`, `services/stats_engine.py:288` |
+| `find /etc/containers/systemd -type f -maxdepth 1` | **no** | `services/tree_scanner.py:51` |
+| `cat <path>` | **no** | `api/routes.py:571` |
+| `stat -c %Y <path>` | **no** | `api/routes.py:625`, `services/sync_engine.py:123` |
+| `mkdir -p /etc/containers/systemd` | **no** | `api/routes.py:796` |
+| `rm -f <path>` | **no** | `api/routes.py:1675` |
+| `podman ps --format json` | **no** | `services/stats_engine.py:231` |
+| `podman pod start/stop/restart <pod>` | **no** | `api/routes.py:733` |
 
-* It is the only check that the narrow sudoers allowlist documented in
-  `README.MD` and `docs/SETUP.MD` is actually sufficient to run the app. Nothing
-  else verifies that today.
-* It is the fast local loop, with no nesting and no image build.
+So a server set up strictly by the book has a global scope that cannot list its
+quadlets, open one, save one, create one, delete one, report unit state, or show
+anything in Monitor. It can write a file it cannot then read back, and start a
+unit it cannot show you. Verify the line numbers before citing them; they were
+correct on 2026-08-01.
 
-**Next step:** run `sudo ./scripts/podman-e2e.sh setup-local`, then the suite
-with `QM_PODMAN_HOST=localhost:22 QM_PODMAN_USER=quadlet-test`, then confirm
-`teardown-local` leaves nothing behind. Until then, do not describe this target
-as working. The safety rails in `tests/podman/conftest.py` matter most here,
-because this target writes to the real `/etc/containers/systemd`.
+`podman stats` is worth one note, because it looks like a fourteenth denial and
+is not. `_build_podman_commands` returns a bare `sudo podman stats`, which the
+`podman stats *` line does not match, but the string is only ever a prefix:
+`stats_engine.py:331` appends `--no-stream --format json <names>` before it
+runs. Probing the prefix alone gives a false positive.
+
+**Why twelve CI rounds never saw this.** `Dockerfile.podman-host:82` grants
+`editor ALL=(ALL) NOPASSWD:ALL`. The container target cannot detect a
+too-narrow allowlist in principle, no matter how many times it runs, because it
+grants everything. That is precisely the gap this target was written to close,
+and it closed it on the first run.
+
+**Consequence for the "both targets agree" rule** in
+[TESTING.md](TESTING.md#the-two-targets): as things stand they cannot, and
+should not be expected to. The loopback target is the stricter environment, not
+an equivalent one. The rule becomes true again only if
+`Dockerfile.podman-host` is narrowed to the same allowlist, which is the change
+that would put this check in CI. Do that *after* the policy and the app agree,
+not before, or CI goes red on a known defect.
+
+**Second, smaller finding.** `test_test_image_is_preloaded[global]` reports
+`busybox missing`, but that is a masked sudo denial:
+`podman image exists ... && echo present || echo missing` turns sudo's non-zero
+exit into `missing`. Underneath it there is a real gap anyway. The container
+target preloads the image into both stores through `load-test-image.service`;
+`setup-local` does nothing equivalent, so the user-scope tests passed only
+because podman pulled from quay.io during the run. The loopback target
+therefore needs a network where the container target does not.
+
+**What is now verified:** the target itself works. Rootless scope is fully
+green on a real machine, and the safety rails held: nothing was written outside
+`e2e-` names, and `/etc/containers/systemd` was empty before and after. Note
+that the global-scope writes never got far enough to test the teardown guard
+properly, since the allowlist blocked them; that rail is still only proven on
+the container target.
 
 ---
 

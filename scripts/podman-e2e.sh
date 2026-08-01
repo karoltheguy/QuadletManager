@@ -306,11 +306,28 @@ cmd_setup_local() {
     install -d -m 700 -o "$LOOPBACK_USER" -g "$LOOPBACK_USER" "$home/.ssh"
     local authkeys="$home/.ssh/authorized_keys"
     local pubkey; pubkey="$(cat "$REPO_ROOT/$TEST_KEY.pub")"
+
+    # The key options are load-bearing, not hygiene.
+    #
+    # This account's sudoers allowlist below is root-equivalent by design: `tee
+    # /etc/containers/systemd/*` plus `daemon-reload` plus `systemctl start *`
+    # is a unit file and a way to run it. The private half of the key being
+    # authorized here is committed to a public repository. So an unrestricted
+    # authorized_keys entry gives root on this machine to anyone who can reach
+    # port 22 and has run `git clone`. On a workstation with sshd listening on
+    # 0.0.0.0 and firewalld's default FedoraWorkstation zone, that is the LAN.
+    #
+    # from= is enforced by sshd and the loopback target only ever connects from
+    # 127.0.0.1, so it costs the tests nothing. `restrict` drops port, agent and
+    # X11 forwarding; `pty` is added back solely so `podman-e2e.sh shell` still
+    # works. The app itself needs neither: services/ssh_manager.py is plain
+    # asyncssh exec, no sftp and no pty.
+    local keyopts='from="127.0.0.1,::1",restrict,pty'
     if [ -f "$authkeys" ] && grep -qF "$pubkey" "$authkeys"; then
         echo "test key already authorized"
     else
-        echo "$pubkey" >> "$authkeys"
-        changed+=("appended the test key to $authkeys")
+        printf '%s %s\n' "$keyopts" "$pubkey" >> "$authkeys"
+        changed+=("appended the test key to $authkeys, restricted to loopback")
     fi
     chown "$LOOPBACK_USER:$LOOPBACK_USER" "$authkeys"
     chmod 600 "$authkeys"

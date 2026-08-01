@@ -182,6 +182,17 @@ account, and grants it the narrow sudoers allowlist documented in `README.MD`
 rather than `NOPASSWD:ALL`. That makes this target the only check that the
 documented sudoers policy is actually sufficient to run the app.
 
+**Why the authorized_keys entry is restricted to loopback.** That allowlist is
+root-equivalent on purpose: `tee /etc/containers/systemd/*` plus
+`daemon-reload` plus `systemctl start *` is a unit file and a way to run it.
+Unlike the container target, this one grants it on your own machine, and the
+private half of the key it authorizes is committed to a public repository. So
+`setup-local` writes the key with `from="127.0.0.1,::1",restrict,pty`. Without
+that, any host that can reach your port 22 gets root by cloning the repo, and
+on a workstation running sshd under firewalld's default `FedoraWorkstation`
+zone that means the whole LAN. Do not relax those options to debug a
+connection problem; the tests only ever connect from `127.0.0.1`.
+
 Both targets must produce the same result on the same commit. If they diverge,
 the container is the source of truth, because it is what CI runs.
 
