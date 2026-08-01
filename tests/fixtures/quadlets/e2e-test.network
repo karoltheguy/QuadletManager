@@ -1,0 +1,15 @@
+# Scanned-extension coverage for tree_scanner, and a real generator input.
+#
+# The subnet is pinned well away from podman's default pool so that creating
+# this network on a developer's own machine, via the loopback target, cannot
+# collide with a network they already have.
+[Unit]
+Description=QuadletManager e2e network
+
+[Network]
+NetworkName=e2e-test
+Subnet=10.203.51.0/24
+Gateway=10.203.51.1
+
+[Install]
+WantedBy=default.target

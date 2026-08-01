@@ -1,0 +1,11 @@
+# Exists so services/tree_scanner.py has a .volume to discover. Its line 16
+# greps only \.(container|volume|network|pod)$, so .kube, .image and .build
+# fixtures would never be scanned, so do not add any here.
+[Unit]
+Description=QuadletManager e2e volume
+
+[Volume]
+VolumeName=e2e-test
+
+[Install]
+WantedBy=default.target
