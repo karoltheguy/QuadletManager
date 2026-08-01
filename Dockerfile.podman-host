@@ -1,0 +1,351 @@
+# A real Podman 5 host, over SSH, with real systemd and a real quadlet generator.
+#
+# This exists alongside Dockerfile.test.systemd rather than replacing it. That
+# image (Ubuntu 22.04 + systemd + sshd, no podman) backs the `integration`
+# suite; changing it would ripple into tests unrelated to this one.
+#
+# Fedora is the base because it ships podman 5 and the quadlet generator in the
+# distro packages, so the version is pinned by the base image tag rather than by
+# a third-party repo. The build asserts the major version below, so bumping
+# FEDORA_VERSION can never silently drop back to podman 4.
+ARG FEDORA_VERSION=43
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+
+# iptables-nft, netavark and aardvark-dns are what podman actually uses for
+# container networking on Fedora; without them `podman run` fails at network
+# setup rather than at image pull, which is a confusing place to debug.
+# skopeo is build-time only: it copies images without needing a container
+# runtime, which a build layer cannot have (see the image preload below).
+# util-linux (for `runuser`, which load-test-image.sh needs to reach the
+# rootless image store) and libcap (for `setcap`, below) are listed explicitly
+# rather than relied on as transitive dependencies of something else.
+RUN dnf install -y \
+        systemd \
+        openssh-server \
+        sudo \
+        shadow-utils \
+        podman \
+        crun \
+        fuse-overlayfs \
+        iptables-nft \
+        netavark \
+        aardvark-dns \
+        catatonit \
+        skopeo \
+        procps-ng \
+        util-linux \
+        libcap \
+    && dnf clean all
+
+# Guard the whole premise of this image. If a base bump ever ships podman 4,
+# fail the build loudly here instead of failing every podman test mysteriously.
+RUN podman --version | grep -Eq 'version 5\.' || (podman --version; exit 1) \
+    && podman --version > /etc/podman-version
+
+# Restore the file capabilities on newuidmap/newgidmap.
+#
+# The host RPM ships /usr/bin/newuidmap with cap_setuid=ep, but Fedora's
+# *container* base image does not: getcap returns empty inside a freshly pulled
+# fedora:43, rootless and rootful alike. Nothing warns about it at build time.
+#
+# Without these, rootless podman inside this container fails with
+#   "cannot set up namespace using /usr/bin/newuidmap:
+#    should have setuid or have filecaps setuid"
+# which reads like a broken linger setup and points nowhere near the image.
+# Since the rootless (`user`) scope is half of what this suite exists to cover,
+# that failure would take out `test_quadlet_lifecycle_user.py` and the rootless
+# half of the validator and stats tests.
+#
+# Verified as the actual root cause on 2026-07-31, after first misdiagnosing it
+# as a rootless-build xattr-stripping problem.
+RUN setcap cap_setuid+ep /usr/bin/newuidmap \
+    && setcap cap_setgid+ep /usr/bin/newgidmap \
+    && getcap /usr/bin/newuidmap | grep -q cap_setuid \
+    && getcap /usr/bin/newgidmap | grep -q cap_setgid \
+    || ( echo "could not set file capabilities on newuidmap/newgidmap;"; \
+         echo "rootless podman inside this container will not work."; \
+         exit 1 )
+
+# The quadlet generator is the reason this image exists: it is what
+# services/quadlet_validator.py shells out to, and what has never been
+# exercised for real. Fail now if the podman package stopped shipping it.
+RUN test -x /usr/lib/systemd/system-generators/podman-system-generator \
+    || test -x /usr/libexec/podman/quadlet \
+    || (echo "no quadlet generator at either _GENERATOR_PATHS entry"; exit 1)
+
+# 'editor' with passwordless sudo, matching Dockerfile.test.systemd so the two
+# fake hosts are interchangeable from the test's point of view. The uid is
+# pinned because the linger and image-preload units below refer to /run/user/1000.
+RUN useradd -m -u 1000 -s /bin/bash editor \
+    && echo "editor:password" | chpasswd \
+    && usermod -aG wheel editor \
+    && echo "editor ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && install -d -m 700 -o editor -g editor /home/editor/.ssh
+
+# sudo has to work, and on a GitHub runner the stock PAM stack refuses it:
+#
+#   sudo: PAM account management error: Authentication service cannot retrieve
+#         authentication info
+#   sudo: a password is required
+#
+# Third service on this host to fail the same way, after user@.service and
+# sshd, and the most damaging of the three. Every global-scope test reaches the
+# host through use_sudo=True, and services/remote_fs.py writes
+# /etc/containers/systemd that way, so without sudo it is not one broken test
+# but half the suite. NOPASSWD is already granted above, so this is not an
+# authentication failure: sudo never asks for a password, it fails the
+# *account* stage before getting that far.
+#
+# This replacement was TESTED AND FOUND STILL NECESSARY, on the runner, in run
+# 30673576555. Removing it failed the build at this layer with the exact error
+# above. Do not remove it again without a new reason.
+#
+# That run also killed the theory this opt-out was added under. The three PAM
+# failures on this host were assumed to share one cause, so fixing sshd's
+# account stage should have made this redundant. It did not, and the way it
+# failed says why: **the failure reproduces at build time**, in a plain
+# `docker build` layer, with no systemd, no sshd, no privileged runtime flags,
+# and nothing this image has configured yet. Whatever the cause is, it belongs
+# to the base image and the runner, not to anything running inside the
+# container. That is the strongest constraint we have on it, and it rules out
+# every explanation that needs a session, a logind registration, or a
+# container runtime setting.
+#
+# The replacement grants exactly what the NOPASSWD sudoers line above already
+# grants, so nothing about this container's security posture changes. Verified
+# against fedora:43 that it does not regress where the stock stack works.
+RUN printf '%s\n' \
+        'auth       sufficient   pam_rootok.so' \
+        'auth       required     pam_permit.so' \
+        'account    required     pam_permit.so' \
+        'session    required     pam_permit.so' \
+    > /etc/pam.d/sudo \
+    && runuser -u editor -- sudo -n true \
+    || ( echo "sudo is refused inside this image; every global-scope test would fail"; \
+         runuser -u editor -- sudo -n true; \
+         exit 1 )
+
+COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
+RUN chown editor:editor /home/editor/.ssh/authorized_keys \
+    && chmod 600 /home/editor/.ssh/authorized_keys
+
+# Keep nss-systemd out of group lookups, and leave PAM alone entirely.
+#
+# On a GitHub runner, but never under local podman, PAM's *account* stage
+# failed for three different services on this image, each visible only once the
+# previous was fixed:
+#
+#   user@1000.service: PAM failed: Authentication service cannot retrieve
+#                      authentication info                    (status=224/PAM)
+#   sshd:              Access denied for user editor by PAM account
+#                      configuration [preauth]   (after accepting the key)
+#   sudo:              PAM account management error: Authentication service
+#                      cannot retrieve authentication info
+#
+# All three are PAM_AUTHINFO_UNAVAIL, and the suspects that usually cause it
+# are not even in this stack: `authselect current` on fedora:43 reports the
+# `local` profile, whose entire account stage is `account required pam_unix.so`.
+# No sssd, no faillock, no sepermit.
+#
+# What is unusual is nsswitch.conf. `passwd` and `shadow` are `files systemd`,
+# which stops at the first success, so a real local account never reaches
+# nss-systemd. `group` is `files [SUCCESS=merge] systemd`, and merge means
+# nss-systemd is consulted on *every* group lookup and can never short-circuit.
+# That puts a Varlink round trip to systemd-userdbd in the path of pam_unix's
+# account phase, of sshd building supplementary groups, and of sudo's own group
+# check. If that call errors rather than returning "not found", the caller
+# reports exactly the message above. It also explains why `runuser` worked
+# throughout: its stack does not make that lookup where it matters.
+#
+# nsswitch was TESTED AND RULED OUT, on the runner, in run 30663777881. With
+# `group: files` in place, `getent group editor` returned rc=0 in 0.001s and
+# sshd failed identically. Recorded here so nobody spends the round again.
+#
+# So the account stage is replaced, and only the account stage. Fedora's
+# /etc/pam.d/sshd is left behind entirely rather than patched, because the
+# failure is inside a module that works everywhere else and the cause is still
+# unknown; a stack this small has nothing left to fail.
+#
+# What is deliberately KEPT is the session stage, and pam_systemd above all.
+# That is what registers a logind session and exports XDG_RUNTIME_DIR into it,
+# and services/systemd_manager.py's systemctl_action runs a bare
+# `systemctl --user` that relies on the session providing it, exactly as it
+# does against a real host. The previous attempt here set `UsePAM no`, which
+# fixed the login and then failed all 17 user-scope tests on "Failed to connect
+# to user scope bus: $XDG_RUNTIME_DIR not defined". A host that needs PAM
+# switched off is no longer the host this suite exists to exercise.
+#
+# pam_loginuid is optional, not required: writing /proc/self/loginuid needs an
+# audit subsystem this container does not have, and that is the one module here
+# with a documented reason to fail.
+#
+# auth is pam_permit because publickey auth never reaches it, and the drop-in
+# below turns off every interactive method so it cannot be reached at all.
+#
+# The assertion reads `sshd -G`, not `sshd -T`, and the difference matters twice.
+# -T refuses to run without a host key, and this image has none until
+# sshd-keygen makes them at first boot, so the -T form had to generate a
+# throwaway ed25519 key and delete it again. That is a private key written into
+# a build layer, which is what static analysis flags and is a fair thing to
+# flag. -G parses the same config, follows the same Include of
+# 50-redhat.conf, and needs no key and no root. Verified on fedora:43
+# (OpenSSH 10.0p2): -T exits 1 with no host keys present, -G prints
+# `usepam yes` inherited from the Include.
+#
+# Reading the effective config rather than trusting the write is the whole
+# point. An earlier version used `sed -i 's/^#*UsePAM .*/UsePAM no/'`, which
+# exited 0 while changing nothing, because the value comes from the Included
+# 50-redhat.conf and sshd keeps the first one it sees.
+RUN printf '%s\n' \
+        'auth       required     pam_permit.so' \
+        'account    required     pam_permit.so' \
+        'password   required     pam_permit.so' \
+        'session    optional     pam_loginuid.so' \
+        'session    optional     pam_keyinit.so force revoke' \
+        'session    required     pam_limits.so' \
+        'session    optional     pam_systemd.so' \
+    > /etc/pam.d/sshd \
+    && printf '%s\n' \
+        'PasswordAuthentication no' \
+        'KbdInteractiveAuthentication no' \
+    > /etc/ssh/sshd_config.d/00-quadlet-test.conf \
+    && effective="$(/usr/sbin/sshd -G \
+         | grep -iE '^(usepam|passwordauthentication|kbdinteractiveauthentication) ')" \
+    && { printf '%s\n' "$effective" | grep -qx 'usepam yes' \
+         && printf '%s\n' "$effective" | grep -qx 'passwordauthentication no' \
+         && printf '%s\n' "$effective" | grep -qx 'kbdinteractiveauthentication no' \
+         || ( echo "unexpected effective sshd config:"; printf '%s\n' "$effective"; \
+              exit 1 ); } \
+    && systemctl enable sshd
+
+# Linger. `loginctl enable-linger` needs a running systemd, which a build layer
+# does not have, so create the marker file it would have written.
+#
+# This is the single most load-bearing line in the file. Without it there is no
+# /run/user/1000, so ROOTLESS_ENV_PREFIX ('XDG_RUNTIME_DIR=/run/user/$(id -u)')
+# points at nothing and every rootless systemctl over non-interactive SSH
+# returns empty output instead of an error. tests/podman/test_podman_host_env.py
+# is the canary for exactly this.
+RUN mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/editor
+
+# Stop the user manager from demanding a PAM session.
+#
+# TESTED AND FOUND STILL NECESSARY, on the runner, in run 30673677574.
+# Removing this drop-in put systemd into `degraded` with
+# `user@1000.service loaded failed failed`, one second into the readiness gate.
+# Do not remove it again without a new reason. Together with run 30673576555
+# for /etc/pam.d/sudo, that settles both opt-outs: fixing sshd's account stage
+# did *not* make either redundant, so the three failures do not share a single
+# fixable cause the way they appeared to.
+#
+# The two failure modes to recognise, and the remedy, because neither is
+# guessable from the symptom. First, observed on a GitHub runner (PR #284, run
+# 30657079978):
+#
+#   user@1000.service: PAM failed: Authentication service cannot retrieve
+#                      authentication info
+#   user@1000.service: Failed to set up PAM session: Operation not permitted
+#   user@1000.service: Failed at step PAM spawning /usr/lib/systemd/systemd
+#   user@1000.service: Main process exited, status=224/PAM
+#
+# `pam_loginuid.so` cannot write /proc/self/loginuid inside a container on an
+# audit-enabled host, and the account lookup is the other half of the message.
+# Environment-dependent, which is the worst property it could have: the
+# identical image boots clean under local rootful podman.
+#
+# Second, and only reachable *after* fixing the first: dropping PAM also drops
+# pam_systemd, which is what exports XDG_RUNTIME_DIR into the manager's
+# environment. `systemd --user` then starts, finds no runtime directory and
+# exits immediately, logging nothing to the system journal. It looks nothing
+# like the first failure: status=1/FAILURE with no message at all.
+#
+# So it is both lines together, never PAMName= alone. Applied to the template
+# rather than to user@1000.service, so it survives a uid change.
+#
+# tests/podman/test_podman_host_env.py is the canary if this ever regresses
+# past the gate: `systemctl --user is-system-running` returns empty output
+# rather than erroring when the user manager is dead.
+RUN mkdir -p /etc/systemd/system/user@.service.d \
+    && printf '%s\n' \
+        '[Service]' \
+        'PAMName=' \
+        'Environment=XDG_RUNTIME_DIR=/run/user/%i' \
+    > /etc/systemd/system/user@.service.d/10-no-pam.conf
+
+# These four mount kernel pseudo-filesystems that a container cannot have, so
+# they always fail and always leave `systemctl is-system-running` at "degraded".
+# Masking them means the readiness gate can insist on a clean "running" and a
+# genuine boot failure is not hidden in the noise.
+RUN systemctl mask \
+        proc-sys-fs-binfmt_misc.automount \
+        sys-kernel-config.mount \
+        sys-kernel-debug.mount \
+        sys-kernel-tracing.mount
+
+# Nested storage. The host's own container filesystem is already overlay, and
+# native overlay-on-overlay is refused by the kernel, so both stores must go
+# through fuse-overlayfs. Symptom when this is missing: a storage-driver error
+# on the very first `podman run`, rootless and rootful alike.
+#
+# chown -R on .config rather than `install -d -o editor`: install applies
+# ownership only to the last path component, leaving .config itself root-owned,
+# and rootless podman refuses to start on a config dir it does not own.
+RUN printf '%s\n' \
+        '[storage]' \
+        'driver = "overlay"' \
+        'runroot = "/run/containers/storage"' \
+        'graphroot = "/var/lib/containers/storage"' \
+        '[storage.options]' \
+        'mount_program = "/usr/bin/fuse-overlayfs"' \
+    > /etc/containers/storage.conf \
+    && mkdir -p /home/editor/.config/containers \
+    && printf '%s\n' \
+        '[storage]' \
+        'driver = "overlay"' \
+        '[storage.options]' \
+        'mount_program = "/usr/bin/fuse-overlayfs"' \
+    > /home/editor/.config/containers/storage.conf \
+    && chown -R editor:editor /home/editor/.config
+
+# The global quadlet directory services/remote_fs.py writes to. Podman creates
+# it lazily on some builds; the tests assume it is there.
+RUN install -d -m 755 /etc/containers/systemd
+
+# Move the nested default network off 10.88.0.0/16.
+#
+# That is podman's default for the rootful scope both outside and inside this
+# container. The first global-scope quadlet to start makes nested podman create
+# podman0 on the same subnet the container's own address belongs to, which
+# blackholes its route back to the host: sshd keeps listening, the published
+# port keeps accepting, and every new connection fails with "No route to host".
+# The test host then looks dead while nothing has actually crashed.
+#
+# 10.201.0.0/16 is chosen to sit clear of both that default and of the
+# 10.203.51.0/24 used by tests/fixtures/quadlets/e2e-test.network.
+RUN install -d -m 755 /etc/containers/containers.conf.d \
+    && printf '%s\n' \
+        '[network]' \
+        'default_subnet = "10.201.0.0/16"' \
+    > /etc/containers/containers.conf.d/99-nested-subnet.conf
+
+# Preload the test image at build time. skopeo needs no container runtime, so
+# this works in a build layer where `podman pull` would not. docker-archive
+# (rather than oci-archive) is used because it carries the repo tag through
+# `podman load`, so the fixtures can reference the image by name.
+#
+# quay.io throughout, not docker.io: anonymous docker.io pulls are rate-limited
+# and CI shares an IP with every other runner.
+RUN skopeo copy \
+        docker://quay.io/quay/busybox:latest \
+        docker-archive:/opt/test-image.tar:quay.io/quay/busybox:latest
+
+# Rootless and rootful have entirely separate image stores, so the archive has
+# to be loaded twice. Doing it at boot rather than at build time keeps the
+# build unprivileged; doing it at all keeps a network pull out of every test run.
+COPY tests/fixtures/podman-host/load-test-image.sh /usr/local/bin/load-test-image.sh
+COPY tests/fixtures/podman-host/load-test-image.service /etc/systemd/system/load-test-image.service
+RUN chmod 755 /usr/local/bin/load-test-image.sh \
+    && systemctl enable load-test-image.service
+
+EXPOSE 22
+CMD ["/usr/sbin/init"]

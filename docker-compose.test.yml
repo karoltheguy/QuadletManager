@@ -17,6 +17,34 @@ services:
       - "2222:22"
     command: /lib/systemd/systemd
 
+  # A real Podman 5 host, for the `podman` suite. Behind a profile so the
+  # existing integration and e2e jobs do not pay to build it.
+  podman-host:
+    profiles: ["podman"]
+    build:
+      context: .
+      dockerfile: Dockerfile.podman-host
+    # privileged + /dev/fuse are required to run podman inside this container:
+    # nested containers need cgroup delegation and fuse-overlayfs, since
+    # overlay-on-overlay is refused by the kernel. Test-only, never exposed to
+    # untrusted input, never runs in production. Accepted risk, see #159.
+    privileged: true
+    # Let the nested systemd own its own cgroup namespace. Deliberately no
+    # /sys/fs/cgroup bind mount, unlike remote-systemd above: on a cgroup v2
+    # host (all current runners) that read-only bind stops nested podman from
+    # delegating cgroups.
+    cgroup: private
+    devices:
+      - /dev/fuse
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
+    tmpfs:
+      - /run
+      - /tmp
+    ports:
+      - "2223:22"
+
   # The App Backend
   quadlet-manager:
     build: .

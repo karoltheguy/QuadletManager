@@ -1,0 +1,11 @@
+# .pod quadlets are a podman 5 feature, so this fixture doubles as a check that
+# the host really is podman 5 and not a 4.x that merely answers `podman --version`.
+# Drives POST /api/pod-action/{server_id}, which builds `podman pod {action} {name}`.
+[Unit]
+Description=QuadletManager e2e pod
+
+[Pod]
+PodName=e2e-test
+
+[Install]
+WantedBy=default.target

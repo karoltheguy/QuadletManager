@@ -1,0 +1,18 @@
+[Unit]
+Description=Load the preloaded busybox test image into both podman stores
+# The rootless half of the script needs /run/user/1000, which logind only
+# creates once the lingering user manager is up.
+Wants=user@1000.service
+After=user@1000.service network-online.target
+ConditionPathExists=/opt/test-image.tar
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/load-test-image.sh
+# Loading two ~2MB archives is quick, but a cold fuse-overlayfs store on a slow
+# CI runner is not. Well under the readiness gate's own budget.
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target
