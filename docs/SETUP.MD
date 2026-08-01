@@ -42,6 +42,13 @@ quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
 ```
 
+> **Known gap.** These rules are not currently sufficient. The app runs about
+> twice as many commands under `sudo` than they permit, so several global-scope
+> features fail on a server set up exactly as above. See
+> [issue #289](https://github.com/karoltheguy/QuadletManager/issues/289) and
+> [SUDO_PERMISSIONS.md](SUDO_PERMISSIONS.md), which records the full list and is
+> the source these rules are copied from.
+
 ## 4. Installation
 Before running the application, you need to set up a Python virtual environment and install the required dependencies:
 

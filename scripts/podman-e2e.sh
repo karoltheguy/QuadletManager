@@ -65,6 +65,7 @@ Environment (read identically here and in tests/podman/conftest.py):
   QM_PODMAN_HOST   default localhost:2223   host:port of the target
   QM_PODMAN_USER   default editor           ssh user
   QM_PODMAN_KEY    default tests/fixtures/test_key
+  QM_PODMAN_NARROW_USER  default narrow     ssh user for the sudo policy test
 EOF
 }
 
@@ -332,9 +333,14 @@ cmd_setup_local() {
     chown "$LOOPBACK_USER:$LOOPBACK_USER" "$authkeys"
     chmod 600 "$authkeys"
 
-    # The narrow allowlist from README.MD / docs/SETUP.MD rather than
-    # NOPASSWD:ALL. This makes the loopback target double as the only check that
-    # the documented sudoers policy is actually sufficient to run the app.
+    # The narrow allowlist from docs/SUDO_PERMISSIONS.md rather than
+    # NOPASSWD:ALL, which is what makes this target able to notice a policy that
+    # is too small to run the app. It is no longer the only such check:
+    # Dockerfile.podman-host now carries a `narrow` account with the same rules
+    # for tests/podman/test_sudo_policy.py, so CI can see it too.
+    #
+    # Pinned to the doc, README.MD and docs/SETUP.MD by
+    # tests/test_sudo_allowlist_sync.py. Edit the doc, not this copy.
     cat > "$SUDOERS_FILE" <<EOF
 $LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
 $LOOPBACK_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
@@ -362,7 +368,13 @@ Undo everything with:
 
 Run the suite against this target with:
   QM_PODMAN_HOST=localhost:22 QM_PODMAN_USER=$LOOPBACK_USER \\
+    QM_PODMAN_NARROW_USER=$LOOPBACK_USER \\
     PYTHONPATH=. python -m pytest tests/ -m podman -v
+
+QM_PODMAN_NARROW_USER is what tests/podman/test_sudo_policy.py connects as. On
+this target the SSH account already holds exactly the published allowlist, so it
+is its own narrow account; on the container target the default (\`narrow\`) is a
+separate unprivileged account.
 EOF
 }
 

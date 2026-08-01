@@ -129,6 +129,52 @@ COPY tests/fixtures/test_key.pub /home/editor/.ssh/authorized_keys
 RUN chown editor:editor /home/editor/.ssh/authorized_keys \
     && chmod 600 /home/editor/.ssh/authorized_keys
 
+# A second account, granted exactly the published sudoers allowlist and nothing
+# else, so that CI can see a too-narrow policy at all.
+#
+# `editor` above holds NOPASSWD:ALL. That is why twelve CI rounds never noticed
+# issue #289: a target that grants everything cannot detect an allowlist that
+# grants too little, however many times it runs. It took the loopback target,
+# which installs the published rules, to find that global scope does not work
+# on a server built to the documentation. This account puts the same check in
+# CI, on the container target, with no second machine involved.
+#
+# Nothing runs as this account except tests/podman/test_sudo_policy.py, and
+# that test only ever asks `sudo -n -l`, which answers whether a command is
+# permitted and runs nothing. It writes no files, starts no units and needs no
+# cleanup, so it cannot leak into the rest of the suite.
+#
+# Deliberately NOT in wheel, and given no password. Fedora's /etc/sudoers
+# grants `%wheel ALL=(ALL) ALL`, which would make every probe pass for a reason
+# that has nothing to do with the allowlist under test.
+#
+# These rules are pinned to docs/SUDO_PERMISSIONS.md (and through it to
+# README.MD, docs/SETUP.MD and scripts/podman-e2e.sh) by
+# tests/test_sudo_allowlist_sync.py. Do not edit them here; edit the doc and
+# bring every copy across in one change.
+RUN useradd -m -s /bin/bash narrow \
+    && install -d -m 700 -o narrow -g narrow /home/narrow/.ssh \
+    && printf '%s\n' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*' \
+'narrow ALL=(ALL) NOPASSWD: /usr/bin/podman stats *' \
+    > /etc/sudoers.d/quadlet-manager \
+    && chmod 440 /etc/sudoers.d/quadlet-manager \
+    && visudo -cf /etc/sudoers.d/quadlet-manager
+
+COPY tests/fixtures/test_key.pub /home/narrow/.ssh/authorized_keys
+RUN chown narrow:narrow /home/narrow/.ssh/authorized_keys \
+    && chmod 600 /home/narrow/.ssh/authorized_keys \
+    && runuser -u narrow -- sudo -n -l /usr/bin/systemctl daemon-reload >/dev/null \
+    || ( echo "the narrow account cannot query its own sudo policy;"; \
+         echo "tests/podman/test_sudo_policy.py would report every command denied"; \
+         exit 1 )
+
 # Keep nss-systemd out of group lookups, and leave PAM alone entirely.
 #
 # On a GitHub runner, but never under local podman, PAM's *account* stage
