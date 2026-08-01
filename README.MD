@@ -177,25 +177,24 @@ Add your QuadletManager public SSH key to `/home/quadlet-agent/.ssh/authorized_k
 
 ### 2. Sudoers Configuration (Global Scope Only)
 
-For rootless (user) scope quadlets, no sudo is required. For global scope quadlets, create `/etc/sudoers.d/quadlet-manager`:
+For rootless (user) scope quadlets, no sudo is required. For global scope quadlets, install the allowlist that ships with the repo, substituting your agent account for `%AGENT%`:
 
 ```bash
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
-quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
+sed 's/%AGENT%/quadlet-agent/' deploy/quadlet-manager.sudoers \
+  | sudo tee /etc/sudoers.d/quadlet-manager >/dev/null
+sudo chmod 440 /etc/sudoers.d/quadlet-manager
+sudo visudo -cf /etc/sudoers.d/quadlet-manager
 ```
+
+The rules themselves are listed and explained in
+[docs/SETUP.MD](docs/SETUP.MD#3-global-quadlets-sudoers-setup).
 
 > **Known gap.** These rules are not currently sufficient. The app runs about
 > twice as many commands under `sudo` than they permit, so several global-scope
-> features fail on a server set up exactly as above. See
+> features fail on a server set up this way. See
 > [issue #289](https://github.com/karoltheguy/QuadletManager/issues/289) and
-> [docs/SUDO_PERMISSIONS.md](docs/SUDO_PERMISSIONS.md), which records the full
-> list and is the source these rules are copied from.
+> [docs/SUDO_PERMISSIONS.md](docs/SUDO_PERMISSIONS.md), which records every
+> command the app actually runs under sudo.
 
 ### 3. Quadlet File Paths
 

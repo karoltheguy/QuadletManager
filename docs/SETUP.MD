@@ -24,7 +24,18 @@ For user-level quadlets, no special permissions are required. The agent will rea
 ## 3. Global Quadlets (Sudoers Setup)
 To manage system-wide Quadlets, you must grant the agent (`quadlet-agent`) passwordless sudo access strictly for `systemd` and `tee` interactions.
 
-Create a file on the target server at `/etc/sudoers.d/quadlet-manager`:
+These rules ship as [`deploy/quadlet-manager.sudoers`](../deploy/quadlet-manager.sudoers), with `%AGENT%` where the account name goes. Install it rather than retyping it:
+
+```bash
+sed 's/%AGENT%/quadlet-agent/' deploy/quadlet-manager.sudoers \
+  | sudo tee /etc/sudoers.d/quadlet-manager >/dev/null
+sudo chmod 440 /etc/sudoers.d/quadlet-manager
+sudo visudo -cf /etc/sudoers.d/quadlet-manager
+```
+
+For reference, that grants the following. This is the only place the rules are
+written out a second time, and `tests/test_sudo_allowlist_sync.py` fails if this
+copy drifts from the file above:
 
 ```bash
 # Allow agent to execute daemon-reload and interact with services

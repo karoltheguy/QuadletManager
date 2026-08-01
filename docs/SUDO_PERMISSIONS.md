@@ -1,45 +1,45 @@
 # Sudo permissions
 
-The one place that records both halves of QuadletManager's root surface on a
-managed server:
+QuadletManager's root surface on a managed server has two halves, and they are
+supposed to describe the same set of commands:
 
-* **What the docs grant.** The sudoers allowlist published in `README.MD` and
-  `docs/SETUP.MD`, and written by `scripts/podman-e2e.sh setup-local`.
+* **What is granted.** The sudoers allowlist, which ships as
+  `deploy/quadlet-manager.sudoers`.
 * **What the app needs.** Every command the app actually issues under `sudo`,
-  with its call site.
+  with its call site. That list is in this file, below.
 
-Those two lists are supposed to be the same list. Today they are not, which is
+Today they do not match, which is
 [issue #289](https://github.com/karoltheguy/QuadletManager/issues/289): global
 scope does not work on a server set up exactly as the docs describe.
 
-Both blocks below are parsed by tests. Edit them here, not in the copies.
-
-* `tests/test_sudo_allowlist_sync.py` pins the grant list to its three copies,
-  so they cannot drift apart.
-* `tests/podman/test_sudo_policy.py` asks a real host, with `sudo -n -l`,
-  whether the grant list permits every entry in the need list.
+`tests/podman/test_sudo_policy.py` is what compares them, by asking a real host
+with `sudo -n -l` whether the grant list permits every entry in the need list.
 
 Rootless (user) scope needs no sudo at all. Everything here is global scope.
 
 ## The grant list
 
-Exactly what `README.MD` section 2, `docs/SETUP.MD` section 3 and
-`scripts/podman-e2e.sh` install. `%AGENT%` stands for the account the app SSHes
-in as: `quadlet-agent` in the docs, `$LOOPBACK_USER` in the script.
+**`deploy/quadlet-manager.sudoers`.** Not reproduced here, because a copy in
+this file would be one more thing to keep in step. It is a real installable
+file with `%AGENT%` where the account name goes, and everything that installs
+the allowlist reads it:
 
-This is a record of what is published today, not a recommendation. It is known
-to be insufficient; see the need list below.
+| Installer | Substitutes | Installs to |
+|---|---|---|
+| a human, following `docs/SETUP.MD` | `quadlet-agent` | `/etc/sudoers.d/quadlet-manager` |
+| `scripts/podman-e2e.sh setup-local` | `$LOOPBACK_USER` | `/etc/sudoers.d/quadlet-test` |
+| `Dockerfile.podman-host` | `narrow` | `/etc/sudoers.d/quadlet-manager` |
 
-```sudoers
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
-%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
-```
+`docs/SETUP.MD` reproduces the rules in prose, because someone setting up a
+server should be able to read them without opening a second file. That copy is
+the only one, and `tests/test_sudo_allowlist_sync.py` fails if it drifts from
+the original. The same test fails if an installer stops reading the file and
+starts embedding the rules again.
+
+It got this way on purpose. The rules used to be written out in four places,
+which is why they could drift and why a sync guard was needed to notice. Three
+of those four were installers that never needed the text at all, only a file to
+substitute into.
 
 ## The need list
 
@@ -107,11 +107,12 @@ list above installed:
 
 1. Add a row to the need list above, with the probe as it will really run.
 2. Run `pytest tests/podman/test_sudo_policy.py -m podman` against a host. If
-   the new row is denied, the grant list needs a rule for it.
-3. If it does, add the rule to the grant list above **and** to `README.MD`,
-   `docs/SETUP.MD` and `scripts/podman-e2e.sh`. `tests/test_sudo_allowlist_sync.py`
-   fails until all four agree, and it runs in the `unit` job, so this is caught
-   without a podman host.
+   the new row is denied, the allowlist needs a rule for it.
+3. If it does, add the rule to `deploy/quadlet-manager.sudoers` and then to the
+   copy in `docs/SETUP.MD`. Nothing else needs touching: the installers
+   substitute into that file rather than repeating it.
+   `tests/test_sudo_allowlist_sync.py` fails until the two agree, and it runs
+   in the `unit` job, so this is caught without a podman host.
 
 Scope every path rule to `/etc/containers/systemd/*`. A sudoers `*` does not
 match `/`, so that pattern cannot reach a subdirectory.

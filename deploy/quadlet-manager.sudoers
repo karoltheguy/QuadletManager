@@ -1,0 +1,39 @@
+# QuadletManager: the sudo grants the agent account needs for global scope.
+#
+# This file is the single source of the allowlist. Everything that installs
+# these rules reads it: scripts/podman-e2e.sh for the loopback test target,
+# Dockerfile.podman-host for the container target's `narrow` account, and you,
+# on a real server. docs/SETUP.MD reproduces it for readers, and
+# tests/test_sudo_allowlist_sync.py fails if that copy drifts from this one.
+#
+# Install it with the agent's account name substituted for %AGENT%:
+#
+#   sed 's/%AGENT%/quadlet-agent/' deploy/quadlet-manager.sudoers \
+#     | sudo tee /etc/sudoers.d/quadlet-manager >/dev/null
+#   sudo chmod 440 /etc/sudoers.d/quadlet-manager
+#   sudo visudo -cf /etc/sudoers.d/quadlet-manager
+#
+# Rootless (user) scope needs no sudo at all. These rules are global scope only.
+#
+# KNOWN GAP: these rules are not currently sufficient. The app runs about twice
+# as many commands under sudo than they permit, so several global-scope
+# features fail on a server configured with exactly this file. See
+# https://github.com/karoltheguy/QuadletManager/issues/289 and the need list in
+# docs/SUDO_PERMISSIONS.md, which records every command the app actually runs.
+#
+# Scope every path rule to /etc/containers/systemd/*. A sudoers * does not
+# match /, so that pattern cannot reach a subdirectory.
+
+# Reload units after a write, and drive the units themselves.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
+
+# Write quadlet files, and nothing outside the quadlet directory.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
+
+# Read resource usage for global-scope containers.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman stats *

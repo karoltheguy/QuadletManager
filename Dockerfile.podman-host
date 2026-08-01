@@ -148,24 +148,22 @@ RUN chown editor:editor /home/editor/.ssh/authorized_keys \
 # grants `%wheel ALL=(ALL) ALL`, which would make every probe pass for a reason
 # that has nothing to do with the allowlist under test.
 #
-# These rules are pinned to docs/SUDO_PERMISSIONS.md (and through it to
-# README.MD, docs/SETUP.MD and scripts/podman-e2e.sh) by
-# tests/test_sudo_allowlist_sync.py. Do not edit them here; edit the doc and
-# bring every copy across in one change.
+# The rules come from deploy/quadlet-manager.sudoers, the file a real server
+# installs, with `narrow` substituted for its %AGENT% placeholder. Copying the
+# rules in here instead would recreate exactly the duplication that made #289
+# possible, so tests/test_sudo_allowlist_sync.py asserts this file does not.
+COPY deploy/quadlet-manager.sudoers /tmp/quadlet-manager.sudoers
 RUN useradd -m -s /bin/bash narrow \
     && install -d -m 700 -o narrow -g narrow /home/narrow/.ssh \
-    && printf '%s\n' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*' \
-'narrow ALL=(ALL) NOPASSWD: /usr/bin/podman stats *' \
-    > /etc/sudoers.d/quadlet-manager \
+    && sed 's/%AGENT%/narrow/g' /tmp/quadlet-manager.sudoers \
+        > /etc/sudoers.d/quadlet-manager \
+    && rm -f /tmp/quadlet-manager.sudoers \
     && chmod 440 /etc/sudoers.d/quadlet-manager \
-    && visudo -cf /etc/sudoers.d/quadlet-manager
+    && visudo -cf /etc/sudoers.d/quadlet-manager \
+    && grep -q '^narrow ALL=(ALL) NOPASSWD:' /etc/sudoers.d/quadlet-manager \
+    || ( echo "the substituted sudoers file has no rules for narrow;"; \
+         echo "did deploy/quadlet-manager.sudoers change its placeholder?"; \
+         exit 1 )
 
 COPY tests/fixtures/test_key.pub /home/narrow/.ssh/authorized_keys
 RUN chown narrow:narrow /home/narrow/.ssh/authorized_keys \

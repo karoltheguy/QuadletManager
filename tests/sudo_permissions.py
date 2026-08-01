@@ -1,19 +1,19 @@
-"""Read docs/SUDO_PERMISSIONS.md, the one record of the app's root surface.
+"""Read the two records of the app's root surface, each from where it lives.
 
-Two tests consume this module and they want different halves of that file:
+* **The grant list** is `deploy/quadlet-manager.sudoers`, a real installable
+  file rather than a code block. `tests/test_sudo_allowlist_sync.py` (unit)
+  pins the one prose copy of it to this original.
+* **The need list** is a table in `docs/SUDO_PERMISSIONS.md`, because it is
+  documentation with no runtime form. `tests/podman/test_sudo_policy.py`
+  (podman) asks a real host whether the grant list permits every entry in it.
 
-* `tests/test_sudo_allowlist_sync.py` (unit) takes the grant list and pins it to
-  the three published copies.
-* `tests/podman/test_sudo_policy.py` (podman) takes the need list and asks a
-  real host whether the grant list permits each entry.
+Parsing the originals rather than restating them in a Python constant is the
+point. A constant would be one more copy, and the reason any of this exists is
+that the copies drifted.
 
-Parsing a document rather than duplicating it into a Python constant is the
-whole point. A constant would be a fourth copy, and the reason this exists is
-that the existing three drifted.
-
-The parsers are deliberately strict. An empty result from a silently changed
-heading would make both tests pass while checking nothing, which is the failure
-mode that let the gap in #289 survive twelve CI rounds.
+The parsers are deliberately strict. An empty result from a silently renamed
+file or heading would make every test pass while checking nothing, which is the
+failure mode that let the gap in #289 survive twelve CI rounds.
 """
 
 import os
@@ -21,13 +21,12 @@ import re
 import shlex
 from dataclasses import dataclass
 
-DOC_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "docs",
-    "SUDO_PERMISSIONS.md",
-)
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The placeholder the grant list uses in place of a real account name.
+SUDOERS_PATH = os.path.join(REPO_ROOT, "deploy", "quadlet-manager.sudoers")
+DOC_PATH = os.path.join(REPO_ROOT, "docs", "SUDO_PERMISSIONS.md")
+
+# The placeholder the shipped sudoers file uses in place of a real account name.
 AGENT_PLACEHOLDER = "%AGENT%"
 
 
@@ -51,22 +50,28 @@ def _document() -> str:
 
 
 def grant_rules(agent: str = AGENT_PLACEHOLDER) -> list[str]:
-    """The published sudoers allowlist, one rule per line, in document order.
+    """The shipped sudoers allowlist, one rule per line, in file order.
 
-    `agent` substitutes for the account placeholder, so a caller comparing
-    against README.MD asks for `quadlet-agent` and one comparing against
-    scripts/podman-e2e.sh asks for `$LOOPBACK_USER`.
+    Comments and blank lines are dropped, so the file can explain itself
+    without the explanation becoming part of what is compared.
+
+    `agent` substitutes for the account placeholder, exactly as the installers
+    do: `quadlet-agent` in docs/SETUP.MD, `narrow` in Dockerfile.podman-host,
+    `$LOOPBACK_USER` in scripts/podman-e2e.sh.
     """
-    blocks = re.findall(r"^```sudoers\n(.*?)^```", _document(), re.M | re.S)
-    if len(blocks) != 1:
-        raise AssertionError(
-            f"expected exactly one ```sudoers block in {DOC_PATH}, found "
-            f"{len(blocks)}. The grant list is parsed by that fence alone, so "
-            "a second one makes it ambiguous and none makes it empty."
-        )
-    rules = [line.strip() for line in blocks[0].splitlines() if line.strip()]
+    with open(SUDOERS_PATH, "r", encoding="utf-8") as handle:
+        lines = handle.read().splitlines()
+
+    rules = [
+        line.strip()
+        for line in lines
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
     if not rules:
-        raise AssertionError(f"the ```sudoers block in {DOC_PATH} is empty")
+        raise AssertionError(
+            f"{SUDOERS_PATH} yielded no rules. Every check that compares "
+            "against it would then pass while comparing against nothing."
+        )
     return [rule.replace(AGENT_PLACEHOLDER, agent) for rule in rules]
 
 
