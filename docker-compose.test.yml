@@ -34,6 +34,7 @@ services:
     # host (all current runners) that read-only bind stops nested podman from
     # delegating cgroups.
     cgroup: private
+    tty: true
     devices:
       - /dev/fuse
     security_opt:
