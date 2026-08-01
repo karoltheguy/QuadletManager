@@ -8,32 +8,35 @@ Order is roughly by how much it matters, not by effort.
 
 ---
 
-## 1. The two targets have never agreed on a single commit
+## 1. Keeping the two targets agreeing
 
-**Status: Target A is green in CI, and unverified locally since the image
-changed underneath it.**
+**Status: verified on `1045783`. Standing obligation, not an open defect.**
 
-The `GitHub / podman` job runs on every push and is green: 37 passed, 1029
-deselected, 44.87s of test time on run 30671299931. Getting there took twelve
-rounds, and the image changed substantially on the way:
+The design rule is that both targets produce the same result on the same
+commit. That went unchecked through twelve CI rounds, during which the image
+gained a `PAMName=` drop-in on `user@.service` with an explicit
+`Environment=XDG_RUNTIME_DIR=/run/user/%i`, a replaced `/etc/pam.d/sshd` (its
+account stage only, `pam_systemd` kept), a replaced `/etc/pam.d/sudo`, an
+`/etc/ssh/sshd_config.d` drop-in asserted through `sshd -G`, and serial
+execution. For a while the two targets had never been compared on any commit
+after the first round.
 
-* a `PAMName=` drop-in on `user@.service`, plus an explicit
-  `Environment=XDG_RUNTIME_DIR=/run/user/%i`,
-* a replaced `/etc/pam.d/sshd`, account stage only, with `pam_systemd` kept,
-* a replaced `/etc/pam.d/sudo`,
-* an `/etc/ssh/sshd_config.d` drop-in and a build-time assertion that reads the
-  effective config back out of `sshd -G`,
-* serial execution, enforced in `tests/podman/conftest.py`.
+They have now, on `1045783`, and they agree exactly:
 
-None of that has been run under local rootful podman. The last full local run,
-37 green, predates all of it. The design rule is that both targets produce the
-same result on the same commit, and today they have never been compared on any
-commit after the first CI round. That is the exact inversion of the situation
-this file was first written to describe.
+| | Result |
+|---|---|
+| CI, run 30673858953 | 37 passed, 1029 deselected, 1 xfailed, 64.65s |
+| Local rootful podman | 37 passed, 1029 deselected, 1 xfailed, 60.68s |
 
-**Next step:** `sudo ./scripts/podman-e2e.sh up` for a rebuild, then
-`pytest tests/ -m podman`. Until that runs, "it works locally" is a statement
-about an older image.
+The host was also checked afterwards and was clean: no quadlet files in either
+scope, no containers, no pods, no failed units, `systemctl is-system-running`
+returning `running`.
+
+**Re-verify after any change to `Dockerfile.podman-host`.** The recipe is
+`sudo ./scripts/podman-e2e.sh up`, then `pytest tests/ -m podman`; add
+`QM_APP_URL` and a seeded instance for the browser journeys, per
+[TESTING.md](TESTING.md#running-the-browser-journeys). Until that runs, "it
+works locally" is a statement about whichever image you last built.
 
 ---
 
