@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
-from typing import Optional
+from typing import Any, Dict, Optional, Union
 from fastapi.templating import Jinja2Templates
 import asyncio
 import hashlib
@@ -40,6 +40,18 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+
+# Documented responses for the routes that confine a caller-supplied path to the
+# scope's quadlet directory via ensure_within_quadlet_dir.
+PATH_CONFINED_RESPONSES: Dict[Union[int, str], Dict[str, Any]] = {
+    400: {"description": "Path is outside the quadlet directory for the given scope"},
+}
+
+# Same, for the ones that also require the editor role.
+EDITOR_PATH_CONFINED_RESPONSES: Dict[Union[int, str], Dict[str, Any]] = {
+    **PATH_CONFINED_RESPONSES,
+    403: {"description": "Viewer role cannot modify files"},
+}
 
 
 def _asset_version(filename: str) -> int:
@@ -563,7 +575,7 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
         logger.error(f"Error fetching quadlets: {e}")
         return HTMLResponse("<div class='text-red-500 text-xs'>Error loading files</div>")
 
-@router.get("/api/file/{server_id}", response_class=HTMLResponse)
+@router.get("/api/file/{server_id}", response_class=HTMLResponse, responses=PATH_CONFINED_RESPONSES)
 async def fetch_file(request: Request, server_id: int, path: str, scope: str, name: str, role: str = Depends(get_current_user_role)):
     try:
         ensure_within_quadlet_dir(path, scope)
@@ -598,7 +610,7 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
         logger.error(f"Error fetching file: {e}")
         return HTMLResponse("<div class='text-red-500 p-4'>Failed to load file content</div>")
 
-@router.post("/api/save", response_class=HTMLResponse)
+@router.post("/api/save", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def save_file(
     request: Request,
     server_id: int = Form(...),
@@ -781,7 +793,7 @@ async def new_file_modal(request: Request, server_id: int | None = None, role: s
         "preselected_server_id": server_id,
     })
 
-@router.post("/api/create", response_class=HTMLResponse)
+@router.post("/api/create", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def create_new_quadlet(
     request: Request,
     server_id: int = Form(...),
@@ -1677,7 +1689,7 @@ async def api_delete_key(
     return await api_list_keys(request, is_admin=True)
 
 
-@router.delete("/api/files", response_class=HTMLResponse)
+@router.delete("/api/files", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def delete_file(
     request: Request,
     server_id: int,

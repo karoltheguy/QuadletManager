@@ -40,9 +40,11 @@ async def test_delete_file_rejects_dotdot_traversal_before_running_rm(mock_execu
     conn_mock.commit = AsyncMock()
     mock_db.return_value.__aenter__.return_value = conn_mock
 
+    request = MagicMock()
+
     with pytest.raises(HTTPException) as exc_info:
         await delete_file(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             path=TRAVERSAL_PATH,
             scope="global",
@@ -61,9 +63,11 @@ async def test_fetch_file_rejects_dotdot_traversal_before_running_cat(mock_execu
 
     mock_execute.return_value = "root:x:0:0::/root:/bin/bash"
 
+    request = MagicMock()
+
     with pytest.raises(HTTPException) as exc_info:
         await fetch_file(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             path=TRAVERSAL_PATH,
             scope="global",
@@ -89,9 +93,11 @@ async def test_save_file_rejects_dotdot_traversal_before_writing(mock_execute, m
     conn_mock.commit = AsyncMock()
     mock_db.return_value.__aenter__.return_value = conn_mock
 
+    request = MagicMock()
+
     with pytest.raises(HTTPException) as exc_info:
         await save_file(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             file_path=TRAVERSAL_PATH,
             scope="global",
@@ -122,9 +128,11 @@ async def test_create_file_rejects_traversal_in_name_before_writing(mock_execute
     conn_mock.execute = MagicMock(return_value=cursor_context_mock)
     mock_db.return_value.__aenter__.return_value = conn_mock
 
+    request = MagicMock()
+
     with pytest.raises(HTTPException) as exc_info:
         await create_new_quadlet(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             scope="global",
             quadlet_type="container",
