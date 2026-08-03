@@ -147,89 +147,7 @@
     outline-offset: 2px;
 }
 
-body {
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-base);
-    color: var(--text-primary);
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
 .font-mono, code, pre, kbd, samp { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
-
-/* Top Nav */
-.top-nav {
-    display: flex;
-    align-items: center;
-    background-color: var(--bg-surface);
-    border-bottom: 1px solid var(--border-color);
-    height: 48px;
-}
-
-.nav-brand {
-    flex: 1;
-    font-weight: 700;
-    font-size: 1.125rem;
-    color: var(--text-primary);
-    letter-spacing: 0.05em;
-}
-
-.nav-tabs {
-    display: flex;
-    align-items: center;
-    height: 100%;
-}
-
-.nav-actions {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    height: 100%;
-}
-
-.nav-item {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    padding: 0 1.25rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-    height: 100%;
-}
-
-.nav-item:hover {
-    color: var(--text-primary);
-    background-color: var(--bg-element);
-}
-
-.nav-item.active {
-    color: var(--brand-primary);
-    border-bottom-color: var(--brand-primary);
-}
-
-/* Base structural classes */
-.app-container {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    flex: 1;
-    overflow: hidden;
-}
-
-/* Horizontal row of panels — sits inside the column app-container above the bottom panel */
-.workspace-row {
-    display: flex;
-    flex-direction: row;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
 
 .sidebar {
     width: var(--sidebar-width);
@@ -328,12 +246,6 @@ body.view-containers.inspector-expanded #resize-handle-right {
     display: none !important;
 }
 
-.settings-pane {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-}
-
 .settings-pane .header-bar {
     padding: 1rem 1.5rem;
     background-color: var(--bg-surface);
@@ -342,25 +254,6 @@ body.view-containers.inspector-expanded #resize-handle-right {
 }
 
 /* ── Inner settings layout: sidenav + content ───────────── */
-.settings-layout {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-    min-height: 0;
-}
-
-.settings-sidenav {
-    width: var(--settings-sidenav-width, 220px);
-    flex-shrink: 0;
-    /* border-right: 1px solid var(--border-color); */
-    padding: 1rem 0;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--bg-surface);
-    overflow-x: hidden;
-    overflow-y: auto;
-}
-
 .settings-sidenav-label {
     padding: 0 1rem 0.4rem 1rem;
     font-size: 0.65rem;
@@ -370,39 +263,10 @@ body.view-containers.inspector-expanded #resize-handle-right {
     font-weight: 600;
 }
 
-.settings-sidenav-item {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.6rem 1rem 0.6rem 1.25rem;
-    border: none;
-    border-left: 2px solid transparent;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    text-align: left;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: color 0.15s, background-color 0.15s, border-left-color 0.15s;
-    width: 100%;
-}
-
-.settings-sidenav-item:hover {
-    color: var(--text-primary);
-    background-color: var(--bg-element);
-}
-
 .settings-sidenav-item.active {
     color: var(--brand-primary);
     background-color: rgba(99, 102, 241, 0.1);
     border-left-color: var(--brand-primary);
-}
-
-.settings-main {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--density-panel-padding);
-    min-height: 0;
 }
 
 .settings-group {
@@ -515,12 +379,6 @@ body.view-containers.inspector-expanded #resize-handle-right {
     gap: 0.25rem;
 }
 
-.form-label {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    font-weight: 500;
-}
-
 .form-control-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
@@ -528,38 +386,13 @@ body.view-containers.inspector-expanded #resize-handle-right {
     min-width: 100px;
 }
 
-.badge-role {
-    display: inline-block;
-    padding: 0.2rem 0.6rem;
-    font-size: 0.75rem;
-    border-radius: 4px;
-    background-color: var(--bg-element);
-    color: var(--text-primary);
-}
-
 .text-danger { color: var(--danger); }
 
 /* ── Resize Handles ─────────────────────────────────────── */
-.resize-handle {
-    width: 5px;
-    flex-shrink: 0;
-    background-color: var(--border-color);
-    cursor: col-resize;
-    position: relative;
-    transition: background-color 0.15s ease;
-    z-index: 10;
-}
-
 .resize-handle::after {
     content: '';
     position: absolute;
     inset: 0 -3px;   /* wider invisible hit-area for easier grabbing */
-}
-
-.resize-handle:hover,
-.resize-handle.dragging {
-    background-color: var(--brand-primary);
-    box-shadow: 0 0 6px rgba(99, 102, 241, 0.5);
 }
 
 /* Prevent text selection while dragging */
@@ -603,22 +436,6 @@ body.view-monitor .resize-handle { display: none !important; }
 body.view-monitor #monitoring-pane { display: flex !important; }
 
 /* Monitoring Pane */
-.monitoring-pane {
-  flex: 1;
-  display: none;
-  flex-direction: column;
-  background-color: var(--bg-base);
-
-  /* Vertical rhythm for this pane, tight to generous. Compact density scales
-     the whole set so the Monitor tab actually gains rows when it is toggled. */
-  --monitor-block-pad: 1.75rem;    /* between glance figures */
-  --monitor-glance-pad: 1.25rem;   /* glance bar to its rule */
-  --monitor-glance-gap: 1.5rem;    /* rule to the table */
-  --monitor-group-gap: 2.5rem;     /* health group to load group */
-  --monitor-section-gap: 1.75rem;  /* table to charts, chart to chart */
-  --monitor-chart-h: clamp(8rem, 15vh, 14rem);
-}
-
 [data-density="compact"] .monitoring-pane {
   --monitor-block-pad: 1.1rem;
   --monitor-glance-pad: 0.7rem;
@@ -664,15 +481,6 @@ body.view-monitor #monitoring-pane { display: flex !important; }
   color: var(--text-muted);
   margin: 0;
   max-width: 28ch;
-}
-
-.monitoring-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 1.25rem;
-  overflow-y: auto;
 }
 
 .monitoring-chart-container {
@@ -806,20 +614,6 @@ body.view-containers.inspector-expanded #inspector-expand-btn::after {
     content: '\25C0'; /* ◀ — restore inspector (pull from right) */
 }
 
-.panel-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-}
-
-/* Editor specific */
-#editor-container {
-    flex: 1;
-    background-color: var(--bg-base);
-    padding: 1rem;
-    font-family: monospace;
-    font-size: 0.875rem;
-}
-
 /* Typography and Utilities */
 ul { list-style: none; }
 .text-xs { font-size: 0.75rem; }
@@ -863,35 +657,18 @@ ul { list-style: none; }
 .hidden { display: none; }
 
 /* Buttons */
-.btn {
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s ease;
-    color: white;
-}
 .btn-md {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     font-weight: 600;
 }
 
-.btn-primary { background-color: var(--brand-primary); }
-.btn-primary:hover { background-color: var(--brand-hover); }
-
-.btn-success { background-color: var(--success); }
 .btn-success:hover { background-color: var(--success-hover); }
 
-.btn-danger { background-color: var(--danger); }
 .btn-danger:hover { background-color: var(--danger-hover); }
 
-.btn-warning { background-color: var(--warning); }
 .btn-warning:hover { background-color: var(--warning-hover); }
 
-.btn-secondary { background-color: var(--bg-element); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; }
 .btn-secondary:hover { background-color: var(--bg-element-hover); }
 
 /* Status outputs */
@@ -951,16 +728,8 @@ ul { list-style: none; }
     animation: fadeIn 0.2s ease-out;
 }
 
-.modal-content {
-    background-color: var(--bg-surface);
-    padding: 1.5rem;
-    border-radius: 0.75rem;
-    width: 33%;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-}
-
 .form-label {
+    font-weight: 500;
     display: block;
     font-size: 0.875rem;
     margin-bottom: 0.25rem;
@@ -1103,13 +872,6 @@ ul { list-style: none; }
 .toast-danger  { color: var(--danger); }
 .toast-warning { color: var(--warning); }
 .toast-info    { color: var(--brand-primary); }
-
-/* ── Quadlet Tree Buttons ────────────────────────────────── */
-.quadlet-tree-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
 
 /* ── Status Dots ─────────────────────────────────────────── */
 @keyframes pulse-running {
@@ -1259,13 +1021,6 @@ ul { list-style: none; }
 .net-io-cell { color: var(--text-muted); font-size: 0.8rem; }
 
 /* Health History Section */
-.health-history-section {
-    background-color: var(--bg-surface);
-    border-radius: 8px;
-    padding: 1rem 1.5rem 1.5rem;
-    border: 1px solid var(--border-color);
-}
-
 .health-history-header {
     display: flex;
     justify-content: space-between;
@@ -1544,12 +1299,22 @@ ul { list-style: none; }
    ══════════════════════════════════════════════════════════ */
 
 body {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
     background-color: var(--bg-base);
     padding: 1.25rem;
     gap: 1.25rem;
 }
 
 .top-nav {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
     background-color: var(--bg-surface);
     border: none;
     border-radius: var(--radius-lg);
@@ -1569,11 +1334,13 @@ body {
 }
 
 .nav-tabs {
+    height: 100%;
     display: flex;
     align-items: center;
 }
 
 .nav-actions {
+    height: 100%;
     flex: 1;
     display: flex;
     align-items: center;
@@ -1581,6 +1348,9 @@ body {
 }
 
 .nav-item {
+    font-size: 0.875rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
     border: none;
     border-radius: 999px;
     margin: 0 0.2rem;
@@ -1592,10 +1362,12 @@ body {
     transition: color 0.2s ease, box-shadow 0.25s ease, transform 0.15s ease;
 }
 .nav-item:hover {
+    background-color: var(--bg-element);
     color: var(--text-primary);
     background: transparent;
 }
 .nav-item.active {
+    border-bottom-color: var(--brand-primary);
     color: var(--brand-primary);
     box-shadow: var(--shadow-inset);
     border-bottom: none;
@@ -1743,13 +1515,22 @@ body {
 
 /* Workspace row holds the gap-ed raised panels; app-container is now a column wrapper */
 .workspace-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
     gap: 1.25rem;
     overflow: visible;
-    padding: 0 1.25rem; /* horizontal breathing room matching the gap */
+    padding: 0 1.25rem;  /* horizontal breathing room matching the gap */
 }
 
 .app-container {
-    padding-top: 1.25rem; /* top breathing room */
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+    padding-top: 1.25rem;  /* top breathing room */
 }
 
 /* ── Containers view: CSS grid layout ────────────────────────────────────────
@@ -1853,11 +1634,18 @@ body.bottom-panel-expanded #navigator {
 
 /* Resize handles disappear into the gap */
 .resize-handle {
+    flex-shrink: 0;
+    background-color: var(--border-color);
+    cursor: col-resize;
+    position: relative;
+    transition: background-color 0.15s ease;
+    z-index: 10;
     background: transparent;
     width: 4px;
 }
 .resize-handle:hover,
 .resize-handle.dragging {
+    background-color: var(--brand-primary);
     background: var(--brand-primary);
     border-radius: 999px;
     box-shadow: none;
@@ -1865,6 +1653,9 @@ body.bottom-panel-expanded #navigator {
 
 /* ── Buttons: raised pills with tactile inset on :active ── */
 .btn {
+    font-size: 0.75rem;
+    cursor: pointer;
+    border: none;
     border-radius: 999px;
     padding: 0.5rem 1rem;
     font-weight: 500;
@@ -1891,10 +1682,24 @@ body.bottom-panel-expanded #navigator {
     background-color: var(--bg-surface);
     color: var(--brand-hover);
 }
-.btn-success  { color: var(--success); background: var(--bg-surface); }
-.btn-danger   { color: var(--danger);  background: var(--bg-surface); }
-.btn-warning  { color: var(--warning); background: var(--bg-surface); }
+.btn-success {
+    background-color: var(--success);
+    color: var(--success);
+    background: var(--bg-surface);
+}
+.btn-danger {
+    background-color: var(--danger);
+    color: var(--danger);
+    background: var(--bg-surface);
+}
+.btn-warning {
+    background-color: var(--warning);
+    color: var(--warning);
+    background: var(--bg-surface);
+}
 .btn-secondary {
+    background-color: var(--bg-element);
+    padding: 0.5rem 1rem;
     background: var(--bg-surface);
     color: var(--text-muted);
     border: none;
@@ -1957,15 +1762,33 @@ body.bottom-panel-expanded #navigator {
 }
 
 /* Health-history section had its own padding — harmonize with the others */
-.health-history-section { padding: 1rem 1.25rem 1.25rem; }
+.health-history-section {
+    background-color: var(--bg-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 1rem 1.25rem 1.25rem;
+}
 
 /* Monitoring pane: inherits the raised-panel look; override its old flat bg */
 .monitoring-pane {
+    flex: 1;
+    /* Vertical rhythm for this pane, tight to generous. Compact density scales
+     the whole set so the Monitor tab actually gains rows when it is toggled. */
+    --monitor-block-pad: 1.75rem;  /* between glance figures */
+    --monitor-glance-pad: 1.25rem;  /* glance bar to its rule */
+    --monitor-glance-gap: 1.5rem;  /* rule to the table */
+    --monitor-group-gap: 2.5rem;  /* health group to load group */
+    --monitor-section-gap: 1.75rem;  /* table to charts, chart to chart */
+    --monitor-chart-h: clamp(8rem, 15vh, 14rem);
     background-color: var(--bg-surface);
     display: flex;
     flex-direction: column;
 }
 .monitoring-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
     padding: 0;
     /* Section break between the per-container table and the history charts —
        wider than any interval inside either one. */
@@ -1976,6 +1799,9 @@ body.bottom-panel-expanded #navigator {
 /* Editor pane (Monaco host) — raised panel containing an inset code well */
 #editor-pane { padding: 1.5rem; }
 #editor-container {
+    background-color: var(--bg-base);
+    font-family: monospace;
+    font-size: 0.875rem;
     flex: 1;
     padding: 0.75rem;
     min-height: 0;
@@ -1984,17 +1810,43 @@ body.bottom-panel-expanded #navigator {
 /* ── Settings pane: single raised panel (like Monitor/Containers) holding
    the sidenav + content directly — no inset sub-well, so the surface uses
    one elevation model consistent with the rest of the app. ── */
-.settings-pane { padding: var(--density-panel-padding); }
+.settings-pane {
+    display: flex;
+    flex-direction: column;
+    padding: var(--density-panel-padding);
+}
 .settings-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
     background-color: transparent;
     box-shadow: none;
 }
 .settings-sidenav {
+    width: var(--settings-sidenav-width, 220px);
+    flex-shrink: 0;
+    /* border-right: 1px solid var(--border-color); */
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
     background-color: transparent;
     border-right: 1px solid var(--border-color);
     padding: 1rem 0.5rem;
 }
 .settings-sidenav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 500;
+    width: 100%;
     border-radius: 999px;
     border-left: none;
     margin: 0.15rem 0.25rem;
@@ -2016,6 +1868,9 @@ body.bottom-panel-expanded #navigator {
 /* Extra bottom room so the last control's raised shadow (and the control
    itself) clears the scroll edge instead of being clipped by overflow. */
 .settings-main {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
     padding: var(--density-panel-padding);
     padding-bottom: 2.5rem;
 }
@@ -2027,6 +1882,7 @@ body.bottom-panel-expanded #navigator {
 }
 
 .badge-role {
+    display: inline-block;
     background-color: var(--bg-base);
     box-shadow: var(--shadow-inset);
     color: var(--text-primary);
@@ -2098,6 +1954,8 @@ body.bottom-panel-expanded #navigator {
 
 /* Modal: neumorphic raised surface */
 .modal-content {
+    padding: 1.5rem;
+    width: 33%;
     background-color: var(--bg-surface);
     border: none;
     border-radius: var(--radius-lg);
