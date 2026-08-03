@@ -33,8 +33,8 @@ async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict
             })
             
         return results
-    except Exception as e:
-        logger.error(f"Error scanning {path} on server {server_id}: {e}")
+    except Exception:
+        logger.exception(f"Error scanning {path} on server {server_id}")
         return []
 
 async def fetch_all_quadlets(server_id: int, scope_filter: str = "both") -> Dict[str, List[Dict]]:
@@ -53,8 +53,8 @@ async def fetch_all_quadlets(server_id: int, scope_filter: str = "both") -> Dict
     if scope_filter in ("both", "user"):
         try:
             user_dir = await quadlet_dir_for_scope(server_id, "user")
-        except Exception as e:
-            logger.error(f"Error resolving user quadlet dir on server {server_id}: {e}")
+        except Exception:
+            logger.exception(f"Error resolving user quadlet dir on server {server_id}")
         else:
             user_files = await scan_directory(server_id, user_dir, use_sudo=False)
 

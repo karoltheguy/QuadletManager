@@ -31,8 +31,8 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
-            except Exception as e:
-                logger.error(f"Error broadcasting to socket: {e}")
+            except Exception:
+                logger.exception("Error broadcasting to socket")
 
 manager = ConnectionManager()
 
@@ -81,8 +81,8 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
             try:
                 async for chunk in process.stdout:
                     await websocket.send_text(chunk)
-            except Exception as e:
-                logger.error(f"Error reading stdout: {e}")
+            except Exception:
+                logger.exception("Error reading stdout")
 
         stdout_task = asyncio.create_task(read_stdout())
 
@@ -95,8 +95,8 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for {unit_name}")
-    except Exception as e:
-        logger.error(f"Log stream error: {e}")
+    except Exception:
+        logger.exception("Log stream error")
     finally:
         manager.disconnect(websocket)
         logger.info(f"Killing remote journalctl for {unit_name}")
@@ -160,8 +160,8 @@ class TerminalSession:
                 except Exception as e:
                     logger.debug(f"Failed to send to websocket: {e}")
                     break
-        except Exception as e:
-            logger.error(f"Error reading stdout: {e}")
+        except Exception:
+            logger.exception("Error reading stdout")
         finally:
             self.process_done.set()
 
@@ -175,15 +175,15 @@ class TerminalSession:
                 if self.process.stdin:
                     try:
                         self.process.stdin.write(data.encode())
-                    except Exception as e:
-                        logger.error(f"Failed to write to stdin: {e}")
+                    except Exception:
+                        logger.exception("Failed to write to stdin")
                         break
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected for terminal {self.container_name}")
         except asyncio.CancelledError:
             pass
-        except Exception as e:
-            logger.error(f"Terminal input error: {e}")
+        except Exception:
+            logger.exception("Terminal input error")
 
 
 async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, container_name: str, scope: str = "user", cmd: str = "bash"):
@@ -238,8 +238,8 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for terminal {container_name}")
-    except Exception as e:
-        logger.error(f"Terminal session error: {e}")
+    except Exception:
+        logger.exception("Terminal session error")
     finally:
         manager.disconnect(websocket)
         logger.info(f"Closing terminal session for {container_name}")

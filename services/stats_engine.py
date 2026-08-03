@@ -494,7 +494,7 @@ async def fetch_server_stats():
             await _record_unit_events(server_id, unit_states_by_scope)
 
         except Exception as e:
-            logger.error(f"Error polling stats for server {server_id} ({server_name}): {e}")
+            logger.exception(f"Error polling stats for server {server_id} ({server_name})")
             # Publish an error event so the frontend can show feedback
             # instead of forever displaying "Waiting for stats data..."
             await publisher.publish("stats_error", {
@@ -518,7 +518,7 @@ async def stats_engine_loop():
                     _last_rollup_time = now
             except asyncio.CancelledError:
                 raise  # Re-raise to exit the loop
-            except Exception as e:
-                logger.error(f"Stats engine error: {e}")
+            except Exception:
+                logger.exception("Stats engine error")
     except asyncio.CancelledError:
         logger.info("Stats engine stopped.")

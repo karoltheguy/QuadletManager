@@ -581,8 +581,8 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
             "server_id": server_id,
             "data": data
         })
-    except Exception as e:
-        logger.error(f"Error fetching quadlets: {e}")
+    except Exception:
+        logger.exception("Error fetching quadlets")
         return HTMLResponse("<div class='text-red-500 text-xs'>Error loading files</div>")
 
 @router.get("/api/file/{server_id}", response_class=HTMLResponse, responses=PATH_CONFINED_RESPONSES)
@@ -616,8 +616,8 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
             "quadlet_type": quadlet_type,
             "pod_name": pod_name
         })
-    except Exception as e:
-        logger.error(f"Error fetching file: {e}")
+    except Exception:
+        logger.exception("Error fetching file")
         return HTMLResponse("<div class='text-red-500 p-4'>Failed to load file content</div>")
 
 @router.post("/api/save", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
@@ -677,8 +677,8 @@ async def save_file(
         async def _restart_in_background():
             try:
                 await reload_and_restart(server_id, unit_name, scope)
-            except Exception as restart_err:
-                logger.error(f"Background restart of {unit_name} failed: {restart_err}")
+            except Exception:
+                logger.exception(f"Background restart of {unit_name} failed")
 
         asyncio.create_task(_restart_in_background())
 
@@ -738,8 +738,8 @@ async def api_systemctl_post(
             await record_container_event(server_id, stem, action, triggered_by=username)
 
         return HTMLResponse(output)
-    except Exception as e:
-        logger.error(f"Systemctl action '{action}' failed: {e}")
+    except Exception:
+        logger.exception(f"Systemctl action '{action}' failed")
         return HTMLResponse("Action failed")
 
 @router.post("/api/pod-action/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
@@ -770,8 +770,8 @@ async def api_pod_action(
             await record_container_event(server_id, pod_name, action, triggered_by=username)
 
         return HTMLResponse(output)
-    except Exception as e:
-        logger.error(f"Pod action '{action}' failed: {e}")
+    except Exception:
+        logger.exception(f"Pod action '{action}' failed")
         return HTMLResponse("Pod action failed")
 
 @router.get("/api/events", responses=AUTH_REDIRECT_RESPONSES)
@@ -785,8 +785,8 @@ async def get_activity(server_id: int, container: str, limit: int = 10, role: st
         limit = min(limit, 100)
         events = await get_container_activity(server_id, container, limit=limit)
         return {"events": events}
-    except Exception as e:
-        logger.error(f"Failed to fetch activity: {e}")
+    except Exception:
+        logger.exception("Failed to fetch activity")
         raise HTTPException(status_code=500, detail="Failed to fetch activity")
 
 @router.get("/api/modal/new", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)

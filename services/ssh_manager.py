@@ -243,7 +243,7 @@ class SSHConnectionPool:
         try:
             return await self._run_with_timeout(conn, command, timeout, server_id)
         except asyncssh.ProcessError as exc:
-            logger.error(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
+            logger.exception(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
             raise SSHCommandError(
                 f"Command execution failed: {exc.stderr}",
                 exit_status=exc.exit_status, stderr=exc.stderr

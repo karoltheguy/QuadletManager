@@ -231,8 +231,8 @@ async def check_quadlets():
                         )
                         await db.commit()
 
-            except Exception as e:
-                logger.error(f"Error polling quadlet {q['id']}: {e}")
+            except Exception:
+                logger.exception(f"Error polling quadlet {q['id']}")
 
     for server_id, agg in server_health.items():
         event = health_tracker.record_fetch(server_id, agg["duration"], success=not agg["failed"])
@@ -254,7 +254,7 @@ async def polling_engine_loop():
                 await check_quadlets()
             except asyncio.CancelledError:
                 raise  # Re-raise to exit the loop
-            except Exception as e:
-                logger.error(f"Polling engine error: {e}")
+            except Exception:
+                logger.exception("Polling engine error")
     except asyncio.CancelledError:
         logger.info("Polling engine stopped.")
