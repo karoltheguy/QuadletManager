@@ -100,7 +100,7 @@ async def container_events_cleanup_loop():
                 await cleanup_old_events()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                logger.error(f"Container events cleanup error: {e}")
+            except Exception:
+                logger.exception("Container events cleanup error")
     except asyncio.CancelledError:
         logger.info("Container events cleanup stopped.")

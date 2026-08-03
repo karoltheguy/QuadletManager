@@ -55,10 +55,10 @@ class AppConfig:
 
             logger.info(f"Loaded configuration from {config_path}.")
 
-        except (OSError, yaml.YAMLError, ValueError, TypeError) as e:
+        except (OSError, yaml.YAMLError, ValueError, TypeError):
             # Expected failures (missing/unreadable file, malformed YAML, bad
             # value types): log and fall back to environment defaults.
             # Anything else is unexpected and must not be silently swallowed.
-            logger.error(f"Failed to load {config_path}: {e}. Falling back to environment defaults.")
+            logger.exception(f"Failed to load {config_path}. Falling back to environment defaults.")
 
 global_config = AppConfig()
