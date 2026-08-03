@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from fastapi.templating import Jinja2Templates
 import asyncio
 import hashlib
@@ -438,17 +438,19 @@ async def logout():
 
 
 @router.get(CHANGE_PASSWORD_PATH, response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
-async def change_password_page(request: Request, session: dict = Depends(_get_session)):
-    await _get_session(request)
+async def change_password_page(
+    request: Request, 
+    session: Annotated[dict, Depends(_get_session)],
+):
     return templates.TemplateResponse(request, "change_password.html", {"error": None})
 
 
 @router.post(CHANGE_PASSWORD_PATH, response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def change_password_submit(
     request: Request,
-    new_password: str = Form(...),
-    confirm_password: str = Form(...),
-    session: dict = Depends(_get_session),
+    new_password: Annotated[str, Form(...)],
+    confirm_password: Annotated[str, Form(...)],
+    session: Annotated[dict, Depends(_get_session)],
 ):
 
     if not new_password or new_password != confirm_password:
