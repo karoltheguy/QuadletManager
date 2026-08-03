@@ -21,7 +21,8 @@
                   hx-target="#users-list"
                   hx-swap="innerHTML"
                   name="user_role"
-                  hx-include="this">
+                  hx-include="this"
+                  aria-label="Role for {{ u[1] }}">
             <option value="viewer" {% if u[2] == 'viewer' %}selected{% endif %}>viewer</option>
             <option value="editor" {% if u[2] == 'editor' %}selected{% endif %}>editor</option>
           </select>

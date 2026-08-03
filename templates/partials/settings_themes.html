@@ -41,12 +41,12 @@
           hx-swap="outerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()">
       <div class="form-row">
-        <label class="form-label">Name</label>
-        <input type="text" name="theme_name" class="form-control" required placeholder="ocean">
+        <label class="form-label" for="new-theme-name">Name</label>
+        <input type="text" name="theme_name" id="new-theme-name" class="form-control" required placeholder="ocean">
       </div>
       <div class="form-row">
-        <label class="form-label">Copy from</label>
-        <select name="copy_from" class="form-control">
+        <label class="form-label" for="new-theme-copy-from">Copy from</label>
+        <select name="copy_from" id="new-theme-copy-from" class="form-control">
           <option value="">Defaults</option>
           {% for t in themes %}
           <option value="{{ t.id }}">{{ t.name }}</option>
@@ -63,8 +63,8 @@
     <h4 class="subsection-title">Edit Colors: {{ active_theme.name }}</h4>
 
     <div class="form-row mode-pref-row">
-      <label class="form-label">Mode preference</label>
-      <div class="radio-group">
+      <span class="form-label" id="mode-pref-group-label">Mode preference</span>
+      <div class="radio-group" role="radiogroup" aria-labelledby="mode-pref-group-label">
         {% for mode in ["auto", "light", "dark"] %}
         <label class="radio-label">
           <input type="radio" name="mode_preference" value="{{ mode }}"
@@ -99,7 +99,8 @@
         <div class="color-picker-row">
           <label class="color-key-label" for="light-{{ loop.index }}">{{ key | replace("_", " ") }}</label>
           <input type="color" value="{{ val }}" name="{{ key }}"
-                 data-hex-id="light-{{ loop.index }}">
+                 data-hex-id="light-{{ loop.index }}"
+                 aria-label="{{ key | replace('_', ' ') }} light color picker">
           <input type="text" id="light-{{ loop.index }}" class="form-control hex-input"
                  value="{{ val }}" maxlength="7" placeholder="#rrggbb">
         </div>
@@ -135,7 +136,8 @@
         <div class="color-picker-row">
           <label class="color-key-label" for="dark-{{ loop.index }}">{{ key | replace("_", " ") }}</label>
           <input type="color" value="{{ val }}" name="{{ key }}"
-                 data-hex-id="dark-{{ loop.index }}">
+                 data-hex-id="dark-{{ loop.index }}"
+                 aria-label="{{ key | replace('_', ' ') }} dark color picker">
           <input type="text" id="dark-{{ loop.index }}" class="form-control hex-input"
                  value="{{ val }}" maxlength="7" placeholder="#rrggbb">
         </div>

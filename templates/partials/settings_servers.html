@@ -46,20 +46,20 @@
               hx-swap="innerHTML"
               style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap; padding:0.5rem 0;">
           <div>
-            <label class="form-label" style="font-size:0.75rem">Name</label>
-            <input type="text" name="name" class="form-control" value="{{ s[1] }}" required>
+            <label class="form-label" style="font-size:0.75rem" for="server-edit-name-{{ s[0] }}">Name</label>
+            <input type="text" name="name" id="server-edit-name-{{ s[0] }}" class="form-control" value="{{ s[1] }}" required>
           </div>
           <div>
-            <label class="form-label" style="font-size:0.75rem">IP Address</label>
-            <input type="text" name="ip_address" class="form-control" value="{{ s[2] }}" required>
+            <label class="form-label" style="font-size:0.75rem" for="server-edit-ip-address-{{ s[0] }}">IP Address</label>
+            <input type="text" name="ip_address" id="server-edit-ip-address-{{ s[0] }}" class="form-control" value="{{ s[2] }}" required>
           </div>
           <div>
-            <label class="form-label" style="font-size:0.75rem">SSH User</label>
-            <input type="text" name="ssh_user" class="form-control" value="{{ s[3] }}" required>
+            <label class="form-label" style="font-size:0.75rem" for="server-edit-ssh-user-{{ s[0] }}">SSH User</label>
+            <input type="text" name="ssh_user" id="server-edit-ssh-user-{{ s[0] }}" class="form-control" value="{{ s[3] }}" required>
           </div>
           <div>
-            <label class="form-label" style="font-size:0.75rem">Scope Filter</label>
-            <select name="scope_filter" class="form-control">
+            <label class="form-label" style="font-size:0.75rem" for="server-edit-scope-filter-{{ s[0] }}">Scope Filter</label>
+            <select name="scope_filter" id="server-edit-scope-filter-{{ s[0] }}" class="form-control">
               <option value="both" {% if (s[5] or 'both') == 'both' %}selected{% endif %}>Both</option>
               <option value="user" {% if s[5] == 'user' %}selected{% endif %}>User only</option>
               <option value="global" {% if s[5] == 'global' %}selected{% endif %}>Global only</option>

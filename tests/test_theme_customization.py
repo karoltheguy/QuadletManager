@@ -203,9 +203,10 @@ async def test_create_theme_unique_name_per_user(fresh_db):
         )
         await db.commit()
 
+    request = _mock_request()
     with pytest.raises(HTTPException) as exc_info:
         await settings_create_theme(
-            request=_mock_request(), theme_name="MyTheme", copy_from=None, user_id=1,
+            request=request, theme_name="MyTheme", copy_from=None, user_id=1,
         )
     assert exc_info.value.status_code == 409
 
@@ -403,8 +404,9 @@ async def test_delete_active_blocked(fresh_db):
         theme_id = row[0]
         await db.commit()
 
+    request = _mock_request()
     with pytest.raises(HTTPException) as exc_info:
-        await settings_delete_theme(request=_mock_request(), theme_id=theme_id, user_id=1)
+        await settings_delete_theme(request=request, theme_id=theme_id, user_id=1)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail
 
@@ -429,12 +431,14 @@ async def test_cross_user_isolation(fresh_db):
         theme_id = row[0]
         await db.commit()
 
+    delete_request = _mock_request()
     with pytest.raises(HTTPException) as exc_info:
-        await settings_delete_theme(request=_mock_request(), theme_id=theme_id, user_id=2)
+        await settings_delete_theme(request=delete_request, theme_id=theme_id, user_id=2)
     assert exc_info.value.status_code == 404
 
+    activate_request = _mock_request()
     with pytest.raises(HTTPException) as exc_info:
-        await settings_activate_theme(request=_mock_request(), theme_id=theme_id, user_id=2)
+        await settings_activate_theme(request=activate_request, theme_id=theme_id, user_id=2)
     assert exc_info.value.status_code == 404
 
 

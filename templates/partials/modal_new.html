@@ -3,23 +3,23 @@
         <h2 class="panel-title mb-4">Create New Quadlet</h2>
         <form hx-post="/api/create" hx-target="#status-toast" hx-swap="innerHTML" hx-on::after-request="document.getElementById('new-modal')?.remove()">
             <div class="form-group">
-                <label class="form-label">Target Server</label>
-                <select name="server_id" class="form-control">
+                <label class="form-label" for="new-quadlet-server">Target Server</label>
+                <select name="server_id" id="new-quadlet-server" class="form-control">
                     {% for s in servers %}
                     <option value="{{ s[0] }}" {% if s[0] == preselected_server_id %}selected{% endif %}>{{ s[1] }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Scope</label>
-                <select name="scope" class="form-control">
+                <label class="form-label" for="new-quadlet-scope">Scope</label>
+                <select name="scope" id="new-quadlet-scope" class="form-control">
                     <option value="user">User (~/.config/containers/systemd)</option>
                     <option value="global">Global (/etc/containers/systemd)</option>
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Quadlet Type</label>
-                <select name="type" class="form-control">
+                <label class="form-label" for="new-quadlet-type">Quadlet Type</label>
+                <select name="type" id="new-quadlet-type" class="form-control">
                     <option value="container">.container</option>
                     <option value="volume">.volume</option>
                     <option value="network">.network</option>
@@ -27,8 +27,8 @@
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Name (without extension)</label>
-                <input type="text" name="name" class="form-control" required placeholder="e.g. webserver">
+                <label class="form-label" for="new-quadlet-name">Name (without extension)</label>
+                <input type="text" name="name" id="new-quadlet-name" class="form-control" required placeholder="e.g. webserver">
             </div>
             
             <div class="flex justify-end space-x-2 mt-6">

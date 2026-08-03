@@ -136,9 +136,10 @@ async def test_add_server_with_invalid_key_id_returns_400(mock_db):
     mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
     mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_add_server(
-            request=MagicMock(),
+            request=request,
             name="bad-server",
             ip_address="10.0.0.2",
             ssh_user="root",
@@ -157,9 +158,10 @@ async def test_add_server_non_admin_rejected(mock_db):
     """Non-admin users cannot add servers."""
     from api.routes import settings_add_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_add_server(
-            request=MagicMock(),
+            request=request,
             name="test-server",
             ip_address="10.0.0.1",
             ssh_user="root",

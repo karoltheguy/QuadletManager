@@ -116,7 +116,8 @@ def test_settings_group_single_column_on_wide_viewport(page: Page):
     first_box = sections.nth(0).bounding_box()
     second_box = sections.nth(1).bounding_box()
 
-    assert first_box is not None and second_box is not None
+    assert first_box is not None
+    assert second_box is not None
     # Single column: the second section sits below the first, not beside it.
     assert second_box["y"] > first_box["y"] + 10, (
         f"On a 1400px viewport, sections should stack vertically (single column). "
@@ -140,7 +141,8 @@ def test_settings_group_single_column_on_narrow_viewport(page: Page):
     first_box = sections.nth(0).bounding_box()
     second_box = sections.nth(1).bounding_box()
 
-    assert first_box is not None and second_box is not None
+    assert first_box is not None
+    assert second_box is not None
     # In a single column layout, the second section should be below the first
     assert second_box["y"] > first_box["y"], (
         f"On a 600px viewport, sections should stack vertically. "

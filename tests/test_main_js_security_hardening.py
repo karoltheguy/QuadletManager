@@ -33,7 +33,11 @@ def test_parse_percent_uses_global_replace():
     m = re.search(r'function\s+parsePercent\s*\(val\)(.*?)(?=\nfunction\s|\Z)', src, re.DOTALL)
     assert m, "parsePercent not found"
     body = m.group(1)
-    assert "replace('%', '')" not in body and 'replace("%", "")' not in body, (
+    assert "replace('%', '')" not in body, (
+        "parsePercent must not use a single-occurrence string replace; "
+        "use a global regex (/%/g) instead"
+    )
+    assert 'replace("%", "")' not in body, (
         "parsePercent must not use a single-occurrence string replace; "
         "use a global regex (/%/g) instead"
     )
