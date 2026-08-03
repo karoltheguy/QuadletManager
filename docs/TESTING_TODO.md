@@ -96,6 +96,13 @@ direction without warning. The build-time assertions in
 
 ## 3. The documented sudoers allowlist is not sufficient for global scope
 
+**Resolved.** The gap this section describes is closed: the allowlist gained
+the eleven rules the probe below found missing, the strict `xfail` on
+`tests/podman/test_sudo_policy.py` has been removed now that the policy and
+the app agree, and `podman exec` remains deliberately excluded rather than
+granted. The account below is kept as the historical record of the run that
+found the gap and is not updated to match.
+
 **Status: run on 2026-08-01. The target works; what it found is an app bug.**
 
 **Update, 2026-08-02.** The two tests this section asked for now exist, so the
@@ -129,9 +136,11 @@ The loopback target was run for the first time, on Fedora 44 with podman 5.8.4:
 browser journeys, which ran against a dev instance that had no Podman Host row
 and are not evidence of anything. The three that matter are all one cause.
 
-`setup-local` grants exactly the eight-line allowlist published in `README.MD`,
-which is the entire point of the target. The app needs considerably more than
-that. Asked directly, with `sudo -n -l`, that policy answers:
+`setup-local` grants exactly the allowlist shipped in
+`deploy/quadlet-manager.sudoers`, which is the entire point of the target. At
+the time of this run that file was eight lines, and the app needed
+considerably more than that. Asked directly, with `sudo -n -l`, that policy
+answers:
 
 | Command the app issues under sudo | Allowed? | Call site |
 |---|---|---|

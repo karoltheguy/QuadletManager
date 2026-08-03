@@ -24,7 +24,7 @@ def test_save_error_has_correlation_id_and_logs_exception(client, caplog):
             mock_exec.side_effect = Exception(SENTINEL)
             response = client.post(
                 "/api/save",
-                data={"server_id": 1, "file_path": "test", "scope": "user", "unit_name": "test", "content": "data"},
+                data={"server_id": 1, "file_path": "/home/quadlet/.config/containers/systemd/myapp", "scope": "user", "unit_name": "test", "content": "data"},
                 follow_redirects=False,
             )
     assert response.status_code == 200
@@ -65,7 +65,7 @@ def test_delete_error_has_correlation_id_and_logs_exception(client, caplog):
             response = client.request(
                 "DELETE",
                 "/api/files",
-                params={"server_id": 1, "path": "/etc/containers/systemd/test.container", "scope": "user"},
+                params={"server_id": 1, "path": "/home/quadlet/.config/containers/systemd/test.container", "scope": "user"},
                 follow_redirects=False,
             )
     assert response.status_code == 200
@@ -124,12 +124,12 @@ def test_save_error_correlation_id_is_random_per_request(client, caplog):
             mock_exec.side_effect = Exception(SENTINEL)
             response1 = client.post(
                 "/api/save",
-                data={"server_id": 1, "file_path": "test", "scope": "user", "unit_name": "test", "content": "data"},
+                data={"server_id": 1, "file_path": "/home/quadlet/.config/containers/systemd/myapp", "scope": "user", "unit_name": "test", "content": "data"},
                 follow_redirects=False,
             )
             response2 = client.post(
                 "/api/save",
-                data={"server_id": 1, "file_path": "test", "scope": "user", "unit_name": "test", "content": "data"},
+                data={"server_id": 1, "file_path": "/home/quadlet/.config/containers/systemd/myapp", "scope": "user", "unit_name": "test", "content": "data"},
                 follow_redirects=False,
             )
 

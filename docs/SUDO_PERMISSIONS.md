@@ -8,12 +8,10 @@ supposed to describe the same set of commands:
 * **What the app needs.** Every command the app actually issues under `sudo`,
   with its call site. That list is in this file, below.
 
-Today they do not match, which is
-[issue #289](https://github.com/karoltheguy/QuadletManager/issues/289): global
-scope does not work on a server set up exactly as the docs describe.
-
-`tests/podman/test_sudo_policy.py` is what compares them, by asking a real host
-with `sudo -n -l` whether the grant list permits every entry in the need list.
+The two now agree.
+`tests/podman/test_sudo_policy.py` is what keeps them that way, by asking a
+real host with `sudo -n -l` whether the grant list permits every entry in the
+need list.
 
 Rootless (user) scope needs no sudo at all. Everything here is global scope.
 
@@ -77,14 +75,31 @@ it executes. Probing the prefix alone reports a denial that does not happen.
 | `/usr/bin/podman pod stop e2e-probe` | `api/routes.py` | |
 | `/usr/bin/podman pod restart e2e-probe` | `api/routes.py` | |
 | `/usr/bin/journalctl -u e2e-probe.service -f -n 100` | `api/sockets.py` `stream_logs_over_websocket` | live log streaming |
-| `/usr/bin/podman exec -it e2e-probe /bin/sh` | `api/sockets.py` `_build_exec_command` | the terminal tab |
 
 <!-- END NEED LIST -->
 
-Twelve of those are the gap. A server built to the published docs can write a
-quadlet file it cannot then read back, and start a unit whose state it cannot
-show. See `docs/TESTING_TODO.md` section 3 for the full account of how this was
-found.
+## Deliberately not granted
+
+| Probe | Call site | Notes |
+|---|---|---|
+| `/usr/bin/podman exec -it e2e-probe /bin/sh` | `api/sockets.py` `_build_exec_command` | the terminal tab |
+
+Everything else in the need list is root-equivalent by way of a unit file the
+agent itself writes: it lands on disk under a name, and it only takes effect
+after a `daemon-reload`, so there is an artifact and an audit trail for what
+ran. `podman exec -it` is a different shape of risk rather than the same one
+widened. It is interactive root inside any container the app can see, reached
+over a websocket, and it leaves no such artifact behind. In `api/sockets.py`
+`_build_exec_command`, the container name is regex-validated, but the command
+string handed to the shell is only quoted, not restricted to an allowlist. For
+that reason the terminal tab stays user-scope-only for now, and granting it in
+global scope is left as a separate decision, to be made on its own merits
+rather than folded into closing #289.
+
+Twelve of those used to be the gap: a server built to the published docs could
+write a quadlet file it could not then read back, and start a unit whose state
+it could not show. See `docs/TESTING_TODO.md` section 3 for the full account of
+how this was found.
 
 Two rows are wider than #289 recorded, because #289 was written from the
 loopback run and the WebSocket paths never got exercised there. Both live in
@@ -98,10 +113,8 @@ list above installed:
   boundaries, so `journalctl -u *` covers `-u unit -f -n 100` as well. Worth
   recording because it is easy to assume the opposite and widen the rule for
   no reason.
-* **The terminal** runs `podman exec -it`, and is **denied**. Nothing in the
-  grant list covers it; `podman stats *` does not match a different
-  subcommand. So the terminal tab does not work in global scope on a server
-  built to the documentation, which #289 does not yet mention.
+* **The terminal** is denied, and deliberately so. See "Deliberately not
+  granted" above.
 
 ## Adding a command that needs sudo
 
@@ -114,5 +127,36 @@ list above installed:
    `tests/test_sudo_allowlist_sync.py` fails until the two agree, and it runs
    in the `unit` job, so this is caught without a podman host.
 
-Scope every path rule to `/etc/containers/systemd/*`. A sudoers `*` does not
-match `/`, so that pattern cannot reach a subdirectory.
+Scope every path rule to `/etc/containers/systemd/*`. Keep doing this: it is
+still the right habit, and it still narrows the surface a compromised agent
+account could reach. But see the next section before you rely on it for
+anything more than that.
+
+## The glob is not confinement
+
+It is tempting to read `/etc/containers/systemd/*` as a sandbox: the rule
+looks like it can only ever touch files under that one directory. It can't.
+sudo matches command *arguments* against that pattern with fnmatch, and it
+does so without `FNM_PATHNAME`, the flag that would stop `*` from matching
+`/`. Without it, `*` matches path separators exactly as happily as any other
+character, so `/etc/containers/systemd/../../etc/shadow` matches the rule
+just as cleanly as `/etc/containers/systemd/web.container` does. A `..`
+segment in a caller-supplied path walks straight back out of the directory
+the rule was written to pin.
+
+What actually confines a caller-supplied path before it reaches a sudo'd
+command is `services.remote_fs.ensure_within_quadlet_dir`, called from every
+route that accepts one (`fetch_file`, `save_file`, `delete_file`,
+`create_new_quadlet`) before the corresponding shell command is built. It
+normalizes the path and requires that its parent directory equal the quadlet
+directory for the scope exactly, which rejects traversal, the directory
+itself, subdirectories, and string-prefix siblings like
+`/etc/containers/systemd-evil` in one comparison. See
+`tests/test_quadlet_path_confinement.py` and
+`tests/test_route_path_confinement.py` for the cases it covers.
+
+That check is lexical, and it is worth being honest about what it does not
+cover: if a symlink is already planted inside the quadlet directory on the
+remote host, this check has no way to see where the link actually points,
+because it never inspects the remote filesystem. Catching that would need a
+check performed on the remote side, not here.
