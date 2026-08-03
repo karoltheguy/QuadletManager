@@ -28,7 +28,7 @@ jobs:
   test-github:
     name: GitHub / ${{ matrix.suite }}
     if: ${{ github.server_url == 'https://github.com' }}
-    runs-on: ubuntu-latest
+    runs-on: avrea-ubuntu-latest
     # Backstop for a hang that pytest's own timeout cannot catch (a wedge in
     # docker compose or playwright install, outside the test run). Without it
     # the job inherits GitHub's 360-minute default and burns runner time.
@@ -657,7 +657,7 @@ jobs:
     name: Upload Coverage to Codacy
     needs: test-github
     if: ${{ always() && github.server_url == 'https://github.com' && (needs.test-github.result == 'success' || needs.test-github.result == 'failure') }}
-    runs-on: ubuntu-latest
+    runs-on: avrea-ubuntu-latest
     permissions:
       contents: read
     steps:
