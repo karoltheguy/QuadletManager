@@ -137,17 +137,6 @@ def test_the_narrow_account_is_not_privileged(narrow_account_reachable):
 
 
 @pytest.mark.timeout(300)
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "#289: the sudoers allowlist published in README.MD and docs/SETUP.MD "
-        "grants eight rules, and the app issues considerably more than eight "
-        "commands under sudo. A server built to the documentation has a global "
-        "scope that cannot list, open, save, create or delete a quadlet, or "
-        "show unit state or anything in Monitor. Flips to XPASS, and so to a "
-        "failure, the day the policy and the app are brought into agreement."
-    ),
-)
 def test_documented_allowlist_permits_every_command_the_app_runs(
     narrow_account_reachable,
 ):

@@ -14,6 +14,7 @@ the remote ``$HOME`` rather than spelled ``~/...``, because every consumer
 that passes a path through ``shlex.quote()`` would otherwise send a literal
 ``~`` the remote shell never expands.
 """
+import posixpath
 import shlex
 
 from services.ssh_manager import pool
@@ -43,6 +44,57 @@ async def quadlet_dir_for_scope(server_id: int, scope: str) -> str:
     if is_global_scope(scope):
         return GLOBAL_QUADLET_DIR
     return f"{await remote_home_dir(server_id)}/{USER_QUADLET_SUBDIR}"
+
+
+def ensure_within_quadlet_dir(file_path: str, scope: str) -> str:
+    """Confine ``file_path`` to the quadlet directory for ``scope`` before it
+    ever reaches a remote command.
+
+    The sudoers rules shipped with this project look confined because every
+    line ends in ``/etc/containers/systemd/*``. It isn't. sudo matches command
+    arguments against that pattern with fnmatch and *without* ``FNM_PATHNAME``,
+    so the glob's ``*`` happily matches ``/`` too, and a caller-supplied
+    ``..`` segment walks straight out of the directory the pattern was meant
+    to pin. The sudoers glob narrows the surface but does not confine
+    anything by itself; this function is what actually does.
+
+    The check is deliberately lexical: normalize with ``posixpath.normpath``
+    (never ``os.path`` and never ``realpath``, since these strings name paths
+    on a remote host and resolving them against the local filesystem would
+    describe the wrong machine entirely) and then require that the
+    normalized path's parent directory equals the scope's quadlet directory
+    exactly. That one comparison rejects traversal, the directory itself,
+    subdirectories, and string-prefix siblings like
+    ``/etc/containers/systemd-evil`` alike.
+
+    Residual risk, stated honestly: this is a lexical check on a string, not
+    a check on the filesystem it names. If a symlink already planted inside
+    the quadlet directory on the remote host points somewhere else, this
+    function has no way to see that and will happily approve the link's own
+    path. Catching that would require a stat/readlink check performed on the
+    remote host itself, not here.
+    """
+    if not file_path.startswith("/"):
+        raise ValueError(f"Path is not absolute: {file_path}")
+
+    normalized = posixpath.normpath(file_path)
+    parent = posixpath.dirname(normalized)
+
+    if is_global_scope(scope):
+        expected_parent = GLOBAL_QUADLET_DIR
+    else:
+        if not (parent.startswith("/") and parent.endswith(f"/{USER_QUADLET_SUBDIR}")):
+            raise ValueError(
+                f"Path is outside the quadlet directory for scope {scope!r}: {file_path}"
+            )
+        expected_parent = parent
+
+    if parent != expected_parent:
+        raise ValueError(
+            f"Path is outside the quadlet directory for scope {scope!r}: {file_path}"
+        )
+
+    return normalized
 
 
 async def write_remote_file(server_id: int, file_path: str, content: str, *, use_sudo: bool) -> None:

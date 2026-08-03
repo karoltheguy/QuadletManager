@@ -15,14 +15,17 @@
 #
 # Rootless (user) scope needs no sudo at all. These rules are global scope only.
 #
-# KNOWN GAP: these rules are not currently sufficient. The app runs about twice
-# as many commands under sudo than they permit, so several global-scope
-# features fail on a server configured with exactly this file. See
-# https://github.com/karoltheguy/QuadletManager/issues/289 and the need list in
-# docs/SUDO_PERMISSIONS.md, which records every command the app actually runs.
+# The terminal tab (podman exec) is deliberately not granted here. See
+# docs/SUDO_PERMISSIONS.md for why.
 #
-# Scope every path rule to /etc/containers/systemd/*. A sudoers * does not
-# match /, so that pattern cannot reach a subdirectory.
+# Scope every path rule to /etc/containers/systemd/*. This is still the
+# right habit and it does narrow the surface, but it is not by itself
+# confinement: sudo matches command arguments against that glob with
+# fnmatch and *without* FNM_PATHNAME, so the * matches / too, and a
+# caller-supplied .. segment walks straight back out of the directory.
+# What actually confines a caller-supplied path before it reaches a
+# command here is services.remote_fs.ensure_within_quadlet_dir. See
+# docs/SUDO_PERMISSIONS.md for the detail.
 
 # Reload units after a write, and drive the units themselves.
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
@@ -30,10 +33,32 @@
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/systemctl show *
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
 
 # Write quadlet files, and nothing outside the quadlet directory.
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/rm -f /etc/containers/systemd/*
+
+# List and read what's already on disk.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/find /etc/containers/systemd -type f -maxdepth 1
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/cat /etc/containers/systemd/*
+
+# Two literal stat shapes rather than one -c * rule, so the format string
+# can't be anything a caller likes: a single path, and a batch form.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/stat -c %Y /etc/containers/systemd/*
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/stat -c %n\ %Y /etc/containers/systemd/*
+
+# The only shape this call site ever emits, so no wildcard is needed.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/mkdir -p /etc/containers/systemd
 
 # Read resource usage for global-scope containers.
 %AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
+
+# List running containers. Also the only shape this call site emits.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman ps --format json
+
+# Drive global-scope pods.
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman pod start *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman pod stop *
+%AGENT% ALL=(ALL) NOPASSWD: /usr/bin/podman pod restart *
