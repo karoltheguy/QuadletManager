@@ -437,19 +437,19 @@ async def logout():
     return response
 
 
-@router.get(CHANGE_PASSWORD_PATH, response_class=HTMLResponse)
-async def change_password_page(request: Request):
+@router.get(CHANGE_PASSWORD_PATH, response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
+async def change_password_page(request: Request, session: dict = Depends(_get_session)):
     await _get_session(request)
     return templates.TemplateResponse(request, "change_password.html", {"error": None})
 
 
-@router.post(CHANGE_PASSWORD_PATH, response_class=HTMLResponse)
+@router.post(CHANGE_PASSWORD_PATH, response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def change_password_submit(
     request: Request,
     new_password: str = Form(...),
     confirm_password: str = Form(...),
+    session: dict = Depends(_get_session),
 ):
-    session = await _get_session(request)
 
     if not new_password or new_password != confirm_password:
         return templates.TemplateResponse(request, "change_password.html", {
