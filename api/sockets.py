@@ -47,28 +47,42 @@ _SINCE_PHRASES = {
     "24h": "24 hours ago",
 }
 
-async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user", since: str = None):
-    await manager.connect(websocket)
-    if not _UNIT_NAME_RE.match(unit_name or ""):
-        logger.warning(f"Rejected invalid unit_name: {unit_name!r}")
-        try:
-            await websocket.send_text("error: invalid unit name")
-        except Exception:
-            pass
-        manager.disconnect(websocket)
-        return
+
+async def _reject_invalid_name(websocket: WebSocket, value: str, pattern, field_label: str, error_text: str) -> bool:
+    """Reject and close the socket when `value` fails `pattern`.
+
+    Returns True when the request was rejected and the caller must return.
+    """
+    if pattern.match(value or ""):
+        return False
+    logger.warning(f"Rejected invalid {field_label}: {value!r}")
+    try:
+        await websocket.send_text(error_text)
+    except Exception:
+        pass
+    manager.disconnect(websocket)
+    return True
+
+
+def _build_journalctl_command(unit_name: str, scope: str, since: str) -> str:
     safe_unit = shlex.quote(unit_name)
-    # Start journalctl process on remote server via ssh
-    conn = await pool.get_connection(server_id)
     since_phrase = _SINCE_PHRASES.get(since)
     if since_phrase is not None:
         tail_clause = f"--since {shlex.quote(since_phrase)}"
     else:
         tail_clause = "-n 100"
     if scope == "global":
-        cmd = f"sudo journalctl -u {safe_unit} -f {tail_clause}"
-    else:
-        cmd = f"journalctl --user -u {safe_unit} -f {tail_clause}"
+        return f"sudo journalctl -u {safe_unit} -f {tail_clause}"
+    return f"journalctl --user -u {safe_unit} -f {tail_clause}"
+
+
+async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user", since: str = None):
+    await manager.connect(websocket)
+    if await _reject_invalid_name(websocket, unit_name, _UNIT_NAME_RE, "unit_name", "error: invalid unit name"):
+        return
+    # Start journalctl process on remote server via ssh
+    conn = await pool.get_connection(server_id)
+    cmd = _build_journalctl_command(unit_name, scope, since)
 
     logger.info(f"Starting log stream for {unit_name} on server {server_id}")
 
@@ -113,6 +127,25 @@ def _build_exec_command(container_name: str, cmd: str, scope: str) -> str:
     if scope == "global":
         exec_cmd = f"sudo {exec_cmd}"
     return exec_cmd
+
+
+async def _cleanup_terminal(read_task, process) -> None:
+    """Cancel the read task and kill the remote process, swallowing any
+    cleanup errors so they never mask the original error."""
+    if read_task:
+        try:
+            read_task.cancel()
+        except Exception:
+            pass
+    if process:
+        try:
+            process.kill()
+        except Exception:
+            pass
+        try:
+            await process.wait(check=False)
+        except Exception:
+            pass
 
 
 def _try_handle_control_message(data: str, process) -> bool:
@@ -194,13 +227,7 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
     await manager.connect(websocket)
     logger.info(f"Starting terminal session for {container_name} on server {server_id}")
 
-    if not _CONTAINER_NAME_RE.match(container_name or ""):
-        logger.warning(f"Rejected invalid container_name: {container_name!r}")
-        try:
-            await websocket.send_text("error: invalid container name")
-        except Exception:
-            pass
-        manager.disconnect(websocket)
+    if await _reject_invalid_name(websocket, container_name, _CONTAINER_NAME_RE, "container_name", "error: invalid container name"):
         return
 
     conn = await pool.get_connection(server_id)
@@ -243,17 +270,4 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
     finally:
         manager.disconnect(websocket)
         logger.info(f"Closing terminal session for {container_name}")
-        if read_task:
-            try:
-                read_task.cancel()
-            except Exception:
-                pass
-        if process:
-            try:
-                process.kill()
-            except Exception:
-                pass
-            try:
-                await process.wait(check=False)
-            except Exception:
-                pass
+        await _cleanup_terminal(read_task, process)

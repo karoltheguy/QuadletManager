@@ -439,6 +439,48 @@ async def _record_unit_events(server_id: int, unit_states_by_scope: dict) -> Non
             )
 
 
+def _scope_stat_tasks(server_id: int, scope_filter: str):
+    """Return (tasks, scope_labels) for the scopes this server is configured for."""
+    tasks = []
+    scope_labels = []
+    if scope_filter in ("both", "user"):
+        tasks.append(_fetch_scope_stats(server_id, rootful=False))
+        scope_labels.append("user")
+    if scope_filter in ("both", "global"):
+        tasks.append(_fetch_scope_stats(server_id, rootful=True))
+        scope_labels.append("global")
+    return tasks, scope_labels
+
+
+def _merge_scope_results(scope_labels, results):
+    """Return (containers, unit_states_by_scope) merged across scopes."""
+    seen: dict[str, dict] = {}
+    unit_states_by_scope: dict[str, dict] = {}
+    for scope_label, scope_result in zip(scope_labels, results):
+        for c in scope_result.containers:
+            if c["name"] not in seen:
+                seen[c["name"]] = c
+        unit_states_by_scope[scope_label] = scope_result.unit_states
+    containers = list(seen.values())
+    return containers, unit_states_by_scope
+
+
+def _build_unit_rows(unit_states_by_scope: dict) -> list[dict]:
+    """Return the flattened unit rows for a stats_update payload."""
+    return [
+        {
+            "unit": unit_name,
+            "scope": scope_label,
+            "load_state": state.get("load_state"),
+            "active_state": state.get("active_state"),
+            "sub_state": state.get("sub_state"),
+            "n_restarts": state.get("n_restarts", 0),
+        }
+        for scope_label, unit_states in unit_states_by_scope.items()
+        for unit_name, state in unit_states.items()
+    ]
+
+
 async def fetch_server_stats():
     """Polls all registered servers for Podman stats and pushes via SSE."""
     async with get_db_connection() as db:
@@ -451,37 +493,12 @@ async def fetch_server_stats():
         scope_filter = server[2] if len(server) > 2 else "both"
         try:
             # Fetch containers only for the scopes configured on this server.
-            tasks = []
-            scope_labels = []
-            if scope_filter in ("both", "user"):
-                tasks.append(_fetch_scope_stats(server_id, rootful=False))
-                scope_labels.append("user")
-            if scope_filter in ("both", "global"):
-                tasks.append(_fetch_scope_stats(server_id, rootful=True))
-                scope_labels.append("global")
+            tasks, scope_labels = _scope_stat_tasks(server_id, scope_filter)
 
             results = await asyncio.gather(*tasks)
-            seen: dict[str, dict] = {}
-            unit_states_by_scope: dict[str, dict] = {}
-            for scope_label, scope_result in zip(scope_labels, results):
-                for c in scope_result.containers:
-                    if c["name"] not in seen:
-                        seen[c["name"]] = c
-                unit_states_by_scope[scope_label] = scope_result.unit_states
-            containers = list(seen.values())
+            containers, unit_states_by_scope = _merge_scope_results(scope_labels, results)
 
-            units = [
-                {
-                    "unit": unit_name,
-                    "scope": scope_label,
-                    "load_state": state.get("load_state"),
-                    "active_state": state.get("active_state"),
-                    "sub_state": state.get("sub_state"),
-                    "n_restarts": state.get("n_restarts", 0),
-                }
-                for scope_label, unit_states in unit_states_by_scope.items()
-                for unit_name, state in unit_states.items()
-            ]
+            units = _build_unit_rows(unit_states_by_scope)
 
             await publisher.publish("stats_update", {
                 "server_id": server_id,
