@@ -257,13 +257,28 @@ async def wait_for_active_state(
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def podman_target():
     """Target coordinates, or skip if nothing is listening.
 
     Skipping rather than failing matches the house convention in
     tests/test_ssh_systemd_integration.py: a developer without the test host up
     should get a skip, not a wall of red.
+
+    Session-scoped for the probe below, not for the dict. The probe opens a TCP
+    connection to sshd and closes it without ever speaking SSH, which is
+    exactly what OpenSSH's PerSourcePenalties counts and penalises, and every
+    client in CI shares one source address behind the compose bridge. At
+    function scope this ran once per test, roughly forty unauthenticated
+    connections per session, and the accrued penalty passed sshd's drop
+    threshold partway through the run: the last few tests then failed in
+    asyncssh with `ConnectionLost` while everything before them passed. One
+    probe per session is all this was ever meant to be. Dockerfile.podman-host
+    also switches the penalty off, and the reasoning is written out there.
+
+    The returned dict is read-only in every consumer, so sharing one across the
+    session costs nothing. Keep it that way; a test that mutates it now leaks
+    into every test after it.
     """
     refuse_parallel_execution()
     host, port = target_host_port()
