@@ -137,7 +137,7 @@ def test_editor_pane_teardown_calls_detach_function():
     dispose_editor_match = re.search(r"window\.editor\.dispose\(\)", html)
     assert dispose_editor_match, "Expected window.editor.dispose() to still be present."
     teardown_block = html[: dispose_editor_match.start()]
-    assert "window._quadletLintDetach" in teardown_block and "(" in teardown_block, (
+    assert "window._quadletLintDetach(" in teardown_block, (
         "Expected window._quadletLintDetach() to be invoked in the teardown block, ahead "
         "of window.editor.dispose(), so a pending debounced lint cannot fire against a "
         "disposed model."
@@ -152,7 +152,16 @@ def test_editor_pane_does_not_reuse_quadlet_owner_string():
         "guard below is actually exercised. Without this call, quadlet-lint never runs "
         "in the editor."
     )
-    assert "'quadlet'" not in html and '"quadlet"' not in html, (
+    assert "'quadlet'" not in html, (
+        "editor_pane.html must not pass the marker owner string 'quadlet' to "
+        "attachQuadletLint (or setModelMarkers). That owner string belongs to the "
+        "server-validate path at static/main.js:2779 (monaco.editor.setModelMarkers"
+        "(window.editor.getModel(), 'quadlet', markers)); sharing it with the client-side "
+        "quadlet-lint path would make each run wipe the other's markers via "
+        "setModelMarkers' owner-scoped replace semantics. attachQuadletLint should be "
+        "called without an owner override so it uses its own 'quadlet-lint' owner."
+    )
+    assert '"quadlet"' not in html, (
         "editor_pane.html must not pass the marker owner string 'quadlet' to "
         "attachQuadletLint (or setModelMarkers). That owner string belongs to the "
         "server-validate path at static/main.js:2779 (monaco.editor.setModelMarkers"

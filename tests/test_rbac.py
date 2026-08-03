@@ -25,9 +25,10 @@ async def test_viewer_cannot_save():
 
     role = "viewer"
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await save_file(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             file_path="/fake/path",
             scope="user",
@@ -48,9 +49,10 @@ async def test_viewer_cannot_create():
 
     role = "viewer"
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await create_new_quadlet(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             scope="user",
             quadlet_type="container",
@@ -265,9 +267,10 @@ async def test_delete_server_triggers_navigator_refresh(mock_db, mock_list_serve
 async def test_viewer_cannot_add_server(mock_db, mock_list_servers):
     from api.routes import settings_add_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_add_server(
-            request=MagicMock(),
+            request=request,
             name="test-server",
             ip_address="192.168.1.1",
             ssh_user="ubuntu",
@@ -286,9 +289,10 @@ async def test_viewer_cannot_add_server(mock_db, mock_list_servers):
 async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool):
     from api.routes import settings_delete_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_delete_server(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             role="viewer",
             is_admin=False,
@@ -308,9 +312,10 @@ async def test_viewer_cannot_delete_server(mock_db, mock_list_servers, mock_pool
 async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers):
     from api.routes import settings_add_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_add_server(
-            request=MagicMock(),
+            request=request,
             name="test-server",
             ip_address="1.2.3.4",
             ssh_user="ubuntu",
@@ -329,9 +334,10 @@ async def test_non_admin_editor_cannot_add_server(mock_db, mock_list_servers):
 async def test_non_admin_editor_cannot_delete_server(mock_db, mock_list_servers, mock_pool):
     from api.routes import settings_delete_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_delete_server(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             role="editor",
             is_admin=False,
@@ -364,9 +370,10 @@ async def test_non_admin_editor_cannot_list_users(mock_db):
 async def test_non_admin_editor_cannot_add_user(mock_db):
     from api.routes import settings_add_user
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_add_user(
-            request=MagicMock(),
+            request=request,
             username="newuser",
             password="pass",
             user_role="viewer",
@@ -382,9 +389,10 @@ async def test_non_admin_editor_cannot_add_user(mock_db):
 async def test_non_admin_editor_cannot_update_user_role(mock_db):
     from api.routes import settings_update_user_role
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_update_user_role(
-            request=MagicMock(),
+            request=request,
             user_id=2,
             user_role="editor",
             role="editor",
@@ -399,9 +407,10 @@ async def test_non_admin_editor_cannot_update_user_role(mock_db):
 async def test_non_admin_editor_cannot_delete_user(mock_db):
     from api.routes import settings_delete_user
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_delete_user(
-            request=MagicMock(),
+            request=request,
             user_id=2,
             role="editor",
             is_admin=False,
@@ -449,9 +458,10 @@ async def test_admin_can_update_server(mock_db, mock_list_servers):
 async def test_non_admin_editor_cannot_update_server(mock_db):
     from api.routes import settings_update_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_update_server(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             name="updated-name",
             ip_address="10.0.0.1",
@@ -468,9 +478,10 @@ async def test_non_admin_editor_cannot_update_server(mock_db):
 async def test_viewer_cannot_update_server(mock_db):
     from api.routes import settings_update_server
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_update_server(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             name="updated-name",
             ip_address="10.0.0.1",
@@ -640,9 +651,10 @@ async def test_admin_cannot_demote_self(mock_db):
 async def test_non_admin_cannot_toggle_admin(mock_db):
     from api.routes import settings_toggle_admin
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await settings_toggle_admin(
-            request=MagicMock(),
+            request=request,
             user_id=2,
             is_admin_target=True,
             role="editor",

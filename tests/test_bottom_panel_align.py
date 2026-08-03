@@ -188,7 +188,11 @@ def _read_css():
 def test_app_container_uses_grid_in_containers_view():
     """body.view-containers .app-container must use CSS grid layout."""
     css = _read_css()
-    assert "view-containers" in css and "display: grid" in css, (
+    assert "view-containers" in css, (
+        "Expected 'body.view-containers .app-container { display: grid; ... }' in style.css "
+        "so the sidebar and workspace column can be laid out independently."
+    )
+    assert "display: grid" in css, (
         "Expected 'body.view-containers .app-container { display: grid; ... }' in style.css "
         "so the sidebar and workspace column can be laid out independently."
     )
@@ -198,7 +202,11 @@ def test_app_container_uses_grid_in_containers_view():
 def test_grid_has_sidebar_column():
     """The CSS grid must use var(--sidebar-width) to size the navigator column."""
     css = _read_css()
-    assert "grid-template-columns" in css and "var(--sidebar-width)" in css, (
+    assert "grid-template-columns" in css, (
+        "Expected grid-template-columns to include var(--sidebar-width) so the navigator "
+        "column tracks the resizable sidebar width."
+    )
+    assert "var(--sidebar-width)" in css, (
         "Expected grid-template-columns to include var(--sidebar-width) so the navigator "
         "column tracks the resizable sidebar width."
     )
@@ -243,7 +251,11 @@ def test_expand_btn_icon_flips_on_expanded():
     assert "bottom-panel-expand-btn::after" in css, (
         "Expected #bottom-panel-expand-btn::after CSS rule for the expand icon."
     )
-    assert "is-expanded" in css and "bottom-panel-expand-btn" in css, (
+    assert "is-expanded" in css, (
+        "Expected an .is-expanded scoped rule for #bottom-panel-expand-btn::after "
+        "to flip the icon direction."
+    )
+    assert "bottom-panel-expand-btn" in css, (
         "Expected an .is-expanded scoped rule for #bottom-panel-expand-btn::after "
         "to flip the icon direction."
     )

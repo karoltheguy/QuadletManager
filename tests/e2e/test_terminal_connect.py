@@ -323,7 +323,10 @@ def test_connect_sends_resize_message(page: Page):
     resize_msgs = [m for m in sent_raw if _is_resize_message(m)]
     assert resize_msgs, f"No resize message sent. Messages: {sent_raw}"
     dims = json.loads(resize_msgs[0])
-    assert dims["cols"] > 0 and dims.get("rows", dims.get("height", 1)) > 0
+    assert dims["cols"] > 0, f"Expected positive cols in resize message, got {dims}"
+    assert dims.get("rows", dims.get("height", 1)) > 0, (
+        f"Expected positive rows/height in resize message, got {dims}"
+    )
 
 
 @pytest.mark.e2e

@@ -84,9 +84,10 @@ async def test_admin_can_list_keys(mock_db):
 async def test_non_admin_cannot_add_key(mock_encrypt, mock_db):
     from api.routes import api_add_key
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await api_add_key(
-            request=MagicMock(),
+            request=request,
             key_name="test-key",
             private_key="-----BEGIN OPENSSH PRIVATE KEY-----", # gitleaks:allow
             key_file=None,
@@ -162,9 +163,10 @@ async def test_add_key_requires_key_content(mock_encrypt, mock_db):
     """POST with no paste and no file must return 400."""
     from api.routes import api_add_key
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await api_add_key(
-            request=MagicMock(),
+            request=request,
             key_name="my-key",
             private_key="",
             key_file=None,
@@ -184,9 +186,10 @@ async def test_add_key_requires_key_content(mock_encrypt, mock_db):
 async def test_non_admin_cannot_delete_key(mock_db):
     from api.routes import api_delete_key
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await api_delete_key(
-            request=MagicMock(),
+            request=request,
             key_id=1,
             is_admin=False,
         )
@@ -234,9 +237,10 @@ async def test_delete_key_in_use_returns_409(mock_db):
     mock_db.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
     mock_db.return_value.__aexit__ = AsyncMock(return_value=False)
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await api_delete_key(
-            request=MagicMock(),
+            request=request,
             key_id=1,
             is_admin=True,
         )
