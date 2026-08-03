@@ -405,8 +405,20 @@ jobs:
       - name: Show podman host diagnostics on failure
         if: ${{ failure() && matrix.compose_profile != '' }}
         run: |
+          # Time bounded, not line bounded. The suite polls the host several
+          # times a second, so by the time this step runs, `-n 200` has already
+          # scrolled past the daemon-reload that ran the quadlet generator. The
+          # global-scope lifecycle failure showed exactly that: e2e-sleep.service
+          # reported LoadState=not-found, and the reason it was never generated
+          # had aged out of the window.
           docker compose -f docker-compose.test.yml exec -T podman-host \
-            journalctl --no-pager -n 200 || true
+            journalctl --no-pager --since "-10min" || true
+          # The generator's own stderr, which is what explains a .container file
+          # that produced no unit. Its syslog identifier varies across podman
+          # versions, so ask for both rather than pinning one.
+          docker compose -f docker-compose.test.yml exec -T podman-host \
+            journalctl --no-pager --since "-10min" \
+              -t podman-system-generator -t quadlet-generator || true
           docker compose -f docker-compose.test.yml exec -T podman-host \
             systemctl --failed --no-pager || true
           # The rootless half of this suite lives or dies with the user manager,
