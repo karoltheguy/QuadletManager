@@ -78,11 +78,21 @@ class SettingsMockDB:
         else:
             cursor.fetchone = AsyncMock(return_value=None)
 
-        async def _aenter():
-            return cursor
-        cursor.__aenter__ = AsyncMock(side_effect=_aenter)
-        cursor.__aexit__ = AsyncMock(return_value=False)
-        return cursor
+        class DualProtocolCM:
+            """Objects returned by aiosqlite execute() support both
+            `async with obj` and `await obj`."""
+            async def __aenter__(self):
+                return cursor
+
+            async def __aexit__(self, *args):
+                return False
+
+            def __await__(self):
+                async def _resolve():
+                    return cursor
+                return _resolve().__await__()
+
+        return DualProtocolCM()
 
 
 @pytest.mark.unit
