@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from fastapi.templating import Jinja2Templates
 import asyncio
 import hashlib
@@ -108,6 +108,14 @@ _session_duration_seconds = global_config.session_timeout
 LOG_LEVEL_SETTING_KEY = "log_level"
 LOG_LEVEL_CHOICES = ("DEBUG", "INFO", "WARNING")
 
+LOGIN_PATH = "/login"
+CHANGE_PASSWORD_PATH = "/change-password"
+ADMIN_REQUIRED_DETAIL = "Admin access required."
+LOGIN_TEMPLATE = "login.html"
+PERMISSION_DENIED_HTML = "<p class='text-muted'>Permission denied.</p>"
+SETTINGS_ADMIN_TEMPLATE = "partials/settings_admin.html"
+SELECT_USERNAME_BY_ID_SQL = "SELECT username FROM users WHERE id = ?"
+
 # Mutable at runtime via PUT /api/settings/log-level; seeded the same way main.py seeds
 # its own startup logging.basicConfig level, until a value is persisted to the settings table.
 _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -143,7 +151,7 @@ async def ensure_session_secret() -> None:
             "SELECT value FROM settings WHERE key = 'session_secret'"
         ) as select_cursor:
             row = await select_cursor.fetchone()
-        resolved = row[0]
+        resolved = row[0] if row else candidate
 
         if insert_cursor.rowcount == 0:
             logger.warning(
@@ -198,12 +206,11 @@ async def _persist_session_duration(seconds: int) -> None:
     """Persist the session duration to the settings table and update the in-memory value."""
     global _session_duration_seconds
     async with get_db_connection() as db:
-        async with db.execute(
+        await db.execute(
             "INSERT INTO settings (key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (SESSION_DURATION_SETTING_KEY, str(seconds)),
-        ):
-            pass
+        )
         await db.commit()
     _session_duration_seconds = seconds
 
@@ -231,12 +238,11 @@ async def _persist_log_level(level: str) -> None:
     """Persist the log level to the settings table, update the in-memory value, and apply it live."""
     global _log_level
     async with get_db_connection() as db:
-        async with db.execute(
+        await db.execute(
             "INSERT INTO settings (key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (LOG_LEVEL_SETTING_KEY, level),
-        ):
-            pass
+        )
         await db.commit()
     _log_level = level
     logging.getLogger("quadlet-manager").setLevel(level)
@@ -252,18 +258,18 @@ async def _get_session(request: Request) -> dict:
 
     cookie = request.cookies.get(COOKIE_NAME)
     if not cookie:
-        raise HTTPException(status_code=303, headers={"Location": "/login"})
+        raise HTTPException(status_code=303, headers={"Location": LOGIN_PATH})
 
     session = _read_session_cookie(cookie)
     if not session:
-        raise HTTPException(status_code=303, headers={"Location": "/login"})
+        raise HTTPException(status_code=303, headers={"Location": LOGIN_PATH})
 
     if (
         session.get("must_change_password")
-        and request.url.path != "/change-password"
+        and request.url.path != CHANGE_PASSWORD_PATH
         and request.url.path != "/logout"
     ):
-        raise HTTPException(status_code=303, headers={"Location": "/change-password"})
+        raise HTTPException(status_code=303, headers={"Location": CHANGE_PASSWORD_PATH})
 
     return session
 
@@ -310,7 +316,7 @@ async def get_current_username(request: Request) -> str:
 async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> None:
     """Verify that the current user has admin privileges, raising 403 if not."""
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
 
 async def get_current_user_id(username: str = Depends(get_current_username)) -> int:
@@ -368,16 +374,16 @@ async def _ensure_default_theme(user_id: int) -> None:
 
 
 # ── Login / Logout ────────────────────────────────────────
-@router.get("/login", response_class=HTMLResponse)
+@router.get(LOGIN_PATH, response_class=HTMLResponse)
 async def login_page(request: Request):
     # If already logged in, redirect to dashboard
     role = await get_optional_user_role(request)
     if role:
         return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse(request, "login.html", {"error": None})
+    return templates.TemplateResponse(request, LOGIN_TEMPLATE, {"error": None})
 
 
-@router.post("/login", response_class=HTMLResponse)
+@router.post(LOGIN_PATH, response_class=HTMLResponse)
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     async with get_db_connection() as db:
         async with db.execute(
@@ -387,7 +393,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
             row = await cursor.fetchone()
 
     if not row:
-        return templates.TemplateResponse(request, "login.html", {
+        return templates.TemplateResponse(request, LOGIN_TEMPLATE, {
             "error": "Invalid username or password"
         }, status_code=401)
 
@@ -406,13 +412,13 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         pass
 
     if not credentials_valid:
-        return templates.TemplateResponse(request, "login.html", {
+        return templates.TemplateResponse(request, LOGIN_TEMPLATE, {
             "error": "Invalid username or password"
         }, status_code=401)
 
     # Credentials valid – set session cookie and redirect to dashboard
     # (or to the forced password-change page, if flagged)
-    redirect_url = "/change-password" if must_change_password else "/"
+    redirect_url = CHANGE_PASSWORD_PATH if must_change_password else "/"
     response = RedirectResponse(url=redirect_url, status_code=303)
     response.set_cookie(
         key=COOKIE_NAME,
@@ -426,24 +432,26 @@ async def login_submit(request: Request, username: str = Form(...), password: st
 
 @router.get("/logout")
 async def logout():
-    response = RedirectResponse(url="/login", status_code=303)
+    response = RedirectResponse(url=LOGIN_PATH, status_code=303)
     response.delete_cookie(COOKIE_NAME)
     return response
 
 
-@router.get("/change-password", response_class=HTMLResponse)
-async def change_password_page(request: Request):
-    await _get_session(request)
+@router.get(CHANGE_PASSWORD_PATH, response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
+async def change_password_page(
+    request: Request, 
+    session: Annotated[dict, Depends(_get_session)],
+):
     return templates.TemplateResponse(request, "change_password.html", {"error": None})
 
 
-@router.post("/change-password", response_class=HTMLResponse)
+@router.post(CHANGE_PASSWORD_PATH, response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def change_password_submit(
     request: Request,
-    new_password: str = Form(...),
-    confirm_password: str = Form(...),
+    new_password: Annotated[str, Form(...)],
+    confirm_password: Annotated[str, Form(...)],
+    session: Annotated[dict, Depends(_get_session)],
 ):
-    session = await _get_session(request)
 
     if not new_password or new_password != confirm_password:
         return templates.TemplateResponse(request, "change_password.html", {
@@ -910,7 +918,7 @@ async def settings_add_server(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
     if scope_filter not in VALID_SCOPE_FILTERS:
         raise HTTPException(status_code=422, detail="scope_filter must be 'user', 'global', or 'both'.")
 
@@ -944,7 +952,7 @@ async def settings_update_server(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
     if scope_filter not in VALID_SCOPE_FILTERS:
         raise HTTPException(status_code=422, detail="scope_filter must be 'user', 'global', or 'both'.")
 
@@ -968,7 +976,7 @@ async def settings_delete_server(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     # Close cached SSH connection if present
     pool.connections.pop(server_id, None)
@@ -1002,7 +1010,7 @@ async def settings_repin_server_host_key(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     # Drop the cached SSH connection so the next connect performs a fresh
     # handshake against whatever key the server presents.
@@ -1029,7 +1037,7 @@ async def settings_reorder_servers(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     body = await request.json()
     order = body.get("order", [])
@@ -1060,9 +1068,9 @@ async def settings_get_session_duration(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+        return HTMLResponse(PERMISSION_DENIED_HTML, status_code=403)
 
-    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+    return templates.TemplateResponse(request, SETTINGS_ADMIN_TEMPLATE, {
         "current_seconds": _session_duration_seconds,
         "duration_choices": SESSION_DURATION_LABELS,
         "current_log_level": _log_level,
@@ -1078,13 +1086,13 @@ async def settings_update_session_duration(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     if session_duration_seconds not in SESSION_DURATION_CHOICES:
         raise HTTPException(status_code=400, detail="Invalid session duration.")
 
     await _persist_session_duration(session_duration_seconds)
-    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+    return templates.TemplateResponse(request, SETTINGS_ADMIN_TEMPLATE, {
         "current_seconds": _session_duration_seconds,
         "duration_choices": SESSION_DURATION_LABELS,
         "current_log_level": _log_level,
@@ -1099,9 +1107,9 @@ async def settings_get_log_level(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+        return HTMLResponse(PERMISSION_DENIED_HTML, status_code=403)
 
-    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+    return templates.TemplateResponse(request, SETTINGS_ADMIN_TEMPLATE, {
         "current_seconds": _session_duration_seconds,
         "duration_choices": SESSION_DURATION_LABELS,
         "current_log_level": _log_level,
@@ -1117,13 +1125,13 @@ async def settings_update_log_level(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     if log_level not in LOG_LEVEL_CHOICES:
         raise HTTPException(status_code=400, detail="Invalid log level.")
 
     await _persist_log_level(log_level)
-    return templates.TemplateResponse(request, "partials/settings_admin.html", {
+    return templates.TemplateResponse(request, SETTINGS_ADMIN_TEMPLATE, {
         "current_seconds": _session_duration_seconds,
         "duration_choices": SESSION_DURATION_LABELS,
         "current_log_level": _log_level,
@@ -1140,7 +1148,7 @@ async def settings_list_users(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+        return HTMLResponse(PERMISSION_DENIED_HTML, status_code=403)
 
     session = await _get_session(request)
     async with get_db_connection() as db:
@@ -1165,7 +1173,7 @@ async def settings_add_user(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     if user_role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role.")
@@ -1196,7 +1204,7 @@ async def settings_update_user_role(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     if user_role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role.")
@@ -1204,7 +1212,7 @@ async def settings_update_user_role(
     session = await _get_session(request)
     async with get_db_connection() as db:
         # Prevent demoting yourself
-        async with db.execute("SELECT username FROM users WHERE id = ?", (user_id,)) as cursor:
+        async with db.execute(SELECT_USERNAME_BY_ID_SQL, (user_id,)) as cursor:
             row = await cursor.fetchone()
         if row and row[0] == session["username"]:
             return HTMLResponse(
@@ -1237,11 +1245,11 @@ async def settings_toggle_admin(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     session = await _get_session(request)
     async with get_db_connection() as db:
-        async with db.execute("SELECT username FROM users WHERE id = ?", (user_id,)) as cursor:
+        async with db.execute(SELECT_USERNAME_BY_ID_SQL, (user_id,)) as cursor:
             row = await cursor.fetchone()
         if row and row[0] == session["username"]:
             return HTMLResponse(
@@ -1276,12 +1284,12 @@ async def settings_delete_user(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     session = await _get_session(request)
     async with get_db_connection() as db:
         # Prevent self-deletion
-        async with db.execute("SELECT username FROM users WHERE id = ?", (user_id,)) as cursor:
+        async with db.execute(SELECT_USERNAME_BY_ID_SQL, (user_id,)) as cursor:
             row = await cursor.fetchone()
         if row and row[0] == session["username"]:
             return HTMLResponse(
@@ -1631,7 +1639,7 @@ async def api_list_keys(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        return HTMLResponse("<p class='text-muted'>Permission denied.</p>", status_code=403)
+        return HTMLResponse(PERMISSION_DENIED_HTML, status_code=403)
 
     async with get_db_connection() as db:
         async with db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
@@ -1651,7 +1659,7 @@ async def api_add_key(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     if key_file and key_file.filename:
         raw = await key_file.read()
@@ -1681,7 +1689,7 @@ async def api_delete_key(
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     async with get_db_connection() as db:
         async with db.execute(

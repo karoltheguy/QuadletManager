@@ -25,6 +25,7 @@ from api.routes import router as web_router
 # Dependencies that reject cookieless requests (all raise a 303 redirect to
 # /login via _get_session when no valid session cookie is present).
 AUTH_ENFORCING_DEPS = {
+    routes_module._get_session,
     routes_module.get_current_user_role,
     routes_module.get_current_user_is_admin,
     routes_module.get_current_user_id,
