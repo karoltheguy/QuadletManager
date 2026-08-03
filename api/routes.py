@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional
 from fastapi.templating import Jinja2Templates
 import asyncio
 import hashlib
@@ -46,19 +46,19 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 # unreadable, so the schema has to admit the redirect. The dicts below compose
 # off this one rather than restating the 303, which keeps the wording single-
 # sourced; tests/test_api_auth_sweep.py pins the code to the actual raise.
-AUTH_REDIRECT_RESPONSES: Dict[Union[int, str], Dict[str, Any]] = {
+AUTH_REDIRECT_RESPONSES: dict[int | str, dict[str, Any]] = {
     303: {"description": "No valid session; redirect to /login"},
 }
 
 # Documented responses for the routes that confine a caller-supplied path to the
 # scope's quadlet directory via ensure_within_quadlet_dir.
-PATH_CONFINED_RESPONSES: Dict[Union[int, str], Dict[str, Any]] = {
+PATH_CONFINED_RESPONSES: dict[int | str, dict[str, Any]] = {
     **AUTH_REDIRECT_RESPONSES,
     400: {"description": "Path is outside the quadlet directory for the given scope"},
 }
 
 # Same, for the ones that also require the editor role.
-EDITOR_PATH_CONFINED_RESPONSES: Dict[Union[int, str], Dict[str, Any]] = {
+EDITOR_PATH_CONFINED_RESPONSES: dict[int | str, dict[str, Any]] = {
     **PATH_CONFINED_RESPONSES,
     403: {"description": "Viewer role cannot modify files"},
 }
