@@ -226,6 +226,20 @@ RUN chown narrow:narrow /home/narrow/.ssh/authorized_keys \
 # auth is pam_permit because publickey auth never reaches it, and the drop-in
 # below turns off every interactive method so it cannot be reached at all.
 #
+# PerSourcePenalties is off because this suite trips it. OpenSSH 9.8 added it
+# and Fedora ships it enabled, so sshd charges a source address one penalty
+# second per TCP connection that closes without attempting authentication and
+# starts dropping connections outright once the accrued total passes the
+# default 15s floor. Every client here is behind the compose bridge and so
+# shares one source address, 172.18.0.1, which makes the whole suite a single
+# offender. The observed failure was the last two or three tests of a green run
+# dying in asyncssh with `ConnectionLost`, and the sshd journal naming the
+# cause: `drop connection #0 ... penalty: connections without attempting
+# authentication`. tests/podman/conftest.py cut its share of those probes from
+# one per test to one per session at the same time; both changes are needed,
+# because a rate limiter that a full run can still reach is a rate limiter that
+# will fire again the next time the suite grows.
+#
 # The assertion reads `sshd -G`, not `sshd -T`, and the difference matters twice.
 # -T refuses to run without a host key, and this image has none until
 # sshd-keygen makes them at first boot, so the -T form had to generate a
@@ -252,12 +266,14 @@ RUN printf '%s\n' \
     && printf '%s\n' \
         'PasswordAuthentication no' \
         'KbdInteractiveAuthentication no' \
+        'PerSourcePenalties no' \
     > /etc/ssh/sshd_config.d/00-quadlet-test.conf \
     && effective="$(/usr/sbin/sshd -G \
-         | grep -iE '^(usepam|passwordauthentication|kbdinteractiveauthentication) ')" \
+         | grep -iE '^(usepam|passwordauthentication|kbdinteractiveauthentication|persourcepenalties) ')" \
     && { printf '%s\n' "$effective" | grep -qx 'usepam yes' \
          && printf '%s\n' "$effective" | grep -qx 'passwordauthentication no' \
          && printf '%s\n' "$effective" | grep -qx 'kbdinteractiveauthentication no' \
+         && printf '%s\n' "$effective" | grep -qx 'persourcepenalties no' \
          || ( echo "unexpected effective sshd config:"; printf '%s\n' "$effective"; \
               exit 1 ); } \
     && systemctl enable sshd
