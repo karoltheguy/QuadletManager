@@ -1362,12 +1362,10 @@ body {
     transition: color 0.2s ease, box-shadow 0.25s ease, transform 0.15s ease;
 }
 .nav-item:hover {
-    background-color: var(--bg-element);
     color: var(--text-primary);
     background: transparent;
 }
 .nav-item.active {
-    border-bottom-color: var(--brand-primary);
     color: var(--brand-primary);
     box-shadow: var(--shadow-inset);
     border-bottom: none;
@@ -1635,7 +1633,6 @@ body.bottom-panel-expanded #navigator {
 /* Resize handles disappear into the gap */
 .resize-handle {
     flex-shrink: 0;
-    background-color: var(--border-color);
     cursor: col-resize;
     position: relative;
     transition: background-color 0.15s ease;
@@ -1645,7 +1642,6 @@ body.bottom-panel-expanded #navigator {
 }
 .resize-handle:hover,
 .resize-handle.dragging {
-    background-color: var(--brand-primary);
     background: var(--brand-primary);
     border-radius: 999px;
     box-shadow: none;
@@ -1683,22 +1679,18 @@ body.bottom-panel-expanded #navigator {
     color: var(--brand-hover);
 }
 .btn-success {
-    background-color: var(--success);
     color: var(--success);
     background: var(--bg-surface);
 }
 .btn-danger {
-    background-color: var(--danger);
     color: var(--danger);
     background: var(--bg-surface);
 }
 .btn-warning {
-    background-color: var(--warning);
     color: var(--warning);
     background: var(--bg-surface);
 }
 .btn-secondary {
-    background-color: var(--bg-element);
     padding: 0.5rem 1rem;
     background: var(--bg-surface);
     color: var(--text-muted);
