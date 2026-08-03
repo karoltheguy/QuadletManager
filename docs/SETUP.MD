@@ -38,27 +38,42 @@ written out a second time, and `tests/test_sudo_allowlist_sync.py` fails if this
 copy drifts from the file above:
 
 ```bash
-# Allow agent to execute daemon-reload and interact with services
+# Reload units after a write, and drive the units themselves.
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/systemctl show *
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u *
 
-# Allow agent to write files exclusively into the quadlet directory via tee
+# Write quadlet files, and nothing outside the quadlet directory.
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/containers/systemd/*
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/rm -f /etc/containers/systemd/*
 
-# Allow agent to read resource usage for global-scope containers
+# List and read what's already on disk.
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/find /etc/containers/systemd -type f -maxdepth 1
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/cat /etc/containers/systemd/*
+
+# Two literal stat shapes rather than one -c * rule, so the format string
+# can't be anything a caller likes: a single path, and a batch form.
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/stat -c %Y /etc/containers/systemd/*
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/stat -c %n\ %Y /etc/containers/systemd/*
+
+# The only shape this call site ever emits, so no wildcard is needed.
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/mkdir -p /etc/containers/systemd
+
+# Read resource usage for global-scope containers.
 quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman stats *
-```
 
-> **Known gap.** These rules are not currently sufficient. The app runs about
-> twice as many commands under `sudo` than they permit, so several global-scope
-> features fail on a server set up exactly as above. See
-> [issue #289](https://github.com/karoltheguy/QuadletManager/issues/289) and
-> [SUDO_PERMISSIONS.md](SUDO_PERMISSIONS.md), which records the full list and is
-> the source these rules are copied from.
+# List running containers. Also the only shape this call site emits.
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman ps --format json
+
+# Drive global-scope pods.
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman pod start *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman pod stop *
+quadlet-agent ALL=(ALL) NOPASSWD: /usr/bin/podman pod restart *
+```
 
 ## 4. Installation
 Before running the application, you need to set up a Python virtual environment and install the required dependencies:

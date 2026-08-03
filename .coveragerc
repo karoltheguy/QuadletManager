@@ -1,9 +1,13 @@
 [run]
+# Entries here are directories or importable module names, never file paths.
+# `main.py` read as a module name, found nothing, and cost us every line of
+# main.py in the report while warning about it on each run. `main` is the
+# module test modules already import, so it measures.
 source =
     api
     core
     services
-    main.py
+    main
 omit =
     .venv/*
     venv/*

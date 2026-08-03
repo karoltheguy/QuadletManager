@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse, Response
-from typing import Optional
+from typing import Any, Optional
 from fastapi.templating import Jinja2Templates
 import asyncio
 import hashlib
@@ -19,7 +19,7 @@ from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool, SSHCommandError, SSHTimeoutError
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
-from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
+from services.remote_fs import ensure_within_quadlet_dir, is_global_scope, quadlet_dir_for_scope, write_remote_file
 from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
 from services.quadlet_validator import validate_remote
@@ -40,6 +40,28 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+
+# Every route behind an auth dependency can answer this instead of running:
+# _get_session raises a 303 to /login when the session cookie is missing or
+# unreadable, so the schema has to admit the redirect. The dicts below compose
+# off this one rather than restating the 303, which keeps the wording single-
+# sourced; tests/test_api_auth_sweep.py pins the code to the actual raise.
+AUTH_REDIRECT_RESPONSES: dict[int | str, dict[str, Any]] = {
+    303: {"description": "No valid session; redirect to /login"},
+}
+
+# Documented responses for the routes that confine a caller-supplied path to the
+# scope's quadlet directory via ensure_within_quadlet_dir.
+PATH_CONFINED_RESPONSES: dict[int | str, dict[str, Any]] = {
+    **AUTH_REDIRECT_RESPONSES,
+    400: {"description": "Path is outside the quadlet directory for the given scope"},
+}
+
+# Same, for the ones that also require the editor role.
+EDITOR_PATH_CONFINED_RESPONSES: dict[int | str, dict[str, Any]] = {
+    **PATH_CONFINED_RESPONSES,
+    403: {"description": "Viewer role cannot modify files"},
+}
 
 
 def _asset_version(filename: str) -> int:
@@ -452,7 +474,7 @@ async def change_password_submit(
 
 
 # ── Dashboard ─────────────────────────────────────────────
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def dashboard_view(
     request: Request,
     role: str = Depends(get_current_user_role),
@@ -474,7 +496,7 @@ async def dashboard_view(
         "static_style_css_version": _asset_version("style.css"),
     })
 
-@router.get("/api/servers", response_class=HTMLResponse)
+@router.get("/api/servers", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_servers(request: Request, role: str = Depends(get_current_user_role)):
     async with get_db_connection() as db:
         async with db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
@@ -485,7 +507,7 @@ async def api_servers(request: Request, role: str = Depends(get_current_user_rol
         "user_role": role,
     })
 
-@router.get("/api/overview", response_class=HTMLResponse)
+@router.get("/api/overview", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_overview(request: Request, role: str = Depends(get_current_user_role)):
     """Return the fleet-level overview partial for HTMX polling."""
     async with get_db_connection() as db:
@@ -545,7 +567,7 @@ async def api_overview(request: Request, role: str = Depends(get_current_user_ro
     })
 
 
-@router.get("/api/quadlets/{server_id}", response_class=HTMLResponse)
+@router.get("/api/quadlets/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depends(get_current_user_role)):
     try:
         async with get_db_connection() as db:
@@ -563,8 +585,13 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
         logger.error(f"Error fetching quadlets: {e}")
         return HTMLResponse("<div class='text-red-500 text-xs'>Error loading files</div>")
 
-@router.get("/api/file/{server_id}", response_class=HTMLResponse)
+@router.get("/api/file/{server_id}", response_class=HTMLResponse, responses=PATH_CONFINED_RESPONSES)
 async def fetch_file(request: Request, server_id: int, path: str, scope: str, name: str, role: str = Depends(get_current_user_role)):
+    try:
+        ensure_within_quadlet_dir(path, scope)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
+
     use_sudo = is_global_scope(scope)
     cmd = f"cat {shlex.quote(path)}"
     try:
@@ -593,7 +620,7 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
         logger.error(f"Error fetching file: {e}")
         return HTMLResponse("<div class='text-red-500 p-4'>Failed to load file content</div>")
 
-@router.post("/api/save", response_class=HTMLResponse)
+@router.post("/api/save", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def save_file(
     request: Request,
     server_id: int = Form(...),
@@ -605,6 +632,11 @@ async def save_file(
 ):
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot save files.")
+
+    try:
+        ensure_within_quadlet_dir(file_path, scope)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
 
     quadlet_type = quadlet_type_of(file_path)
     if quadlet_type in ('container', 'volume', 'network', 'pod', 'kube'):
@@ -657,7 +689,7 @@ async def save_file(
         ref = _log_error_ref("Save failed", e)
         return _toast(request, "red", f"Failed to save (ref: {ref})")
 
-@router.post("/api/validate/{server_id}")
+@router.post("/api/validate/{server_id}", responses=AUTH_REDIRECT_RESPONSES)
 async def validate_quadlet(
     server_id: int,
     file_path: str = Form(...),
@@ -673,7 +705,7 @@ async def validate_quadlet(
         ref = _log_error_ref("Validation failed", e)
         return JSONResponse({"error": f"Validation failed (ref: {ref})"}, status_code=502)
 
-@router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse)
+@router.get("/api/systemctl/status/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str = Depends(get_current_user_role)):
     try:
         output = await systemctl_action(server_id, "status", unit, scope)
@@ -682,7 +714,7 @@ async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str 
         ref = _log_error_ref("Error fetching systemctl status", e)
         return HTMLResponse(f"Failed to get status (ref: {ref})")
 
-@router.post("/api/systemctl/{server_id}", response_class=HTMLResponse)
+@router.post("/api/systemctl/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_systemctl_post(
     request: Request,
     server_id: int,
@@ -710,7 +742,7 @@ async def api_systemctl_post(
         logger.error(f"Systemctl action '{action}' failed: {e}")
         return HTMLResponse("Action failed")
 
-@router.post("/api/pod-action/{server_id}", response_class=HTMLResponse)
+@router.post("/api/pod-action/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_pod_action(
     request: Request,
     server_id: int,
@@ -742,11 +774,11 @@ async def api_pod_action(
         logger.error(f"Pod action '{action}' failed: {e}")
         return HTMLResponse("Pod action failed")
 
-@router.get("/api/events")
+@router.get("/api/events", responses=AUTH_REDIRECT_RESPONSES)
 async def sse_events(request: Request, role: str = Depends(get_current_user_role)):
     return StreamingResponse(publisher.event_generator(request), media_type="text/event-stream")
 
-@router.get("/api/activity/{server_id}")
+@router.get("/api/activity/{server_id}", responses=AUTH_REDIRECT_RESPONSES)
 async def get_activity(server_id: int, container: str, limit: int = 10, role: str = Depends(get_current_user_role)):
     """Fetch container activity events."""
     try:
@@ -757,7 +789,7 @@ async def get_activity(server_id: int, container: str, limit: int = 10, role: st
         logger.error(f"Failed to fetch activity: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch activity")
 
-@router.get("/api/modal/new", response_class=HTMLResponse)
+@router.get("/api/modal/new", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def new_file_modal(request: Request, server_id: int | None = None, role: str = Depends(get_current_user_role)):
     if role != "editor":
         return HTMLResponse("<div class='bg-red-600 p-2 rounded'>Permission denied</div>", status_code=403)
@@ -771,7 +803,7 @@ async def new_file_modal(request: Request, server_id: int | None = None, role: s
         "preselected_server_id": server_id,
     })
 
-@router.post("/api/create", response_class=HTMLResponse)
+@router.post("/api/create", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def create_new_quadlet(
     request: Request,
     server_id: int = Form(...),
@@ -793,17 +825,23 @@ async def create_new_quadlet(
     try:
         target_dir = await quadlet_dir_for_scope(server_id, scope)
         file_path = f"{target_dir}/{file_name}"
+        try:
+            ensure_within_quadlet_dir(file_path, scope)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
         await pool.execute_command(server_id, f"mkdir -p {shlex.quote(target_dir)}", use_sudo=use_sudo)
         await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
 
         response = _toast(request, "green", f"Created {file_name}!")
         response.headers["HX-Trigger"] = "reload-servers"
         return response
+    except HTTPException:
+        raise
     except Exception as e:
         ref = _log_error_ref("Failed to create quadlet", e)
         return _toast(request, "red", f"Creation Failed (ref: {ref})")
 
-@router.get("/api/health/history/{server_id}")
+@router.get("/api/health/history/{server_id}", responses=AUTH_REDIRECT_RESPONSES)
 async def api_health_history(server_id: int, minutes: int = 60, role: str = Depends(get_current_user_role)):
     """Return per-container health history for the last N minutes."""
     cutoff = int(time.time()) - minutes * 60
@@ -832,13 +870,13 @@ async def api_health_history(server_id: int, minutes: int = 60, role: str = Depe
     return JSONResponse(list(containers.values()))
 
 
-@router.get("/api/poll-health")
+@router.get("/api/poll-health", responses=AUTH_REDIRECT_RESPONSES)
 async def api_poll_health(role: str = Depends(get_current_user_role)):
     """Return the poll health tracker's current snapshot."""
     return JSONResponse(sync_engine.health_tracker.snapshot())
 
 
-@router.get("/api/settings/servers", response_class=HTMLResponse)
+@router.get("/api/settings/servers", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_list_servers(
     request: Request,
     role: str = Depends(get_current_user_role),
@@ -860,7 +898,7 @@ async def settings_list_servers(
 
 VALID_SCOPE_FILTERS = {"user", "global", "both"}
 
-@router.post("/api/settings/servers", response_class=HTMLResponse)
+@router.post("/api/settings/servers", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_add_server(
     request: Request,
     name: str = Form(...),
@@ -894,7 +932,7 @@ async def settings_add_server(
     return response
 
 
-@router.put("/api/settings/servers/{server_id}", response_class=HTMLResponse)
+@router.put("/api/settings/servers/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_update_server(
     request: Request,
     server_id: int,
@@ -922,7 +960,7 @@ async def settings_update_server(
     return response
 
 
-@router.delete("/api/settings/servers/{server_id}", response_class=HTMLResponse)
+@router.delete("/api/settings/servers/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_delete_server(
     request: Request,
     server_id: int,
@@ -956,7 +994,7 @@ async def settings_delete_server(
     return response
 
 
-@router.post("/api/settings/servers/{server_id}/repin-host-key", response_class=HTMLResponse)
+@router.post("/api/settings/servers/{server_id}/repin-host-key", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_repin_server_host_key(
     request: Request,
     server_id: int,
@@ -984,7 +1022,7 @@ async def settings_repin_server_host_key(
     return response
 
 
-@router.patch("/api/settings/servers/reorder", response_class=HTMLResponse)
+@router.patch("/api/settings/servers/reorder", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_reorder_servers(
     request: Request,
     role: str = Depends(get_current_user_role),
@@ -1016,7 +1054,7 @@ async def settings_reorder_servers(
 
 
 # ── Admin Settings ─────────────────────────────────────────
-@router.get("/api/settings/session-duration", response_class=HTMLResponse)
+@router.get("/api/settings/session-duration", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_get_session_duration(
     request: Request,
     is_admin: bool = Depends(get_current_user_is_admin),
@@ -1033,7 +1071,7 @@ async def settings_get_session_duration(
     })
 
 
-@router.put("/api/settings/session-duration", response_class=HTMLResponse)
+@router.put("/api/settings/session-duration", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_update_session_duration(
     request: Request,
     session_duration_seconds: int = Form(...),
@@ -1055,7 +1093,7 @@ async def settings_update_session_duration(
     })
 
 
-@router.get("/api/settings/log-level", response_class=HTMLResponse)
+@router.get("/api/settings/log-level", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_get_log_level(
     request: Request,
     is_admin: bool = Depends(get_current_user_is_admin),
@@ -1072,7 +1110,7 @@ async def settings_get_log_level(
     })
 
 
-@router.put("/api/settings/log-level", response_class=HTMLResponse)
+@router.put("/api/settings/log-level", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_update_log_level(
     request: Request,
     log_level: str = Form(...),
@@ -1095,7 +1133,7 @@ async def settings_update_log_level(
 
 
 # ── User Management ───────────────────────────────────────
-@router.get("/api/settings/users", response_class=HTMLResponse)
+@router.get("/api/settings/users", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_list_users(
     request: Request,
     role: str = Depends(get_current_user_role),
@@ -1116,7 +1154,7 @@ async def settings_list_users(
     })
 
 
-@router.post("/api/settings/users", response_class=HTMLResponse)
+@router.post("/api/settings/users", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_add_user(
     request: Request,
     username: str = Form(...),
@@ -1149,7 +1187,7 @@ async def settings_add_user(
     return await settings_list_users(request, role, is_admin=True)
 
 
-@router.put("/api/settings/users/{user_id}", response_class=HTMLResponse)
+@router.put("/api/settings/users/{user_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_update_user_role(
     request: Request,
     user_id: int,
@@ -1190,7 +1228,7 @@ async def settings_update_user_role(
     return response
 
 
-@router.put("/api/settings/users/{user_id}/admin", response_class=HTMLResponse)
+@router.put("/api/settings/users/{user_id}/admin", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_toggle_admin(
     request: Request,
     user_id: int,
@@ -1230,7 +1268,7 @@ async def settings_toggle_admin(
     return response
 
 
-@router.delete("/api/settings/users/{user_id}", response_class=HTMLResponse)
+@router.delete("/api/settings/users/{user_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_delete_user(
     request: Request,
     user_id: int,
@@ -1363,13 +1401,13 @@ async def _settings_themes_response(request: Request, user_id: int) -> HTMLRespo
     )
 
 
-@router.get("/api/settings/themes", response_class=HTMLResponse)
+@router.get("/api/settings/themes", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_list_themes(request: Request, user_id: int = Depends(get_current_user_id)):
     await _ensure_default_theme(user_id)
     return await _settings_themes_response(request, user_id)
 
 
-@router.post("/api/settings/themes", response_class=HTMLResponse)
+@router.post("/api/settings/themes", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_create_theme(
     request: Request,
     theme_name: str = Form(...),
@@ -1404,7 +1442,7 @@ async def settings_create_theme(
     return await _settings_themes_response(request, user_id)
 
 
-@router.put("/api/settings/themes/{theme_id}", response_class=HTMLResponse)
+@router.put("/api/settings/themes/{theme_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_update_theme(
     request: Request,
     theme_id: int,
@@ -1439,7 +1477,7 @@ async def settings_update_theme(
     return await _settings_themes_response(request, user_id)
 
 
-@router.put("/api/settings/themes/{theme_id}/colors", response_class=HTMLResponse)
+@router.put("/api/settings/themes/{theme_id}/colors", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_update_theme_colors(
     request: Request,
     theme_id: int,
@@ -1479,7 +1517,7 @@ async def settings_update_theme_colors(
     return response
 
 
-@router.post("/api/settings/themes/{theme_id}/activate", response_class=HTMLResponse)
+@router.post("/api/settings/themes/{theme_id}/activate", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_activate_theme(
     request: Request,
     theme_id: int,
@@ -1498,7 +1536,7 @@ async def settings_activate_theme(
     return response
 
 
-@router.post("/api/settings/themes/{theme_id}/reset", response_class=HTMLResponse)
+@router.post("/api/settings/themes/{theme_id}/reset", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_reset_theme(
     request: Request,
     theme_id: int,
@@ -1533,7 +1571,7 @@ async def settings_reset_theme(
     return await _settings_themes_response(request, user_id)
 
 
-@router.delete("/api/settings/themes/{theme_id}", response_class=HTMLResponse)
+@router.delete("/api/settings/themes/{theme_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def settings_delete_theme(
     request: Request,
     theme_id: int,
@@ -1549,7 +1587,7 @@ async def settings_delete_theme(
     return await _settings_themes_response(request, user_id)
 
 
-@router.get("/api/settings/themes/active.css")
+@router.get("/api/settings/themes/active.css", responses=AUTH_REDIRECT_RESPONSES)
 async def settings_active_css(user_id: int = Depends(get_current_user_id)):
     async with get_db_connection() as db:
         row = await (await db.execute(
@@ -1573,7 +1611,7 @@ async def settings_active_css(user_id: int = Depends(get_current_user_id)):
 
 
 # ── SSH Key Management ────────────────────────────────────
-@router.get("/api/keys/options", response_class=HTMLResponse)
+@router.get("/api/keys/options", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_keys_options(request: Request, role: str = Depends(get_current_user_role)):
     """Return <option> elements for SSH key dropdown."""
     async with get_db_connection() as db:
@@ -1587,7 +1625,7 @@ async def api_keys_options(request: Request, role: str = Depends(get_current_use
     return HTMLResponse(options)
 
 
-@router.get("/api/keys", response_class=HTMLResponse)
+@router.get("/api/keys", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_list_keys(
     request: Request,
     is_admin: bool = Depends(get_current_user_is_admin),
@@ -1604,7 +1642,7 @@ async def api_list_keys(
     })
 
 
-@router.post("/api/keys", response_class=HTMLResponse)
+@router.post("/api/keys", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_add_key(
     request: Request,
     key_name: str = Form(...),
@@ -1636,7 +1674,7 @@ async def api_add_key(
     return response
 
 
-@router.delete("/api/keys/{key_id}", response_class=HTMLResponse)
+@router.delete("/api/keys/{key_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_delete_key(
     request: Request,
     key_id: int,
@@ -1661,7 +1699,7 @@ async def api_delete_key(
     return await api_list_keys(request, is_admin=True)
 
 
-@router.delete("/api/files", response_class=HTMLResponse)
+@router.delete("/api/files", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def delete_file(
     request: Request,
     server_id: int,
@@ -1671,6 +1709,11 @@ async def delete_file(
 ):
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot delete files.")
+
+    try:
+        ensure_within_quadlet_dir(path, scope)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
 
     use_sudo = is_global_scope(scope)
     cmd = f"sudo rm -f {shlex.quote(path)}" if use_sudo else f"rm -f {shlex.quote(path)}"

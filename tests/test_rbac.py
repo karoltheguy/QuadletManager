@@ -126,7 +126,7 @@ async def test_editor_can_save(mock_systemctl, mock_reload, mock_execute, mock_d
     response = await save_file(
         request=MagicMock(),
         server_id=1,
-        file_path="/fake/path",
+        file_path="/home/quadlet/.config/containers/systemd/myapp",
         scope="user",
         unit_name="fake.service",
         content="data",
@@ -525,7 +525,7 @@ async def test_save_invalid_container_returns_validation_error(mock_execute):
     response = await save_file(
         request=MagicMock(),
         server_id=1,
-        file_path="/etc/containers/systemd/myapp.container",
+        file_path="/home/quadlet/.config/containers/systemd/myapp.container",
         scope="user",
         unit_name="myapp.service",
         content=invalid_content,
@@ -560,7 +560,7 @@ async def test_save_valid_container_proceeds(mock_systemctl, mock_reload, mock_e
     response = await save_file(
         request=MagicMock(),
         server_id=1,
-        file_path="/etc/containers/systemd/myapp.container",
+        file_path="/home/quadlet/.config/containers/systemd/myapp.container",
         scope="user",
         unit_name="myapp.service",
         content=valid_content,
