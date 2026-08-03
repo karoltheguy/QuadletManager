@@ -153,7 +153,12 @@ def test_css_hides_empty_hint_when_sessions_exist():
         "Expected a '.sessions-strip-empty-hint' rule in style.css to hide the "
         "placeholder once real sessions are present."
     )
-    assert "has-tabs" in css and "sessions-strip-empty-hint" in css, (
+    assert "has-tabs" in css, (
+        "Expected a CSS rule keyed on both 'has-tabs' and 'sessions-strip-empty-hint', "
+        "e.g. '.terminal-conn-tabs.has-tabs ~ .sessions-strip-empty-hint { display: none; }', "
+        "so the hint disappears when JS toggles .has-tabs on #terminal-conn-tabs."
+    )
+    assert "sessions-strip-empty-hint" in css, (
         "Expected a CSS rule keyed on both 'has-tabs' and 'sessions-strip-empty-hint', "
         "e.g. '.terminal-conn-tabs.has-tabs ~ .sessions-strip-empty-hint { display: none; }', "
         "so the hint disappears when JS toggles .has-tabs on #terminal-conn-tabs."

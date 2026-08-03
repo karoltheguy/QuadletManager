@@ -26,7 +26,10 @@ def test_log_tabs_map_replaces_singular_log_socket():
         "Expected window._logTabs = new Map() mirroring window._terminalTabs, "
         "to support multiple simultaneous named log sessions."
     )
-    assert "let currentLogSocket" not in js and "var currentLogSocket" not in js, (
+    assert "let currentLogSocket" not in js, (
+        "The old singular currentLogSocket variable should be removed in favor of _logTabs."
+    )
+    assert "var currentLogSocket" not in js, (
         "The old singular currentLogSocket variable should be removed in favor of _logTabs."
     )
 

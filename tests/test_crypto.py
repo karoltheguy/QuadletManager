@@ -114,19 +114,18 @@ async def test_ensure_master_key_reuses_persisted_key(fresh_db):
 
 @pytest.mark.asyncio
 @pytest.mark.unit
-async def test_ensure_master_key_respects_existing_env_var(fresh_db):
+async def test_ensure_master_key_respects_existing_env_var(fresh_db, monkeypatch):
     """If QUADLET_MASTER_KEY is already set, ensure_master_key must not overwrite it."""
     import core.database as db_module
     original_db = db_module.DATABASE_PATH
     db_module.DATABASE_PATH = fresh_db
     try:
-        os.environ["QUADLET_MASTER_KEY"] = "a" * 64
+        monkeypatch.setenv("QUADLET_MASTER_KEY", "a" * 64)
         from core.crypto import ensure_master_key
         await ensure_master_key()
         assert os.environ["QUADLET_MASTER_KEY"] == "a" * 64
     finally:
         db_module.DATABASE_PATH = original_db
-        os.environ.pop("QUADLET_MASTER_KEY", None)
 
 
 @pytest.mark.asyncio
@@ -233,6 +232,9 @@ async def test_connect_to_server_decryption_failure_gives_clear_error():
 
     with patch("services.ssh_manager.get_db_connection", return_value=mock_db_cm), \
          patch("services.ssh_manager.decrypt_private_key", side_effect=InvalidTag()):
+        # connect_to_server() genuinely raises a bare Exception here (see
+        # services/ssh_manager.py connect_to_server's decrypt error handling),
+        # so this cannot be narrowed further.
         with pytest.raises(Exception) as exc_info:
             await test_pool.connect_to_server(1)
 
@@ -241,13 +243,12 @@ async def test_connect_to_server_decryption_failure_gives_clear_error():
     assert any(word in error_message.lower() for word in ("decrypt", "master key", "key"))
 
 @pytest.mark.unit
-def test_get_master_key_env_var():
+def test_get_master_key_env_var(monkeypatch):
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     test_key = AESGCM.generate_key(bit_length=256).hex()
-    os.environ["QUADLET_MASTER_KEY"] = test_key
+    monkeypatch.setenv("QUADLET_MASTER_KEY", test_key)
     key = get_master_key()
     assert key.hex() == test_key
-    os.environ.pop("QUADLET_MASTER_KEY")
 
 @pytest.mark.unit
 def test_get_master_key_fallback_dev_key():

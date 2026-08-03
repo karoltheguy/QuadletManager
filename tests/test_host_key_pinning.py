@@ -227,7 +227,7 @@ def test_app_config_ssh_strict_host_keys_default_and_yaml_override():
 async def test_strict_mode_refuses_unpinned_host_without_connecting():
     """When ssh_strict_host_keys is True and no host_key is pinned yet,
     connect_to_server() must raise before ever calling asyncssh.connect()."""
-    from services.ssh_manager import SSHConnectionPool
+    from services.ssh_manager import SSHConnectionPool, HostKeyMismatchError
     import services.ssh_manager as ssh_manager_module
 
     pool = SSHConnectionPool()
@@ -239,7 +239,7 @@ async def test_strict_mode_refuses_unpinned_host_without_connecting():
          patch("asyncssh.import_private_key"), \
          patch.object(ssh_manager_module, "global_config", MagicMock(ssh_strict_host_keys=True)):
 
-        with pytest.raises(Exception):
+        with pytest.raises(HostKeyMismatchError):
             await pool.connect_to_server(1)
 
         mock_connect.assert_not_called()
@@ -248,16 +248,18 @@ async def test_strict_mode_refuses_unpinned_host_without_connecting():
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_repin_endpoint_requires_admin():
+    from fastapi import HTTPException
     from api.routes import settings_repin_server_host_key
 
-    with pytest.raises(Exception) as exc_info:
+    mock_request = MagicMock()
+    with pytest.raises(HTTPException) as exc_info:
         await settings_repin_server_host_key(
-            request=MagicMock(),
+            request=mock_request,
             server_id=1,
             role="viewer",
             is_admin=False,
         )
-    assert getattr(exc_info.value, "status_code", None) == 403
+    assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio
