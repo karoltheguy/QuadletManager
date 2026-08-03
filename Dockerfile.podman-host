@@ -380,6 +380,31 @@ RUN install -d -m 755 /etc/containers/containers.conf.d \
         'default_subnet = "10.201.0.0/16"' \
     > /etc/containers/containers.conf.d/99-nested-subnet.conf
 
+# Stop netavark from needing the host kernel's nf_tables.
+#
+# netavark shells out to `nft`, and `nft` works only if the kernel underneath
+# this container provides nf_tables. A privileged container can load that module
+# but cannot conjure one the kernel does not ship, so the suite silently
+# depended on a property of whatever machine the job landed on. It passed on
+# GitHub-hosted ubuntu-latest and failed on a self-hosted microVM runner, where
+# the first rootful container died at create time:
+#
+#   Error: netavark: nftables error: "nft" did not return successfully
+#   e2e-sleep.service: Main process exited, code=exited, status=126/n/a
+#
+# Only the global scope broke, because rootless podman uses pasta and never
+# touches nftables, which made it read as a sudo or generator bug for a while.
+#
+# "none" rather than "iptables": iptables trades one kernel module for another
+# and loses on the same runners. The firewall driver only builds NAT and port
+# forwarding rules, and no fixture in tests/fixtures/quadlets/ publishes a port
+# or needs outbound traffic, so there is nothing here for it to do. A fixture
+# that adds PublishPort would need this revisited.
+RUN printf '%s\n' \
+        '[network]' \
+        'firewall_driver = "none"' \
+    > /etc/containers/containers.conf.d/98-no-firewall.conf
+
 # Preload the test image at build time. skopeo needs no container runtime, so
 # this works in a build layer where `podman pull` would not. docker-archive
 # (rather than oci-archive) is used because it carries the repo tag through
