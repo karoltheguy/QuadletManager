@@ -151,7 +151,7 @@ async def ensure_session_secret() -> None:
             "SELECT value FROM settings WHERE key = 'session_secret'"
         ) as select_cursor:
             row = await select_cursor.fetchone()
-        resolved = row[0]
+        resolved = row[0] if row else candidate
 
         if insert_cursor.rowcount == 0:
             logger.warning(
