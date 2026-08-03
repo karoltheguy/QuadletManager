@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>QuadletManager Setup</title>
     <script>
@@ -35,7 +35,7 @@
     </style>
 </head>
 <body>
-    <nav class="top-nav">
+    <nav class="top-nav" aria-label="Main">
         <div class="nav-brand pl-4">QM</div>
         <div class="nav-tabs">
             <button class="nav-item active" onclick="switchTab('overview')">Overview</button>
@@ -94,11 +94,11 @@
       <h2 class="panel-title">Monitor</h2>
       <div class="server-selector">
         <span id="sync-cycle-indicator" class="sync-cycle-indicator" hidden></span>
-        <select id="monitoring-server-select" class="form-control" onchange="selectMonitoringServer(this.value)">
+        <select id="monitoring-server-select" class="form-control" aria-label="Monitoring server" onchange="selectMonitoringServer(this.value)">
           <option value="">Select a server...</option>
         </select>
         <span class="monitor-filter-group">
-          <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
+          <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" aria-label="Filter containers" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
           <span id="monitor-filter-count" class="monitor-filter-count" aria-live="polite" hidden></span>
         </span>
       </div>
@@ -178,7 +178,7 @@
     <div class="settings-layout">
 
       <!-- Inner navigation sidebar -->
-      <nav class="settings-sidenav">
+      <nav class="settings-sidenav" aria-label="Settings sections">
         <span class="settings-sidenav-label">Configuration</span>
         <button class="settings-sidenav-item active" data-section="servers" aria-current="true" onclick="showSettingsSection('servers')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/><circle cx="18" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>
@@ -235,28 +235,28 @@
                   hx-swap="innerHTML"
                   hx-on::after-request="if(event.detail.successful) this.reset()">
               <div class="form-row">
-                <label class="form-label">Name</label>
-                <input type="text" name="name" class="form-control" required placeholder="my-server">
+                <label class="form-label" for="add-server-name">Name</label>
+                <input type="text" name="name" id="add-server-name" class="form-control" required placeholder="my-server">
               </div>
               <div class="form-row">
-                <label class="form-label">IP Address</label>
-                <input type="text" name="ip_address" class="form-control" required placeholder="192.168.1.100">
+                <label class="form-label" for="add-server-ip-address">IP Address</label>
+                <input type="text" name="ip_address" id="add-server-ip-address" class="form-control" required placeholder="192.168.1.100">
               </div>
               <div class="form-row">
-                <label class="form-label">SSH User</label>
-                <input type="text" name="ssh_user" class="form-control" required placeholder="ubuntu">
+                <label class="form-label" for="add-server-ssh-user">SSH User</label>
+                <input type="text" name="ssh_user" id="add-server-ssh-user" class="form-control" required placeholder="ubuntu">
               </div>
               <div class="form-row">
-                <label class="form-label">SSH Key</label>
-                <select name="ssh_key_id" class="form-control" required
+                <label class="form-label" for="add-server-ssh-key">SSH Key</label>
+                <select name="ssh_key_id" id="add-server-ssh-key" class="form-control" required
                         hx-get="/api/keys/options" hx-trigger="load, key-added from:body"
                         hx-target="this" hx-swap="innerHTML">
                   <option value="">Loading keys...</option>
                 </select>
               </div>
               <div class="form-row">
-                <label class="form-label">Scope Filter</label>
-                <select name="scope_filter" class="form-control">
+                <label class="form-label" for="add-server-scope-filter">Scope Filter</label>
+                <select name="scope_filter" id="add-server-scope-filter" class="form-control">
                   <option value="both">Both (user + global)</option>
                   <option value="user">User only (~/.config/containers/systemd)</option>
                   <option value="global">Global only (/etc/containers/systemd)</option>
@@ -287,17 +287,17 @@
                   hx-on::after-request="if(event.detail.successful) this.reset()"
                   enctype="multipart/form-data">
               <div class="form-row">
-                <label class="form-label">Key Name</label>
-                <input type="text" name="key_name" class="form-control" required placeholder="deploy-key">
+                <label class="form-label" for="add-key-name">Key Name</label>
+                <input type="text" name="key_name" id="add-key-name" class="form-control" required placeholder="deploy-key">
               </div>
               <div class="form-row">
-                <label class="form-label">Private Key (paste)</label>
-                <textarea name="private_key" class="form-control" rows="6"
+                <label class="form-label" for="add-key-private-key">Private Key (paste)</label>
+                <textarea name="private_key" id="add-key-private-key" class="form-control" rows="6"
                           placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
               </div>
               <div class="form-row">
-                <label class="form-label">Or upload key file</label>
-                <input type="file" name="key_file" class="form-control">
+                <label class="form-label" for="add-key-file">Or upload key file</label>
+                <input type="file" name="key_file" id="add-key-file" class="form-control">
               </div>
               <button type="submit" class="btn btn-primary mt-2">Add Key</button>
             </form>
@@ -323,23 +323,23 @@
                   hx-swap="innerHTML"
                   hx-on::after-request="if(event.detail.successful) this.reset()">
               <div class="form-row">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" required placeholder="jane">
+                <label class="form-label" for="add-user-username">Username</label>
+                <input type="text" name="username" id="add-user-username" class="form-control" required placeholder="jane">
               </div>
               <div class="form-row">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" required placeholder="Enter password">
+                <label class="form-label" for="add-user-password">Password</label>
+                <input type="password" name="password" id="add-user-password" class="form-control" required placeholder="Enter password">
               </div>
               <div class="form-row">
-                <label class="form-label">Role</label>
-                <select name="user_role" class="form-control" required>
+                <label class="form-label" for="add-user-role">Role</label>
+                <select name="user_role" id="add-user-role" class="form-control" required>
                   <option value="viewer">viewer</option>
                   <option value="editor">editor</option>
                 </select>
               </div>
               <div class="form-row" style="align-items:center; gap:0.5rem;">
-                <label class="form-label" style="margin-bottom:0;">Admin</label>
-                <input type="checkbox" name="new_is_admin" value="true">
+                <label class="form-label" style="margin-bottom:0;" for="add-user-admin">Admin</label>
+                <input type="checkbox" name="new_is_admin" id="add-user-admin" value="true">
               </div>
               <button type="submit" class="btn btn-primary mt-2">Add User</button>
             </form>
@@ -361,8 +361,8 @@
           <div class="settings-section" id="density-section">
             <h3 class="section-title mb-4">UI Density</h3>
             <div class="form-row mode-pref-row">
-              <label class="form-label">Layout spacing</label>
-              <div class="radio-group" id="density-radio-group">
+              <span class="form-label" id="density-group-label">Layout spacing</span>
+              <div class="radio-group" id="density-radio-group" role="radiogroup" aria-labelledby="density-group-label">
                 <label class="radio-label">
                   <input type="radio" name="ui_density" value="relaxed"
                          onchange="toggleDensity('relaxed')"
@@ -379,8 +379,8 @@
           <div class="settings-section" id="editor-theme-section">
             <h3 class="section-title mb-4">Editor Theme</h3>
             <div class="form-row mode-pref-row">
-              <label class="form-label">Editor color theme</label>
-              <div class="radio-group" id="editor-theme-radio-group">
+              <span class="form-label" id="editor-theme-group-label">Editor color theme</span>
+              <div class="radio-group" id="editor-theme-radio-group" role="radiogroup" aria-labelledby="editor-theme-group-label">
                 <label class="radio-label">
                   <input type="radio" name="editor_theme" value="follow"
                          onchange="toggleEditorTheme('follow')"
@@ -435,7 +435,7 @@
                 <input type="hidden" name="file_path" id="hidden-file-path">
                 <input type="hidden" name="scope" id="hidden-scope">
                 <input type="hidden" name="unit_name" id="hidden-unit-name">
-                <textarea name="content" id="hidden-content"></textarea>
+                <textarea name="content" id="hidden-content" aria-label="Quadlet file content"></textarea>
             </form>
             <div id="editor-container">
                 # Select a file from the navigator...
@@ -500,7 +500,7 @@
                 </select>
               </div>
               <div id="terminal-custom-cmd-row" class="terminal-custom-cmd-row hidden">
-                <input type="text" id="terminal-custom-cmd-input" class="form-control" placeholder="e.g., /bin/sh, zsh, python">
+                <input type="text" id="terminal-custom-cmd-input" class="form-control" aria-label="Custom command" placeholder="e.g., /bin/sh, zsh, python">
               </div>
               <button id="terminal-connect-btn" class="btn btn-primary btn-sm" onclick="connectTerminal()">Connect</button>
             </div>

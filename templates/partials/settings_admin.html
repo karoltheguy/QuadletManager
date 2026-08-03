@@ -1,7 +1,7 @@
 <div id="admin-root">
   <div class="form-row">
-    <label class="form-label">Session duration</label>
-    <select class="form-control" name="session_duration_seconds"
+    <label class="form-label" for="admin-session-duration">Session duration</label>
+    <select class="form-control" name="session_duration_seconds" id="admin-session-duration"
             hx-put="/api/settings/session-duration"
             hx-target="#admin-root"
             hx-swap="outerHTML"
@@ -12,8 +12,8 @@
     </select>
   </div>
   <div class="form-row">
-    <label class="form-label">Log level</label>
-    <select class="form-control" name="log_level"
+    <label class="form-label" for="admin-log-level">Log level</label>
+    <select class="form-control" name="log_level" id="admin-log-level"
             hx-put="/api/settings/log-level"
             hx-target="#admin-root"
             hx-swap="outerHTML"

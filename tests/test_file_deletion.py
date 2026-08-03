@@ -18,9 +18,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 async def test_viewer_cannot_delete_file():
     from api.routes import delete_file
 
+    request = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         await delete_file(
-            request=MagicMock(),
+            request=request,
             server_id=1,
             path="/home/user/.config/containers/systemd/myapp.container",
             scope="user",

@@ -50,7 +50,10 @@ def test_dependabot_config_has_nonempty_updates_list():
     update configurations."""
     config = _load_dependabot_config()
     updates = config.get("updates")
-    assert isinstance(updates, list) and len(updates) > 0, (
+    assert isinstance(updates, list), (
+        f"top-level 'updates' must be a non-empty list, got {updates!r}"
+    )
+    assert len(updates) > 0, (
         f"top-level 'updates' must be a non-empty list, got {updates!r}"
     )
 
