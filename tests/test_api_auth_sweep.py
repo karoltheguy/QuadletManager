@@ -14,8 +14,10 @@ Two layers of protection:
 """
 import pytest
 from unittest.mock import patch
+from fastapi import HTTPException
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 from main import app
 from api import routes as routes_module
 from api.routes import router as web_router
@@ -58,6 +60,15 @@ def _dependency_calls(dependant, seen=None):
     return seen
 
 
+def _auth_guarded_routes():
+    """Every route that can answer 303, including the non-/api page routes."""
+    return [
+        route for route in web_router.routes
+        if isinstance(route, APIRoute)
+        and _dependency_calls(route.dependant) & AUTH_ENFORCING_DEPS
+    ]
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "route", _api_routes(), ids=lambda r: f"{'|'.join(sorted(r.methods))}-{r.path}"
@@ -89,4 +100,53 @@ def test_exposed_endpoint_rejects_unauthenticated(client, method, url):
     assert response.status_code in AUTH_REJECTED, (
         f"{method} {url} answered an unauthenticated request with "
         f"{response.status_code}; expected one of {sorted(AUTH_REJECTED)}"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "route",
+    _auth_guarded_routes(),
+    ids=lambda r: f"{'|'.join(sorted(r.methods))}-{r.path}",
+)
+def test_auth_guarded_route_documents_the_login_redirect(route):
+    """The 303 an auth dependency raises must appear in the route's schema.
+
+    Without it the generated OpenAPI claims these endpoints can never
+    redirect, which is false for every cookieless request.
+    """
+    assert 303 in route.responses, (
+        f"{sorted(route.methods)} {route.path} can answer 303 via its auth "
+        f"dependency but does not document it; add "
+        f"responses=AUTH_REDIRECT_RESPONSES to the route decorator"
+    )
+
+
+@pytest.mark.unit
+async def test_auth_redirect_constant_matches_the_status_actually_raised():
+    """Pin the constant to the status _get_session really raises.
+
+    The sweep above only proves the annotation is present on the right
+    routes, not that it is true. Without this, changing the raise to 401
+    would leave every one of those annotations green and wrong.
+    """
+    cookieless = Request({
+        "type": "http",
+        "method": "GET",
+        "path": "/api/keys",
+        "root_path": "",
+        "scheme": "http",
+        "server": ("testserver", 80),
+        "query_string": b"",
+        "headers": [],
+    })
+
+    with patch("core.config_loader.global_config.dev_auto_login", False):
+        with pytest.raises(HTTPException) as excinfo:
+            await routes_module._get_session(cookieless)
+
+    assert excinfo.value.status_code in routes_module.AUTH_REDIRECT_RESPONSES, (
+        f"_get_session raises {excinfo.value.status_code} for a cookieless "
+        f"request, but AUTH_REDIRECT_RESPONSES documents "
+        f"{sorted(routes_module.AUTH_REDIRECT_RESPONSES)}"
     )
