@@ -124,7 +124,7 @@ async def systemctl_action(server_id: int, action: str, unit_name: str, scope: s
     use_sudo = is_global_scope(scope)
     cmd_prefix = "systemctl"
     if scope == 'user':
-        cmd_prefix = "systemctl --user"
+        cmd_prefix = f"{ROOTLESS_ENV_PREFIX} systemctl --user"
         
     cmd = f"{cmd_prefix} {action}"
     if action != 'daemon-reload' and unit_name:
