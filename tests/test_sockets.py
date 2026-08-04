@@ -1,8 +1,16 @@
 import pytest
 import asyncio
+import logging
 from unittest.mock import AsyncMock, MagicMock
 from fastapi import WebSocket, WebSocketDisconnect
-from api.sockets import ConnectionManager, stream_logs_over_websocket, exec_terminal_over_websocket
+from api.sockets import (
+    ConnectionManager,
+    stream_logs_over_websocket,
+    exec_terminal_over_websocket,
+    _log_safe,
+    _UNIT_NAME_RE,
+    _CONTAINER_NAME_RE,
+)
 from api import routes as api_routes
 
 @pytest.fixture
@@ -214,6 +222,48 @@ async def test_exec_terminal_rejects_invalid_container_name(mock_websocket, monk
     mock_websocket.send_text.assert_called_once()
     sent = mock_websocket.send_text.call_args[0][0]
     assert "invalid" in sent.lower() or "error" in sent.lower()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("raw,expected", [
+    ("web\ninfo: forged admin login", "web\\ninfo: forged admin login"),
+    ("web\r\nWARNING fake", "web\\r\\nWARNING fake"),
+    ("web\x1b[2Jcleared", "web\\x1b[2Jcleared"),
+    ("plain-name", "plain-name"),
+])
+def test_log_safe_escapes_control_chars_without_losing_data(raw, expected):
+    """Control chars are escaped to visible text so log lines cannot be forged,
+    while the original characters stay recoverable for debugging."""
+    result = _log_safe(raw)
+    assert result == expected
+    assert "\n" not in result
+    assert "\r" not in result
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("pattern,value", [
+    (_UNIT_NAME_RE, "foo.service\n"),
+    (_CONTAINER_NAME_RE, "myapp\n"),
+])
+def test_name_patterns_reject_trailing_newline(pattern, value):
+    """A trailing newline must not pass validation ($ would have allowed it)."""
+    assert pattern.match(value) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_exec_terminal_logs_nothing_before_validating_name(mock_websocket, monkeypatch, caplog):
+    """An invalid container name must not reach a log statement unescaped."""
+    mock_pool = AsyncMock()
+    monkeypatch.setattr("api.sockets.pool", mock_pool)
+
+    with caplog.at_level(logging.DEBUG, logger="quadlet-manager.sockets"):
+        await exec_terminal_over_websocket(
+            mock_websocket, server_id=1, container_name="myapp\ninfo: forged", scope="user", cmd="bash"
+        )
+
+    for record in caplog.records:
+        assert "\n" not in record.getMessage()
 
 
 @pytest.mark.asyncio

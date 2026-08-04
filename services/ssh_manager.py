@@ -27,6 +27,29 @@ class SSHTimeoutError(SSHCommandError):
     """Raised when a remote SSH command exceeds its timeout."""
 
 
+class ServerConfigurationError(Exception):
+    """Raised when a server row cannot be found, or is missing its SSH key
+    mapping, so a connection attempt cannot even be assembled.
+
+    Deliberately NOT a subclass of SSHCommandError: that type carries the
+    remote exit status and stderr of a command that actually ran, and this
+    failure happens while assembling the connection, before anything is
+    sent to the host. Typing it as a command failure would hand callers a
+    null exit status and imply a command failed when none was issued.
+    """
+
+
+class KeyDecryptionError(Exception):
+    """Raised when the stored SSH private key for a server cannot be
+    decrypted, typically because the master key changed since the server
+    was configured.
+
+    Deliberately NOT a subclass of SSHCommandError, for the same reason as
+    ServerConfigurationError: no remote command has run, so there is no
+    exit status or stderr to report.
+    """
+
+
 class HostKeyMismatchError(Exception):
     """Raised when a server's presented SSH host key does not match the
     previously pinned host key, or when strict host-key checking is enabled
@@ -65,9 +88,8 @@ class SSHConnectionPool:
         return False
 
     async def get_connection(self, server_id: int):
-        if server_id in self.connections:
-            if not self._drop_if_stale(server_id):
-                return self.connections[server_id]
+        if server_id in self.connections and not self._drop_if_stale(server_id):
+            return self.connections[server_id]
 
         # No live cached connection here means we need to connect. Serialize
         # via a per-server lock so concurrent callers don't each open their
@@ -80,9 +102,8 @@ class SSHConnectionPool:
             # for the lock. That connection could have died since it was
             # established/confirmed, so re-run the staleness check before
             # reusing it.
-            if server_id in self.connections:
-                if not self._drop_if_stale(server_id):
-                    return self.connections[server_id]
+            if server_id in self.connections and not self._drop_if_stale(server_id):
+                return self.connections[server_id]
 
             return await self.connect_to_server(server_id)
 
@@ -96,7 +117,7 @@ class SSHConnectionPool:
             """, (server_id,)) as cursor:
                 row = await cursor.fetchone()
             if not row:
-                raise Exception(f"Server {server_id} not found or missing SSH key mapping.")
+                raise ServerConfigurationError(f"Server {server_id} not found or missing SSH key mapping.")
 
             ip_address, ssh_user, encrypted_pk, stored_host_key = row
 
@@ -115,7 +136,7 @@ class SSHConnectionPool:
         try:
             private_key_str = decrypt_private_key(encrypted_pk)
         except (InvalidTag, ValueError) as exc:
-            raise Exception(
+            raise KeyDecryptionError(
                 f"Failed to decrypt SSH key for server {server_id}. "
                 "The master key may have changed since this server was configured. "
                 "Set QUADLET_MASTER_KEY to a stable value and re-add the server if needed."

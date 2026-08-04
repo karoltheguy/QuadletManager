@@ -27,8 +27,7 @@ def validate_quadlet_syntax(content: str, quadlet_type: str = "container"):
         raise QuadletValidationError(f"Missing [{expected_section}] section for {quadlet_type} type.")
 
     # Validate specific requirements
-    if quadlet_type == 'container':
-        if 'Image' not in parser[expected_section]:
-            raise QuadletValidationError("[Container] section must define an 'Image'.")
+    if quadlet_type == 'container' and 'Image' not in parser[expected_section]:
+        raise QuadletValidationError("[Container] section must define an 'Image'.")
 
     return True
