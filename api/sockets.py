@@ -146,17 +146,17 @@ async def _cleanup_terminal(read_task, process) -> None:
     if read_task:
         try:
             read_task.cancel()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - teardown must not mask the original error
+            logger.debug(f"Failed to cancel terminal read task: {_log_safe(exc)}")
     if process:
         try:
             process.kill()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - teardown must not mask the original error
+            logger.debug(f"Failed to kill remote process: {_log_safe(exc)}")
         try:
             await process.wait(check=False)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - teardown must not mask the original error
+            logger.debug(f"Failed to reap remote process: {_log_safe(exc)}")
 
 
 def _try_handle_control_message(data: str, process) -> bool:
