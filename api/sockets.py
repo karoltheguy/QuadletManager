@@ -9,10 +9,21 @@ from services.ssh_manager import pool
 
 logger = logging.getLogger("quadlet-manager.sockets")
 
-# Allowlist for systemd unit names (supports template instances like foo@bar.service)
-_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9_@\-\.:\\]+$")
+# Allowlist for systemd unit names (supports template instances like foo@bar.service).
+# \Z rather than $ so a trailing newline is not accepted.
+_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9_@\-\.:\\]+\Z")
 # Allowlist for podman container names/ids
-_CONTAINER_NAME_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
+_CONTAINER_NAME_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+\Z")
+
+
+def _log_safe(value) -> str:
+    """Escape control characters in a client-supplied value before logging it.
+
+    Newlines, carriage returns and ANSI escapes would otherwise let a caller
+    forge extra log lines. Escaping rather than stripping keeps the original
+    bytes visible for debugging.
+    """
+    return str(value).encode("unicode_escape").decode("ascii")
 
 class ConnectionManager:
     def __init__(self):
@@ -55,7 +66,7 @@ async def _reject_invalid_name(websocket: WebSocket, value: str, pattern, field_
     """
     if pattern.match(value or ""):
         return False
-    logger.warning(f"Rejected invalid {field_label}: {value!r}")
+    logger.warning(f"Rejected invalid {field_label}: {_log_safe(value)}")
     try:
         await websocket.send_text(error_text)
     except Exception:
@@ -84,7 +95,7 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
     conn = await pool.get_connection(server_id)
     cmd = _build_journalctl_command(unit_name, scope, since)
 
-    logger.info(f"Starting log stream for {unit_name} on server {server_id}")
+    logger.info(f"Starting log stream for {_log_safe(unit_name)} on server {server_id}")
 
     # We use create_process to stream standard output
     try:
@@ -108,12 +119,12 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
                 break
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for {unit_name}")
+        logger.info(f"WebSocket disconnected for {_log_safe(unit_name)}")
     except Exception:
         logger.exception("Log stream error")
     finally:
         manager.disconnect(websocket)
-        logger.info(f"Killing remote journalctl for {unit_name}")
+        logger.info(f"Killing remote journalctl for {_log_safe(unit_name)}")
         if 'process' in locals():
             process.terminate()
             await process.wait(check=False)
@@ -164,9 +175,9 @@ def _try_handle_control_message(data: str, process) -> bool:
         cols, rows = msg.get('cols', 80), msg.get('rows', 24)
         try:
             process.change_terminal_size(cols, rows)
-            logger.debug(f"PTY resized to {cols}x{rows}")
+            logger.debug(f"PTY resized to {_log_safe(cols)}x{_log_safe(rows)}")
         except Exception as e:
-            logger.warning(f"Failed to resize PTY: {e}")
+            logger.warning(f"Failed to resize PTY: {_log_safe(e)}")
     return True
 
 
@@ -191,7 +202,7 @@ class TerminalSession:
                 try:
                     await self.websocket.send_bytes(chunk)
                 except Exception as e:
-                    logger.debug(f"Failed to send to websocket: {e}")
+                    logger.debug(f"Failed to send to websocket: {_log_safe(e)}")
                     break
         except Exception:
             logger.exception("Error reading stdout")
@@ -212,7 +223,7 @@ class TerminalSession:
                         logger.exception("Failed to write to stdin")
                         break
         except WebSocketDisconnect:
-            logger.info(f"WebSocket disconnected for terminal {self.container_name}")
+            logger.info(f"WebSocket disconnected for terminal {_log_safe(self.container_name)}")
         except asyncio.CancelledError:
             pass
         except Exception:
@@ -225,10 +236,10 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
     Supports terminal resize events and graceful cleanup on disconnect.
     """
     await manager.connect(websocket)
-    logger.info(f"Starting terminal session for {container_name} on server {server_id}")
-
     if await _reject_invalid_name(websocket, container_name, _CONTAINER_NAME_RE, "container_name", "error: invalid container name"):
         return
+
+    logger.info(f"Starting terminal session for {_log_safe(container_name)} on server {server_id}")
 
     conn = await pool.get_connection(server_id)
     process = None
@@ -236,7 +247,7 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
 
     try:
         exec_cmd = _build_exec_command(container_name, cmd, scope)
-        logger.debug(f"Executing: {exec_cmd}")
+        logger.debug(f"Executing: {_log_safe(exec_cmd)}")
         process = await conn.create_process(
             exec_cmd,
             request_pty=True,
@@ -257,17 +268,17 @@ async def exec_terminal_over_websocket(websocket: WebSocket, server_id: int, con
             task.cancel()
 
         if read_task in done:
-            logger.info(f"Process exited for terminal {container_name}, notifying client")
+            logger.info(f"Process exited for terminal {_log_safe(container_name)}, notifying client")
             try:
                 await websocket.send_text('\r\n\x1b[33m[process exited]\x1b[0m\r\n')
             except Exception:
                 pass
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for terminal {container_name}")
+        logger.info(f"WebSocket disconnected for terminal {_log_safe(container_name)}")
     except Exception:
         logger.exception("Terminal session error")
     finally:
         manager.disconnect(websocket)
-        logger.info(f"Closing terminal session for {container_name}")
+        logger.info(f"Closing terminal session for {_log_safe(container_name)}")
         await _cleanup_terminal(read_task, process)
