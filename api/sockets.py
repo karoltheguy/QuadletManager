@@ -69,15 +69,15 @@ async def _reject_invalid_name(websocket: WebSocket, value: str, pattern, field_
     logger.warning(f"Rejected invalid {field_label}: {_log_safe(value)}")
     try:
         await websocket.send_text(error_text)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort notify; the disconnect below must still run
+        logger.debug(f"Could not notify client of invalid {field_label}: {_log_safe(exc)}")
     manager.disconnect(websocket)
     return True
 
 
-def _build_journalctl_command(unit_name: str, scope: str, since: str) -> str:
+def _build_journalctl_command(unit_name: str, scope: str, since: str | None) -> str:
     safe_unit = shlex.quote(unit_name)
-    since_phrase = _SINCE_PHRASES.get(since)
+    since_phrase = _SINCE_PHRASES.get(since) if since else None
     if since_phrase is not None:
         tail_clause = f"--since {shlex.quote(since_phrase)}"
     else:
@@ -87,7 +87,7 @@ def _build_journalctl_command(unit_name: str, scope: str, since: str) -> str:
     return f"journalctl --user -u {safe_unit} -f {tail_clause}"
 
 
-async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user", since: str = None):
+async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_name: str, scope: str = "user", since: str | None = None):
     await manager.connect(websocket)
     if await _reject_invalid_name(websocket, unit_name, _UNIT_NAME_RE, "unit_name", "error: invalid unit name"):
         return
