@@ -28,7 +28,7 @@ jobs:
   test-github:
     name: GitHub / ${{ matrix.suite }}
     if: ${{ github.server_url == 'https://github.com' }}
-    runs-on: avrea-ubuntu-latest
+    runs-on: ubuntu-latest
     # Backstop for a hang that pytest's own timeout cannot catch (a wedge in
     # docker compose or playwright install, outside the test run). Without it
     # the job inherits GitHub's 360-minute default and burns runner time.
