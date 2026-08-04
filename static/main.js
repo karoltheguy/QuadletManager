@@ -149,9 +149,9 @@ function linearize(channel) {
 
 function relativeLuminance(hexColor) {
     const hex = hexColor.replace(/^#/, '');
-    let r = parseInt(hex.substring(0, 2), 16) / 255;
-    let g = parseInt(hex.substring(2, 4), 16) / 255;
-    let b = parseInt(hex.substring(4, 6), 16) / 255;
+    let r = Number.parseInt(hex.substring(0, 2), 16) / 255;
+    let g = Number.parseInt(hex.substring(2, 4), 16) / 255;
+    let b = Number.parseInt(hex.substring(4, 6), 16) / 255;
     r = linearize(r);
     g = linearize(g);
     b = linearize(b);
@@ -403,14 +403,14 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
     
     if (path.indexOf('/api/systemctl/') !== -1) {
         const urlParts = path.split('?');
-        serverId = parseInt(urlParts[0].split('/').pop(), 10);
+        serverId = Number.parseInt(urlParts[0].split('/').pop(), 10);
         const searchParams = new URLSearchParams(urlParts[1] || window.location.search);
         unitName = params.unit || searchParams.get('unit') || '';
         scope = params.scope || searchParams.get('scope') || '';
         action = params.action || searchParams.get('action') || '';
     } else if (path.indexOf('/api/save') !== -1) {
         unitName = params.unit_name || '';
-        serverId = parseInt(params.server_id, 10);
+        serverId = Number.parseInt(params.server_id, 10);
         scope = params.scope || '';
         action = 'restart'; // saving implies a restart
     }
@@ -506,9 +506,9 @@ const HISTORY_COLORS = [
 ];
 
 function hexToRgba(hex, alpha) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
+    const r = Number.parseInt(hex.slice(1, 3), 16);
+    const g = Number.parseInt(hex.slice(3, 5), 16);
+    const b = Number.parseInt(hex.slice(5, 7), 16);
     return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
 }
 
@@ -622,7 +622,7 @@ window._quadletRestored = false;
 
 window.selectContainerStem = function(stem, serverId, scope) {
     window._selectedContainerStem = (stem || '').toLowerCase();
-    window._selectedContainerServerId = parseInt(serverId, 10);
+    window._selectedContainerServerId = Number.parseInt(serverId, 10);
     window._selectedContainerScope = scope || 'global';
     try {
         localStorage.setItem('qm-selected-quadlet', JSON.stringify({
@@ -806,7 +806,7 @@ function getRelativeTime(timestamp) {
 
 // Called from quadlet_tree.html when the user clicks a file button.
 window.setActiveServer = function(serverId) {
-    serverId = parseInt(serverId, 10);
+    serverId = Number.parseInt(serverId, 10);
     if (window.activeServerId === serverId) return;
     window.activeServerId = serverId;
     // Re-render immediately with cached data for this server, if we have it.
@@ -1287,7 +1287,7 @@ function isManualStop(serverId, oldName) {
   let wasManual = false;
   manualStops.forEach(function(manualKey) {
     const parts = manualKey.split(':');
-    const mServerId = parseInt(parts[0], 10);
+    const mServerId = Number.parseInt(parts[0], 10);
     const mStem = parts[1];
     if (mServerId === serverId && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
       wasManual = true;
@@ -1627,7 +1627,7 @@ window.selectMonitoringServer = function(serverId) {
   } catch {
     // Ignore localStorage restrictions
   }
-  const numId = parseInt(serverId, 10);
+  const numId = Number.parseInt(serverId, 10);
   const emptyEl = document.getElementById('monitoring-empty-state');
   const contentEl = document.getElementById('monitoring-content');
 
@@ -1865,7 +1865,7 @@ function populateServerSelector() {
     const option = document.createElement('option');
     option.value = serverId;
     option.textContent = data.server_name || ('Server ' + serverId);
-    if (window._monitoringServerId && parseInt(serverId, 10) === window._monitoringServerId) {
+    if (window._monitoringServerId && Number.parseInt(serverId, 10) === window._monitoringServerId) {
       option.selected = true;
     }
     select.appendChild(option);
