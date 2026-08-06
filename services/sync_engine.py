@@ -214,6 +214,9 @@ async def reconcile_server_inventory(server_id: int, scope_filter: str) -> None:
     # check_quadlets likewise never holds a connection open across one.
     new_mtimes = await _mtimes_for_new_paths(server_id, new_items) if new_items else {}
 
+    inserted_count = 0
+    deleted_count = 0
+
     async with get_db_connection() as db:
         for path, scope in new_items:
             # A path stat did not report is skipped rather than seeded with 0,
@@ -223,14 +226,24 @@ async def reconcile_server_inventory(server_id: int, scope_filter: str) -> None:
                     "INSERT INTO quadlets (server_id, file_path, scope, last_known_mtime) VALUES (?, ?, ?, ?)",
                     (server_id, path, scope, new_mtimes[path]),
                 )
+                inserted_count += 1
 
         for path in stale_paths:
             await db.execute(
                 "DELETE FROM quadlets WHERE server_id = ? AND file_path = ?",
                 (server_id, path),
             )
+            deleted_count += 1
+
+        await db.execute(
+            "UPDATE servers SET last_reconciled_at = ? WHERE id = ?",
+            (int(time.time()), server_id),
+        )
 
         await db.commit()
+
+    if inserted_count > 0 or deleted_count > 0:
+        await publisher.publish("quadlets_changed", {"server_id": server_id})
 
 
 async def reconcile_all_inventories() -> None:
@@ -334,7 +347,6 @@ async def polling_engine_loop():
     logger.info("Starting Timestamp Polling background task.")
     try:
         while True:
-            await asyncio.sleep(POLL_INTERVAL_SEC)
             try:
                 await reconcile_all_inventories()
                 await check_quadlets()
@@ -342,5 +354,6 @@ async def polling_engine_loop():
                 raise  # Re-raise to exit the loop
             except Exception:
                 logger.exception("Polling engine error")
+            await asyncio.sleep(POLL_INTERVAL_SEC)
     except asyncio.CancelledError:
         logger.info("Polling engine stopped.")

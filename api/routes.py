@@ -580,14 +580,35 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
     try:
         async with get_db_connection() as db:
             async with db.execute(
-                "SELECT scope_filter FROM servers WHERE id = ?", (server_id,)
+                "SELECT scope_filter, last_reconciled_at FROM servers WHERE id = ?", (server_id,)
             ) as cursor:
-                row = await cursor.fetchone()
-        scope_filter = row[0] if row else "both"
-        data = await fetch_all_quadlets(server_id, scope_filter=scope_filter)
+                server_row = await cursor.fetchone()
+
+            scope_filter, last_reconciled_at = (server_row[0], server_row[1]) if server_row else ("both", None)
+
+            async with db.execute(
+                "SELECT file_path, scope FROM quadlets WHERE server_id = ? ORDER BY scope, file_path", (server_id,)
+            ) as cursor:
+                quadlet_rows = await cursor.fetchall()
+
+        data = {"global": [], "user": []}
+        for file_path, scope in quadlet_rows:
+            if scope in data:
+                data[scope].append({
+                    "path": file_path,
+                    "name": os.path.basename(file_path),
+                    "scope": scope,
+                })
+
+        # Rows without a reconcile timestamp still count as scanned: the create
+        # path records a row the moment a file is written, and reporting "not
+        # yet scanned" while listing that file would contradict itself.
+        scanned = last_reconciled_at is not None or bool(quadlet_rows)
+
         return templates.TemplateResponse(request, "partials/quadlet_tree.html", {
             "server_id": server_id,
-            "data": data
+            "data": data,
+            "scanned": scanned,
         })
     except Exception:
         logger.exception("Error fetching quadlets")

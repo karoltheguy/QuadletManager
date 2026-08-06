@@ -1412,6 +1412,15 @@ function fetchPollHealthSnapshot() {
     });
 }
 
+window.handleQuadletsChanged = function (data) {
+  const container = document.querySelector(
+    '.server-quadlet-tree[data-server-id="' + data.server_id + '"]'
+  );
+  if (!container) return;
+  htmx.ajax('GET', '/api/quadlets/' + data.server_id,
+            { target: container, swap: 'innerHTML' });
+};
+
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
   const evtSource = new EventSource('/api/events');
@@ -1482,6 +1491,14 @@ function connectSSE() {
         } catch (err) {
             console.error('File changed parse error:', err);
         }
+    });
+
+    evtSource.addEventListener('quadlets_changed', function (e) {
+      try {
+        window.handleQuadletsChanged(JSON.parse(e.data));
+      } catch (err) {
+        console.error('Quadlets changed parse error:', err);
+      }
     });
 
     evtSource.onerror = function() {

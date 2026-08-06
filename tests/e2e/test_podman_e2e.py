@@ -188,8 +188,9 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
 def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
     """A file written directly on the host shows up in the server tree.
 
-    The reverse direction from the test above: this one proves the scanner and
-    the tree render what is really there, rather than what the UI just created.
+    Tests the whole path from a real file on the host, through the reconciler,
+    into the database, out of the endpoint and into the tree. The 30s assertion
+    timeout has to cover a reconcile cycle (10s), which is why it is not instant.
     """
     file_name = f"{UI_QUADLET}.container"
     _remove_e2e_quadlet(file_name)
@@ -221,6 +222,66 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
         # condition holds.
         entry = page.get_by_text(file_name, exact=False).first
         expect(entry).to_be_visible(timeout=30000)
+    finally:
+        _remove_e2e_quadlet(file_name)
+
+
+@pytest.mark.timeout(300)
+def test_tree_drops_a_quadlet_deleted_on_the_host(page):
+    """A file deleted on the host disappears from the server tree.
+
+    This is the only end-to-end proof that the reconciler's DELETE reaches the UI.
+    Nothing else covers the removal direction.
+    """
+    file_name = f"{UI_QUADLET}.container"
+    _remove_e2e_quadlet(file_name)
+
+    content = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
+    _ssh(
+        f"mkdir -p {USER_QUADLET_DIR} && "
+        f"printf '%b' {shlex.quote(content)} "
+        f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
+    )
+    try:
+        _open_app(page)
+        page.get_by_role("button", name="Containers").click()
+        page.get_by_role("button", name="Refresh data").click()
+
+        entry = page.get_by_text(file_name, exact=False).first
+        expect(entry).to_be_visible(timeout=30000)
+
+        _remove_e2e_quadlet(file_name)
+        expect(entry).not_to_be_visible(timeout=30000)
+    finally:
+        _remove_e2e_quadlet(file_name)
+
+
+@pytest.mark.timeout(300)
+def test_tree_picks_up_a_new_quadlet_without_a_manual_refresh(page):
+    """The tree updates when a new quadlet is added without a manual reload.
+
+    This is issue #319's acceptance criterion that the tree updates without a
+    manual reload, and the podman suite is the only place where the reconcile,
+    the SSE publish and the browser are all real at once.
+    """
+    file_name = f"{E2E_PREFIX}sse-push.container"
+    _remove_e2e_quadlet(file_name)
+    try:
+        _open_app(page)
+        page.get_by_role("button", name="Containers").click()
+
+        expect(page.get_by_text(file_name, exact=False)).to_have_count(0)
+
+        content = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
+        _ssh(
+            f"mkdir -p {USER_QUADLET_DIR} && "
+            f"printf '%b' {shlex.quote(content)} "
+            f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
+        )
+
+        expect(page.get_by_text(file_name, exact=False).first).to_be_visible(
+            timeout=60000
+        )
     finally:
         _remove_e2e_quadlet(file_name)
 

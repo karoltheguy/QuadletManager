@@ -281,9 +281,10 @@ because neither is a testing follow-up:
   during this branch's CI rounds, passed three times after on the same code, and
   this branch touches no frontend at all.
 
-The glance bar bug the browser journeys exercise is **#281**, and
-`tests/e2e/test_podman_e2e.py` carries a `xfail(strict=True)` test that flips to
-a failure the day it is fixed.
+The glance bar bug the browser journeys exercised was **#281**, fixed by the
+inventory reconciler in #317. The `xfail(strict=True)` marker did its job: it
+flipped to a failure on the fix, and `tests/e2e/test_podman_e2e.py` now carries
+that test as a plain regression guard.
 
 ---
 
