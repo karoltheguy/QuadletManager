@@ -59,6 +59,27 @@ def isolated_database(_database_template, tmp_path, monkeypatch):
     return db_path
 
 
+@pytest.fixture(autouse=True)
+def isolated_background_loops(monkeypatch):
+    """Keep the app's background tasks from doing real work during tests.
+
+    The lifespan starts three background tasks: polling_engine_loop,
+    stats_engine_loop, and container_events_cleanup_loop. polling_engine_loop
+    runs a reconcile plus check_quadlets cycle before its first sleep
+    (services/sync_engine.py:349-357), so it issues real SSH through the same
+    `pool` singleton tests patch. Neutralizing all three here keeps individual
+    tests from having to know they exist.
+    """
+    import main
+
+    async def _noop():
+        return
+
+    monkeypatch.setattr(main, "polling_engine_loop", _noop)
+    monkeypatch.setattr(main, "stats_engine_loop", _noop)
+    monkeypatch.setattr(main, "container_events_cleanup_loop", _noop)
+
+
 def _app_base_url() -> str:
     """Where the browser tests expect to find a running app.
 
