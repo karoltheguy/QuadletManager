@@ -19,6 +19,7 @@ core.database.DATABASE_PATH at an empty per-test copy, so the pool in this
 process cannot resolve the server row the *app* is using.
 """
 
+import contextlib
 import os
 import re
 import shlex
@@ -44,6 +45,12 @@ UI_QUADLET = "e2e-ui-created"
 MONITOR_CONTAINER = "e2e-monitor"
 
 USER_QUADLET_DIR = "~/.config/containers/systemd"
+
+# %b, not %s. printf '%s' does not expand \n, so writing this with %s produces a
+# single literal line reading `[Container]\nImage=...`, which is not a quadlet at
+# all. A test that only checks the tree lists the file name still passes, because
+# the scanner lists a file whatever is inside it.
+BUSYBOX_QUADLET = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
 
 
 def _ssh(command: str, check: bool = True) -> str:
@@ -107,6 +114,48 @@ def _remove_e2e_quadlet(file_name: str) -> None:
     )
 
 
+def _write_e2e_quadlet(file_name: str, content: str = BUSYBOX_QUADLET) -> None:
+    """Write one of our quadlets into the user quadlet dir. Prefix-guarded.
+
+    Does not daemon-reload: callers that need systemd to see the unit issue
+    that themselves, and the tests that only watch the reconciler do not.
+    """
+    assert file_name.startswith(E2E_PREFIX), f"refusing to write {file_name!r}"
+    _ssh(
+        f"mkdir -p {USER_QUADLET_DIR} && "
+        f"printf '%b' {shlex.quote(content)} "
+        f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
+    )
+
+
+@contextlib.contextmanager
+def _absent_from_host(file_name: str):
+    """Guarantee the file is gone before the block and again after it.
+
+    The leading removal is not paranoia: this suite runs against one long-lived
+    host, so a previous run that died between creating a file and its teardown
+    would otherwise hand the next run a tree that already contains the entry it
+    is about to assert appears.
+    """
+    _remove_e2e_quadlet(file_name)
+    try:
+        yield file_name
+    finally:
+        _remove_e2e_quadlet(file_name)
+
+
+@contextlib.contextmanager
+def _quadlet_on_host(file_name: str, content: str = BUSYBOX_QUADLET):
+    """Put one quadlet on the host for the duration of the block, then remove it.
+
+    Removal inside the block is fine and is what the deletion journey does: the
+    teardown here is `rm -f`, so removing an already-removed file is a no-op.
+    """
+    with _absent_from_host(file_name):
+        _write_e2e_quadlet(file_name, content)
+        yield file_name
+
+
 def _open_app(page):
     page.goto(f"{BASE_URL}/", wait_until="domcontentloaded")
 
@@ -133,6 +182,37 @@ def _open_app(page):
     )
 
 
+def _open_containers_tab(page, refresh: bool = False):
+    """Land on the Containers tab with the tree in a known, expanded state.
+
+    `refresh` clicks Refresh data, which is what a journey wants when it wrote
+    a file on the host a moment ago and does not want to wait out a reconcile
+    cycle. The journey that is specifically about updating *without* a manual
+    refresh must leave it off.
+    """
+    _open_app(page)
+    page.get_by_role("button", name="Containers").click()
+    if refresh:
+        page.get_by_role("button", name="Refresh data").click()
+
+
+def _tree_entry(page, file_name: str):
+    """The server tree's entry for one file.
+
+    Callers assert visibility, not mere presence: the entry can sit in the DOM
+    inside a collapsed group, which would pass while the user sees nothing.
+    _open_app has cleared the persisted collapse state, so every group is
+    expanded and no toggling is needed.
+
+    Returns a locator for expect(), not a point-in-time lookup. The app
+    re-renders the tree on its poll cycle, so wait_for() plus is_visible() can
+    resolve the element, have it swapped out underneath, and report False
+    having just waited successfully for it to appear. expect() retries until
+    the condition holds.
+    """
+    return page.get_by_text(file_name, exact=False).first
+
+
 # Per-test ceilings rather than a higher global one. pytest.ini's `timeout = 120`
 # exists for a documented reason and covers the whole suite; the tests in this
 # module are the outliers. Each waits on a real host: a unit reaching active, a
@@ -148,10 +228,8 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
     Asserted over ssh rather than by re-reading the UI, so a modal that reports
     success while writing nothing still fails.
     """
-    _remove_e2e_quadlet(f"{UI_QUADLET}.container")
-    try:
-        _open_app(page)
-        page.get_by_role("button", name="Containers").click()
+    with _absent_from_host(f"{UI_QUADLET}.container"):
+        _open_containers_tab(page)
         page.get_by_role("button", name=f"New quadlet on {SERVER_LABEL}").click()
 
         # Role-based where the control has an accessible name, and attribute
@@ -180,8 +258,6 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
         assert f"{UI_QUADLET}.container" in listing, (
             f"the modal reported success but no file reached the host: {listing!r}"
         )
-    finally:
-        _remove_e2e_quadlet(f"{UI_QUADLET}.container")
 
 
 @pytest.mark.timeout(300)
@@ -192,38 +268,9 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
     into the database, out of the endpoint and into the tree. The 30s assertion
     timeout has to cover a reconcile cycle (10s), which is why it is not instant.
     """
-    file_name = f"{UI_QUADLET}.container"
-    _remove_e2e_quadlet(file_name)
-
-    # %b, not %s. printf '%s' does not expand \n, so the original wrote a single
-    # literal line reading `[Container]\nImage=...`, which is not a quadlet at
-    # all. The test passed anyway, because it only checks that the tree lists
-    # the file name, and the scanner lists a file whatever is inside it.
-    content = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
-    _ssh(
-        f"mkdir -p {USER_QUADLET_DIR} && "
-        f"printf '%b' {shlex.quote(content)} "
-        f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
-    )
-    try:
-        _open_app(page)
-        page.get_by_role("button", name="Containers").click()
-        page.get_by_role("button", name="Refresh data").click()
-
-        # Assert visibility, not mere presence: the entry can sit in the DOM
-        # inside a collapsed group, which would pass while the user sees
-        # nothing. _open_app has cleared the persisted collapse state, so every
-        # group is expanded and no toggling is needed here.
-        #
-        # expect(), not wait_for() plus is_visible(). The app re-renders the
-        # tree on its poll cycle, so a point-in-time check can resolve the
-        # element, have it swapped out underneath, and report False having just
-        # waited successfully for it to appear. expect() retries until the
-        # condition holds.
-        entry = page.get_by_text(file_name, exact=False).first
-        expect(entry).to_be_visible(timeout=30000)
-    finally:
-        _remove_e2e_quadlet(file_name)
+    with _quadlet_on_host(f"{UI_QUADLET}.container") as file_name:
+        _open_containers_tab(page, refresh=True)
+        expect(_tree_entry(page, file_name)).to_be_visible(timeout=30000)
 
 
 @pytest.mark.timeout(300)
@@ -233,27 +280,14 @@ def test_tree_drops_a_quadlet_deleted_on_the_host(page):
     This is the only end-to-end proof that the reconciler's DELETE reaches the UI.
     Nothing else covers the removal direction.
     """
-    file_name = f"{UI_QUADLET}.container"
-    _remove_e2e_quadlet(file_name)
+    with _quadlet_on_host(f"{UI_QUADLET}.container") as file_name:
+        _open_containers_tab(page, refresh=True)
 
-    content = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
-    _ssh(
-        f"mkdir -p {USER_QUADLET_DIR} && "
-        f"printf '%b' {shlex.quote(content)} "
-        f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
-    )
-    try:
-        _open_app(page)
-        page.get_by_role("button", name="Containers").click()
-        page.get_by_role("button", name="Refresh data").click()
-
-        entry = page.get_by_text(file_name, exact=False).first
+        entry = _tree_entry(page, file_name)
         expect(entry).to_be_visible(timeout=30000)
 
         _remove_e2e_quadlet(file_name)
         expect(entry).not_to_be_visible(timeout=30000)
-    finally:
-        _remove_e2e_quadlet(file_name)
 
 
 @pytest.mark.timeout(300)
@@ -264,26 +298,16 @@ def test_tree_picks_up_a_new_quadlet_without_a_manual_refresh(page):
     manual reload, and the podman suite is the only place where the reconcile,
     the SSE publish and the browser are all real at once.
     """
-    file_name = f"{E2E_PREFIX}sse-push.container"
-    _remove_e2e_quadlet(file_name)
-    try:
-        _open_app(page)
-        page.get_by_role("button", name="Containers").click()
+    with _absent_from_host(f"{E2E_PREFIX}sse-push.container") as file_name:
+        # No refresh=True anywhere in this journey: the point is that the tree
+        # updates on its own.
+        _open_containers_tab(page)
 
         expect(page.get_by_text(file_name, exact=False)).to_have_count(0)
 
-        content = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
-        _ssh(
-            f"mkdir -p {USER_QUADLET_DIR} && "
-            f"printf '%b' {shlex.quote(content)} "
-            f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
-        )
+        _write_e2e_quadlet(file_name)
 
-        expect(page.get_by_text(file_name, exact=False).first).to_be_visible(
-            timeout=60000
-        )
-    finally:
-        _remove_e2e_quadlet(file_name)
+        expect(_tree_entry(page, file_name)).to_be_visible(timeout=60000)
 
 
 @pytest.fixture(scope="module")
@@ -301,7 +325,6 @@ def running_monitor_container():
     """
     file_name = f"{MONITOR_CONTAINER}.container"
     unit = f"{MONITOR_CONTAINER}.service"
-    _remove_e2e_quadlet(file_name)
 
     content = (
         "[Container]\\n"
@@ -312,12 +335,15 @@ def running_monitor_container():
         "[Service]\\nRestart=no\\n"
         "[Install]\\nWantedBy=default.target\\n"
     )
-    _ssh(
-        f"mkdir -p {USER_QUADLET_DIR} && "
-        f"printf '%b' {shlex.quote(content)} > {USER_QUADLET_DIR}/{shlex.quote(file_name)} && "
-        f"systemctl --user daemon-reload && systemctl --user start {shlex.quote(unit)}"
-    )
-    try:
+    with _absent_from_host(file_name):
+        _write_e2e_quadlet(file_name, content)
+        # Separate from the write, unlike everything else here, because this is
+        # the only unit that has to be visible to systemd and started.
+        _ssh(
+            f"systemctl --user daemon-reload && "
+            f"systemctl --user start {shlex.quote(unit)}"
+        )
+
         state = ""
         for _ in range(30):
             # check=False: is-active exits non-zero exactly when the unit is not
@@ -333,14 +359,24 @@ def running_monitor_container():
             "Monitor assertion below would be testing anything."
         )
         yield MONITOR_CONTAINER
-    finally:
-        _remove_e2e_quadlet(file_name)
 
 
 def _open_monitor_for_podman_host(page):
     _open_app(page)
     page.get_by_role("button", name="Monitor").click()
     page.get_by_role("combobox").first.select_option(label=SERVER_LABEL)
+
+
+def _expect_stats_row(page, container_name):
+    """Wait for the Monitor stats table to list one container.
+
+    Stats arrive on a poll cycle, so the row appears a cycle or two later.
+    expect() retries; a point-in-time inner_text() can miss the re-render.
+    """
+    row_name = page.locator("#monitoring-stats-table").get_by_text(
+        container_name, exact=False
+    ).first
+    expect(row_name).to_be_visible(timeout=90000)
 
 
 @pytest.mark.timeout(300)
@@ -361,13 +397,7 @@ def test_monitor_stats_table_lists_a_really_running_container(
     is the part of the tab that genuinely depends on the host.
     """
     _open_monitor_for_podman_host(page)
-
-    # Stats arrive on a poll cycle, so the row appears a cycle or two later.
-    # expect() retries; a point-in-time inner_text() can miss the re-render.
-    row_name = page.locator("#monitoring-stats-table").get_by_text(
-        running_monitor_container, exact=False
-    ).first
-    expect(row_name).to_be_visible(timeout=90000)
+    _expect_stats_row(page, running_monitor_container)
 
 
 @pytest.mark.timeout(300)
@@ -389,11 +419,7 @@ def test_monitor_glance_bar_counts_a_really_running_container(
     shows the container, and the bar still says 0.
     """
     _open_monitor_for_podman_host(page)
-
-    table_row = page.locator("#monitoring-stats-table").get_by_text(
-        running_monitor_container, exact=False
-    ).first
-    expect(table_row).to_be_visible(timeout=90000)
+    _expect_stats_row(page, running_monitor_container)
 
     # A positive integer, not exactly "1": the count covers every
     # quadlet-backed unit in the scope, and a host that legitimately has others
