@@ -2,10 +2,11 @@ import asyncio
 import logging
 import shlex
 import time
+
 from core.database import get_db_connection
-from services.ssh_manager import pool
-from services.remote_fs import is_global_scope
 from core.events_manager import publisher
+from services.remote_fs import is_global_scope
+from services.ssh_manager import pool
 from services.tree_scanner import fetch_all_quadlets
 
 logger = logging.getLogger("quadlet-manager.sync")
@@ -200,9 +201,11 @@ async def reconcile_server_inventory(server_id: int, scope_filter: str) -> None:
     ]
     scanned_paths = {path for path, _ in scanned_items}
 
-    async with get_db_connection() as db:
-        async with db.execute("SELECT file_path FROM quadlets WHERE server_id = ?", (server_id,)) as cursor:
-            known_paths = {row[0] for row in await cursor.fetchall()}
+    async with (
+        get_db_connection() as db,
+        db.execute("SELECT file_path FROM quadlets WHERE server_id = ?", (server_id,)) as cursor,
+    ):
+        known_paths = {row[0] for row in await cursor.fetchall()}
 
     new_items = [(path, scope) for path, scope in scanned_items if path not in known_paths]
     stale_paths = known_paths - scanned_paths
@@ -232,9 +235,11 @@ async def reconcile_server_inventory(server_id: int, scope_filter: str) -> None:
 
 async def reconcile_all_inventories() -> None:
     """Reconcile every registered server, isolating each one's failures."""
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, scope_filter FROM servers") as cursor:
-            servers = await cursor.fetchall()
+    async with (
+        get_db_connection() as db,
+        db.execute("SELECT id, scope_filter FROM servers") as cursor,
+    ):
+        servers = await cursor.fetchall()
 
     for server_id, scope_filter in servers:
         try:
