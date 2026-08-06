@@ -628,6 +628,25 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
         logger.exception("Error fetching file")
         return HTMLResponse("<div class='text-red-500 p-4'>Failed to load file content</div>")
 
+async def _record_quadlet_row(server_id, file_path, scope, content, use_sudo) -> None:
+    """Keep the sync poller from flagging the app's own write as an external modification."""
+    stat_cmd = f"stat -c %Y {shlex.quote(file_path)}"
+    mtime_str = await pool.execute_command(server_id, stat_cmd, use_sudo=use_sudo)
+    new_mtime = await parse_mtime(mtime_str)
+    content_hash = hashlib.sha256(content.encode()).hexdigest()
+
+    async with get_db_connection() as db:
+        await db.execute(
+            "INSERT INTO quadlets (server_id, file_path, scope, last_known_mtime, last_content_hash) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(server_id, file_path) DO UPDATE SET "
+            "last_known_mtime = excluded.last_known_mtime, "
+            "last_content_hash = excluded.last_content_hash",
+            (server_id, file_path, scope, new_mtime, content_hash)
+        )
+        await db.commit()
+
+
 @router.post("/api/save", response_class=HTMLResponse, responses=EDITOR_PATH_CONFINED_RESPONSES)
 async def save_file(
     request: Request,
@@ -657,22 +676,8 @@ async def save_file(
     try:
         await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
 
-        # ── Collision Avoidance ──
-        # Immediately update the DB with the new mtime so the sync poller
-        # doesn't flag our own save as an "external modification."
         try:
-            stat_cmd = f"stat -c %Y {shlex.quote(file_path)}"
-            mtime_str = await pool.execute_command(server_id, stat_cmd, use_sudo=use_sudo)
-            new_mtime = await parse_mtime(mtime_str)
-            content_hash = hashlib.sha256(content.encode()).hexdigest()
-
-            async with get_db_connection() as db:
-                await db.execute(
-                    "UPDATE quadlets SET last_known_mtime = ?, last_content_hash = ? "
-                    "WHERE server_id = ? AND file_path = ?",
-                    (new_mtime, content_hash, server_id, file_path)
-                )
-                await db.commit()
+            await _record_quadlet_row(server_id, file_path, scope, content, use_sudo)
         except Exception as ca_err:
             # Non-fatal: the save succeeded, collision avoidance is best-effort
             logger.warning(f"Collision avoidance update failed (save was OK): {ca_err}")
@@ -839,6 +844,11 @@ async def create_new_quadlet(
             raise HTTPException(status_code=400, detail=f"Path is outside the quadlet directory for scope {scope!r}")
         await pool.execute_command(server_id, f"mkdir -p {shlex.quote(target_dir)}", use_sudo=use_sudo)
         await write_remote_file(server_id, file_path, content, use_sudo=use_sudo)
+
+        try:
+            await _record_quadlet_row(server_id, file_path, scope, content, use_sudo)
+        except Exception as e:
+            logger.warning(f"Quadlet row bookkeeping failed (create was OK): {e}")
 
         response = _toast(request, "green", f"Created {file_name}!")
         response.headers["HX-Trigger"] = "reload-servers"
