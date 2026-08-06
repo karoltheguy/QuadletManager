@@ -580,11 +580,11 @@ async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depen
     try:
         async with get_db_connection() as db:
             async with db.execute(
-                "SELECT scope_filter, last_reconciled_at FROM servers WHERE id = ?", (server_id,)
+                "SELECT last_reconciled_at FROM servers WHERE id = ?", (server_id,)
             ) as cursor:
                 server_row = await cursor.fetchone()
 
-            scope_filter, last_reconciled_at = (server_row[0], server_row[1]) if server_row else ("both", None)
+            last_reconciled_at = server_row[0] if server_row else None
 
             async with db.execute(
                 "SELECT file_path, scope FROM quadlets WHERE server_id = ? ORDER BY scope, file_path", (server_id,)
