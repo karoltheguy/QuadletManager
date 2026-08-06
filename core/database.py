@@ -10,7 +10,7 @@ DATABASE_PATH = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
 
 # Baseline squash: version 1 was the baseline schema. Bump this whenever a new
 # entry is appended to _MIGRATIONS.
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 
 def _is_duplicate_column_error(exc: Exception) -> bool:
@@ -272,7 +272,29 @@ async def _migration_002_unit_state(db):
     """)
 
 
-_MIGRATIONS = [_migration_001_baseline, _migration_002_unit_state]
+async def _migration_003_quadlets_unique_index(db):
+    """Enforce uniqueness on (server_id, file_path) in quadlets.
+
+    The inventory reconciler re-scans every server each poll cycle and needs to
+    upsert what it finds, which requires a unique constraint for ON CONFLICT to
+    target. `id` alone does not stop the same path being inserted twice.
+
+    Duplicates are deleted before the index is created, keeping the lowest id
+    per pair: creating the index first would raise on a database that already
+    holds duplicates, and init_db() would roll back and leave the schema
+    version unstamped, failing startup on every subsequent launch.
+    """
+    await db.execute("""
+        DELETE FROM quadlets
+        WHERE id NOT IN (SELECT MIN(id) FROM quadlets GROUP BY server_id, file_path)
+    """)
+    await db.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_quadlets_server_path
+        ON quadlets(server_id, file_path)
+    """)
+
+
+_MIGRATIONS = [_migration_001_baseline, _migration_002_unit_state, _migration_003_quadlets_unique_index]
 
 
 async def init_db():
