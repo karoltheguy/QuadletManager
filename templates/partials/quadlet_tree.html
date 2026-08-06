@@ -1,3 +1,6 @@
+{% if not scanned %}
+<div class="text-muted text-xs mt-2">Not yet scanned</div>
+{% else %}
 {% for scope in ['global', 'user'] %}
 {% if data[scope] %}
     <div class="font-semibold text-muted mt-2 uppercase text-xs">{{ scope }} Scope</div>
@@ -23,3 +26,4 @@
     </ul>
 {% endif %}
 {% endfor %}
+{% endif %}

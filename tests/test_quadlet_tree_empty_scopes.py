@@ -9,10 +9,13 @@ from jinja2 import Environment, FileSystemLoader
 PARTIALS_DIR = os.path.join(os.path.dirname(__file__), "..", "templates", "partials")
 
 
-def _render(data, server_id=1):
+def _render(data, server_id=1, scanned=True):
+    # scanned defaults to True: these tests are about which scope headings a
+    # scanned server renders. The unscanned state is covered in
+    # tests/test_quadlet_tree_from_db.py.
     env = Environment(loader=FileSystemLoader(PARTIALS_DIR))
     tmpl = env.get_template("quadlet_tree.html")
-    return tmpl.render(data=data, server_id=server_id)
+    return tmpl.render(data=data, server_id=server_id, scanned=scanned)
 
 
 class TestEmptyScopeHidden:
