@@ -10,7 +10,7 @@ logger = logging.getLogger("quadlet-manager.scanner")
 # Backwards-compatible alias for the shared scope directory constant.
 GLOBAL_DIR = GLOBAL_QUADLET_DIR
 
-async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict]:
+async def scan_directory(server_id: int, path: str, use_sudo: bool, strict: bool = False) -> List[Dict]:
     """Uses SSH to run `find` and lists files in the given directory. `path` must be absolute."""
     # We grep for specific known Quadlet extensions.
     cmd = rf"find {shlex.quote(path)} -type f -maxdepth 1 | grep -E '\.(container|volume|network|pod)$' || true"
@@ -35,9 +35,11 @@ async def scan_directory(server_id: int, path: str, use_sudo: bool) -> List[Dict
         return results
     except Exception:
         logger.exception(f"Error scanning {path} on server {server_id}")
+        if strict:
+            raise
         return []
 
-async def fetch_all_quadlets(server_id: int, scope_filter: str = "both") -> Dict[str, List[Dict]]:
+async def fetch_all_quadlets(server_id: int, scope_filter: str = "both", strict: bool = False) -> Dict[str, List[Dict]]:
     """Scans Quadlet scopes for the given server, respecting scope_filter.
 
     scope_filter: 'both' | 'user' | 'global'
@@ -48,15 +50,17 @@ async def fetch_all_quadlets(server_id: int, scope_filter: str = "both") -> Dict
     user_files: List[Dict] = []
 
     if scope_filter in ("both", "global"):
-        global_files = await scan_directory(server_id, GLOBAL_DIR, use_sudo=True)
+        global_files = await scan_directory(server_id, GLOBAL_DIR, use_sudo=True, strict=strict)
 
     if scope_filter in ("both", "user"):
         try:
             user_dir = await quadlet_dir_for_scope(server_id, "user")
         except Exception:
             logger.exception(f"Error resolving user quadlet dir on server {server_id}")
+            if strict:
+                raise
         else:
-            user_files = await scan_directory(server_id, user_dir, use_sudo=False)
+            user_files = await scan_directory(server_id, user_dir, use_sudo=False, strict=strict)
 
     return {
         "global": global_files,
