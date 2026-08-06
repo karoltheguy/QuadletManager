@@ -125,7 +125,17 @@ SSH connection pool implementation:
 
 #### [`services/sync_engine.py`](services/sync_engine.py)
 
-File-modification polling engine. Every 10 seconds (`POLL_INTERVAL_SEC`) it checks whether registered quadlet files were modified outside the app:
+File-modification polling engine. Every 10 seconds (`POLL_INTERVAL_SEC`), starting with an immediate first cycle at startup rather than after a full interval, it reconciles each server's quadlet inventory and then checks whether registered quadlet files were modified outside the app.
+
+**Inventory reconciliation** (issue #317): `reconcile_server_inventory` is the only writer that discovers files. It scans a server with `fetch_all_quadlets(..., strict=True)`, diffs the result against that server's `quadlets` rows, inserts what is new and deletes what is gone. Points worth knowing:
+
+- `strict=True` makes a failed scan raise instead of returning `[]`, because an unreachable host is not an empty directory. On failure the server's rows are left untouched, and one server's failure never aborts the cycle for the others.
+- Existing rows are never updated: `last_known_mtime` and `last_content_hash` belong to the save path's collision avoidance, and overwriting them would make the app's own writes look external.
+- A newly discovered path whose `stat` returned nothing is skipped rather than inserted with mtime 0, which the next cycle would read as an external modification.
+- A successful scan stamps `servers.last_reconciled_at`, which is what lets the tree endpoint tell "never scanned" from "scanned, found nothing".
+- A reconcile that actually changed rows publishes a `quadlets_changed` SSE event, and one that changed nothing publishes nothing.
+
+Then, for modification detection:
 
 - Quadlets are grouped by `(server_id, scope)` — global-scope files require sudo, so a server with mixed scopes gets two groups.
 - Each group is fetched in **one SSH round-trip**: a single batched `stat -c '%n %Y' file1 file2 ...` returns all mtimes for that group. Missing files are silently absent from the output (stderr is discarded and the exit code neutralized) rather than failing the batch.
@@ -313,6 +323,7 @@ CREATE TABLE servers (
     scope_filter TEXT NOT NULL DEFAULT 'both' CHECK(scope_filter IN ('user', 'global', 'both')),
     position INTEGER NOT NULL DEFAULT 0,
     host_key TEXT,  -- pinned SSH host public key (NULL = not yet pinned)
+    last_reconciled_at INTEGER,  -- last successful inventory scan (NULL = never scanned)
     FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
 );
 
@@ -595,6 +606,7 @@ Event types:
 - `stats_update`: Container resource metrics (every 5s)
 - `stats_error`: Podman connectivity issues
 - `file_changed`: External file modification detected
+- `quadlets_changed`: A reconcile added or removed rows for one server (payload `{"server_id": N}`); the client refreshes only that server's tree
 - `poll_health`: Sync-poller health transitions — a server entering/leaving unhealthy (consecutive failures or slow fetch) or the poll cycle crossing its duration budget; edge-triggered, not periodic. Payload schemas and thresholds are documented in [Poll Health Instrumentation](#poll-health-instrumentation-servicessync_enginepy)
 
 ```javascript
@@ -770,7 +782,7 @@ flowchart TD
 | GET | `/` | Main dashboard |
 | GET | `/api/servers` | Server list (HTML partial) |
 | GET | `/api/overview` | Dashboard overview statistics |
-| GET | `/api/quadlets/{server_id}` | File tree (HTML partial) |
+| GET | `/api/quadlets/{server_id}` | File tree (HTML partial), read from the `quadlets` table, never a live scan |
 | GET | `/api/file/{server_id}` | File content (HTML partial) |
 
 ### File Operations

@@ -19,7 +19,7 @@
                     aria-label="New quadlet on {{ server[1] }}">+</button>
             {% endif %}
         </div>
-        <div class="pl-4 text-sm server-quadlet-tree" hx-get="/api/quadlets/{{ server[0] }}" hx-trigger="load">
+        <div class="pl-4 text-sm server-quadlet-tree" data-server-id="{{ server[0] }}" hx-get="/api/quadlets/{{ server[0] }}" hx-trigger="load">
             Scanning quadlets...
         </div>
     </li>

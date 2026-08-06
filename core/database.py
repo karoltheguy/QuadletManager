@@ -10,7 +10,7 @@ DATABASE_PATH = os.environ.get("QUADLET_DB_PATH", "quadlets.db")
 
 # Baseline squash: version 1 was the baseline schema. Bump this whenever a new
 # entry is appended to _MIGRATIONS.
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 
 
 def _is_duplicate_column_error(exc: Exception) -> bool:
@@ -294,7 +294,19 @@ async def _migration_003_quadlets_unique_index(db):
     """)
 
 
-_MIGRATIONS = [_migration_001_baseline, _migration_002_unit_state, _migration_003_quadlets_unique_index]
+async def _migration_004_servers_last_reconciled(db):
+    """Distinguish a server that has never been reconciled (NULL) from one whose scan legitimately found no quadlets, because the tree endpoint must render those two differently."""
+    await _run_additive_migration(db, [
+        "ALTER TABLE servers ADD COLUMN last_reconciled_at INTEGER"
+    ])
+
+
+_MIGRATIONS = [
+    _migration_001_baseline,
+    _migration_002_unit_state,
+    _migration_003_quadlets_unique_index,
+    _migration_004_servers_last_reconciled,
+]
 
 
 async def init_db():
