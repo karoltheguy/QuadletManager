@@ -23,7 +23,21 @@ def open_monitor_pane(page: Page, history=None):
 
     When `history` is given, the chart history endpoint is stubbed with that
     body before the Monitor tab is opened, so no real fetch can slip through.
+
+    The SSE stream at `/api/events` is stubbed before navigation so that only
+    injected stats frames reach the client. Without this, a real
+    `stats_update` for the seeded mock server (id 1) overwrites injected
+    payloads.
     """
+    page.route(
+        "**/api/events",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/event-stream",
+            body=": e2e stub\n\n",
+        ),
+    )
+
     try:
         page.goto("http://localhost:8000/")
     except PlaywrightError:
