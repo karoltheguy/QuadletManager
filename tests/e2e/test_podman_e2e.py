@@ -310,31 +310,22 @@ def test_monitor_stats_table_lists_a_really_running_container(
 
 
 @pytest.mark.timeout(300)
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "#281: the glance bar's Total/Running/Stopped are computed from "
-        "data.units, which _unit_names_for_scope reads out of the `quadlets` "
-        "table. Nothing in production ever inserts into that table, only "
-        "UPDATE, DELETE and reads, so units is always [] and the bar always "
-        "reads 0. Flips to XPASS, and so to a failure, the day #281 is fixed."
-    ),
-)
 def test_monitor_glance_bar_counts_a_really_running_container(
     page, running_monitor_container
 ):
     """The Monitor glance bar counts a container that is genuinely up.
 
     Executable form of #281 rather than a claim in a document. This suite is
-    the only thing that can catch it end to end, since the bug needs a real
-    host, a real running unit and the browser all at once.
+    the only thing that can catch a regression end to end, since the behaviour
+    needs a real host, a real running unit and the browser all at once. It was
+    xfail(strict) until the inventory reconciler gave the `quadlets` table a
+    writer (#317).
 
     Deliberately waits for the stats table first. Both are written by the same
     updateMonitoringView call, so once the table has the row the payload has
-    arrived and the bar has already been written. That keeps this at a short
-    assertion timeout instead of burning 90s on every run to reach a failure
-    that is expected, and it makes the failure specific: stats arrived, the
-    table shows the container, and the bar still says 0.
+    arrived and the bar has already been written. That keeps the bar assertion
+    at a short timeout, and makes a failure specific: stats arrived, the table
+    shows the container, and the bar still says 0.
     """
     _open_monitor_for_podman_host(page)
 
@@ -343,9 +334,9 @@ def test_monitor_glance_bar_counts_a_really_running_container(
     ).first
     expect(table_row).to_be_visible(timeout=90000)
 
-    # A positive integer, not exactly "1": once #281 is fixed the count covers
-    # every quadlet-backed unit in the scope, and a host that legitimately has
-    # others should not fail this.
+    # A positive integer, not exactly "1": the count covers every
+    # quadlet-backed unit in the scope, and a host that legitimately has others
+    # should not fail this.
     expect(page.locator("#mstat-running")).to_have_text(
         re.compile(r"^[1-9]\d*$"), timeout=15000
     )

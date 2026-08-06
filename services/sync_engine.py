@@ -2,10 +2,12 @@ import asyncio
 import logging
 import shlex
 import time
+
 from core.database import get_db_connection
-from services.ssh_manager import pool
-from services.remote_fs import is_global_scope
 from core.events_manager import publisher
+from services.remote_fs import is_global_scope
+from services.ssh_manager import pool
+from services.tree_scanner import fetch_all_quadlets
 
 logger = logging.getLogger("quadlet-manager.sync")
 
@@ -163,6 +165,89 @@ async def _timed_fetch(server_id, use_sudo, paths):
         return e, time.monotonic() - start, False
 
 
+async def _mtimes_for_new_paths(server_id, new_items) -> dict[str, int]:
+    """Fetch mtimes for newly discovered paths, one SSH round-trip per scope."""
+    by_scope = {}
+    for path, scope in new_items:
+        by_scope.setdefault(scope, []).append(path)
+
+    mtimes = {}
+    for scope, paths in by_scope.items():
+        mtimes.update(await _fetch_mtimes(server_id, is_global_scope(scope), paths))
+    return mtimes
+
+
+async def reconcile_server_inventory(server_id: int, scope_filter: str) -> None:
+    """Bring the ``quadlets`` rows for one server in line with what is on disk.
+
+    Inserts rows for newly discovered files and deletes rows whose file is
+    gone. Existing rows are never updated: ``last_known_mtime`` and
+    ``last_content_hash`` belong to the save path's collision avoidance, and
+    overwriting them here would make the app's own saves look external.
+
+    A failed scan leaves the server's rows untouched, since an unreachable
+    host is not the same thing as an empty directory.
+    """
+    try:
+        scanned = await fetch_all_quadlets(server_id, scope_filter, strict=True)
+    except Exception:
+        logger.exception(f"Error scanning quadlet inventory for server {server_id}")
+        return
+
+    scanned_items = [
+        (item["path"], item["scope"])
+        for cat in ("global", "user")
+        for item in scanned.get(cat, [])
+    ]
+    scanned_paths = {path for path, _ in scanned_items}
+
+    async with (
+        get_db_connection() as db,
+        db.execute("SELECT file_path FROM quadlets WHERE server_id = ?", (server_id,)) as cursor,
+    ):
+        known_paths = {row[0] for row in await cursor.fetchall()}
+
+    new_items = [(path, scope) for path, scope in scanned_items if path not in known_paths]
+    stale_paths = known_paths - scanned_paths
+
+    # Fetched outside the database context: this is an SSH round-trip, and
+    # check_quadlets likewise never holds a connection open across one.
+    new_mtimes = await _mtimes_for_new_paths(server_id, new_items) if new_items else {}
+
+    async with get_db_connection() as db:
+        for path, scope in new_items:
+            # A path stat did not report is skipped rather than seeded with 0,
+            # which the next poll cycle would read as an external modification.
+            if path in new_mtimes:
+                await db.execute(
+                    "INSERT INTO quadlets (server_id, file_path, scope, last_known_mtime) VALUES (?, ?, ?, ?)",
+                    (server_id, path, scope, new_mtimes[path]),
+                )
+
+        for path in stale_paths:
+            await db.execute(
+                "DELETE FROM quadlets WHERE server_id = ? AND file_path = ?",
+                (server_id, path),
+            )
+
+        await db.commit()
+
+
+async def reconcile_all_inventories() -> None:
+    """Reconcile every registered server, isolating each one's failures."""
+    async with (
+        get_db_connection() as db,
+        db.execute("SELECT id, scope_filter FROM servers") as cursor,
+    ):
+        servers = await cursor.fetchall()
+
+    for server_id, scope_filter in servers:
+        try:
+            await reconcile_server_inventory(server_id, scope_filter)
+        except Exception:
+            logger.exception(f"Error reconciling inventory for server {server_id}")
+
+
 async def check_quadlets():
     """Polls all registered quadlets to see if the remote file has been modified."""
     cycle_start = time.monotonic()
@@ -251,6 +336,7 @@ async def polling_engine_loop():
         while True:
             await asyncio.sleep(POLL_INTERVAL_SEC)
             try:
+                await reconcile_all_inventories()
                 await check_quadlets()
             except asyncio.CancelledError:
                 raise  # Re-raise to exit the loop
