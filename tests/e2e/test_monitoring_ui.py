@@ -398,3 +398,42 @@ def test_glance_bar_counts_come_from_unit_state(page: Page):
     expect(page.locator("#mstat-total")).to_have_text("3")
     expect(page.locator("#mstat-running")).to_have_text("2")
     expect(page.locator("#mstat-stopped")).to_have_text("1")
+
+
+@pytest.mark.e2e
+def test_injected_stats_survive_a_live_stats_tick(page: Page):
+    """Injected stats for server 1 must not be clobbered by the next real
+    live stats frame arriving over the SSE stream.
+
+    This fails today because the e2e stack's seeded mock server is id 1 with
+    no ssh_key_id (scripts/seed_test_db.py:143-146), so every scope fetch for
+    it fails; services/stats_engine.py:342-347 swallows that failure and
+    returns an empty ScopeResult, so a real `stats_update` with an empty
+    `containers` list is published for server 1 every STATS_INTERVAL_SEC
+    seconds (services/stats_engine.py:33, currently 5). That frame arrives
+    over the live `EventSource('/api/events')` into `handleStatsUpdate`, the
+    same function `inject_stats` calls, and overwrites `lastStatsPerServer[1]`
+    with the empty payload, wiping out the container list this test just
+    filtered on.
+    """
+    open_monitor_pane(page, history=[])
+
+    units = [
+        {"unit": "web.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "db.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "cache.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+    ]
+    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER], units=units)
+    select_injected_server(page, 1, option_count=2)
+
+    count_el = page.locator("#monitor-filter-count")
+
+    page.locator("#monitor-container-filter").fill("web")
+    expect(count_el).to_have_text("1 of 3 shown")
+
+    # Deliberately outlive one real stats tick: STATS_INTERVAL_SEC is 5 in
+    # services/stats_engine.py:33, so waiting 7s guarantees a live frame for
+    # server 1 has been published and consumed by handleStatsUpdate.
+    page.wait_for_timeout(7000)
+
+    expect(count_el).to_have_text("1 of 3 shown")
