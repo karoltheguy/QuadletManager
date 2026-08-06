@@ -11,11 +11,11 @@
           var resolved = effective === 'auto'
             ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
             : effective;
-          document.documentElement.setAttribute('data-theme', resolved);
+          document.documentElement.dataset.theme = resolved;
         } catch (e) {}
         try {
           var density = localStorage.getItem('qm-density');
-          if (density === 'compact') document.documentElement.setAttribute('data-density', 'compact');
+          if (density === 'compact') document.documentElement.dataset.density = 'compact';
         } catch (e) {}
       })();
     </script>

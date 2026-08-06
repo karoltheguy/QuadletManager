@@ -72,12 +72,12 @@ document.addEventListener('click', function() {
 // opposite, then persists to localStorage so the override sticks.
 function toggleTheme() {
     const root = document.documentElement;
-    let current = root.getAttribute('data-theme');
+    let current = root.dataset.theme;
     if (!current) {
         current = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
     const next = current === 'light' ? 'dark' : 'light';
-    root.setAttribute('data-theme', next);
+    root.dataset.theme = next;
     try {
         localStorage.setItem('qm-theme-override', next);
     } catch {
@@ -92,9 +92,9 @@ window.toggleTheme = toggleTheme;
 window.toggleDensity = function(value) {
     const root = document.documentElement;
     if (value === 'compact') {
-        root.setAttribute('data-density', 'compact');
+        root.dataset.density = 'compact';
     } else {
-        root.removeAttribute('data-density');
+        delete root.dataset.density;
     }
     try {
         localStorage.setItem('qm-density', value);
@@ -584,7 +584,7 @@ function applyEditorTheme() {
     } else if (pref === 'dark') {
         window.monaco.editor.setTheme('vs-dark');
     } else {
-        const resolved = document.documentElement.getAttribute('data-theme');
+        const resolved = document.documentElement.dataset.theme;
         window.monaco.editor.setTheme(resolved === 'light' ? 'vs' : 'vs-dark');
     }
 }
@@ -3134,7 +3134,7 @@ window.setupModalDismissal = function(modalId) {
 document.body.addEventListener('htmx:afterSwap', function() {
   const modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
   modals.forEach(function(modal) {
-    modal.setAttribute('data-dismissal-setup', 'true');
+    modal.dataset.dismissalSetup = 'true';
     const escHandler = function(e) {
       if (e.key === 'Escape' || e.key === 'Esc') {
         modal.remove();

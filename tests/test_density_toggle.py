@@ -54,7 +54,9 @@ class TestDensityHTML:
         head_end = self.html.find('</head>')
         head = self.html[:head_end]
         assert 'qm-density' in head, "FOUC-prevention script must read qm-density in <head>"
-        assert "data-density" in head, "FOUC-prevention script must set data-density on <html>"
+        assert "data-density" in head or "dataset.density" in head, (
+            "FOUC-prevention script must set data-density on <html>"
+        )
 
 
 class TestDensityCSS:

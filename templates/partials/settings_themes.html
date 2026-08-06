@@ -164,7 +164,7 @@
 
 <script>
 function setEditorMode(editor, mode) {
-  editor.setAttribute('data-editing-mode', mode);
+  editor.dataset.editingMode = mode;
   editor.querySelectorAll('.color-editor-form').forEach(f => {
     f.style.display = f.dataset.mode === mode ? '' : 'none';
   });
