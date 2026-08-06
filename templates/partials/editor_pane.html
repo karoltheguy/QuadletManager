@@ -90,7 +90,7 @@
 
                 window.editor = monaco.editor.create(targetContainer, {
                     model: model,
-                    theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'vs' : 'vs-dark',
+                    theme: document.documentElement.dataset.theme === 'light' ? 'vs' : 'vs-dark',
                     automaticLayout: true
                 });
                 if (window.applyEditorTheme) window.applyEditorTheme();
