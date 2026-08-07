@@ -873,9 +873,16 @@ HTTP-on-`:8000` deployment would make login appear to succeed but never stick.
 
 ### Running the Application
 
+`requirements.txt` is a generated lock: every direct and transitive dependency
+pinned with `==` and hashed. `--require-hashes` therefore fails the install on
+a substituted or tampered-with PyPI artifact, and `--only-binary :all:` keeps
+any sdist's `setup.py` from executing. The editable version ranges live in
+`requirements.in`; see [CONTRIBUTING.md](../CONTRIBUTING.md) for how to
+regenerate the lock.
+
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install --only-binary :all: --require-hashes -r requirements.txt
 
 # Set master key
 export QUADLET_MASTER_KEY=$(openssl rand -hex 32)

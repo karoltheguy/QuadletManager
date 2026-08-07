@@ -12,7 +12,7 @@ fi
 source venv/bin/activate
 
 echo "Installing/updating dependencies..."
-pip install -r requirements.txt
+pip install --only-binary :all: --require-hashes -r requirements.txt
 
 echo "Installing/updating frontend vendor assets..."
 # --ignore-scripts keeps dependency lifecycle scripts from running on install;

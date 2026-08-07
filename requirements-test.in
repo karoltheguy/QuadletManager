@@ -1,0 +1,16 @@
+# Hand-edited test-only dependencies. requirements-test.txt is the resolved,
+# hash-pinned lock compiled from this file against requirements.txt, so the
+# two locks always agree on any package they share. See requirements.in for
+# the regeneration commands.
+pytest>=9.1.1
+pytest-asyncio>=1.4.0
+pytest-xdist
+pytest-rerunfailures
+pytest-timeout
+playwright==1.61.0
+pytest-playwright==0.8.0
+pytest-cov
+coverage
+httpx2
+filelock
+pylint

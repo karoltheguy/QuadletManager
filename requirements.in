@@ -1,0 +1,20 @@
+# Hand-edited runtime dependencies. The lower bounds here are security floors
+# (see tests/test_requirements.py), not the versions that actually get
+# installed -- requirements.txt is the resolved, hash-pinned lock compiled
+# from this file, and that is what every install path reads.
+#
+# After editing, regenerate the lock with:
+#   pip-compile --generate-hashes --allow-unsafe --strip-extras \
+#       --output-file requirements.txt requirements.in
+#   pip-compile --generate-hashes --allow-unsafe --strip-extras \
+#       -c requirements.txt --output-file requirements-test.txt requirements-test.in
+fastapi>=0.141.1
+uvicorn[standard]>=0.52.0
+asyncssh>=2.24.0
+cryptography>=49.0.0
+aiosqlite>=0.22.1
+jinja2>=3.1.6
+pyyaml>=6.0.3
+python-multipart>=0.0.32
+itsdangerous>=2.2.0
+argon2-cffi>=25.1.0

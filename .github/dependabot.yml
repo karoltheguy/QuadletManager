@@ -13,7 +13,10 @@ updates:
         patterns:
           - "*"
 
-  # Python dependencies declared in requirements.txt and requirements-test.txt
+  # Python dependencies. The ranges live in requirements.in /
+  # requirements-test.in; requirements.txt / requirements-test.txt are the
+  # pip-compile locks. Dependabot recognizes that layout and regenerates the
+  # hashed lock alongside any bump it makes to the input file.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
