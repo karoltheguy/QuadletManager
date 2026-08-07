@@ -70,6 +70,20 @@ def _asset_version(filename: str) -> int:
 
 
 
+# Fire-and-forget tasks are parked here until they finish. The event loop only
+# keeps a weak reference to a running task, so a bare create_task() whose result
+# nobody stores can be garbage-collected mid-flight and silently never run.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_background(coro) -> asyncio.Task:
+    """Start a fire-and-forget task and hold a strong reference until it ends."""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
+
+
 def _log_error_ref(prefix: str, exc: Exception) -> str:
     """Log exc with a short random correlation id and return the id so the
     same reference can be shown to the user without leaking exception detail."""
@@ -714,7 +728,7 @@ async def save_file(
             except Exception:
                 logger.exception(f"Background restart of {unit_name} failed")
 
-        asyncio.create_task(_restart_in_background())
+        _spawn_background(_restart_in_background())
 
         response = _toast(request, "green", f"Saved! Restarting {unit_name}...")
         response.headers["HX-Trigger"] = "quadlet-saved"

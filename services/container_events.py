@@ -104,3 +104,4 @@ async def container_events_cleanup_loop():
                 logger.exception("Container events cleanup error")
     except asyncio.CancelledError:
         logger.info("Container events cleanup stopped.")
+        raise

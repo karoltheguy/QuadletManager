@@ -225,7 +225,9 @@ class TerminalSession:
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected for terminal {_log_safe(self.container_name)}")
         except asyncio.CancelledError:
-            pass
+            # Cancellation is not an error to absorb: the caller cancelled this
+            # reader and has to see the task finish as cancelled.
+            raise
         except Exception:
             logger.exception("Terminal input error")
 

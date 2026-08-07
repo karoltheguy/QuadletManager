@@ -525,10 +525,13 @@ async def test_batched_stat_tilde_path_mapped_by_suffix(mock_get_db_func, mock_p
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_polling_engine_loop_cancelled():
+    """Cancellation must propagate, not be absorbed: the task has to finish as
+    cancelled so shutdown can tell a cancelled loop from one that fell out."""
     import asyncio
     from services.sync_engine import polling_engine_loop
     with patch("services.sync_engine.asyncio.sleep", side_effect=asyncio.CancelledError()):
-        await polling_engine_loop()
+        with pytest.raises(asyncio.CancelledError):
+            await polling_engine_loop()
 
 @pytest.mark.asyncio
 @pytest.mark.unit
@@ -544,7 +547,8 @@ async def test_polling_engine_loop_exception_caught():
             
     with patch("services.sync_engine.asyncio.sleep", side_effect=mock_sleep), \
          patch("services.sync_engine.check_quadlets", side_effect=Exception("sync error")):
-        await polling_engine_loop()
+        with pytest.raises(asyncio.CancelledError):
+            await polling_engine_loop()
 
 
 # =============================================================================

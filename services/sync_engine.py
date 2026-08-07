@@ -357,3 +357,4 @@ async def polling_engine_loop():
             await asyncio.sleep(POLL_INTERVAL_SEC)
     except asyncio.CancelledError:
         logger.info("Polling engine stopped.")
+        raise

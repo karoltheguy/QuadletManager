@@ -174,7 +174,8 @@ async def test_polling_loop_runs_reconcile_before_first_sleep(
     mock_reconcile.side_effect = side_reconcile
     mock_check.side_effect = side_check
 
-    await polling_engine_loop()
+    with pytest.raises(asyncio.CancelledError):
+        await polling_engine_loop()
 
     assert len(order) > 0
     assert order[0] == "reconcile"
