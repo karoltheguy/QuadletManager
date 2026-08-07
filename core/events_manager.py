@@ -19,7 +19,13 @@ class EventPublisher:
         if q in self.queues:
             self.queues.remove(q)
 
-    async def publish(self, event_type: str, data: dict):
+    def publish(self, event_type: str, data: dict):
+        """Fan an event out to every subscriber queue.
+
+        Deliberately synchronous: every put is non-blocking, so there is
+        nothing to await. A full queue drops its oldest message rather than
+        applying backpressure to the publisher.
+        """
         message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
         for q in self.queues:
             try:

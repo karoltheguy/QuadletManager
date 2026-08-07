@@ -361,7 +361,7 @@ async def test_deduplicates_same_name_container_across_scopes(mock_get_db, mock_
                     "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}
 
     mock_fetch.side_effect = [ScopeResult([nginx_user], {}), ScopeResult([nginx_global], {})]
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 
@@ -389,7 +389,7 @@ async def test_merges_user_and_global_containers(mock_get_db, mock_fetch, mock_p
 
     # _fetch_scope_stats is called twice: once rootful=False, once rootful=True
     mock_fetch.side_effect = [ScopeResult(user_containers, {}), ScopeResult(global_containers, {})]
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 
@@ -417,7 +417,7 @@ async def test_empty_both_scopes_publishes_empty(mock_get_db, mock_fetch, mock_p
     mock_get_db.side_effect = _make_db_mock([(2, "emptybox")])
 
     mock_fetch.side_effect = [ScopeResult([], {}), ScopeResult([], {})]
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 
@@ -440,7 +440,7 @@ async def test_gather_exception_publishes_error(mock_get_db, mock_fetch, mock_pu
     mock_get_db.side_effect = _make_db_mock([(3, "badbox")])
 
     mock_fetch.side_effect = Exception("something broke")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 
@@ -470,7 +470,7 @@ async def test_multiple_servers_each_publish(mock_get_db, mock_fetch, mock_publi
         ScopeResult(containers_a, {}), ScopeResult([], {}),
         ScopeResult([], {}), ScopeResult(containers_b, {}),
     ]
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 

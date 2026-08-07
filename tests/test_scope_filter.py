@@ -50,7 +50,7 @@ async def test_scope_filter_both_fetches_both_scopes(mock_get_db, mock_fetch, mo
     global_c = [{"name": "sys-svc", "cpu": "3%", "mem": "4%",
                  "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "2"}]
     mock_fetch.side_effect = [ScopeResult(user_c, {}), ScopeResult(global_c, {})]
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 
@@ -76,7 +76,7 @@ async def test_scope_filter_user_only_skips_global(mock_get_db, mock_fetch, mock
     user_c = [{"name": "user-app", "cpu": "1%", "mem": "2%",
                "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
     mock_fetch.return_value = ScopeResult(user_c, {})
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 
@@ -102,7 +102,7 @@ async def test_scope_filter_global_only_skips_user(mock_get_db, mock_fetch, mock
     global_c = [{"name": "sys-svc", "cpu": "5%", "mem": "8%",
                  "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "3"}]
     mock_fetch.return_value = ScopeResult(global_c, {})
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 

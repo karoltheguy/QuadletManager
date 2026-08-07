@@ -170,8 +170,7 @@ const ON_PRIMARY_CANDIDATES = ['#1c1f24', '#ffffff', '#000000'];
 const WCAG_AA_MIN = 4.5;
 
 function onPrimaryFor(brandHex) {
-    for (let i = 0; i < ON_PRIMARY_CANDIDATES.length; i++) {
-        const candidate = ON_PRIMARY_CANDIDATES[i];
+    for (const candidate of ON_PRIMARY_CANDIDATES) {
         if (contrastRatio(candidate, brandHex) >= WCAG_AA_MIN) return candidate;
     }
     return '#ffffff';
@@ -446,12 +445,13 @@ document.body.addEventListener('htmx:responseError', function(evt) {
     const responseText = xhr.responseText || '';
     try {
         const parsed = JSON.parse(responseText);
-        if (parsed && typeof parsed.detail !== 'undefined') {
+        if (parsed?.detail !== undefined) {
             message = parsed.detail;
         } else {
             message = responseText;
         }
-    } catch (err) {
+    } catch {
+        // Not JSON -- fall back to the raw body as the toast message.
         message = responseText;
     }
     if (!message) {
@@ -474,7 +474,7 @@ document.body.addEventListener('user-updated', function(evt) {
     const toast = document.getElementById('status-toast');
     if (!toast) return;
 
-    const message = (evt.detail && evt.detail.message) || 'User updated';
+    const message = evt.detail?.message || 'User updated';
 
     toast.textContent = '';
     toast.appendChild(
@@ -1071,7 +1071,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
       // Apply container filter to chart data
       const filteredData = monitorContainerFilter
-        ? data.filter(function(c) { return (c.container_name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
+        ? data.filter(function(c) { return (c.container_name || '').toLowerCase().includes(monitorContainerFilter); })
         : data;
 
       const cpuDatasets = filteredData.map(function(c, i) {
@@ -1357,7 +1357,7 @@ function handleStatsUpdate(e) {
 const _pollHealthState = {};
 
 function updatePollHealth(data) {
-  if (!data || data.scope !== 'server') return;
+  if (data?.scope !== 'server') return;
   _pollHealthState[data.server_id] = data;
   const badge = document.querySelector(".server-poll-warning[data-server-id=\"" + data.server_id + "\"]");
   if (!badge) return;
@@ -1395,11 +1395,19 @@ function fetchPollHealthSnapshot() {
     .then(function(snapshot) {
       Object.keys(snapshot.servers || {}).forEach(function(serverId) {
         const entry = snapshot.servers[serverId];
+        let reason;
+        if (entry.healthy) {
+          reason = 'recovered';
+        } else if (entry.consecutive_failures > 0) {
+          reason = 'consecutive_failures';
+        } else {
+          reason = 'slow_fetch';
+        }
         _pollHealthState[serverId] = {
           scope: 'server',
           server_id: serverId,
           healthy: entry.healthy,
-          reason: entry.healthy ? 'recovered' : (entry.consecutive_failures > 0 ? 'consecutive_failures' : 'slow_fetch'),
+          reason: reason,
           consecutive_failures: entry.consecutive_failures,
           last_duration: entry.last_duration
         };
@@ -1691,7 +1699,7 @@ function updateMonitoringView(data) {
     const appendToChart = function(chart, valueKey) {
       if (!chart) return;
       const containersToShow = monitorContainerFilter
-        ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1; })
+        ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().includes(monitorContainerFilter); })
         : allContainers;
 
       // Drop datasets for containers the filter no longer matches; otherwise a
@@ -1801,7 +1809,7 @@ function computeUnitCounts(units) {
   // container names, keyed off the unit stem (name without ".service").
   const filteredUnits = units.filter(function(u) {
     const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
-    return !monitorContainerFilter || stem.indexOf(monitorContainerFilter) !== -1;
+    return !monitorContainerFilter || stem.includes(monitorContainerFilter);
   });
   const total = filteredUnits.length;
   const running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
@@ -2819,7 +2827,7 @@ window.tailLogsFromPanel = function() {
 
 function createLogTab(tabKey, serverId, unitName, scope) {
     const cached = Reflect.get(lastStatsPerServer, serverId);
-    const serverName = (cached && cached.server_name) || ('srv-' + serverId);
+    const serverName = cached?.server_name || ('srv-' + serverId);
     const label = serverName + ':' + unitName.replace(/\.service$/, '');
 
     // ── Chip ──────────────────────────────────────
@@ -2933,7 +2941,7 @@ window.switchLogTab = function(key) {
     const sinceSelect = document.getElementById('log-since-select');
     if (sinceSelect) {
         const entry = window._logTabs.get(key);
-        sinceSelect.value = (entry && entry.since) || '15m';
+        sinceSelect.value = entry?.since || '15m';
     }
 
     switchBottomTab('logs');
@@ -3012,8 +3020,8 @@ window.addEventListener('beforeunload', _beforeunloadHandler);
 
 // Guard htmx swaps of the editor pane when there are unsaved changes.
 document.body.addEventListener('htmx:confirm', function(evt) {
-    const target = evt.detail && evt.detail.target;
-    if (!target || target.id !== 'editor-pane' || !window._editorDirty) {
+    const target = evt.detail?.target;
+    if (target?.id !== 'editor-pane' || !window._editorDirty) {
         return;
     }
     evt.preventDefault();
@@ -3125,10 +3133,10 @@ window.saveQuadlet = async function saveQuadlet() {
 };
 
 // ── Modal Dismissal Handlers ───────────────────────────────
-window.setupModalDismissal = function(modalId) {
-  const modal = document.getElementById(modalId);
-  if (!modal) return;
-
+// Wire ESC-key and backdrop-click dismissal onto an already-resolved element.
+// Both entry points below (the by-id window helper and the htmx auto-setup)
+// share this so the two handler pairs cannot drift apart.
+function bindModalDismissal(modal) {
   // Close on ESC key
   const escHandler = function(e) {
     if (e.key === 'Escape' || e.key === 'Esc') {
@@ -3145,6 +3153,12 @@ window.setupModalDismissal = function(modalId) {
       document.removeEventListener('keydown', escHandler);
     }
   });
+}
+
+window.setupModalDismissal = function(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  bindModalDismissal(modal);
 };
 
 // Auto-setup for modals added via HTMX
@@ -3152,18 +3166,6 @@ document.body.addEventListener('htmx:afterSwap', function() {
   const modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
   modals.forEach(function(modal) {
     modal.dataset.dismissalSetup = 'true';
-    const escHandler = function(e) {
-      if (e.key === 'Escape' || e.key === 'Esc') {
-        modal.remove();
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    document.addEventListener('keydown', escHandler);
-    modal.addEventListener('click', function(e) {
-      if (e.target === modal) {
-        modal.remove();
-        document.removeEventListener('keydown', escHandler);
-      }
-    });
+    bindModalDismissal(modal);
   });
 });

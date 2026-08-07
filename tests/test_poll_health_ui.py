@@ -86,7 +86,7 @@ class TestPollHealthState:
 
     @pytest.mark.unit
     def test_update_poll_health_checks_scope_is_server(self):
-        pattern = r"function updatePollHealth[\s\S]{0,500}data\.scope\s*(===|!==|==|!=)\s*'server'"
+        pattern = r"function updatePollHealth[\s\S]{0,500}data\??\.scope\s*(===|!==|==|!=)\s*'server'"
         assert re.search(pattern, self.js)
 
     @pytest.mark.unit

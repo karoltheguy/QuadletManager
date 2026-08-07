@@ -90,9 +90,11 @@ class PollHealthTracker:
     def prune(self, active_server_ids):
         """Drop tracked servers that are no longer present in ``active_server_ids``."""
         active = set(active_server_ids)
-        for server_id in list(self._servers.keys()):
-            if server_id not in active:
-                del self._servers[server_id]
+        self._servers = {
+            server_id: state
+            for server_id, state in self._servers.items()
+            if server_id in active
+        }
 
 
 health_tracker = PollHealthTracker()
@@ -113,6 +115,45 @@ def _quote_remote_path(path: str) -> str:
         return "~/" + shlex.quote(path[2:])
     return shlex.quote(path)
 
+def _parse_stat_output(output: str) -> dict[str, int]:
+    """Turn `stat -c '%n %Y'` output into a {printed_path: mtime} map.
+
+    Lines that are blank, malformed, or carry a non-integer mtime are skipped:
+    the command is run with `2>/dev/null; true` so missing files simply do not
+    appear, and anything else unparseable is treated the same way.
+    """
+    printed = {}
+    for line in (output or "").splitlines():
+        if not line.strip():
+            continue
+        parts = line.rsplit(None, 1)
+        if len(parts) != 2:
+            continue
+        printed_path, mtime_str = parts
+        try:
+            printed[printed_path] = int(mtime_str)
+        except ValueError:
+            continue
+    return printed
+
+
+def _match_printed_path(path: str, printed: dict[str, int]) -> int | None:
+    """Resolve one DB path against the paths `stat` actually printed.
+
+    An exact hit wins. Otherwise a `~`-prefixed DB path is matched by suffix,
+    since the remote shell expanded the tilde before `stat` echoed the name.
+    """
+    if path in printed:
+        return printed[path]
+    if not path.startswith("~"):
+        return None
+    suffix = path[1:]
+    for printed_path, mtime in printed.items():
+        if printed_path.endswith(suffix):
+            return mtime
+    return None
+
+
 async def _fetch_mtimes(server_id, use_sudo, paths) -> dict[str, int]:
     """Fetch mtimes for multiple remote paths on the same server and scope.
 
@@ -123,31 +164,13 @@ async def _fetch_mtimes(server_id, use_sudo, paths) -> dict[str, int]:
     cmd = "stat -c '%n %Y' " + " ".join(quoted) + " 2>/dev/null; true"
 
     output = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
-
-    printed = {}
-    for line in (output or "").splitlines():
-        if not line.strip():
-            continue
-        parts = line.rsplit(None, 1)
-        if len(parts) != 2:
-            continue
-        printed_path, mtime_str = parts
-        try:
-            mtime = int(mtime_str)
-        except ValueError:
-            continue
-        printed[printed_path] = mtime
+    printed = _parse_stat_output(output)
 
     result = {}
     for p in paths:
-        if p in printed:
-            result[p] = printed[p]
-        elif p.startswith("~"):
-            suffix = p[1:]
-            for printed_path, mtime in printed.items():
-                if printed_path.endswith(suffix):
-                    result[p] = mtime
-                    break
+        mtime = _match_printed_path(p, printed)
+        if mtime is not None:
+            result[p] = mtime
     return result
 
 
@@ -243,7 +266,7 @@ async def reconcile_server_inventory(server_id: int, scope_filter: str) -> None:
         await db.commit()
 
     if inserted_count > 0 or deleted_count > 0:
-        await publisher.publish("quadlets_changed", {"server_id": server_id})
+        publisher.publish("quadlets_changed", {"server_id": server_id})
 
 
 async def reconcile_all_inventories() -> None:
@@ -261,14 +284,55 @@ async def reconcile_all_inventories() -> None:
             logger.exception(f"Error reconciling inventory for server {server_id}")
 
 
+async def _load_polled_quadlets() -> list[dict]:
+    """Read every tracked quadlet row the poller needs, as plain dicts."""
+    async with get_db_connection() as db:
+        db.row_factory = lambda cursor, row: {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+        async with db.execute("SELECT id, server_id, file_path, scope, last_known_mtime FROM quadlets") as cursor:
+            return await cursor.fetchall()
+
+
+async def _apply_fetched_mtime(q: dict, remote_mtime: int) -> None:
+    """Announce and persist a remote mtime that is newer than the DB's."""
+    if q['last_known_mtime'] is None or remote_mtime <= q['last_known_mtime']:
+        return
+
+    logger.warning(f"File {q['file_path']} on server {q['server_id']} was modified externally!")
+
+    # Emit Server-Sent Event broadcast (SSE)
+    publisher.publish("file_changed", {
+        "server_id": q['server_id'],
+        "file_path": q['file_path'],
+        "message": "File modified externally!"
+    })
+
+    async with get_db_connection() as db:
+        await db.execute(
+            "UPDATE quadlets SET last_known_mtime = ? WHERE id = ?",
+            (remote_mtime, q['id'])
+        )
+        await db.commit()
+
+
+async def _apply_group_result(rows: list[dict], result: dict[str, int]) -> None:
+    """Fold one group's fetched mtimes back into its quadlet rows.
+
+    Each row is handled independently: one row's failure must not abort the
+    rest of the group.
+    """
+    for q in rows:
+        try:
+            if q['file_path'] in result:
+                await _apply_fetched_mtime(q, result[q['file_path']])
+        except Exception:
+            logger.exception(f"Error polling quadlet {q['id']}")
+
+
 async def check_quadlets():
     """Polls all registered quadlets to see if the remote file has been modified."""
     cycle_start = time.monotonic()
 
-    async with get_db_connection() as db:
-        db.row_factory = lambda cursor, row: {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
-        async with db.execute("SELECT id, server_id, file_path, scope, last_known_mtime FROM quadlets") as cursor:
-            quadlets = await cursor.fetchall()
+    quadlets = await _load_polled_quadlets()
 
     groups = {}
     for q in quadlets:
@@ -288,8 +352,6 @@ async def check_quadlets():
     server_health = {}
 
     for (server_id, use_sudo), timed in zip(group_keys, timed_results):
-        rows = groups[(server_id, use_sudo)]
-
         if isinstance(timed, Exception):
             result, duration, success = timed, 0.0, False
         else:
@@ -297,49 +359,22 @@ async def check_quadlets():
 
         agg = server_health.setdefault(server_id, {"failed": False, "duration": 0.0})
         agg["duration"] = max(agg["duration"], duration)
-        if not success:
-            agg["failed"] = True
 
         if not success:
+            agg["failed"] = True
             logger.error(f"Error polling server {server_id} (use_sudo={use_sudo}): {result}")
             continue
 
-        for q in rows:
-            try:
-                if q['file_path'] not in result:
-                    continue
-
-                remote_mtime = result[q['file_path']]
-
-                # If the remote is newer than the DB timestamp
-                if q['last_known_mtime'] is not None and remote_mtime > q['last_known_mtime']:
-                    logger.warning(f"File {q['file_path']} on server {q['server_id']} was modified externally!")
-
-                    # Emit Server-Sent Event broadcast (SSE)
-                    await publisher.publish("file_changed", {
-                        "server_id": q['server_id'],
-                        "file_path": q['file_path'],
-                        "message": "File modified externally!"
-                    })
-
-                    async with get_db_connection() as db:
-                        await db.execute(
-                            "UPDATE quadlets SET last_known_mtime = ? WHERE id = ?",
-                            (remote_mtime, q['id'])
-                        )
-                        await db.commit()
-
-            except Exception:
-                logger.exception(f"Error polling quadlet {q['id']}")
+        await _apply_group_result(groups[(server_id, use_sudo)], result)
 
     for server_id, agg in server_health.items():
         event = health_tracker.record_fetch(server_id, agg["duration"], success=not agg["failed"])
         if event:
-            await publisher.publish("poll_health", event)
+            publisher.publish("poll_health", event)
 
     cycle_event = health_tracker.record_cycle(time.monotonic() - cycle_start, POLL_INTERVAL_SEC)
     if cycle_event:
-        await publisher.publish("poll_health", cycle_event)
+        publisher.publish("poll_health", cycle_event)
 
     health_tracker.prune([q['server_id'] for q in quadlets])
 

@@ -43,12 +43,13 @@ async def test_duplicate_server_id_file_path_rejected(fresh_db):
         )
         await db.commit()
 
+        # The constraint fires on execute, so the commit stays outside the
+        # block: only one call in there may raise.
         with pytest.raises(aiosqlite.IntegrityError):
             await db.execute(
                 "INSERT INTO quadlets (server_id, file_path, scope) VALUES (?, ?, ?)",
                 (1, "/etc/containers/systemd/a.container", "global"),
             )
-            await db.commit()
 
 
 @pytest.mark.unit

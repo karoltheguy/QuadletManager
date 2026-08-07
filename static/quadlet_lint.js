@@ -19,11 +19,11 @@ import {
  * @returns {() => void} detach
  */
 export function attachQuadletLint(monacoNs, model, options) {
-  const delay = (options && options.delay) || 200;
+  const delay = options?.delay || 200;
   let timeoutHandle = null;
 
   function runLint() {
-    if (model.isDisposed && model.isDisposed()) return;
+    if (model.isDisposed?.()) return;
     lintModel(monacoNs, model);
   }
 
@@ -48,7 +48,7 @@ export function attachQuadletLint(monacoNs, model, options) {
       clearTimeout(timeoutHandle);
       timeoutHandle = null;
     }
-    if (subscription && subscription.dispose) {
+    if (subscription?.dispose) {
       subscription.dispose();
       subscription.dispose = function () {};
     }
@@ -61,9 +61,8 @@ export function attachQuadletLint(monacoNs, model, options) {
 // unload, and it hosts exactly one Monaco editor on exactly one language
 // ('ini'); revisit if a second editor/language or real client-side
 // navigation is ever added.
-export function registerQuadletLintProviders(monacoNs, languageId) {
-  const lang = languageId || 'ini';
-  registerCompletionProvider(monacoNs, lang);
-  registerHoverProvider(monacoNs, lang);
-  registerCodeActionProvider(monacoNs, lang);
+export function registerQuadletLintProviders(monacoNs, languageId = 'ini') {
+  registerCompletionProvider(monacoNs, languageId);
+  registerHoverProvider(monacoNs, languageId);
+  registerCodeActionProvider(monacoNs, languageId);
 }

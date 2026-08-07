@@ -26,7 +26,7 @@ async def test_publish(publisher):
     q1 = publisher.subscribe()
     q2 = publisher.subscribe()
     
-    await publisher.publish("test_event", {"key": "value"})
+    publisher.publish("test_event", {"key": "value"})
     
     msg1 = await q1.get()
     msg2 = await q2.get()
@@ -48,7 +48,7 @@ async def test_event_generator(publisher):
     async def push_event():
         # wait a tiny bit to ensure the generator has subscribed
         await asyncio.sleep(0.01)
-        await publisher.publish("my_event", {})
+        publisher.publish("my_event", {})
 
     asyncio.create_task(push_event())
     
@@ -68,9 +68,9 @@ async def test_event_generator(publisher):
 async def test_publish_drops_oldest_when_queue_full(publisher):
     q = publisher.subscribe(maxsize=2)
 
-    await publisher.publish("e", {"n": 1})
-    await publisher.publish("e", {"n": 2})
-    await publisher.publish("e", {"n": 3})
+    publisher.publish("e", {"n": 1})
+    publisher.publish("e", {"n": 2})
+    publisher.publish("e", {"n": 3})
 
     assert q.qsize() <= 2
 
@@ -88,7 +88,7 @@ async def test_stats_update_broadcasts_to_all_subscribers(publisher):
     q1 = publisher.subscribe()
     q2 = publisher.subscribe()
 
-    await publisher.publish("stats_update", {"server_id": 1, "foo": "bar"})
+    publisher.publish("stats_update", {"server_id": 1, "foo": "bar"})
 
     msg1 = await q1.get()
     msg2 = await q2.get()
