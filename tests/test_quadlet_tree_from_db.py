@@ -8,20 +8,9 @@ from core.database import get_db_connection
 from main import app
 
 
-async def _no_polling():
-    """Stand in for polling_engine_loop so the app's lifespan starts nothing."""
-    return
-
-
 @pytest.fixture
 def client():
-    # The poll loop now runs its first cycle immediately instead of sleeping a
-    # full interval first, so TestClient's lifespan would otherwise fire a real
-    # reconcile and check_quadlets mid-test. Those hit the same `pool` object
-    # these tests patch, and their SSH calls would be counted against the
-    # endpoint by the "issues no SSH" assertions below.
-    with patch("core.config_loader.global_config.dev_auto_login", True), \
-         patch("main.polling_engine_loop", _no_polling):
+    with patch("core.config_loader.global_config.dev_auto_login", True):
         with TestClient(app) as test_client:
             yield test_client
 
