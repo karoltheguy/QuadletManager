@@ -539,3 +539,4 @@ async def stats_engine_loop():
                 logger.exception("Stats engine error")
     except asyncio.CancelledError:
         logger.info("Stats engine stopped.")
+        raise

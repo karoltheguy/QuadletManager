@@ -15,13 +15,16 @@ async def test():
     await init_db()
     q = publisher.subscribe()
     
-    # Run fetch
-    asyncio.create_task(fetch_server_stats())
-    
+    # Run fetch. Keep the reference: a bare create_task() can be collected
+    # before it runs, and then the wait_for below always times out.
+    fetch_task = asyncio.create_task(fetch_server_stats())
+
     try:
         msg = await asyncio.wait_for(q.get(), timeout=30.0)
         print("Event:", msg)
     except asyncio.TimeoutError:
         print("No event received")
+    finally:
+        fetch_task.cancel()
 
 asyncio.run(test())

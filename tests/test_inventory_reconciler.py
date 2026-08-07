@@ -292,7 +292,8 @@ async def test_polling_loop_runs_reconcile_before_check_quadlets(
     mock_reconcile.side_effect = side_reconcile
     mock_check.side_effect = side_check
 
-    await polling_engine_loop()
+    with pytest.raises(asyncio.CancelledError):
+        await polling_engine_loop()
 
     assert order == ["reconcile", "check"]
 

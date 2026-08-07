@@ -1,6 +1,8 @@
+import asyncio
 import os
 import logging
 import secrets
+from pathlib import Path
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 logger = logging.getLogger("quadlet-manager.crypto")
@@ -82,8 +84,11 @@ async def ensure_master_key() -> None:
     key_file = os.path.join(os.path.dirname(os.path.abspath(db_module.DATABASE_PATH)), "master.key")
 
     if os.path.exists(key_file):
-        with open(key_file, "r") as f:
-            key = f.read().strip()
+        # to_thread rather than a plain open(): this function is async, and a
+        # synchronous read blocks the event loop.
+        key = (await asyncio.to_thread(
+            Path(key_file).read_text, encoding="utf-8"
+        )).strip()
         os.environ["QUADLET_MASTER_KEY"] = key
         logger.warning(
             "QUADLET_MASTER_KEY not set; loaded persisted dev key from %s. "

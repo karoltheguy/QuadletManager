@@ -15,10 +15,8 @@ async def test_stats_engine_loop_runs_and_cancels():
         # Make the sleep raise CancelledError after first iteration
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
         
-        try:
+        with pytest.raises(asyncio.CancelledError):
             await stats_engine_loop()
-        except asyncio.CancelledError:
-            pass
             
         assert mock_fetch.call_count == 1
         assert mock_rollup.call_count == 1
@@ -33,9 +31,7 @@ async def test_stats_engine_loop_handles_exception():
         mock_fetch.side_effect = Exception("Test Exception")
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
         
-        try:
+        with pytest.raises(asyncio.CancelledError):
             await stats_engine_loop()
-        except asyncio.CancelledError:
-            pass
             
         assert mock_fetch.call_count == 1

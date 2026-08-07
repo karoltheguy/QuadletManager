@@ -12,10 +12,8 @@ async def test_container_events_cleanup_loop_runs_and_cancels():
         # Make the sleep raise CancelledError after first iteration
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
         
-        try:
+        with pytest.raises(asyncio.CancelledError):
             await container_events_cleanup_loop()
-        except asyncio.CancelledError:
-            pass
             
         assert mock_cleanup.call_count == 1
 
@@ -29,9 +27,7 @@ async def test_container_events_cleanup_loop_handles_exception():
         mock_cleanup.side_effect = Exception("Test Exception")
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
         
-        try:
+        with pytest.raises(asyncio.CancelledError):
             await container_events_cleanup_loop()
-        except asyncio.CancelledError:
-            pass
             
         assert mock_cleanup.call_count == 1

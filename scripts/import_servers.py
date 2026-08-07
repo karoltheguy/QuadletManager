@@ -1,8 +1,8 @@
 import asyncio
 import json
-import subprocess
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -12,13 +12,17 @@ from core.crypto import encrypt_private_key
 async def main():
     print("Fetching server connections from podman...")
     try:
-        result = subprocess.run(
-            ["podman", "system", "connection", "list", "--format", "json"],
-            capture_output=True,
-            text=True,
-            check=True
+        proc = await asyncio.create_subprocess_exec(
+            "podman", "system", "connection", "list", "--format", "json",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        connections = json.loads(result.stdout)
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"podman exited {proc.returncode}: {stderr.decode(errors='replace').strip()}"
+            )
+        connections = json.loads(stdout)
     except Exception as e:
         print(f"Error fetching podman connections: {e}")
         return
@@ -54,8 +58,11 @@ async def main():
             # Read private key
             identity_path = os.path.expanduser(identity_path)
             try:
-                with open(identity_path, "r") as f:
-                    private_key = f.read()
+                # to_thread rather than a plain open(): this function is async,
+                # and a synchronous read blocks the event loop.
+                private_key = await asyncio.to_thread(
+                    Path(identity_path).read_text, encoding="utf-8"
+                )
             except Exception as e:
                 print(f"Skipping {name} (Error reading key {identity_path}: {e})")
                 continue
