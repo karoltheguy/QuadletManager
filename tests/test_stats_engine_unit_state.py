@@ -234,6 +234,23 @@ async def test_fetch_scope_stats_no_units_omits_systemctl(mock_pool, mock_unit_n
     assert result.unit_states == {}
 
 
+@pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
+@patch("services.stats_engine.pool")
+@pytest.mark.unit
+async def test_fetch_scope_stats_ssh_failure_reports_unmeasured_unit_state(mock_pool, mock_unit_names):
+    """When the systemctl segment IS batched into the first command but the
+    SSH call raises, unit_states must be None, not {}, so an unmeasured
+    scope can be told apart from a scope with genuinely zero units."""
+    mock_unit_names.return_value = ["web.service"]
+
+    mock_pool.execute_command = AsyncMock(side_effect=[Exception("ssh failed"), "{}"])
+
+    result = await _fetch_scope_stats(server_id=1, rootful=True)
+
+    assert result.unit_states is None
+
+
 # =============================================================================
 # 4. _record_unit_states() -- latest-state UPSERT, real in-memory sqlite
 # =============================================================================
@@ -469,6 +486,51 @@ async def test_fetch_server_stats_publishes_units_key(
 
     for u in payload["units"]:
         assert set(["unit", "scope", "load_state", "active_state", "sub_state", "n_restarts"]).issubset(u.keys())
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine._record_unit_states", new_callable=AsyncMock)
+@patch("services.stats_engine._record_health_history", new_callable=AsyncMock)
+@patch("services.stats_engine.publisher")
+@patch("services.stats_engine._fetch_scope_stats")
+@patch("services.stats_engine.get_db_connection")
+@pytest.mark.unit
+async def test_fetch_server_stats_publishes_null_units_when_any_scope_unmeasured(
+    mock_get_db, mock_fetch, mock_publisher, mock_record_health, mock_record_units
+):
+    """When one scope's unit_states is None (unmeasured) and the other's is a
+    populated dict (measured), the published 'units' must be None for the
+    whole server, not a partial list, so the frontend renders the
+    no-data placeholder instead of implying zero units server-wide."""
+    from services.stats_engine import ScopeResult
+
+    mock_get_db.side_effect = _make_db_mock([(1, "testbox")])
+
+    user_containers = [{"name": "user-app", "cpu": "1%", "mem": "2%",
+                        "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "1"}]
+    global_containers = [{"name": "system-svc", "cpu": "3%", "mem": "4%",
+                          "mem_usage": "—", "net_io": "—", "block_io": "—", "pids": "2"}]
+
+    user_units = {"app.service": {"load_state": "loaded", "active_state": "active",
+                                   "sub_state": "running", "n_restarts": 0}}
+
+    mock_fetch.side_effect = [
+        ScopeResult(user_containers, user_units),
+        ScopeResult(global_containers, None),
+    ]
+    mock_publisher.publish = MagicMock()
+
+    await fetch_server_stats()
+
+    stats_update_calls = [
+        call for call in mock_publisher.publish.call_args_list
+        if call[0][0] == "stats_update"
+    ]
+    assert len(stats_update_calls) == 1
+    payload = stats_update_calls[0][0][1]
+
+    assert "units" in payload
+    assert payload["units"] is None
 
 
 # =============================================================================
