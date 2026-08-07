@@ -81,7 +81,7 @@ Before running the application, you need to set up a Python virtual environment 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install --only-binary :all: --require-hashes -r requirements.txt
 ```
 
 ## 5. Setting the Master Key

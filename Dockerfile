@@ -21,8 +21,13 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
+# requirements.txt is the pip-compile lock: every direct and transitive
+# dependency pinned with hashes. --require-hashes makes a substituted or
+# tampered-with PyPI artifact fail the build instead of being installed, and
+# --only-binary :all: keeps any sdist's setup.py from executing.
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install \
+        --only-binary :all: --require-hashes -r requirements.txt
 
 # Stage 2: Runtime image
 FROM python:3.12-slim
