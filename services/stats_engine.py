@@ -289,10 +289,14 @@ async def _build_first_command(server_id: int, scope: str, ps_cmd: str, rootful:
     return f"{ps_cmd}; echo '{_UNIT_STATE_SENTINEL}'; {systemctl_segment}"
 
 
-def _split_batched_output(first_stdout: str) -> tuple[str, dict]:
-    """Split a batched ps+systemctl response into ps JSON and parsed unit states."""
+def _split_batched_output(first_stdout: str) -> tuple[str, dict | None]:
+    """Split a batched ps+systemctl response into ps JSON and parsed unit states.
+
+    The second element is None when the reply was not batched (no sentinel
+    found in the output), meaning unit state was not collected at all.
+    """
     if _UNIT_STATE_SENTINEL not in first_stdout:
-        return first_stdout, {}
+        return first_stdout, None
     ps_json_str, _, systemctl_output = first_stdout.partition(_UNIT_STATE_SENTINEL)
     return ps_json_str, parse_systemctl_show(systemctl_output)
 
@@ -305,19 +309,27 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> ScopeResult:
     scope's quadlet-backed container units when there are any, then
     fetches resource stats separately.
 
-    Returns a ScopeResult(containers, unit_states). unit_states may be
-    non-empty even when containers is empty (e.g. all units stopped).
+    Returns a ScopeResult(containers, unit_states). unit_states is a
+    tri-state value: a populated dict means unit state was collected, {}
+    means the scope was asked and genuinely has no quadlet-backed
+    container units (a measured zero), and None means unit state was
+    never collected (the systemctl segment was batched into the command
+    but nothing came back, e.g. because the SSH call itself failed).
     """
     scope = "global" if rootful else "user"
-    unit_states: dict = {}
+    unit_states: dict | None = {}
     ps_cmd, stats_prefix = _build_podman_commands(rootful)
 
     try:
         first_cmd = await _build_first_command(server_id, scope, ps_cmd, rootful)
+        if _UNIT_STATE_SENTINEL in first_cmd:
+            unit_states = None
         first_stdout = await pool.execute_command(
             server_id, first_cmd, timeout=PODMAN_PS_TIMEOUT,
         )
-        ps_json_str, unit_states = _split_batched_output(first_stdout)
+        ps_json_str, parsed = _split_batched_output(first_stdout)
+        if parsed is not None:
+            unit_states = parsed
 
         if not ps_json_str.strip():
             return ScopeResult([], unit_states)
@@ -353,6 +365,8 @@ async def _record_unit_states(server_id: int, unit_states_by_scope: dict) -> Non
 
     records = []
     for scope, unit_states in unit_states_by_scope.items():
+        if unit_states is None:
+            continue
         for unit_name, state in unit_states.items():
             records.append((
                 server_id,
@@ -406,6 +420,7 @@ async def _record_unit_events(server_id: int, unit_states_by_scope: dict) -> Non
             "n_restarts": state.get("n_restarts", 0),
         }
         for scope, unit_states in unit_states_by_scope.items()
+        if unit_states is not None
         for unit_name, state in unit_states.items()
     }
 
@@ -465,8 +480,15 @@ def _merge_scope_results(scope_labels, results):
     return containers, unit_states_by_scope
 
 
-def _build_unit_rows(unit_states_by_scope: dict) -> list[dict]:
-    """Return the flattened unit rows for a stats_update payload."""
+def _build_unit_rows(unit_states_by_scope: dict) -> list[dict] | None:
+    """Return the flattened unit rows for a stats_update payload.
+
+    Returns None when any scope's unit state is unmeasured, because a
+    half-measured server reads as unmeasured: rendering a partial count as
+    a confident total is the bug this issue is about.
+    """
+    if any(unit_states is None for unit_states in unit_states_by_scope.values()):
+        return None
     return [
         {
             "unit": unit_name,

@@ -804,9 +804,11 @@ def test_merge_stats_and_health_attaches_health_and_defaults_to_empty():
 
 @pytest.mark.unit
 def test_split_batched_output_without_sentinel_returns_whole_output():
-    """Unbatched responses (no quadlet units in scope) must pass through untouched."""
+    """Unbatched responses (no quadlet units in scope) must pass through
+    untouched, reporting unit state as not collected. The caller, not this
+    function, supplies the {} default for a genuinely-measured empty scope."""
     from services.stats_engine import _split_batched_output
 
     ps_json, unit_states = _split_batched_output('[{"Names": "c1"}]')
     assert ps_json == '[{"Names": "c1"}]'
-    assert unit_states == {}
+    assert unit_states is None
