@@ -140,7 +140,7 @@ async def test_newer_mtime_triggers_publish(mock_get_db_func, mock_pool, mock_pu
 
     # stat returns a newer mtime, cat returns content
     mock_pool.execute_command = AsyncMock(side_effect=["/etc/containers/systemd/web.container 2000\n", "[Container]\nImage=nginx\n"])
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -173,7 +173,7 @@ async def test_same_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher
 
     # stat returns the same mtime as the DB
     mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/db.container 1500\n")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -199,7 +199,7 @@ async def test_older_mtime_no_publish(mock_get_db_func, mock_pool, mock_publishe
     mock_get_db_func.side_effect = [select_cm]
 
     mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/old.container 1000\n")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -225,7 +225,7 @@ async def test_none_mtime_no_publish(mock_get_db_func, mock_pool, mock_publisher
     mock_get_db_func.side_effect = [select_cm]
 
     mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/new.container 5000\n")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -252,7 +252,7 @@ async def test_ssh_error_does_not_crash(mock_get_db_func, mock_pool, mock_publis
     mock_get_db_func.side_effect = [select_cm]
 
     mock_pool.execute_command = AsyncMock(side_effect=ConnectionError("SSH timeout"))
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     # Should NOT raise
     await check_quadlets()
@@ -279,7 +279,7 @@ async def test_user_scope_does_not_use_sudo(mock_get_db_func, mock_pool, mock_pu
     mock_get_db_func.side_effect = [select_cm]
 
     mock_pool.execute_command = AsyncMock(return_value="~/.config/containers/systemd/app.container 1000\n")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -310,7 +310,7 @@ async def test_global_scope_uses_sudo(mock_get_db_func, mock_pool, mock_publishe
     mock_get_db_func.side_effect = [select_cm]
 
     mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/sys.container 1000\n")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -332,7 +332,7 @@ async def test_no_quadlets_in_db_is_noop(mock_get_db_func, mock_pool, mock_publi
     mock_get_db_func.side_effect = [select_cm]
 
     mock_pool.execute_command = AsyncMock()
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -360,7 +360,7 @@ async def test_db_updated_with_new_mtime(mock_get_db_func, mock_pool, mock_publi
     mock_get_db_func.side_effect = [select_cm, update_cm]
 
     mock_pool.execute_command = AsyncMock(side_effect=["/etc/containers/systemd/cache.container 3000\n", "[Container]\nImage=redis\n"])
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -404,7 +404,7 @@ async def test_after_save_updates_mtime_no_false_positive(mock_get_db_func, mock
 
     # Remote file has the same mtime=2000 (our own write)
     mock_pool.execute_command = AsyncMock(return_value="/etc/containers/systemd/web.container 2000\n")
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -455,7 +455,7 @@ async def test_batched_stat_one_call_per_server_scope_group(mock_get_db_func, mo
         raise AssertionError(f"Unexpected command: {cmd}")
 
     mock_pool.execute_command = AsyncMock(side_effect=fake_execute_command)
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -507,7 +507,7 @@ async def test_batched_stat_tilde_path_mapped_by_suffix(mock_get_db_func, mock_p
     mock_pool.execute_command = AsyncMock(
         return_value="/home/carol/.config/containers/systemd/app.container 2000\n"
     )
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await check_quadlets()
 
@@ -834,7 +834,7 @@ async def test_check_quadlets_publishes_poll_health_after_three_failures(
     }
 
     mock_pool.execute_command = AsyncMock(side_effect=ConnectionError("SSH timeout"))
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     for _ in range(3):
         select_cm, _ = _make_db_cm([quadlet_row])

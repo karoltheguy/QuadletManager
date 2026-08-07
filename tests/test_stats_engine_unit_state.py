@@ -449,7 +449,7 @@ async def test_fetch_server_stats_publishes_units_key(
         ScopeResult(user_containers, user_units),
         ScopeResult(global_containers, global_units),
     ]
-    mock_publisher.publish = AsyncMock()
+    mock_publisher.publish = MagicMock()
 
     await fetch_server_stats()
 

@@ -500,7 +500,7 @@ async def fetch_server_stats():
 
             units = _build_unit_rows(unit_states_by_scope)
 
-            await publisher.publish("stats_update", {
+            publisher.publish("stats_update", {
                 "server_id": server_id,
                 "server_name": server_name,
                 "containers": containers,
@@ -514,7 +514,7 @@ async def fetch_server_stats():
             logger.exception(f"Error polling stats for server {server_id} ({server_name})")
             # Publish an error event so the frontend can show feedback
             # instead of forever displaying "Waiting for stats data..."
-            await publisher.publish("stats_error", {
+            publisher.publish("stats_error", {
                 "server_id": server_id,
                 "server_name": server_name,
                 "error": str(e),

@@ -20,11 +20,36 @@ cd QuadletManager
 
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-test.txt
+pip install --only-binary :all: --require-hashes -r requirements.txt
+pip install --only-binary :all: --require-hashes -r requirements-test.txt
 
 npm ci
 ```
+
+### Changing a Python dependency
+
+`requirements.in` and `requirements-test.in` hold the hand-edited version
+ranges. `requirements.txt` and `requirements-test.txt` are generated locks:
+every direct and transitive dependency pinned with `==` and hashed, which is
+what lets every install path pass `--require-hashes` and fail on a substituted
+PyPI artifact rather than executing it.
+
+Edit the `.in` file, never the lock, then regenerate both locks in order (the
+second reads the first, so their shared packages cannot drift apart):
+
+```bash
+pip install pip-tools
+pip-compile --generate-hashes --allow-unsafe --strip-extras \
+    --output-file requirements.txt requirements.in
+pip-compile --generate-hashes --allow-unsafe --strip-extras \
+    -c requirements.txt --output-file requirements-test.txt requirements-test.in
+```
+
+Compile on Linux with Python 3.12, matching CI and the container image. The
+locks carry no environment markers, so a lock generated elsewhere will pin the
+wrong platform's wheels. (This is why `start.bat` installs from
+`requirements.in` instead: no Windows wheel exists for the `uvloop` the Linux
+lock pins.)
 
 `npm ci` is not optional, even though this is mostly a Python project. Its
 `postinstall` hook runs `npm run copy-assets`, which copies Monaco, xterm and

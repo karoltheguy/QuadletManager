@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -113,7 +113,7 @@ def test_get_quadlet_tree_empty_reconciled_server(client):
 # 5. test: reconcile_server_inventory publishes "quadlets_changed" when scan adds a file
 @pytest.mark.asyncio
 @pytest.mark.unit
-@patch("services.sync_engine.publisher.publish", new_callable=AsyncMock)
+@patch("services.sync_engine.publisher.publish", new_callable=MagicMock)
 @patch("services.sync_engine._fetch_mtimes", new_callable=AsyncMock)
 @patch("services.sync_engine.fetch_all_quadlets", create=True, new_callable=AsyncMock)
 async def test_reconcile_publishes_quadlets_changed_on_inventory_change(
@@ -138,13 +138,13 @@ async def test_reconcile_publishes_quadlets_changed_on_inventory_change(
 
     await reconcile_server_inventory(1, "global")
 
-    mock_publish.assert_awaited_once_with("quadlets_changed", {"server_id": 1})
+    mock_publish.assert_called_once_with("quadlets_changed", {"server_id": 1})
 
     mock_publish.reset_mock()
 
     await reconcile_server_inventory(1, "global")
 
-    assert mock_publish.await_count == 0
+    assert mock_publish.call_count == 0
 
 
 # 6. test: polling_engine_loop calls reconcile_all_inventories BEFORE first asyncio.sleep

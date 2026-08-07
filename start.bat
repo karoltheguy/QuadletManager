@@ -8,7 +8,11 @@ if not exist "venv" (
     python -m venv venv
     call venv\Scripts\activate.bat
     echo Installing dependencies...
-    pip install -r requirements.txt
+    REM requirements.in, not the requirements.txt lock: that lock is compiled on
+    REM Linux, so it pins uvloop and httptools with no environment markers and
+    REM no Windows wheel exists for them. Windows dev runs resolve from the
+    REM ranges instead and let pip apply each package's own platform markers.
+    pip install -r requirements.in
 ) else (
     call venv\Scripts\activate.bat
 )

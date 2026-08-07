@@ -1,8 +1,10 @@
 # Stage 0: Build vendored frontend assets (quadlet-lint, see #198)
 #
-# `npm ci` triggers the `postinstall` script, which runs `copy-assets` --
-# that's what actually produces the vendored build at
-# static/vendor/quadlet-lint/. The `mkdir -p` that leads `copy-assets` is
+# `copy-assets` is what actually produces the vendored build at
+# static/vendor/quadlet-lint/. It normally runs via npm's `postinstall` hook,
+# but this stage installs with `--ignore-scripts` so no dependency's own
+# lifecycle script can execute during the build, and therefore invokes
+# `copy-assets` explicitly. The `mkdir -p` that leads `copy-assets` is
 # required here specifically because this stage has no pre-existing
 # `static/` directory (unlike a checked-out repo); reordering that script
 # so the mkdir isn't first breaks this build while still passing everywhere
@@ -12,15 +14,20 @@
 FROM node:20-slim AS assets
 WORKDIR /build
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts && npm run copy-assets
 
 # Stage 1: Install dependencies
 FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
+# requirements.txt is the pip-compile lock: every direct and transitive
+# dependency pinned with hashes. --require-hashes makes a substituted or
+# tampered-with PyPI artifact fail the build instead of being installed, and
+# --only-binary :all: keeps any sdist's setup.py from executing.
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install \
+        --only-binary :all: --require-hashes -r requirements.txt
 
 # Stage 2: Runtime image
 FROM python:3.12-slim

@@ -22,7 +22,7 @@ were never executed before it existed. See [Podman tests](#podman-tests).
 ## Installation
 
 ```bash
-pip install -r requirements-test.txt
+pip install --only-binary :all: --require-hashes -r requirements-test.txt
 ```
 
 For E2E tests, also install the Playwright browser binaries (one-time):

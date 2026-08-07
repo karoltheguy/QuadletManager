@@ -17,7 +17,7 @@ import aiosqlite
 from core.database import get_db_connection
 from core.crypto import encrypt_private_key
 from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
-from services.ssh_manager import pool, SSHCommandError, SSHTimeoutError
+from services.ssh_manager import pool, SSHCommandError
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 from services.remote_fs import ensure_within_quadlet_dir, is_global_scope, quadlet_dir_for_scope, write_remote_file
 from services.tree_scanner import fetch_all_quadlets
@@ -194,6 +194,17 @@ def _create_session_cookie(username: str, role: str, is_admin: bool = False, mus
         "is_admin": is_admin,
         "must_change_password": must_change_password,
     })
+
+
+def _use_secure_cookie(request: Request) -> bool:
+    """Whether the session cookie should carry the Secure flag.
+
+    True whenever the request itself arrived over HTTPS, or when the operator
+    has opted in via ``secure_cookies`` (needed behind a TLS-terminating proxy
+    that does not forward X-Forwarded-Proto). It stays False on plain HTTP so
+    the shipped HTTP-on-:8000 deployment can still hold a session.
+    """
+    return global_config.secure_cookies or request.url.scheme == "https"
 
 
 def _read_session_cookie(cookie_value: str) -> dict | None:
@@ -439,6 +450,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         value=_create_session_cookie(username, role, is_admin, must_change_password),
         max_age=_session_duration_seconds,
         httponly=True,
+        secure=_use_secure_cookie(request),
         samesite="lax",
     )
     return response
@@ -490,6 +502,7 @@ async def change_password_submit(
         value=_create_session_cookie(username, role, is_admin, must_change_password=False),
         max_age=_session_duration_seconds,
         httponly=True,
+        secure=_use_secure_cookie(request),
         samesite="lax",
     )
     return response
@@ -749,7 +762,7 @@ async def validate_quadlet(
     try:
         result = await validate_remote(server_id, content, file_name, scope)
         return JSONResponse(result)
-    except (SSHCommandError, SSHTimeoutError) as e:
+    except SSHCommandError as e:  # SSHTimeoutError is a subclass
         ref = _log_error_ref("Validation failed", e)
         return JSONResponse({"error": f"Validation failed (ref: {ref})"}, status_code=502)
 

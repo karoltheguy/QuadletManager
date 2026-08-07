@@ -849,7 +849,15 @@ dev_auto_login: false
 session_timeout: 3600
 poll_frequency: 10
 ssh_strict_host_keys: false  # true = refuse servers without a pinned host key (no TOFU)
+secure_cookies: false        # true = always mark the session cookie Secure
 ```
+
+Requests that already arrive over HTTPS get a `Secure` session cookie with no
+configuration at all. `secure_cookies` exists for deployments that terminate
+TLS at a reverse proxy without forwarding `X-Forwarded-Proto`, where the app
+only ever sees plain HTTP. It defaults to `false` because a browser silently
+discards a `Secure` cookie delivered over HTTP, so forcing it on the shipped
+HTTP-on-`:8000` deployment would make login appear to succeed but never stick.
 
 ### Environment Variables
 
@@ -859,14 +867,22 @@ ssh_strict_host_keys: false  # true = refuse servers without a pinned host key (
 | `QUADLET_SESSION_SECRET` | Session-cookie signing secret; must be identical across workers. If unset, a dev secret is generated once and persisted to the `settings` table so sessions survive restarts |
 | `QUADLET_CONFIG_PATH` | Path to config YAML file (default: `config.yaml`) |
 | `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
+| `QUADLET_SECURE_COOKIES` | Set to `1` to always mark the session cookie `Secure` (same as `secure_cookies` in the config file) |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) |
 | `APP_VERSION` | App version string; baked into container images at build time (see below), falls back to [`VERSION`](../VERSION)`+dev` for local runs |
 
 ### Running the Application
 
+`requirements.txt` is a generated lock: every direct and transitive dependency
+pinned with `==` and hashed. `--require-hashes` therefore fails the install on
+a substituted or tampered-with PyPI artifact, and `--only-binary :all:` keeps
+any sdist's `setup.py` from executing. The editable version ranges live in
+`requirements.in`; see [CONTRIBUTING.md](../CONTRIBUTING.md) for how to
+regenerate the lock.
+
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install --only-binary :all: --require-hashes -r requirements.txt
 
 # Set master key
 export QUADLET_MASTER_KEY=$(openssl rand -hex 32)

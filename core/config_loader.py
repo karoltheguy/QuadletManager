@@ -16,6 +16,14 @@ class AppConfig:
         # When True, connect_to_server() refuses to connect to a server whose
         # host key has not yet been pinned instead of silently trusting it.
         self.ssh_strict_host_keys = False
+        # When True, the session cookie always carries the Secure flag, so the
+        # browser will only ever send it back over HTTPS. It defaults to False
+        # because the shipped compose file serves plain HTTP on :8000, where a
+        # Secure cookie would be dropped and login would silently never stick.
+        # Requests that already arrive over HTTPS get the flag regardless; this
+        # setting is for deployments terminating TLS at a proxy that does not
+        # forward X-Forwarded-Proto.
+        self.secure_cookies = os.getenv("QUADLET_SECURE_COOKIES") == "1"
         self._load_from_yaml()
 
     def _apply_config_data(self, data):
@@ -40,6 +48,13 @@ class AppConfig:
                 self.ssh_strict_host_keys = value
             else:
                 self.ssh_strict_host_keys = str(value) == "1"
+        if "secure_cookies" in data:
+            # Accept booleans or 0/1 style ints in YAML
+            value = data["secure_cookies"]
+            if isinstance(value, bool):
+                self.secure_cookies = value
+            else:
+                self.secure_cookies = str(value) == "1"
 
     def _load_from_yaml(self):
         config_path = os.getenv("QUADLET_CONFIG_PATH", "config.yaml")
