@@ -34,6 +34,24 @@ def test_unit_name_for_no_dot():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "file_name,expected_unit",
+    [
+        ("probe.container", "probe.service"),
+        ("probe.kube", "probe.service"),
+        ("probe.pod", "probe-pod.service"),
+        ("probe.volume", "probe-volume.service"),
+        ("probe.network", "probe-network.service"),
+        ("probe.image", "probe-image.service"),
+        ("probe.build", "probe-build.service"),
+        ("probe.conf", "probe.service"),
+    ],
+)
+def test_unit_name_for_suffixes_by_quadlet_type(file_name, expected_unit):
+    assert unit_name_for(file_name) == expected_unit
+
+
+@pytest.mark.unit
 def test_quadlet_type_of_lowercases_extension():
     assert quadlet_type_of("web.Container") == "container"
 
