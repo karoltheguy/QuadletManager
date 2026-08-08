@@ -109,7 +109,8 @@ def test_api_pod_action_exception(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("Pod Error")
         response = client.post("/api/pod-action/1", params={"action": "start", "pod_name": "test", "scope": "user"}, follow_redirects=False)
-        assert response.status_code == 200
+        # 500, not 200: returning 200 on failure was the bug in #339 (htmx:responseError never fired)
+        assert response.status_code == 500
         assert "Pod Error" not in response.text
         assert "Pod action failed" in response.text
 

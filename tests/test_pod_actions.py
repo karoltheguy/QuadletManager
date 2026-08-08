@@ -1,7 +1,12 @@
 """Tests for pod-aware actions (issue #97).
 
-Verifies that .pod quadlet files use `podman pod start/stop/restart` instead
-of systemctl, while non-pod quadlet types continue to use systemctl.
+#97's requirement still holds: a pod action must act on the whole pod, not
+on a container that happens to share its name. The mechanism moved from
+`podman pod {action} {name}` to systemctl (`systemctl {action} <base>-pod.service`)
+because #334 made the pod's real generated unit name derivable via
+`unit_name_for`, and because a never-started Quadlet pod has no `podman pod`
+object for an ad-hoc `podman pod {action}` to act on: the pod object is only
+created by the generated unit's own `ExecStartPre=podman pod create --replace`.
 """
 import os
 import sys
@@ -98,7 +103,7 @@ async def test_fetch_file_container_passes_quadlet_type(mock_exec):
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @pytest.mark.unit
 async def test_pod_action_stop(mock_exec):
-    """api_pod_action with action=stop must run `podman pod stop <name>`."""
+    """api_pod_action with action=stop must run `systemctl stop <base>-pod.service`."""
     from api.routes import api_pod_action
 
     mock_exec.return_value = "kestra pod stopped"
@@ -117,15 +122,15 @@ async def test_pod_action_stop(mock_exec):
             )
             assert response.status_code == 200
             call_args = mock_exec.call_args[0][1]
-            assert 'podman pod stop kestra' in call_args, \
-                f"Expected 'podman pod stop kestra', got '{call_args}'"
+            assert call_args == 'systemctl stop kestra-pod.service', \
+                f"Expected 'systemctl stop kestra-pod.service', got '{call_args}'"
 
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @pytest.mark.unit
 async def test_pod_action_start(mock_exec):
-    """api_pod_action with action=start must run `podman pod start <name>`."""
+    """api_pod_action with action=start must run `systemctl start <base>-pod.service`."""
     from api.routes import api_pod_action
 
     mock_exec.return_value = "kestra pod started"
@@ -144,14 +149,14 @@ async def test_pod_action_start(mock_exec):
             )
             assert response.status_code == 200
             call_args = mock_exec.call_args[0][1]
-            assert 'podman pod start kestra' in call_args
+            assert call_args == 'systemctl start kestra-pod.service'
 
 
 @pytest.mark.asyncio
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @pytest.mark.unit
 async def test_pod_action_restart(mock_exec):
-    """api_pod_action with action=restart must run `podman pod restart <name>`."""
+    """api_pod_action with action=restart must run `systemctl restart <base>-pod.service`."""
     from api.routes import api_pod_action
 
     mock_exec.return_value = "kestra pod restarted"
@@ -170,7 +175,7 @@ async def test_pod_action_restart(mock_exec):
             )
             assert response.status_code == 200
             call_args = mock_exec.call_args[0][1]
-            assert 'podman pod restart kestra' in call_args
+            assert call_args == 'systemctl restart kestra-pod.service'
 
 
 @pytest.mark.asyncio
@@ -237,8 +242,9 @@ async def test_pod_action_invalid_action_escapes_html():
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @pytest.mark.unit
 async def test_pod_action_user_scope_no_sudo(mock_exec):
-    """User scope pod actions must NOT use sudo."""
+    """User scope pod actions must NOT use sudo, and must use `systemctl --user`."""
     from api.routes import api_pod_action
+    from services.systemd_manager import ROOTLESS_ENV_PREFIX
 
     mock_exec.return_value = "ok"
     mock_request = MagicMock()
@@ -254,7 +260,9 @@ async def test_pod_action_user_scope_no_sudo(mock_exec):
                 scope='user',
                 role='editor'
             )
+            call_args = mock_exec.call_args[0][1]
             call_kwargs = mock_exec.call_args[1]
+            assert call_args == f'{ROOTLESS_ENV_PREFIX} systemctl --user stop kestra-pod.service'
             assert call_kwargs.get('use_sudo') is False, \
                 f"User scope must NOT use sudo, got use_sudo={call_kwargs.get('use_sudo')}"
 
@@ -263,7 +271,7 @@ async def test_pod_action_user_scope_no_sudo(mock_exec):
 @patch('api.routes.pool.execute_command', new_callable=AsyncMock)
 @pytest.mark.unit
 async def test_pod_action_global_scope_uses_sudo(mock_exec):
-    """Global scope pod actions must use sudo."""
+    """Global scope pod actions must use sudo, and must use plain `systemctl`."""
     from api.routes import api_pod_action
 
     mock_exec.return_value = "ok"
@@ -280,7 +288,9 @@ async def test_pod_action_global_scope_uses_sudo(mock_exec):
                 scope='global',
                 role='editor'
             )
+            call_args = mock_exec.call_args[0][1]
             call_kwargs = mock_exec.call_args[1]
+            assert call_args == 'systemctl stop kestra-pod.service'
             assert call_kwargs.get('use_sudo') is True, \
                 f"Global scope must use sudo, got use_sudo={call_kwargs.get('use_sudo')}"
 
