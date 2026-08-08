@@ -238,6 +238,41 @@ document.body.addEventListener('theme-updated', function() {
     applyEditorTheme();
 });
 
+// Mirrors services/quadlet_naming.py. Podman's generator suffixes
+// pod/volume/network/image/build units with their type; container and
+// kube units are unsuffixed.
+const SUFFIXED_QUADLET_TYPES = new Set(['pod', 'volume', 'network', 'image', 'build']);
+
+function unitNameFor(fileName) {
+    const dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex === -1) return fileName + '.service';
+    const base = fileName.slice(0, dotIndex);
+    const type = fileName.slice(dotIndex + 1).toLowerCase();
+    if (SUFFIXED_QUADLET_TYPES.has(type)) return base + '-' + type + '.service';
+    return base + '.service';
+}
+window.unitNameFor = unitNameFor;
+
+// Podman's generator maps both `my.pod` and `my-pod.container` to the same
+// unit name `my-pod.service`, so stripping a `-<type>` suffix by guessing
+// from the unit name alone is ambiguous. The caller passes the quadlet type
+// it already knows instead, and an absent/unsuffixed type strips nothing
+// rather than risking a too-short stem.
+function stemFromUnitName(unitName, quadletType) {
+    let result = unitName.endsWith('.service') ? unitName.slice(0, -'.service'.length) : unitName;
+    if (quadletType) {
+        const type = quadletType.toLowerCase();
+        if (SUFFIXED_QUADLET_TYPES.has(type)) {
+            const suffix = '-' + type;
+            if (result.endsWith(suffix)) {
+                result = result.slice(0, -suffix.length);
+            }
+        }
+    }
+    return result;
+}
+window.stemFromUnitName = stemFromUnitName;
+
 // Mark the clicked quadlet tree button as selected (inset state).
 // Called inline from partials/quadlet_tree.html onclick.
 function setSelectedQuadletBtn(el) {
@@ -399,7 +434,8 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
     let serverId = null;
     let scope = '';
     let action = '';
-    
+    let quadletType = '';
+
     if (path.indexOf('/api/systemctl/') !== -1) {
         const urlParts = path.split('?');
         serverId = Number.parseInt(urlParts[0].split('/').pop(), 10);
@@ -407,15 +443,17 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
         unitName = params.unit || searchParams.get('unit') || '';
         scope = params.scope || searchParams.get('scope') || '';
         action = params.action || searchParams.get('action') || '';
+        quadletType = params.quadlet_type || searchParams.get('quadlet_type') || '';
     } else if (path.indexOf('/api/save') !== -1) {
         unitName = params.unit_name || '';
         serverId = Number.parseInt(params.server_id, 10);
         scope = params.scope || '';
         action = 'restart'; // saving implies a restart
+        quadletType = params.quadlet_type || '';
     }
-    
+
     if (unitName && serverId) {
-        const stem = unitName.replace('.service', '').toLowerCase();
+        const stem = stemFromUnitName(unitName, quadletType).toLowerCase();
         const watchId = serverId + ':' + stem;
         
         if (action === 'stop') {
@@ -616,14 +654,16 @@ let lastAnnouncedUnhealthy = null;
 window._selectedContainerStem = null;
 window._selectedContainerServerId = null;
 window._selectedContainerScope = null;
+window._selectedContainerType = null;
 // Set to true after the saved quadlet selection has been restored once,
 // so subsequent htmx:afterSwap tree re-renders don't override user clicks.
 window._quadletRestored = false;
 
-window.selectContainerStem = function(stem, serverId, scope) {
+window.selectContainerStem = function(stem, serverId, scope, type) {
     window._selectedContainerStem = (stem || '').toLowerCase();
     window._selectedContainerServerId = Number.parseInt(serverId, 10);
     window._selectedContainerScope = scope || 'global';
+    window._selectedContainerType = (type || '').toLowerCase();
     try {
         localStorage.setItem('qm-selected-quadlet', JSON.stringify({
             stem: window._selectedContainerStem,
@@ -2620,7 +2660,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
 
     const fileName = path.split('/').pop();
     const stem = fileName.replace(/\.[^.]+$/, '');
-    const unitName = stem + '.service';
+    const unitName = unitNameFor(fileName);
     const quadletType = fileName.indexOf('.') !== -1 ? fileName.split('.').pop().toLowerCase() : '';
     const isPod = quadletType === 'pod';
 
@@ -2637,7 +2677,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
         const treeBtn = document.querySelector('.quadlet-tree-btn[data-server-id="' + serverId + '"][data-path="' + path + '"]');
         window.setSelectedQuadletBtn(treeBtn || null);
         window.setActiveServer(serverId);
-        window.selectContainerStem(stem, serverId);
+        window.selectContainerStem(stem, serverId, scope, quadletType);
         htmx.ajax('GET', '/api/file/' + serverId + '?path=' + encodeURIComponent(path) + '&scope=' + encodeURIComponent(scope) + '&name=' + encodeURIComponent(fileName), {
             target: '#editor-pane',
             swap: 'outerHTML'
@@ -2656,7 +2696,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
             htmx.ajax('POST', '/api/pod-action/' + serverId + '?action=start&pod_name=' + encodeURIComponent(stem) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
             return;
         }
-        htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=start&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
+        htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=start&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope) + '&quadlet_type=' + encodeURIComponent(quadletType), { swap: 'none' });
     };
     _ctxMenu.appendChild(startBtn);
 
@@ -2670,7 +2710,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
             htmx.ajax('POST', '/api/pod-action/' + serverId + '?action=stop&pod_name=' + encodeURIComponent(stem) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
             return;
         }
-        htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=stop&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope), { swap: 'none' });
+        htmx.ajax('POST', '/api/systemctl/' + serverId + '?action=stop&unit=' + encodeURIComponent(unitName) + '&scope=' + encodeURIComponent(scope) + '&quadlet_type=' + encodeURIComponent(quadletType), { swap: 'none' });
     };
     _ctxMenu.appendChild(stopBtn);
 
@@ -2811,7 +2851,8 @@ window.tailLogsFromPanel = function() {
         return;
     }
 
-    const unitName = stem + '.service';
+    const quadletType = window._selectedContainerType || '';
+    const unitName = unitNameFor(quadletType ? stem + '.' + quadletType : stem);
     const tabKey = 'log:' + serverId + ':' + unitName;
 
     openBottomPanel('logs');

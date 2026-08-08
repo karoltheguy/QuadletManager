@@ -45,16 +45,17 @@ def test_context_menu_has_delete_item():
 
 
 # =============================================================================
-# Unit name derivation: stem + '.service'
+# Unit name derivation: unitNameFor(fileName)
 # =============================================================================
 
 
 @pytest.mark.unit
 def test_unit_name_derived_from_stem():
-    """The JS must derive unitName as stem + '.service', matching api/routes.py:217."""
+    """The JS must derive unitName via unitNameFor(fileName), matching issue #340
+    and services/quadlet_naming.py."""
     js = _read_js()
-    assert "unitName = stem + '.service'" in js, \
-        "unitName must be derived as stem + '.service'"
+    assert "unitName = unitNameFor(fileName)" in js, \
+        "unitName must be derived via unitNameFor(fileName)"
 
 
 @pytest.mark.unit

@@ -12,7 +12,8 @@
                     data-stem="{{ file_info['name'].rsplit('.', 1)[0]|lower }}"
                     data-path="{{ file_info['path'] }}"
                     data-scope="{{ scope }}"
-                    onclick="window.setSelectedQuadletBtn(this); window.setActiveServer(this.dataset.serverId); window.selectContainerStem(this.dataset.stem, this.dataset.serverId, this.dataset.scope)"
+                    data-type="{{ file_info['name'].rsplit('.', 1)[-1]|lower }}"
+                    onclick="window.setSelectedQuadletBtn(this); window.setActiveServer(this.dataset.serverId); window.selectContainerStem(this.dataset.stem, this.dataset.serverId, this.dataset.scope, this.dataset.type)"
                     oncontextmenu="window.showFileContextMenu(event, {{ server_id }}, this.dataset.path, this.dataset.scope)"
                     hx-get="/api/file/{{ server_id }}?path={{ file_info['path'] }}&scope={{ scope }}&name={{ file_info['name'] }}" hx-target="#editor-pane" hx-swap="outerHTML">
                 <span class="status-dot dot-stopped"
