@@ -66,6 +66,18 @@ def test_api_file_db_error(client):
         assert "Failed to load file content" in response.text
 
 @pytest.mark.unit
+def test_api_file_pod_uses_type_suffixed_unit_name(client):
+    # Issue #286: unit_name must be type-suffixed for pod quadlets, or the editor's
+    # status widget, Start/Stop/Restart buttons, and reload_and_restart target the wrong unit.
+    with patch("api.routes.pool.execute_command", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = "[Pod]\nPodName=web\n"
+
+        response = client.get("/api/file/1?path=/home/quadlet/.config/containers/systemd/web.pod&scope=user&name=web.pod")
+        assert response.status_code == 200
+        assert "web-pod.service" in response.text
+        assert "web.service" not in response.text
+
+@pytest.mark.unit
 def test_api_save_exception(client):
     with patch("api.routes.pool.execute_command") as mock_exec:
         mock_exec.side_effect = Exception("SSH Error")

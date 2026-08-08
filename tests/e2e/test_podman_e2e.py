@@ -248,15 +248,39 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
         page.locator("select[name='type']").select_option(".container")
         page.get_by_role("button", name="Create").click()
 
-        listing = ""
+        file_name = f"{UI_QUADLET}.container"
+        entries = []
         for _ in range(20):
-            listing = _ssh(f"ls -1 {USER_QUADLET_DIR}/ 2>/dev/null")
-            if f"{UI_QUADLET}.container" in listing:
+            # `|| true` rather than check=False. On a host where nothing has
+            # written a user quadlet yet the directory does not exist and ls
+            # exits 2, which is a legitimate "not there yet" for this poll: the
+            # app creates the directory as it writes the file. Absorbing that
+            # remotely keeps check=True, so an unreachable host still raises
+            # (ssh exits 255) instead of masquerading for 20s as a modal that
+            # wrote nothing.
+            # splitlines, not a substring test: `in` on the raw output also
+            # matches a neighbour like "old-e2e-ui-created.container" or a
+            # ".container.bak" left behind by something else, which would pass
+            # this test on a file the modal never wrote.
+            entries = _ssh(
+                f"ls -1 {USER_QUADLET_DIR}/ 2>/dev/null || true"
+            ).splitlines()
+            if file_name in entries:
                 break
             time.sleep(1)
 
-        assert f"{UI_QUADLET}.container" in listing, (
-            f"the modal reported success but no file reached the host: {listing!r}"
+        assert file_name in entries, (
+            f"the modal reported success but no file reached the host: {entries!r}"
+        )
+
+        # The name alone is not the claim. A modal that creates an empty or
+        # malformed file satisfies `ls` and would sail past the assertion above,
+        # which is the same trap the comment on BUSYBOX_QUADLET describes for
+        # the tree view. Read the file back and require the section header that
+        # makes it a container quadlet rather than a stray file.
+        written = _ssh(f"cat {USER_QUADLET_DIR}/{shlex.quote(file_name)}")
+        assert "[Container]" in written, (
+            f"the modal wrote {file_name} but not a container quadlet: {written!r}"
         )
 
 
