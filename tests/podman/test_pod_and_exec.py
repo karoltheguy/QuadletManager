@@ -1,13 +1,13 @@
 """Pod actions, the exec PTY, and the log stream, against a real podman host.
 
-`.pod` quadlets are a podman 5 feature and `POST /api/pod-action/{id}` shells
-out to `podman pod {action} {name}`; neither had live coverage.
+`.pod` quadlets are a podman 5 feature and `POST /api/pod-action/{id}` acts on
+the pod's systemd unit via `systemctl_action`; neither had live coverage.
 
-Note the unit name. `services/quadlet_naming.unit_name_for` maps every quadlet
-to `<base>.service`, but podman only names *containers* that way: a `.pod`
-generates `<base>-pod.service`, and likewise `-volume` / `-network`. These tests
-use the real generated name, which is why POD_UNIT is spelled out rather than
-derived.
+Note the unit name. `services/quadlet_naming.unit_name_for` now derives the
+suffixed name correctly: a `.pod` maps to `<base>-pod.service`, and likewise
+`-volume` / `-network`, matching what podman itself generates. The route uses
+that helper directly. These tests still spell out POD_UNIT rather than
+deriving it, to keep the fixture setup independent of the code under test.
 
 On the event loop: the async helpers here open pool connections on the test's
 loop, while TestClient runs the app on its own. `pool.close_all()` is called
@@ -24,7 +24,7 @@ import api.routes as api_routes
 from main import app
 from services.remote_fs import is_global_scope
 from services.ssh_manager import pool
-from services.systemd_manager import ROOTLESS_ENV_PREFIX, reload_and_restart
+from services.systemd_manager import ROOTLESS_ENV_PREFIX, reload_and_restart, systemctl_action
 from tests.podman.conftest import install_fixture, wait_for_active_state
 
 pytestmark = pytest.mark.podman
@@ -82,6 +82,14 @@ async def running_pod(podman_server):
 
 
 @pytest.fixture
+async def installed_pod(podman_server):
+    """Install the .pod quadlet and daemon-reload, but never start the unit."""
+    await install_fixture(podman_server, SCOPE, POD_FIXTURE)
+    await systemctl_action(podman_server, "daemon-reload", "", scope=SCOPE, allow_failure=True)
+    return podman_server
+
+
+@pytest.fixture
 async def running_sleep_container(podman_server):
     """Install and start the long-running container; yield its server_id."""
     await install_fixture(podman_server, SCOPE, SLEEP_FIXTURE)
@@ -127,43 +135,73 @@ async def test_pod_action_route_stops_a_quadlet_managed_pod(running_pod):
 
 
 @pytest.mark.timeout(300)
-async def test_pod_action_route_starts_a_stopped_pod(podman_server):
-    """`start` against a pod that exists but is stopped.
+async def test_pod_action_route_round_trips_a_quadlet_managed_pod(running_pod):
+    """`stop` then `start` against the same quadlet-managed pod.
 
-    Uses a pod created directly rather than through a quadlet, so systemd does
-    not clean it up between the stop and the start. Removed in a finally: the
-    conftest teardown only sweeps quadlet *files*, so a pod created here is
-    this test's own responsibility.
+    With the route going through systemd, this round trip works even though
+    the generated unit's `ExecStopPost` removes the pod object on stop:
+    `ExecStartPre=podman pod create --replace` on the next `start` recreates
+    it. Asserted against podman's own view of the pod, not the route's
+    response body, so a route that returns 200 while doing nothing still
+    fails.
     """
-    server_id = podman_server
-    adhoc = "e2e-adhoc-pod"
+    server_id = running_pod
+    await pool.close_all()  # hand the connection over to the app's loop
 
-    await pool.execute_command(
-        server_id, f"{_podman(SCOPE)}podman pod create --name {adhoc}", use_sudo=False
-    )
-    try:
-        await pool.close_all()
-        with _editor_client() as client:
-            started = client.post(
-                f"/api/pod-action/{server_id}",
-                params={"action": "start", "pod_name": adhoc, "scope": SCOPE},
-            )
-            assert started.status_code == 200, started.text
+    assert "running" in await _pod_state(server_id, SCOPE)
 
-        await pool.close_all()
-        raw = await pool.execute_command(
-            server_id, f"{_podman(SCOPE)}podman pod ps --format json", use_sudo=False
+    await pool.close_all()
+    with _editor_client() as client:
+        stop = client.post(
+            f"/api/pod-action/{server_id}",
+            params={"action": "stop", "pod_name": POD_NAME, "scope": SCOPE},
         )
-        state = next(
-            (p.get("Status", "").lower() for p in json.loads(raw or "[]") if p.get("Name") == adhoc),
-            "(absent)",
+        assert stop.status_code == 200, stop.text
+
+    await pool.close_all()
+    assert "running" not in await _pod_state(server_id, SCOPE)
+
+    await pool.close_all()
+    with _editor_client() as client:
+        started = client.post(
+            f"/api/pod-action/{server_id}",
+            params={"action": "start", "pod_name": POD_NAME, "scope": SCOPE},
         )
-        assert "running" in state, f"{adhoc} was {state!r} after the route's start"
-    finally:
-        await pool.close_all()
-        await pool.execute_command(
-            server_id, f"{_podman(SCOPE)}podman pod rm -f {adhoc}", use_sudo=False
+        assert started.status_code == 200, started.text
+
+    await pool.close_all()
+    assert "running" in await _pod_state(server_id, SCOPE)
+
+
+@pytest.mark.timeout(300)
+async def test_pod_action_route_starts_a_never_started_quadlet_pod(installed_pod):
+    """`start` against a Quadlet-defined pod that has never been started.
+
+    Podman only creates the pod object when the generated `<base>-pod.service`
+    unit runs its own `ExecStartPre=podman pod create --replace`; that unit's
+    `ExecStart` is what actually runs `podman pod start`. So before the unit
+    has ever run, no pod object exists yet, and `podman pod start` from
+    outside the unit fails with `no pod with name or ID <name> found`. This is
+    the real Quadlet case; the ad-hoc-pod test above sidesteps it by using a
+    pod that was never Quadlet-managed.
+
+    Asserted against podman's own view of the pod, not the route's response,
+    so a route that returns 200 while doing nothing still fails.
+    """
+    server_id = installed_pod
+    state = await _pod_state(server_id, SCOPE)
+    assert state == "(absent)", f"expected no pod object yet, found {state!r}"
+
+    await pool.close_all()
+    with _editor_client() as client:
+        client.post(
+            f"/api/pod-action/{server_id}",
+            params={"action": "start", "pod_name": POD_NAME, "scope": SCOPE},
         )
+
+    await pool.close_all()
+    state = await _pod_state(server_id, SCOPE)
+    assert "running" in state, f"{POD_NAME} was {state!r} after the route's start"
 
 
 @pytest.mark.timeout(300)

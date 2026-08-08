@@ -818,22 +818,26 @@ async def api_pod_action(
     if action not in ("start", "stop", "restart"):
         return HTMLResponse(f"Invalid pod action: {html.escape(action)}", status_code=400)
 
-    use_sudo = is_global_scope(scope)
-    safe_pod_name = shlex.quote(pod_name)
-    cmd = f"podman pod {action} {safe_pod_name}"
+    unit_name = unit_name_for(f"{pod_name}.pod")
 
     try:
-        output = await pool.execute_command(server_id, cmd, use_sudo=use_sudo)
+        output = await systemctl_action(server_id, action, unit_name, scope)
 
-        if action in ("start", "stop", "restart"):
-            session = await _get_session(request)
-            username = session["username"]
-            await record_container_event(server_id, pod_name, action, triggered_by=username)
+        # Every action the allowlist above admits mutates the pod, so all of
+        # them are recorded. Unlike /api/systemctl, this route has no
+        # read-only action to filter out here.
+        session = await _get_session(request)
+        username = session["username"]
+        await record_container_event(server_id, pod_name, action, triggered_by=username)
 
         return HTMLResponse(output)
-    except Exception:
-        logger.exception(f"Pod action '{action}' failed")
-        return HTMLResponse("Pod action failed")
+    except SSHCommandError as e:
+        ref = _log_error_ref(f"Pod action '{action}' failed", e)
+        message = html.escape(e.stderr) if e.stderr else f"Pod action failed (ref: {ref})"
+        return HTMLResponse(message, status_code=502)
+    except Exception as e:
+        ref = _log_error_ref(f"Pod action '{action}' failed", e)
+        return HTMLResponse(f"Pod action failed (ref: {ref})", status_code=500)
 
 @router.get("/api/events", responses=AUTH_REDIRECT_RESPONSES)
 async def sse_events(request: Request, role: str = Depends(get_current_user_role)):
