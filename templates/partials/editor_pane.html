@@ -21,6 +21,7 @@
         <input type="hidden" name="file_path" value="{{ path }}">
         <input type="hidden" name="scope" value="{{ scope }}">
         <input type="hidden" name="unit_name" value="{{ unit_name }}">
+        <input type="hidden" name="quadlet_type" value="{{ quadlet_type }}">
         <textarea name="content" id="hidden-content" aria-label="Quadlet file content"></textarea>
     </form>
     <div id="editor-container"></div>
@@ -38,11 +39,11 @@
                 hx-post="/api/pod-action/{{ server_id }}?action=restart&pod_name={{ pod_name }}&scope={{ scope }}" hx-target="#systemd-status">Restart Pod</button>
         {% else %}
         <button class="btn btn-success"
-                hx-post="/api/systemctl/{{ server_id }}?action=start&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Start</button>
+                hx-post="/api/systemctl/{{ server_id }}?action=start&unit={{ unit_name }}&scope={{ scope }}&quadlet_type={{ quadlet_type }}" hx-target="#systemd-status">Start</button>
         <button class="btn btn-danger"
-                hx-post="/api/systemctl/{{ server_id }}?action=stop&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Stop</button>
+                hx-post="/api/systemctl/{{ server_id }}?action=stop&unit={{ unit_name }}&scope={{ scope }}&quadlet_type={{ quadlet_type }}" hx-target="#systemd-status">Stop</button>
         <button class="btn btn-warning"
-                hx-post="/api/systemctl/{{ server_id }}?action=restart&unit={{ unit_name }}&scope={{ scope }}" hx-target="#systemd-status">Restart</button>
+                hx-post="/api/systemctl/{{ server_id }}?action=restart&unit={{ unit_name }}&scope={{ scope }}&quadlet_type={{ quadlet_type }}" hx-target="#systemd-status">Restart</button>
         {% endif %}
         {% endif %}
     </div>
