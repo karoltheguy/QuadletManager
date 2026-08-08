@@ -55,9 +55,8 @@ def test_suffixed_quadlet_types_contains_all_five_types():
 @pytest.mark.unit
 def test_unit_name_for_function_defined():
     js = _read_js()
-    assert "unitNameFor" in js and (
-        "function unitNameFor" in js or "unitNameFor = function" in js or "unitNameFor(" in js
-    ), "main.js must define a unitNameFor function mirroring unit_name_for() in services/quadlet_naming.py"
+    assert "function unitNameFor(" in js, \
+        "main.js must define a unitNameFor function mirroring unit_name_for() in services/quadlet_naming.py"
 
 
 @pytest.mark.unit
@@ -92,8 +91,10 @@ def test_tail_logs_from_panel_uses_unit_name_for():
     assert start != -1, "tailLogsFromPanel must be defined"
     end = js.find("\nwindow.", start + 1)
     body = js[start:end if end != -1 else len(js)]
-    assert "unitNameFor" in body and "+ '.service'" not in body, \
-        "tailLogsFromPanel must derive its unit name via unitNameFor, not by concatenating '.service'"
+    assert "unitNameFor" in body, \
+        "tailLogsFromPanel must derive its unit name via unitNameFor"
+    assert "+ '.service'" not in body, \
+        "tailLogsFromPanel must not derive its unit name by concatenating '.service'"
 
 
 # =============================================================================
