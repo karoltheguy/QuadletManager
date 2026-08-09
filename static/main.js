@@ -32,13 +32,14 @@ function restoreServerCollapseStates() {
 
 function handleServerCollapseKey(e, li, sid) {
     const key = e.key;
-    if (key === 'ArrowLeft' && !li.classList.contains('is-collapsed')) {
-        e.preventDefault();
-        window.toggleServerCollapse(sid);
-    } else if (key === 'ArrowRight' && li.classList.contains('is-collapsed')) {
-        e.preventDefault();
-        window.toggleServerCollapse(sid);
-    } else if (key === 'Enter' || key === ' ') {
+    const isCollapsed = li.classList.contains('is-collapsed');
+    // Left collapses an expanded server, Right expands a collapsed one, and
+    // Enter/Space toggles either way. All three end in the same toggle.
+    const shouldToggle = (key === 'ArrowLeft' && !isCollapsed)
+        || (key === 'ArrowRight' && isCollapsed)
+        || key === 'Enter'
+        || key === ' ';
+    if (shouldToggle) {
         e.preventDefault();
         window.toggleServerCollapse(sid);
     }
@@ -2236,8 +2237,12 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
         term.write('\r\n\u001b[31mConnection error\u001b[0m\r\n');
     };
 
-    ws.onclose = function() {
-        term.write('\r\n\u001b[2m[session closed]\u001b[0m\r\n');
+    ws.onclose = function(evt) {
+        if (evt && evt.code === 4403) {
+            term.write('\r\n\u001b[31m[terminal access requires the editor role]\u001b[0m\r\n');
+        } else {
+            term.write('\r\n\u001b[2m[session closed]\u001b[0m\r\n');
+        }
         tabEl.classList.add('is-disconnected');
     };
 

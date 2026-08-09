@@ -5,6 +5,7 @@ import re
 import shlex
 from typing import List
 from fastapi import WebSocket, WebSocketDisconnect
+from core.log_safety import log_safe
 from services.ssh_manager import pool
 
 logger = logging.getLogger("quadlet-manager.sockets")
@@ -12,18 +13,13 @@ logger = logging.getLogger("quadlet-manager.sockets")
 # Allowlist for systemd unit names (supports template instances like foo@bar.service).
 # \Z rather than $ so a trailing newline is not accepted.
 _UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9_@\-\.:\\]+\Z")
-# Allowlist for podman container names/ids
-_CONTAINER_NAME_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+\Z")
+# Allowlist for podman container names/ids. The first character must be
+# alphanumeric (as podman itself requires) so a name can never start with a
+# hyphen and be parsed as an option by the commands we build below.
+_CONTAINER_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\.\-]*\Z")
 
 
-def _log_safe(value) -> str:
-    """Escape control characters in a client-supplied value before logging it.
-
-    Newlines, carriage returns and ANSI escapes would otherwise let a caller
-    forge extra log lines. Escaping rather than stripping keeps the original
-    bytes visible for debugging.
-    """
-    return str(value).encode("unicode_escape").decode("ascii")
+_log_safe = log_safe
 
 class ConnectionManager:
     def __init__(self):
@@ -131,10 +127,14 @@ async def stream_logs_over_websocket(websocket: WebSocket, server_id: int, unit_
 
 
 def _build_exec_command(container_name: str, cmd: str, scope: str) -> str:
-    """Build the podman exec command for a PTY session (cmd is quoted to
-    neutralize shell metacharacters)."""
+    """Build the podman exec command for a PTY session.
+
+    Both arguments are shell-quoted to neutralize shell metacharacters, and
+    ``--`` terminates podman's own option parsing so neither can be read as a
+    flag even if the name allowlist above is ever loosened.
+    """
     safe_cmd = shlex.quote(cmd)
-    exec_cmd = f"podman exec -it {container_name} {safe_cmd}"
+    exec_cmd = f"podman exec -it -- {shlex.quote(container_name)} {safe_cmd}"
     if scope == "global":
         exec_cmd = f"sudo {exec_cmd}"
     return exec_cmd
@@ -169,7 +169,7 @@ def _try_handle_control_message(data: str, process) -> bool:
         return False
     try:
         msg = json.loads(data)
-    except (json.JSONDecodeError, ValueError):
+    except ValueError:
         return False
     if msg.get('type') == 'resize':
         cols, rows = msg.get('cols', 80), msg.get('rows', 24)
