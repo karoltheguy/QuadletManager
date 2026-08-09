@@ -21,10 +21,7 @@ def _describe_version():
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         return None
 
-    version = result.stdout.strip()
-    if version.startswith("v"):
-        version = version[1:]
-    return version
+    return result.stdout.strip().removeprefix("v")
 
 
 def get_version() -> str:
