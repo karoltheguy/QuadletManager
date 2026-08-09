@@ -758,6 +758,8 @@ async def validate_quadlet(
     content: str = Form(...),
     role: str = Depends(get_current_user_role)
 ):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Viewer role cannot validate files.")
     file_name = file_path.split("/")[-1]
     try:
         result = await validate_remote(server_id, content, file_name, scope)
