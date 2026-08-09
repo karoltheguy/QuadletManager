@@ -869,7 +869,7 @@ HTTP-on-`:8000` deployment would make login appear to succeed but never stick.
 | `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
 | `QUADLET_SECURE_COOKIES` | Set to `1` to always mark the session cookie `Secure` (same as `secure_cookies` in the config file) |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) |
-| `APP_VERSION` | App version string; baked into container images at build time (see below), falls back to [`VERSION`](../VERSION)`+dev` for local runs |
+| `APP_VERSION` | App version string; baked into container images at build time (see below), falls back to `git describe --tags --dirty` + `+dev` for local runs, or `0.0.0+dev` when git is unavailable |
 
 ### Running the Application
 
@@ -931,7 +931,7 @@ xterm was migrated onto this pipeline in issue #201: its three assets used to be
 
 ### Versioning
 
-The base semver lives in [`VERSION`](../VERSION) and is bumped manually on meaningful releases. CI (`container-build.yml`) appends `+build.{{ github.run_number }}` to it as semver build metadata and passes the result into the image via the `APP_VERSION` build arg, so every published build carries a distinct, traceable version — surfaced in startup logs and the dashboard's profile menu via `core/version.py::get_version()`. Build numbers can have gaps (CI runs on PRs too, though only non-PR events publish an image); this is accepted since each number still maps to one inspectable Actions run.
+The git tag is the single source of truth for the version. CI (`container-build.yml`) derives the base semver from the most recent tag (`git describe --tags --abbrev=0`) and appends `+build.{{ github.run_number }}` to it as semver build metadata, passing the result into the image via the `APP_VERSION` build arg; a tag build itself ships the bare version with no build-number suffix. So every published build carries a distinct, traceable version, surfaced in startup logs and the dashboard's profile menu via `core/version.py::get_version()`. Build numbers can have gaps (CI runs on PRs too, though only non-PR events publish an image); this is accepted since each number still maps to one inspectable Actions run.
 
 ---
 

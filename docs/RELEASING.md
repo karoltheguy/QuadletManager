@@ -4,10 +4,9 @@ QuadletManager follows [Semantic Versioning](https://semver.org/). While the
 project is on `0.x`, **breaking changes bump the minor** (`0.1.0` -> `0.2.0`);
 the major stays at `0` until the API and on-disk formats are stable.
 
-The single source of truth for the version is the `VERSION` file at the repo
-root, read by `core/version.py` and surfaced in the startup log and the
-`/api/...` app-info payload. A git tag `vX.Y.Z` must always match it — the
-release workflow fails the build if they disagree.
+The single source of truth for the version is the git tag `vX.Y.Z`, read via
+`git describe` by `core/version.py` and surfaced in the startup log and the
+`/api/...` app-info payload.
 
 ## Day-to-day work
 
@@ -17,17 +16,14 @@ Nothing about ordinary development changes:
 2. Open a PR. `tests.yml` runs, and `container-build.yml` builds the image
    without pushing it (`push:` is gated on the event not being a PR).
 3. Merge to `main`. That publishes `ghcr.io/karoltheguy/quadletmanager:main`
-   and `:sha-<full-sha>`, with an app version of `<VERSION>+build.<run>`.
+   and `:sha-<full-sha>`, with an app version derived from the most recent
+   tag as `<base>+build.<run>`.
 
 `main` is a development build. It is **not** `latest`.
 
 ## Cutting a release
 
-1. Open a PR that bumps `VERSION` to the new number, and nothing else of
-   consequence. Getting it in as its own PR keeps the tag-to-commit mapping
-   obvious.
-2. Merge it, and wait for the `main` build to go green.
-3. Tag the merge commit and push the tag:
+1. Tag the commit on `main` you want to release and push the tag:
 
    ```bash
    git checkout main && git pull
@@ -35,15 +31,15 @@ Nothing about ordinary development changes:
    git push origin v0.2.0
    ```
 
+There is no bump PR: the tag itself is the version.
+
 That tag push runs `release.yml`, which owns the whole release as one linear
 pipeline:
 
 ```
-check ──> test ──> image ──> release
+test ──> image ──> release
 ```
 
-- **`check`** verifies `VERSION` matches the tag. It is first and cheap so a
-  mistyped tag fails in seconds — and, critically, before anything is pushed.
 - **`test`** calls `tests.yml` as a reusable workflow. The full suite must be
   green before anything outward-facing happens.
 - **`image`** calls `container-build.yml`, publishing `:0.2.0`, `:0.2`,
@@ -74,7 +70,7 @@ than a tag.
 
 ### If a tag was pushed wrong
 
-Delete it locally and remotely, fix `VERSION`, and tag again:
+Delete it locally and remotely, then tag again:
 
 ```bash
 git push origin :refs/tags/v0.2.0

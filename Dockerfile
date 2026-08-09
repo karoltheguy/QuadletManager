@@ -38,7 +38,6 @@ COPY --from=builder /install /usr/local
 
 COPY main.py .
 COPY requirements.txt .
-COPY VERSION .
 COPY api/ api/
 COPY core/ core/
 COPY services/ services/

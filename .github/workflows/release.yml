@@ -6,36 +6,15 @@ on:
 
 # The tag pipeline is deliberately linear:
 #
-#   check ──> test ──> image ──> release
+#   test ──> image ──> release
 #
 # Nothing outward-facing happens until everything upstream is green: `image`
 # moves the `:latest` container tag and `release` publishes a GitHub Release.
-# `check` is first and cheap so a mistyped tag fails in seconds rather than
-# after a full suite -- and, critically, before any image is pushed.
+# The git tag itself is the single source of truth for the version, so there
+# is nothing left to verify before `test` runs.
 jobs:
-  check:
-    name: Verify VERSION matches the tag
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Compare VERSION against the tag
-        run: |
-          tagged="${GITHUB_REF_NAME#v}"
-          declared="$(cat VERSION)"
-          if [ "$tagged" != "$declared" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} implies version '${tagged}' but VERSION declares '${declared}'."
-            echo "Bump VERSION on main, then re-tag."
-            exit 1
-          fi
-          echo "Releasing ${declared}"
-
   test:
     name: Test
-    needs: check
     uses: ./.github/workflows/tests.yml
     permissions:
       # test-github pushes coverage badges.
