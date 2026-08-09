@@ -1818,7 +1818,6 @@ body.bottom-panel-expanded #navigator {
 .settings-sidenav {
     width: var(--settings-sidenav-width, 220px);
     flex-shrink: 0;
-    /* border-right: 1px solid var(--border-color); */
     display: flex;
     flex-direction: column;
     overflow-x: hidden;

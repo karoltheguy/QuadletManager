@@ -187,7 +187,7 @@ function applyThemePreview(form) {
     let rules = '';
     let brandPrimary = null;
     form.querySelectorAll('input[type="color"][name]').forEach(function(inp) {
-        rules += '--' + inp.name.replace(/_/g, '-') + ':' + inp.value + ';';
+        rules += '--' + inp.name.replaceAll('_', '-') + ':' + inp.value + ';';
         if (inp.name === 'brand_primary') brandPrimary = inp.value;
     });
     if (brandPrimary) {
@@ -199,7 +199,7 @@ function applyThemePreview(form) {
         el = document.createElement('style');
         el.id = 'qm-theme-preview';
         const anchor = document.getElementById('qm-theme-overrides');
-        if (anchor) anchor.insertAdjacentElement('afterend', el);
+        if (anchor) anchor.after(el);
         else document.head.appendChild(el);
     }
     el.textContent = css;
@@ -305,7 +305,7 @@ function restoreQuadletSelection() {
     } catch {
         // Ignore localStorage restrictions or parsing errors
     }
-    if (!saved || !saved.stem || !saved.serverId) return;
+    if (!saved?.stem || !saved?.serverId) return;
     const btn = document.querySelector(
         '.quadlet-tree-btn[data-stem="' + saved.stem + '"][data-server-id="' + saved.serverId + '"]'
     );
@@ -317,12 +317,12 @@ function restoreQuadletSelection() {
 document.body.addEventListener('htmx:afterSwap', function (e) {
     // Fire on any swap that could have replaced a tree button. Cheap — a
     // single querySelector with no match is negligible.
-    if (e.target && e.target.querySelector && e.target.querySelector('.quadlet-tree-btn')) {
+    if (e.target?.querySelector?.('.quadlet-tree-btn')) {
         reapplyQuadletSelection();
         restoreQuadletSelection();
     }
     // Restore collapse states when the server list is (re)loaded via HTMX.
-    if (e.target && e.target.querySelector && e.target.querySelector('li[data-server-id]')) {
+    if (e.target?.querySelector?.('li[data-server-id]')) {
         restoreServerCollapseStates();
     }
     // Sync expand button tooltip after editor pane swaps
@@ -396,7 +396,7 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
     const running = Reflect.get(runningContainersBySid, serverId) || new Set();
     let isRunning = false;
     running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+        if (name.includes(stem) || stem.includes(name)) {
             isRunning = true;
         }
     });
@@ -414,7 +414,7 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
                 let errorMsg = 'Unknown error';
                 for (const line of lines) {
                     const trimmed = line.trim();
-                    if (trimmed.indexOf('Failed') !== -1 || trimmed.indexOf('failed with') !== -1 || trimmed.indexOf('error') !== -1) {
+                    if (trimmed.includes('Failed') || trimmed.includes('failed with') || trimmed.includes('error')) {
                         errorMsg = trimmed;
                         break;
                     }
@@ -436,7 +436,7 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
     let action = '';
     let quadletType = '';
 
-    if (path.indexOf('/api/systemctl/') !== -1) {
+    if (path.includes('/api/systemctl/')) {
         const urlParts = path.split('?');
         serverId = Number.parseInt(urlParts[0].split('/').pop(), 10);
         const searchParams = new URLSearchParams(urlParts[1] || window.location.search);
@@ -444,7 +444,7 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
         scope = params.scope || searchParams.get('scope') || '';
         action = params.action || searchParams.get('action') || '';
         quadletType = params.quadlet_type || searchParams.get('quadlet_type') || '';
-    } else if (path.indexOf('/api/save') !== -1) {
+    } else if (path.includes('/api/save')) {
         unitName = params.unit_name || '';
         serverId = Number.parseInt(params.server_id, 10);
         scope = params.scope || '';
@@ -699,7 +699,7 @@ function updateInspectorStatsCard() {
     if (serverStats) {
         (serverStats.containers || []).forEach(function(c) {
             const cName = (c.name || '').toLowerCase();
-            if (cName.indexOf(stem) !== -1 || stem.indexOf(cName) !== -1) {
+            if (cName.includes(stem) || stem.includes(cName)) {
                 matched = c;
             }
         });
@@ -708,7 +708,7 @@ function updateInspectorStatsCard() {
     // Check if container is running (even if stats haven't arrived yet)
     let isRunning = false;
     running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+        if (name.includes(stem) || stem.includes(name)) {
             isRunning = true;
         }
     });
@@ -898,7 +898,7 @@ function applyStatusDots(serverId) {
         let isRunning = false;
         let matchedContainer = null;
         running.forEach(function(name) {
-            if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+            if (name.includes(stem) || stem.includes(name)) {
                 isRunning = true;
                 const matched = Reflect.get(containersByName, name);
                 if (matched) matchedContainer = matched;
@@ -1169,9 +1169,9 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
 function parsePercent(val) {
     if (typeof val === 'string') {
-        return parseFloat(val.replace(/%/g, '')) || 0;
+        return Number.parseFloat(val.replaceAll('%', '')) || 0;
     }
-    return parseFloat(val) || 0;
+    return Number.parseFloat(val) || 0;
 }
 
 function getPercentClass(val) {
@@ -1329,7 +1329,7 @@ function isManualStop(serverId, oldName) {
     const parts = manualKey.split(':');
     const mServerId = Number.parseInt(parts[0], 10);
     const mStem = parts[1];
-    if (mServerId === serverId && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
+    if (mServerId === serverId && (oldName.includes(mStem) || mStem.includes(oldName))) {
       wasManual = true;
     }
   });
@@ -1469,20 +1469,20 @@ window.handleQuadletsChanged = function (data) {
             { target: container, swap: 'innerHTML' });
 };
 
+function createStatsErrorDOM(serverName, errorMsg) {
+  return el('div', { className: 'p-4 text-danger' }, [
+    el('div', { className: 'font-bold mb-1' }, '⚠ Stats unavailable for ' + (serverName || 'server')),
+    el('div', { className: 'text-xs text-muted' }, errorMsg || 'Unknown error'),
+    el('div', { className: 'text-xs text-muted mt-1' }, 'Will retry automatically…')
+  ]);
+}
+
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
   const evtSource = new EventSource('/api/events');
 
   // Stats updates (every 5s from stats_engine)
   evtSource.addEventListener('stats_update', handleStatsUpdate);
-
-  function createStatsErrorDOM(serverName, errorMsg) {
-    return el('div', { className: 'p-4 text-danger' }, [
-      el('div', { className: 'font-bold mb-1' }, '⚠ Stats unavailable for ' + (serverName || 'server')),
-      el('div', { className: 'text-xs text-muted' }, errorMsg || 'Unknown error'),
-      el('div', { className: 'text-xs text-muted mt-1' }, 'Will retry automatically…')
-    ]);
-  }
 
   // Poll health events (from sync poller, per-server scope only)
   evtSource.addEventListener('poll_health', function(e) {
@@ -1571,7 +1571,7 @@ function handleContainersTabActivation() {
     openBottomPanel();
   }
   const panel = document.getElementById('bottom-panel');
-  if (panel && panel.classList.contains('is-expanded')) {
+  if (panel?.classList.contains('is-expanded')) {
     document.body.classList.add('bottom-panel-expanded');
   }
   if (window.editor) {
@@ -1722,7 +1722,7 @@ function updateMonitoringView(data) {
   const allContainers = data.containers || [];
   const containers = monitorContainerFilter
     ? allContainers.filter(function(c) {
-        return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1;
+        return (c.name || '').toLowerCase().includes(monitorContainerFilter);
       })
     : allContainers;
 
@@ -1999,7 +1999,7 @@ window.openBottomPanel = function(tab) {
     const key = window._activeTerminalTabKey;
     if (key) {
         const session = window._terminalTabs.get(key);
-        if (session && session.fitAddon) session.fitAddon.fit();
+        if (session?.fitAddon) session.fitAddon.fit();
     }
 };
 
@@ -2007,7 +2007,7 @@ function fitActiveTerminal() {
     const key = window._activeTerminalTabKey;
     if (!key) return;
     const session = window._terminalTabs.get(key);
-    if (session && session.fitAddon) {
+    if (session?.fitAddon) {
         session.fitAddon.fit();
     }
 }
@@ -2040,7 +2040,7 @@ window.toggleBottomPanelExpand = function() {
     const key = window._activeTerminalTabKey;
     if (key) {
         const session = window._terminalTabs.get(key);
-        if (session && session.fitAddon) session.fitAddon.fit();
+        if (session?.fitAddon) session.fitAddon.fit();
     }
 };
 
@@ -2072,7 +2072,7 @@ window.switchBottomTab = function(pane) {
                 el.classList.toggle('is-active', el.dataset.key === key);
             });
             const session = window._terminalTabs.get(key);
-            if (session && session.fitAddon) {
+            if (session?.fitAddon) {
                 setTimeout(function() { session.fitAddon.fit(); }, 50);
             }
         }
@@ -2089,7 +2089,7 @@ window.switchBottomTab = function(pane) {
 function findActualRunningContainerName(running, stem) {
     let actualName = null;
     running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+        if (name.includes(stem) || stem.includes(name)) {
             actualName = name;
         }
     });
@@ -2146,7 +2146,7 @@ window.connectTerminal = function() {
 
 function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     const cached = Reflect.get(lastStatsPerServer, serverId);
-    const serverName = (cached && cached.server_name)
+    const serverName = cached?.server_name
         || ('srv-' + serverId);
     const label = serverName + ':' + containerName;
 
@@ -2267,7 +2267,7 @@ window.switchTerminalTab = function(key) {
     switchBottomTab('terminal');
 
     const session = window._terminalTabs.get(key);
-    if (session && session.fitAddon) {
+    if (session?.fitAddon) {
         setTimeout(function() { session.fitAddon.fit(); }, 50);
     }
 };
@@ -2280,12 +2280,8 @@ function disposeTerminalSession(session) {
 }
 
 function removeTerminalDOM(session) {
-    if (session.tabEl && session.tabEl.parentNode) {
-        session.tabEl.parentNode.removeChild(session.tabEl);
-    }
-    if (session.paneEl && session.paneEl.parentNode) {
-        session.paneEl.parentNode.removeChild(session.paneEl);
-    }
+    session.tabEl?.remove();
+    session.paneEl?.remove();
 }
 
 function handleClosedTabFallback(key) {
@@ -2380,9 +2376,9 @@ window.addEventListener('resize', function() {
     const key = window._activeTerminalTabKey;
     if (!key) return;
     const session = window._terminalTabs.get(key);
-    if (!session || !session.fitAddon) return;
+    if (!session?.fitAddon) return;
     session.fitAddon.fit();
-    if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+    if (session.ws?.readyState === WebSocket.OPEN) {
         const dims = session.fitAddon.proposeDimensions();
         session.ws.send(JSON.stringify({
             type: 'resize',
@@ -2515,7 +2511,7 @@ function initResizableHandles() {
                 const newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
                 document.documentElement.style.setProperty('--bottom-panel-height', newH + 'px');
                 const _rk = window._activeTerminalTabKey;
-                if (_rk) { const _rs = window._terminalTabs.get(_rk); if (_rs && _rs.fitAddon) _rs.fitAddon.fit(); }
+                if (_rk) { const _rs = window._terminalTabs.get(_rk); if (_rs?.fitAddon) _rs.fitAddon.fit(); }
             }
 
             function onUp() {
@@ -2527,7 +2523,7 @@ function initResizableHandles() {
                     .getPropertyValue('--bottom-panel-height').trim();
                 localStorage.setItem('qm-bottom-panel-height', finalH);
                 const _uk = window._activeTerminalTabKey;
-                if (_uk) { const _us = window._terminalTabs.get(_uk); if (_us && _us.fitAddon) _us.fitAddon.fit(); }
+                if (_uk) { const _us = window._terminalTabs.get(_uk); if (_us?.fitAddon) _us.fitAddon.fit(); }
             }
 
             document.addEventListener('mousemove', onMove);
@@ -2661,7 +2657,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     const fileName = path.split('/').pop();
     const stem = fileName.replace(/\.[^.]+$/, '');
     const unitName = unitNameFor(fileName);
-    const quadletType = fileName.indexOf('.') !== -1 ? fileName.split('.').pop().toLowerCase() : '';
+    const quadletType = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
     const isPod = quadletType === 'pod';
 
     _ctxMenu = document.createElement('div');
@@ -3007,8 +3003,8 @@ window.closeLogTab = function(key) {
         session.ws.send('STOP');
         session.ws.close();
     }
-    if (session.tabEl && session.tabEl.parentNode) session.tabEl.parentNode.removeChild(session.tabEl);
-    if (session.paneEl && session.paneEl.parentNode) session.paneEl.parentNode.removeChild(session.paneEl);
+    session.tabEl?.remove();
+    session.paneEl?.remove();
 
     window._logTabs.delete(key);
     handleClosedLogTabFallback(key);
