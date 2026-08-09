@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from main import app
+from services.ssh_manager import SSHCommandError
 
 @pytest.fixture
 def client():
@@ -100,9 +101,36 @@ def test_api_systemctl_post_exception(client):
         mock_action.side_effect = Exception("Action Error")
         # Action needs to be start/stop/restart/status, role is editor by default for TestClient if we mock it? Wait, we're not mocking auth here, but TestClient with dev_auto_login=True uses 'editor'.
         response = client.post("/api/systemctl/1", params={"action": "start", "unit": "test", "scope": "user"}, follow_redirects=False)
-        assert response.status_code == 200
+        # 500, not 200: returning 200 on failure was the bug in #343 (htmx:responseError never fired)
+        assert response.status_code == 500
         assert "Action Error" not in response.text
         assert "Action failed" in response.text
+
+@pytest.mark.unit
+def test_api_systemctl_post_ssh_command_error(client):
+    with patch("api.routes.systemctl_action") as mock_action:
+        mock_action.side_effect = SSHCommandError(
+            "Command execution failed: unit not found", exit_status=1, stderr="Unit test.service not found."
+        )
+        response = client.post("/api/systemctl/1", params={"action": "start", "unit": "test", "scope": "user"}, follow_redirects=False)
+        assert response.status_code == 502
+        assert "Unit test.service not found." in response.text
+
+@pytest.mark.unit
+def test_api_systemctl_post_status_fetch_failure_not_misreported(client):
+    with patch("api.routes.systemctl_action") as mock_action, \
+         patch("api.routes.record_container_event", new_callable=AsyncMock) as mock_record:
+        # systemctl status exits 3 for an inactive unit; the action call itself
+        # succeeded, so this must not be reported as an action failure.
+        mock_action.side_effect = [
+            "done",
+            SSHCommandError("Command execution failed: ", exit_status=3, stderr=""),
+        ]
+        response = client.post("/api/systemctl/1", params={"action": "stop", "unit": "test", "scope": "user"}, follow_redirects=False)
+        assert response.status_code == 200
+        # The blanket handler this replaces also answered 200 here, so the body
+        # is what separates the fix from the bug: the stop worked.
+        assert "Action failed" not in response.text
 
 @pytest.mark.unit
 def test_api_pod_action_exception(client):

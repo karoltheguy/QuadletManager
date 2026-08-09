@@ -791,7 +791,6 @@ async def api_systemctl_post(
 
     try:
         await systemctl_action(server_id, action, unit, scope)
-        output = await systemctl_action(server_id, "status", unit, scope)
 
         # Record event for start/stop/restart actions
         if action in ("start", "stop", "restart"):
@@ -799,11 +798,22 @@ async def api_systemctl_post(
             username = session["username"]
             stem = base_name_of(unit)
             await record_container_event(server_id, stem, action, triggered_by=username)
+    except SSHCommandError as e:
+        ref = _log_error_ref(f"Systemctl action '{action}' failed", e)
+        message = html.escape(e.stderr) if e.stderr else f"Action failed (ref: {ref})"
+        return HTMLResponse(message, status_code=502)
+    except Exception as e:
+        ref = _log_error_ref(f"Systemctl action '{action}' failed", e)
+        return HTMLResponse(f"Action failed (ref: {ref})", status_code=500)
 
+    try:
+        output = await systemctl_action(server_id, "status", unit, scope)
         return HTMLResponse(output)
-    except Exception:
-        logger.exception(f"Systemctl action '{action}' failed")
-        return HTMLResponse("Action failed")
+    except SSHCommandError as e:
+        # systemctl status exits 3 for an inactive unit, so a failure here
+        # doesn't mean the action above failed; #336 owns the root cause.
+        ref = _log_error_ref(f"Error fetching systemctl status after '{action}'", e)
+        return HTMLResponse(f"Action completed but status could not be read (ref: {ref})")
 
 @router.post("/api/pod-action/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_pod_action(
