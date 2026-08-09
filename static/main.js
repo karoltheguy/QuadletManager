@@ -396,7 +396,7 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
     const running = Reflect.get(runningContainersBySid, serverId) || new Set();
     let isRunning = false;
     running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+        if (name.includes(stem) || stem.includes(name)) {
             isRunning = true;
         }
     });
@@ -414,7 +414,7 @@ function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
                 let errorMsg = 'Unknown error';
                 for (const line of lines) {
                     const trimmed = line.trim();
-                    if (trimmed.indexOf('Failed') !== -1 || trimmed.indexOf('failed with') !== -1 || trimmed.indexOf('error') !== -1) {
+                    if (trimmed.includes('Failed') || trimmed.includes('failed with') || trimmed.includes('error')) {
                         errorMsg = trimmed;
                         break;
                     }
@@ -436,7 +436,7 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
     let action = '';
     let quadletType = '';
 
-    if (path.indexOf('/api/systemctl/') !== -1) {
+    if (path.includes('/api/systemctl/')) {
         const urlParts = path.split('?');
         serverId = Number.parseInt(urlParts[0].split('/').pop(), 10);
         const searchParams = new URLSearchParams(urlParts[1] || window.location.search);
@@ -444,7 +444,7 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
         scope = params.scope || searchParams.get('scope') || '';
         action = params.action || searchParams.get('action') || '';
         quadletType = params.quadlet_type || searchParams.get('quadlet_type') || '';
-    } else if (path.indexOf('/api/save') !== -1) {
+    } else if (path.includes('/api/save')) {
         unitName = params.unit_name || '';
         serverId = Number.parseInt(params.server_id, 10);
         scope = params.scope || '';
@@ -699,7 +699,7 @@ function updateInspectorStatsCard() {
     if (serverStats) {
         (serverStats.containers || []).forEach(function(c) {
             const cName = (c.name || '').toLowerCase();
-            if (cName.indexOf(stem) !== -1 || stem.indexOf(cName) !== -1) {
+            if (cName.includes(stem) || stem.includes(cName)) {
                 matched = c;
             }
         });
@@ -708,7 +708,7 @@ function updateInspectorStatsCard() {
     // Check if container is running (even if stats haven't arrived yet)
     let isRunning = false;
     running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+        if (name.includes(stem) || stem.includes(name)) {
             isRunning = true;
         }
     });
@@ -898,7 +898,7 @@ function applyStatusDots(serverId) {
         let isRunning = false;
         let matchedContainer = null;
         running.forEach(function(name) {
-            if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+            if (name.includes(stem) || stem.includes(name)) {
                 isRunning = true;
                 const matched = Reflect.get(containersByName, name);
                 if (matched) matchedContainer = matched;
@@ -1329,7 +1329,7 @@ function isManualStop(serverId, oldName) {
     const parts = manualKey.split(':');
     const mServerId = Number.parseInt(parts[0], 10);
     const mStem = parts[1];
-    if (mServerId === serverId && (oldName.indexOf(mStem) !== -1 || mStem.indexOf(oldName) !== -1)) {
+    if (mServerId === serverId && (oldName.includes(mStem) || mStem.includes(oldName))) {
       wasManual = true;
     }
   });
@@ -1722,7 +1722,7 @@ function updateMonitoringView(data) {
   const allContainers = data.containers || [];
   const containers = monitorContainerFilter
     ? allContainers.filter(function(c) {
-        return (c.name || '').toLowerCase().indexOf(monitorContainerFilter) !== -1;
+        return (c.name || '').toLowerCase().includes(monitorContainerFilter);
       })
     : allContainers;
 
@@ -2089,7 +2089,7 @@ window.switchBottomTab = function(pane) {
 function findActualRunningContainerName(running, stem) {
     let actualName = null;
     running.forEach(function(name) {
-        if (name.indexOf(stem) !== -1 || stem.indexOf(name) !== -1) {
+        if (name.includes(stem) || stem.includes(name)) {
             actualName = name;
         }
     });
@@ -2661,7 +2661,7 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
     const fileName = path.split('/').pop();
     const stem = fileName.replace(/\.[^.]+$/, '');
     const unitName = unitNameFor(fileName);
-    const quadletType = fileName.indexOf('.') !== -1 ? fileName.split('.').pop().toLowerCase() : '';
+    const quadletType = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
     const isPod = quadletType === 'pod';
 
     _ctxMenu = document.createElement('div');
