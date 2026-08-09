@@ -305,7 +305,7 @@ function restoreQuadletSelection() {
     } catch {
         // Ignore localStorage restrictions or parsing errors
     }
-    if (!saved || !saved.stem || !saved.serverId) return;
+    if (!saved?.stem || !saved?.serverId) return;
     const btn = document.querySelector(
         '.quadlet-tree-btn[data-stem="' + saved.stem + '"][data-server-id="' + saved.serverId + '"]'
     );
@@ -317,12 +317,12 @@ function restoreQuadletSelection() {
 document.body.addEventListener('htmx:afterSwap', function (e) {
     // Fire on any swap that could have replaced a tree button. Cheap — a
     // single querySelector with no match is negligible.
-    if (e.target && e.target.querySelector && e.target.querySelector('.quadlet-tree-btn')) {
+    if (e.target?.querySelector?.('.quadlet-tree-btn')) {
         reapplyQuadletSelection();
         restoreQuadletSelection();
     }
     // Restore collapse states when the server list is (re)loaded via HTMX.
-    if (e.target && e.target.querySelector && e.target.querySelector('li[data-server-id]')) {
+    if (e.target?.querySelector?.('li[data-server-id]')) {
         restoreServerCollapseStates();
     }
     // Sync expand button tooltip after editor pane swaps
@@ -1571,7 +1571,7 @@ function handleContainersTabActivation() {
     openBottomPanel();
   }
   const panel = document.getElementById('bottom-panel');
-  if (panel && panel.classList.contains('is-expanded')) {
+  if (panel?.classList.contains('is-expanded')) {
     document.body.classList.add('bottom-panel-expanded');
   }
   if (window.editor) {
@@ -1999,7 +1999,7 @@ window.openBottomPanel = function(tab) {
     const key = window._activeTerminalTabKey;
     if (key) {
         const session = window._terminalTabs.get(key);
-        if (session && session.fitAddon) session.fitAddon.fit();
+        if (session?.fitAddon) session.fitAddon.fit();
     }
 };
 
@@ -2007,7 +2007,7 @@ function fitActiveTerminal() {
     const key = window._activeTerminalTabKey;
     if (!key) return;
     const session = window._terminalTabs.get(key);
-    if (session && session.fitAddon) {
+    if (session?.fitAddon) {
         session.fitAddon.fit();
     }
 }
@@ -2040,7 +2040,7 @@ window.toggleBottomPanelExpand = function() {
     const key = window._activeTerminalTabKey;
     if (key) {
         const session = window._terminalTabs.get(key);
-        if (session && session.fitAddon) session.fitAddon.fit();
+        if (session?.fitAddon) session.fitAddon.fit();
     }
 };
 
@@ -2072,7 +2072,7 @@ window.switchBottomTab = function(pane) {
                 el.classList.toggle('is-active', el.dataset.key === key);
             });
             const session = window._terminalTabs.get(key);
-            if (session && session.fitAddon) {
+            if (session?.fitAddon) {
                 setTimeout(function() { session.fitAddon.fit(); }, 50);
             }
         }
@@ -2146,7 +2146,7 @@ window.connectTerminal = function() {
 
 function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     const cached = Reflect.get(lastStatsPerServer, serverId);
-    const serverName = (cached && cached.server_name)
+    const serverName = cached?.server_name
         || ('srv-' + serverId);
     const label = serverName + ':' + containerName;
 
@@ -2267,7 +2267,7 @@ window.switchTerminalTab = function(key) {
     switchBottomTab('terminal');
 
     const session = window._terminalTabs.get(key);
-    if (session && session.fitAddon) {
+    if (session?.fitAddon) {
         setTimeout(function() { session.fitAddon.fit(); }, 50);
     }
 };
@@ -2280,10 +2280,10 @@ function disposeTerminalSession(session) {
 }
 
 function removeTerminalDOM(session) {
-    if (session.tabEl && session.tabEl.parentNode) {
+    if (session.tabEl?.parentNode) {
         session.tabEl.parentNode.removeChild(session.tabEl);
     }
-    if (session.paneEl && session.paneEl.parentNode) {
+    if (session.paneEl?.parentNode) {
         session.paneEl.parentNode.removeChild(session.paneEl);
     }
 }
@@ -2380,9 +2380,9 @@ window.addEventListener('resize', function() {
     const key = window._activeTerminalTabKey;
     if (!key) return;
     const session = window._terminalTabs.get(key);
-    if (!session || !session.fitAddon) return;
+    if (!session?.fitAddon) return;
     session.fitAddon.fit();
-    if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+    if (session.ws?.readyState === WebSocket.OPEN) {
         const dims = session.fitAddon.proposeDimensions();
         session.ws.send(JSON.stringify({
             type: 'resize',
@@ -2515,7 +2515,7 @@ function initResizableHandles() {
                 const newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
                 document.documentElement.style.setProperty('--bottom-panel-height', newH + 'px');
                 const _rk = window._activeTerminalTabKey;
-                if (_rk) { const _rs = window._terminalTabs.get(_rk); if (_rs && _rs.fitAddon) _rs.fitAddon.fit(); }
+                if (_rk) { const _rs = window._terminalTabs.get(_rk); if (_rs?.fitAddon) _rs.fitAddon.fit(); }
             }
 
             function onUp() {
@@ -2527,7 +2527,7 @@ function initResizableHandles() {
                     .getPropertyValue('--bottom-panel-height').trim();
                 localStorage.setItem('qm-bottom-panel-height', finalH);
                 const _uk = window._activeTerminalTabKey;
-                if (_uk) { const _us = window._terminalTabs.get(_uk); if (_us && _us.fitAddon) _us.fitAddon.fit(); }
+                if (_uk) { const _us = window._terminalTabs.get(_uk); if (_us?.fitAddon) _us.fitAddon.fit(); }
             }
 
             document.addEventListener('mousemove', onMove);
@@ -3007,8 +3007,8 @@ window.closeLogTab = function(key) {
         session.ws.send('STOP');
         session.ws.close();
     }
-    if (session.tabEl && session.tabEl.parentNode) session.tabEl.parentNode.removeChild(session.tabEl);
-    if (session.paneEl && session.paneEl.parentNode) session.paneEl.parentNode.removeChild(session.paneEl);
+    if (session.tabEl?.parentNode) session.tabEl.parentNode.removeChild(session.tabEl);
+    if (session.paneEl?.parentNode) session.paneEl.parentNode.removeChild(session.paneEl);
 
     window._logTabs.delete(key);
     handleClosedLogTabFallback(key);
