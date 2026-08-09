@@ -179,6 +179,39 @@ async def test_execute_command_reconnects_on_channel_error(pool):
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+async def test_execute_command_retry_shares_the_deadline(pool):
+    # A single deadline must cover the first attempt and the retry: it should
+    # not be reset when a channel error triggers a reconnect.
+    mock_conn1 = MagicMock()
+    mock_conn1._transport.is_closing.return_value = False
+
+    async def _create_process1(*args, **kwargs):
+        await asyncio.sleep(0.15)
+        raise asyncssh.ChannelOpenError(1, "fail")
+
+    mock_conn1.create_process = _create_process1
+
+    mock_conn2 = AsyncMock()
+    mock_process2 = MagicMock()
+    mock_process2.exit_status = 0
+
+    async def _communicate2(*args, **kwargs):
+        await asyncio.sleep(0.15)
+        return ("success", "")
+
+    mock_process2.communicate = _communicate2
+    mock_conn2.create_process.return_value = mock_process2
+
+    pool.connections[1] = mock_conn1
+
+    with patch.object(pool, "connect_to_server", new_callable=AsyncMock) as mock_connect:
+        mock_connect.return_value = mock_conn2
+
+        with pytest.raises(SSHTimeoutError):
+            await pool.execute_command(1, "ls", timeout=0.2)
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 async def test_execute_command_reconnects_on_disconnect(pool):
     mock_conn1 = MagicMock()
     mock_conn1._transport.is_closing.return_value = False
