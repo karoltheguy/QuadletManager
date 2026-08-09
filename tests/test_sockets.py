@@ -488,6 +488,14 @@ def authed_ws():
     return ws
 
 
+@pytest.fixture
+def viewer_ws():
+    ws = AsyncMock(spec=WebSocket)
+    viewer_cookie = api_routes._create_session_cookie("bob", "viewer", is_admin=False)
+    ws.cookies = {api_routes.COOKIE_NAME: viewer_cookie}
+    return ws
+
+
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_ws_logs_rejects_unauthenticated(unauth_ws, monkeypatch):
@@ -558,6 +566,43 @@ async def test_ws_exec_accepts_valid_session(authed_ws, monkeypatch):
     await api_routes.websocket_exec(authed_ws, server_id=1, container_name="myapp")
 
     authed_ws.close.assert_not_called()
+    assert called["hit"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_ws_exec_rejects_viewer_role(viewer_ws, monkeypatch):
+    """A viewer must not get an interactive shell: exec runs arbitrary commands."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
+    called = {"hit": False}
+
+    async def fake_exec(*args, **kwargs):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "exec_terminal_over_websocket", fake_exec)
+
+    await api_routes.websocket_exec(viewer_ws, server_id=1, container_name="myapp")
+
+    viewer_ws.close.assert_awaited_once()
+    assert viewer_ws.close.call_args.kwargs.get("code") == 4403 or viewer_ws.close.call_args.args == (4403,)
+    assert called["hit"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_ws_logs_accepts_viewer_role(viewer_ws, monkeypatch):
+    """Log streaming is read-only, so viewers keep access to it."""
+    monkeypatch.setattr(api_routes.global_config, "dev_auto_login", False)
+    called = {"hit": False}
+
+    async def fake_stream(ws, server_id, unit_name, scope, since=None):
+        called["hit"] = True
+
+    monkeypatch.setattr(api_routes, "stream_logs_over_websocket", fake_stream)
+
+    await api_routes.websocket_logs(viewer_ws, server_id=1, unit_name="my.service")
+
+    viewer_ws.close.assert_not_called()
     assert called["hit"] is True
 
 

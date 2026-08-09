@@ -1840,4 +1840,12 @@ async def websocket_exec(websocket: WebSocket, server_id: int, container_name: s
         logger.warning("Rejected unauthenticated /ws/exec connection")
         await websocket.close(code=4401)
         return
+    # An interactive shell runs arbitrary commands inside the container, and
+    # with scope=global it runs them through sudo, so it needs the same editor
+    # role the mutating HTTP routes require. /ws/logs stays open to viewers
+    # because it is read-only.
+    if session.get("role") != "editor":
+        logger.warning("Rejected non-editor /ws/exec connection")
+        await websocket.close(code=4403)
+        return
     await exec_terminal_over_websocket(websocket, server_id, container_name, scope, cmd)
