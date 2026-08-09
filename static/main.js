@@ -2238,7 +2238,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     };
 
     ws.onclose = function(evt) {
-        if (evt && evt.code === 4403) {
+        if (evt?.code === 4403) {
             term.write('\r\n\u001b[31m[terminal access requires the editor role]\u001b[0m\r\n');
         } else {
             term.write('\r\n\u001b[2m[session closed]\u001b[0m\r\n');
