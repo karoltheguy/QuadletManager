@@ -4,10 +4,10 @@
         <span id="unsaved-indicator" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
         <div class="header-actions">
             <div id="editor-actions">
+                {% if user_role == 'editor' %}
                 <button id="validate-btn" class="btn btn-secondary btn-md" onclick="validateQuadlet()">
                     Validate
                 </button>
-                {% if user_role == 'editor' %}
                 <button id="save-btn" class="btn btn-primary btn-md" onclick="saveQuadlet()">
                     Save Quadlet
                 </button>
