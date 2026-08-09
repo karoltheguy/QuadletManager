@@ -30,6 +30,9 @@ VENDORED_MONACO_PREFIX = "/static/vendor/monaco/"
 
 MONACO_LOADER_SRC_RE = re.compile(r'src="/static/vendor/monaco/[^"]*loader[^"]*\.js"')
 
+# A <script> whose src points at an absolute URL, i.e. a host we do not control.
+CROSS_ORIGIN_SCRIPT_RE = re.compile(r'<script[^>]*\ssrc="((?:https?:)?//[^"]+)"')
+
 
 def _read_text(path):
     with open(path, encoding="utf-8") as f:
@@ -75,6 +78,37 @@ def test_no_cdnjs_monaco_reference_anywhere():
         "Found references to cdnjs.cloudflare.com in the following files, but "
         "Monaco must be fully self-hosted from static/vendor/monaco/ per "
         f"issue #218: {offenders}"
+    )
+
+
+@pytest.mark.unit
+def test_no_template_loads_a_script_from_a_third_party_host():
+    """Every <script src> must be served same-origin.
+
+    htmx and chart.js used to be hot-linked from unpkg and jsdelivr, which
+    meant the dashboard executed third-party bytes in an authenticated
+    session and could not load at all without internet access. They are now
+    vendored into static/vendor/ by copy-assets, the same way Monaco was in
+    issue #218. This test keeps a CDN URL from creeping back in.
+
+    Scoped to scripts, which are the code-execution boundary. The Google
+    Fonts stylesheets on login.html and change_password.html are a separate
+    (privacy and offline-availability) concern, not covered here.
+    """
+    offenders = []
+    for path in _iter_scan_files():
+        if not path.endswith((".html", ".htm")):
+            continue
+        try:
+            content = _read_text(path)
+        except (UnicodeDecodeError, OSError):
+            continue
+        for src in CROSS_ORIGIN_SCRIPT_RE.findall(content):
+            offenders.append((os.path.basename(path), src))
+    assert not offenders, (
+        "These templates load a script from a host we do not control. Vendor "
+        "it via package.json + the copy-assets script and serve it from "
+        f"/static/vendor/ instead: {offenders}"
     )
 
 
