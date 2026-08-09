@@ -32,7 +32,7 @@ import logging
 from core.config_loader import global_config
 from core.version import get_version
 
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 import secrets
 
 logger = logging.getLogger("quadlet-manager.routes")
@@ -211,7 +211,7 @@ def _read_session_cookie(cookie_value: str) -> dict | None:
     """Read and validate a signed session cookie. Returns None if invalid."""
     try:
         return serializer.loads(cookie_value, max_age=_session_duration_seconds)
-    except (BadSignature, SignatureExpired):
+    except BadSignature:
         return None
 
 

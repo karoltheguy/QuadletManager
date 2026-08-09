@@ -3,6 +3,7 @@ import asyncio
 import os
 import time
 from core.database import get_db_connection
+from core.log_safety import log_safe
 import logging
 
 logger = logging.getLogger("quadlet-manager.container_events")
@@ -37,7 +38,10 @@ async def record_container_event(
         )
         await db.commit()
 
-    logger.info(f"Recorded event {event_type} for {container_name} on server {server_id}")
+    logger.info(
+        f"Recorded event {log_safe(event_type)} for {log_safe(container_name)} "
+        f"on server {server_id}"
+    )
 
 
 async def get_container_activity(

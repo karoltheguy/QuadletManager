@@ -32,13 +32,14 @@ function restoreServerCollapseStates() {
 
 function handleServerCollapseKey(e, li, sid) {
     const key = e.key;
-    if (key === 'ArrowLeft' && !li.classList.contains('is-collapsed')) {
-        e.preventDefault();
-        window.toggleServerCollapse(sid);
-    } else if (key === 'ArrowRight' && li.classList.contains('is-collapsed')) {
-        e.preventDefault();
-        window.toggleServerCollapse(sid);
-    } else if (key === 'Enter' || key === ' ') {
+    const isCollapsed = li.classList.contains('is-collapsed');
+    // Left collapses an expanded server, Right expands a collapsed one, and
+    // Enter/Space toggles either way. All three end in the same toggle.
+    const shouldToggle = (key === 'ArrowLeft' && !isCollapsed)
+        || (key === 'ArrowRight' && isCollapsed)
+        || key === 'Enter'
+        || key === ' ';
+    if (shouldToggle) {
         e.preventDefault();
         window.toggleServerCollapse(sid);
     }

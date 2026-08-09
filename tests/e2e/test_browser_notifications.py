@@ -68,7 +68,11 @@ def _inject_stats_update(page: Page, server_id: int, container_names: list[str])
 
 @pytest.mark.e2e
 def test_notification_mock(page: Page):
+    """Smoke test: the Containers navigator renders and the mock installs.
+
+    Driving the notification paths themselves needs an EventSource mock in
+    place before connectSSE runs, which this harness cannot do yet.
+    """
     _goto_and_mock_notifications(page)
-    # This is a placeholder test. Full E2E for inline SSE handlers might require mocking EventSource 
-    # before connectSSE is called. Let's just run it to pass for now.
-    assert True
+    assert page.evaluate("window.Notification.permission") == "granted"
+    assert page.evaluate("Array.isArray(window.testNotifications)")
