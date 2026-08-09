@@ -197,19 +197,17 @@ class SSHConnectionPool:
         self.connections[server_id] = conn
         return conn
 
-    async def _run_with_timeout(self, conn, command: str, timeout: float, server_id: int) -> str:
-        """Run a command on the given connection with proper timeout handling.
+    async def _run(self, conn, command: str, server_id: int) -> str:
+        """Run a command on the given connection.
 
         Uses create_process() so we get a handle to explicitly kill the remote
-        process when the local timeout fires, preventing orphaned processes from
-        piling up and locking the podman database on the server.
+        process on cancellation, preventing orphaned processes from piling up
+        and locking the podman database on the server. This is also how an
+        enclosing asyncio.timeout() deadline reaches this method.
         """
         process = await conn.create_process(command)
         try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
-            )
+            stdout, stderr = await process.communicate()
             if process.exit_status and process.exit_status != 0:
                 raise asyncssh.ProcessError(
                     env=None, command=command,
@@ -218,7 +216,7 @@ class SSHConnectionPool:
                     stdout=stdout or '', stderr=stderr or ''
                 )
             return stdout or ""
-        except (asyncio.TimeoutError, asyncio.CancelledError) as exc:
+        except asyncio.CancelledError:
             # Kill the remote process regardless of whether we're timing out or
             # being cancelled (e.g. app shutdown via Ctrl+C).  Without this,
             # CancelledError would bypass the cleanup block entirely, leaving
@@ -231,12 +229,9 @@ class SSHConnectionPool:
                 process.close()
             except Exception as cleanup_exc:
                 logger.debug(f"Failed to close remote process on server {server_id}: {cleanup_exc}")
-            if isinstance(exc, asyncio.CancelledError):
-                raise  # Let cancellation propagate normally so shutdown works
-            logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
-            raise SSHTimeoutError(f"Command timed out after {timeout}s: {command}") from exc
+            raise  # Let cancellation propagate normally so shutdown works
 
-    async def _reconnect_and_retry(self, server_id: int, command: str, timeout: float, reason: str) -> str:
+    async def _reconnect_and_retry(self, server_id: int, command: str, reason: str) -> str:
         """Drop the cached connection, reconnect, and retry the command once."""
         logger.warning(f"{reason} for server {server_id}. Reconnecting...")
         old_conn = self.connections.pop(server_id, None)
@@ -246,7 +241,7 @@ class SSHConnectionPool:
             except Exception as close_exc:
                 logger.debug(f"Failed to close stale connection for server {server_id}: {close_exc}")
         conn = await self.get_connection(server_id)
-        return await self._run_with_timeout(conn, command, timeout, server_id)
+        return await self._run(conn, command, server_id)
 
     async def execute_command(self, server_id: int, command: str, use_sudo: bool = False, timeout: float = 30.0) -> str:
         """Execute a command, prepending sudo if requested.
@@ -262,25 +257,31 @@ class SSHConnectionPool:
             
         conn = await self.get_connection(server_id)
         try:
-            return await self._run_with_timeout(conn, command, timeout, server_id)
-        except asyncssh.ProcessError as exc:
-            logger.exception(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
-            raise SSHCommandError(
-                f"Command execution failed: {exc.stderr}",
-                exit_status=exc.exit_status, stderr=exc.stderr
-            ) from exc
-        except asyncssh.ChannelOpenError:
-            # The SSH connection is alive at the TCP level but the server
-            # refused to open a new session channel (e.g. stale connection,
-            # server channel limit reached).  Reconnect and retry once.
-            return await self._reconnect_and_retry(
-                server_id, command, timeout, "Channel open failed"
-            )
-        except (asyncssh.ConnectionLost, asyncssh.DisconnectError):
-            # Connection dropped — reconnect once and retry
-            return await self._reconnect_and_retry(
-                server_id, command, timeout, "Connection lost"
-            )
+            async with asyncio.timeout(timeout):
+                try:
+                    return await self._run(conn, command, server_id)
+                except asyncssh.ProcessError as exc:
+                    logger.exception(f"Command '{command}' failed on server {server_id}: {exc.stderr}")
+                    raise SSHCommandError(
+                        f"Command execution failed: {exc.stderr}",
+                        exit_status=exc.exit_status, stderr=exc.stderr
+                    ) from exc
+                except asyncssh.ChannelOpenError:
+                    # The SSH connection is alive at the TCP level but the server
+                    # refused to open a new session channel (e.g. stale connection,
+                    # server channel limit reached).  Reconnect and retry once.
+                    return await self._reconnect_and_retry(
+                        server_id, command, "Channel open failed"
+                    )
+                except (asyncssh.ConnectionLost, asyncssh.DisconnectError):
+                    # Connection dropped, reconnect once and retry
+                    return await self._reconnect_and_retry(
+                        server_id, command, "Connection lost"
+                    )
+        # The single deadline covers both the first attempt and the reconnect retry.
+        except TimeoutError as exc:
+            logger.error(f"Command '{command}' timed out after {timeout}s on server {server_id}")
+            raise SSHTimeoutError(f"Command timed out after {timeout}s: {command}") from exc
 
     async def close_all(self):
         for conn in self.connections.values():
