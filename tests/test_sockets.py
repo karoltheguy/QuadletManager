@@ -10,6 +10,7 @@ from api.sockets import (
     _log_safe,
     _UNIT_NAME_RE,
     _CONTAINER_NAME_RE,
+    _build_exec_command,
 )
 from api import routes as api_routes
 
@@ -191,7 +192,7 @@ async def test_exec_terminal_with_custom_command(mock_websocket, monkeypatch):
 
     # Verify correct command was executed
     call_args = mock_conn.create_process.call_args[0]
-    assert "podman exec -it myapp python" in call_args[0]
+    assert "podman exec -it -- myapp python" in call_args[0]
 
 
 @pytest.mark.asyncio
@@ -698,3 +699,23 @@ async def test_ws_logs_dev_auto_login_bypasses_auth(unauth_ws, monkeypatch):
 
     unauth_ws.close.assert_not_called()
     assert called["hit"] is True
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["-it", "--rm", "-e"])
+def test_container_name_pattern_rejects_leading_hyphen(name):
+    """A name starting with '-' would be parsed by podman as an option.
+
+    shlex.quote() stops shell metacharacters but not argument injection:
+    `podman exec -it --foo bash` passes --foo to podman itself. Podman
+    container names must start with an alphanumeric anyway.
+    """
+    assert _CONTAINER_NAME_RE.match(name) is None
+
+
+@pytest.mark.unit
+def test_exec_command_terminates_option_parsing_before_the_container_name():
+    """`--` must precede the container name so it can never be read as a flag."""
+    cmd = _build_exec_command("myapp", "bash", "user")
+    assert " -- " in cmd
+    assert cmd.index(" -- ") < cmd.index("myapp")
