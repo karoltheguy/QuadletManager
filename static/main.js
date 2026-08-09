@@ -187,7 +187,7 @@ function applyThemePreview(form) {
     let rules = '';
     let brandPrimary = null;
     form.querySelectorAll('input[type="color"][name]').forEach(function(inp) {
-        rules += '--' + inp.name.replace(/_/g, '-') + ':' + inp.value + ';';
+        rules += '--' + inp.name.replaceAll('_', '-') + ':' + inp.value + ';';
         if (inp.name === 'brand_primary') brandPrimary = inp.value;
     });
     if (brandPrimary) {
@@ -199,7 +199,7 @@ function applyThemePreview(form) {
         el = document.createElement('style');
         el.id = 'qm-theme-preview';
         const anchor = document.getElementById('qm-theme-overrides');
-        if (anchor) anchor.insertAdjacentElement('afterend', el);
+        if (anchor) anchor.after(el);
         else document.head.appendChild(el);
     }
     el.textContent = css;
@@ -1169,9 +1169,9 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
 function parsePercent(val) {
     if (typeof val === 'string') {
-        return parseFloat(val.replace(/%/g, '')) || 0;
+        return Number.parseFloat(val.replaceAll('%', '')) || 0;
     }
-    return parseFloat(val) || 0;
+    return Number.parseFloat(val) || 0;
 }
 
 function getPercentClass(val) {
@@ -1469,20 +1469,20 @@ window.handleQuadletsChanged = function (data) {
             { target: container, swap: 'innerHTML' });
 };
 
+function createStatsErrorDOM(serverName, errorMsg) {
+  return el('div', { className: 'p-4 text-danger' }, [
+    el('div', { className: 'font-bold mb-1' }, '⚠ Stats unavailable for ' + (serverName || 'server')),
+    el('div', { className: 'text-xs text-muted' }, errorMsg || 'Unknown error'),
+    el('div', { className: 'text-xs text-muted mt-1' }, 'Will retry automatically…')
+  ]);
+}
+
 // ── SSE Connection ───────────────────────────────────────
 function connectSSE() {
   const evtSource = new EventSource('/api/events');
 
   // Stats updates (every 5s from stats_engine)
   evtSource.addEventListener('stats_update', handleStatsUpdate);
-
-  function createStatsErrorDOM(serverName, errorMsg) {
-    return el('div', { className: 'p-4 text-danger' }, [
-      el('div', { className: 'font-bold mb-1' }, '⚠ Stats unavailable for ' + (serverName || 'server')),
-      el('div', { className: 'text-xs text-muted' }, errorMsg || 'Unknown error'),
-      el('div', { className: 'text-xs text-muted mt-1' }, 'Will retry automatically…')
-    ]);
-  }
 
   // Poll health events (from sync poller, per-server scope only)
   evtSource.addEventListener('poll_health', function(e) {
@@ -2280,12 +2280,8 @@ function disposeTerminalSession(session) {
 }
 
 function removeTerminalDOM(session) {
-    if (session.tabEl?.parentNode) {
-        session.tabEl.parentNode.removeChild(session.tabEl);
-    }
-    if (session.paneEl?.parentNode) {
-        session.paneEl.parentNode.removeChild(session.paneEl);
-    }
+    session.tabEl?.remove();
+    session.paneEl?.remove();
 }
 
 function handleClosedTabFallback(key) {
@@ -3007,8 +3003,8 @@ window.closeLogTab = function(key) {
         session.ws.send('STOP');
         session.ws.close();
     }
-    if (session.tabEl?.parentNode) session.tabEl.parentNode.removeChild(session.tabEl);
-    if (session.paneEl?.parentNode) session.paneEl.parentNode.removeChild(session.paneEl);
+    session.tabEl?.remove();
+    session.paneEl?.remove();
 
     window._logTabs.delete(key);
     handleClosedLogTabFallback(key);
