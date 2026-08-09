@@ -2,9 +2,8 @@
 
 Covers:
 - templates/partials/editor_pane.html gains a #validate-btn that calls
-  validateQuadlet(...) and is visible to both editors and viewers (i.e.
-  it lives outside the `{% if user_role == 'editor' %}` block that wraps
-  the Save button).
+  validateQuadlet(...) and lives inside the `{% if user_role == 'editor' %}`
+  block that wraps the Save button, so viewers cannot see or trigger it.
 - templates/partials/editor_pane.html gains a #validation-results div
   that appears after the #editor-container div, so validation output
   can be rendered near the editor.
@@ -60,21 +59,17 @@ class TestEditorPaneValidationMarkup:
         assert "validateQuadlet(" in match.group(1)
 
     @pytest.mark.unit
-    def test_validate_btn_visible_to_viewers_not_just_editors(self):
-        assert "validate-btn" in self.html
-
-        # Locate the {% if user_role == 'editor' %} ... {% endif %} block that
-        # wraps the Save button, and make sure validate-btn is NOT inside it.
+    def test_validate_button_is_gated_to_editor_role(self):
+        # The Validate button must only be rendered for the editor role,
+        # so it must live inside the same {% if user_role == 'editor' %}
+        # guard block that wraps the Save button.
         start = self.html.index("{% if user_role == 'editor' %}")
         end = self.html.index("{% endif %}", start) + len("{% endif %}")
-        save_guard_block = self.html[start:end]
+        editor_guard_block = self.html[start:end]
 
-        assert "save-btn" in save_guard_block, (
-            "sanity check: the editor-only guard should still wrap the save button"
-        )
-        assert "validate-btn" not in save_guard_block, (
-            "validate-btn must be visible to viewers, so it must live outside "
-            "the {% if user_role == 'editor' %} guard that wraps the save button"
+        assert "validate-btn" in editor_guard_block, (
+            "validate-btn must be inside the {% if user_role == 'editor' %} "
+            "guard block so viewers cannot see or trigger it"
         )
 
     @pytest.mark.unit

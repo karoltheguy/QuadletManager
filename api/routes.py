@@ -32,7 +32,7 @@ import logging
 from core.config_loader import global_config
 from core.version import get_version
 
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 import secrets
 
 logger = logging.getLogger("quadlet-manager.routes")
@@ -211,7 +211,7 @@ def _read_session_cookie(cookie_value: str) -> dict | None:
     """Read and validate a signed session cookie. Returns None if invalid."""
     try:
         return serializer.loads(cookie_value, max_age=_session_duration_seconds)
-    except (BadSignature, SignatureExpired):
+    except BadSignature:
         return None
 
 
@@ -758,6 +758,8 @@ async def validate_quadlet(
     content: str = Form(...),
     role: str = Depends(get_current_user_role)
 ):
+    if role != "editor":
+        raise HTTPException(status_code=403, detail="Viewer role cannot validate files.")
     file_name = file_path.split("/")[-1]
     try:
         result = await validate_remote(server_id, content, file_name, scope)
@@ -1837,5 +1839,13 @@ async def websocket_exec(websocket: WebSocket, server_id: int, container_name: s
     if session is None:
         logger.warning("Rejected unauthenticated /ws/exec connection")
         await websocket.close(code=4401)
+        return
+    # An interactive shell runs arbitrary commands inside the container, and
+    # with scope=global it runs them through sudo, so it needs the same editor
+    # role the mutating HTTP routes require. /ws/logs stays open to viewers
+    # because it is read-only.
+    if session.get("role") != "editor":
+        logger.warning("Rejected non-editor /ws/exec connection")
+        await websocket.close(code=4403)
         return
     await exec_terminal_over_websocket(websocket, server_id, container_name, scope, cmd)

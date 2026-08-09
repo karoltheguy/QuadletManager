@@ -8,6 +8,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from services.ssh_manager import SSHCommandError
 
@@ -111,19 +112,20 @@ async def test_validate_endpoint_ssh_failure_no_stack_trace_leak(mock_validate_r
 @pytest.mark.asyncio
 @pytest.mark.unit
 @patch('api.routes.validate_remote', new_callable=AsyncMock)
-async def test_validate_endpoint_viewer_allowed(mock_validate_remote):
+async def test_validate_endpoint_viewer_forbidden(mock_validate_remote):
     from api.routes import validate_quadlet
 
-    verdict = {"valid": True, "local_only": False, "issues": []}
-    mock_validate_remote.return_value = verdict
+    mock_validate_remote.return_value = {"valid": True, "local_only": False, "issues": []}
 
-    response = await validate_quadlet(
-        server_id=1,
-        file_path="/etc/containers/systemd/test.container",
-        scope="system",
-        content="[Container]\nImage=quay.io/x\n",
-        role="viewer",
-    )
+    with pytest.raises(HTTPException) as exc_info:
+        await validate_quadlet(
+            server_id=1,
+            file_path="/etc/containers/systemd/test.container",
+            scope="system",
+            content="[Container]\nImage=quay.io/x\n",
+            role="viewer",
+        )
 
-    assert response.status_code == 200
-    assert json.loads(response.body) == verdict
+    assert exc_info.value.status_code == 403
+
+    mock_validate_remote.assert_not_awaited()

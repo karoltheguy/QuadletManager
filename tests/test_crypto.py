@@ -25,7 +25,7 @@ class TestCrypto:
         encrypted = encrypt_private_key(original_key)
         assert original_key.encode('utf-8') != encrypted
         decrypted = decrypt_private_key(encrypted)
-        assert original_key == decrypted
+        assert decrypted == original_key
 
 
 # ── Fixture: isolated DB for ensure_master_key tests ─────────────────────────
@@ -209,7 +209,7 @@ async def test_ensure_master_key_migrates_legacy_db_key(fresh_db):
 async def test_connect_to_server_decryption_failure_gives_clear_error():
     """InvalidTag from AESGCM must surface as a readable error, not an empty string."""
     from cryptography.exceptions import InvalidTag
-    from services.ssh_manager import SSHConnectionPool
+    from services.ssh_manager import SSHConnectionPool, KeyDecryptionError
 
     test_pool = SSHConnectionPool()
 
@@ -232,10 +232,7 @@ async def test_connect_to_server_decryption_failure_gives_clear_error():
 
     with patch("services.ssh_manager.get_db_connection", return_value=mock_db_cm), \
          patch("services.ssh_manager.decrypt_private_key", side_effect=InvalidTag()):
-        # connect_to_server() genuinely raises a bare Exception here (see
-        # services/ssh_manager.py connect_to_server's decrypt error handling),
-        # so this cannot be narrowed further.
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(KeyDecryptionError) as exc_info:
             await test_pool.connect_to_server(1)
 
     error_message = str(exc_info.value)

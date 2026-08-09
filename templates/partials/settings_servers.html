@@ -134,7 +134,7 @@ function toggleServerEdit(id) {
       target.classList.remove('drag-over');
 
       // Move dragged row before the target in the DOM
-      tbody.insertBefore(draggedRow, target);
+      target.before(draggedRow);
 
       // Also move its edit row (hidden form row) right after it
       const editRow = document.getElementById('server-edit-row-' + draggedRow.dataset.serverId);
@@ -142,7 +142,7 @@ function toggleServerEdit(id) {
 
       // Collect new order from visible data rows
       const order = Array.from(tbody.querySelectorAll('tr[data-server-id]'))
-        .map(r => parseInt(r.dataset.serverId, 10));
+        .map(r => Number.parseInt(r.dataset.serverId, 10));
 
       fetch('/api/settings/servers/reorder', {
         method: 'PATCH',
