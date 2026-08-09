@@ -9,7 +9,7 @@
 # a third-party repo. The build asserts the major version below, so bumping
 # FEDORA_VERSION can never silently drop back to podman 4.
 ARG FEDORA_VERSION=43
-FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+FROM quay.io/fedora/fedora:${FEDORA_VERSION}
 
 # iptables-nft, netavark and aardvark-dns are what podman actually uses for
 # container networking on Fedora; without them `podman run` fails at network
