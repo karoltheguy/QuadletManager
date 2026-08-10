@@ -869,7 +869,7 @@ HTTP-on-`:8000` deployment would make login appear to succeed but never stick.
 | `QUADLET_DB_PATH` | Path to SQLite database file (default: `quadlets.db`) |
 | `QUADLET_SECURE_COOKIES` | Set to `1` to always mark the session cookie `Secure` (same as `secure_cookies` in the config file) |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) |
-| `APP_VERSION` | App version string; baked into container images at build time (see below), falls back to `git describe --tags --dirty` + `+dev` for local runs, or `0.0.0+dev` when git is unavailable |
+| `APP_VERSION` | App version string; baked into container images at build time (see below), falls back to `git describe --tags --dirty` + `+dev` for local runs, or `0.0.0+dev` when git is unavailable. An unparameterized local `docker build` gets `0.0.0+dev` from the `ARG` default in the Dockerfile |
 
 ### Running the Application
 
@@ -931,7 +931,28 @@ xterm was migrated onto this pipeline in issue #201: its three assets used to be
 
 ### Versioning
 
-The git tag is the single source of truth for the version. CI (`container-build.yml`) derives the base semver from the most recent tag (`git describe --tags --abbrev=0`) and appends `+build.{{ github.run_number }}` to it as semver build metadata, passing the result into the image via the `APP_VERSION` build arg; a tag build itself ships the bare version with no build-number suffix. So every published build carries a distinct, traceable version, surfaced in startup logs and the dashboard's profile menu via `core/version.py::get_version()`. Build numbers can have gaps (CI runs on PRs too, though only non-PR events publish an image); this is accepted since each number still maps to one inspectable Actions run.
+The git tag is the single source of truth for the version. CI (`container-build.yml`) computes the `APP_VERSION` build arg by running `python3 -m core.version`, which lives alongside the runtime read in [`core/version.py`](../core/version.py) so there is exactly one place the version rules are written down. Every build carries its CI run number for traceability; *where* the run number goes is what distinguishes the two cases:
+
+| Build | Version | Run number lives in |
+|-------|---------|---------------------|
+| Tag `v0.3.0`, run 520 | `0.3.0+build.520` | build metadata |
+| `main`, one commit past `v0.3.0`, run 514 | `0.4.0-dev.514` | prerelease identifier |
+
+[Semver ignores build metadata for precedence](https://semver.org/#spec-item-10). For a tag build that is exactly right: the image *is* release `0.3.0`, so it should compare equal to `0.3.0`, and the suffix only records which Actions run produced it.
+
+For a dev build it was wrong, and that is what this scheme fixed. Dev images used to be versioned `0.3.0+build.514`, which compared equal to the `0.3.0` release they were in fact ahead of, and read in the profile menu exactly like a released build. A prerelease of the *next* release says what the image actually is, and orders correctly:
+
+```
+0.3.0  <  0.4.0-dev.514  <  0.4.0-dev.515  <  0.4.0  ==  0.4.0+build.520
+```
+
+The base for a dev build comes from the most recent tag (`git describe --tags --abbrev=0`), which is why the checkout step sets `fetch-depth: 0` -- a depth-1 checkout fetches no tags at all. If that lookup fails, the build **fails** rather than falling back to a stand-in base: an invented `v0.0.0` would version every `main` image `0.1.0-dev.N`, a plausible-looking string that marches backwards from whatever the previous build reported. A tag build never consults git, so a release is unaffected by a tagless checkout.
+
+The minor is bumped unconditionally, from the *core* `X.Y.Z` of that tag. That overshoots after a prerelease tag (`v0.4.0-rc.1` yields `0.5.0-dev.N`, not `0.4.0-dev.N`), which is accepted: unconditional bumping is what guarantees a dev version sorts after every tag that already exists, and targeting `0.4.0` correctly would need a prerelease identifier that sorts after `rc`, which no fixed word provides.
+
+Every published build therefore carries a distinct, traceable version, surfaced in startup logs and the dashboard's profile menu via `core/version.py::get_version()`. Build numbers can have gaps (CI runs on PRs too, though only non-PR events publish an image); this is accepted since each number still maps to one inspectable Actions run.
+
+The **local dev** path is separate and unchanged: with no `APP_VERSION` in the environment, `get_version()` returns `git describe --tags --dirty` plus `+dev` (`0.3.0-2-gabc1234+dev`). It keeps build metadata, and the `-2-gabc1234` segment makes it sort *before* its own base tag. That is tolerated because `+dev` already marks the build unmistakably and no local run is ever published or compared against a release.
 
 ---
 
