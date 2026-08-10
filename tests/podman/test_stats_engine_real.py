@@ -4,27 +4,28 @@ This module was entirely mocked before: the `podman ps --format json` shape, the
 `_UNIT_STATE_SENTINEL` batching trick, and health extraction had never met real
 output from podman 5.
 
-IMPORTANT: why these tests insert `quadlets` rows by hand.
+IMPORTANT: why the fixture reconciles rather than inserting rows.
 
 `_unit_names_for_scope` reads the **`quadlets` DB table**, not the remote host.
 With that table empty it returns [], `_build_first_command` appends no systemctl
 segment, `unit_states` comes back {} and every assertion about unit state passes
 vacuously.
 
-The plan for this suite said to call `sync_engine.check_quadlets()` first. That
-does not work: check_quadlets only *polls* rows that already exist. The single
-`INSERT INTO quadlets` in the whole repository lives in
-tests/test_stats_engine_unit_state.py, and no production code ever writes that
-table. So the rows are inserted here directly, the same way that test does it.
+The rows are written by `sync_engine.reconcile_server_inventory()`, the same
+call the polling loop makes, so the scan-to-frame path this module asserts on is
+the one that runs in production. Do not go back to inserting rows by hand: that
+is what let the empty-table bug (#281) survive a full test suite, because every
+reader was handed an inventory nothing had produced.
 """
 
 import asyncio
 import json
 
-import aiosqlite
 import pytest
 
+from core.database import get_db_connection
 from services.ssh_manager import pool
+from services.sync_engine import reconcile_server_inventory
 from services.stats_engine import (
     _UNIT_STATE_SENTINEL,
     _build_first_command,
@@ -48,21 +49,13 @@ CONTAINER_NAME = "e2e-health"
 SCOPE = "user"
 
 
-async def _register_quadlet_row(db_path, server_id: int, file_path: str) -> None:
-    """Make the quadlet visible to _unit_names_for_scope. See module docstring."""
-    async with aiosqlite.connect(str(db_path)) as db:
-        await db.execute(
-            "INSERT INTO quadlets (server_id, file_path, scope) VALUES (?, ?, ?)",
-            (server_id, file_path, SCOPE),
-        )
-        await db.commit()
-
-
 @pytest.fixture
-async def running_health_container(podman_server, isolated_database):
-    """Install, register and start the healthcheck fixture; yield its server_id."""
-    path = await install_fixture(podman_server, SCOPE, FIXTURE)
-    await _register_quadlet_row(isolated_database, podman_server, path)
+async def running_health_container(podman_server):
+    """Install, reconcile and start the healthcheck fixture; yield its server_id."""
+    await install_fixture(podman_server, SCOPE, FIXTURE)
+
+    # 'both' matches the scope_filter podman_server registers the host with.
+    await reconcile_server_inventory(podman_server, "both")
 
     await reload_and_restart(podman_server, UNIT, scope=SCOPE)
     state = await wait_for_active_state(
@@ -73,11 +66,40 @@ async def running_health_container(podman_server, isolated_database):
 
 
 @pytest.mark.timeout(300)
-async def test_unit_names_come_from_the_database(running_health_container, isolated_database):
+async def test_reconciler_records_the_installed_quadlet(running_health_container):
+    """The inventory row exists because the reconciler scanned a real host.
+
+    This is the write that #281 was missing. Asserting it here keeps the rest of
+    the module honest: every other test depends on this row, and none of them
+    creates it.
+    """
+    async with (
+        get_db_connection() as db,
+        db.execute(
+            "SELECT file_path, scope, last_known_mtime FROM quadlets WHERE server_id = ?",
+            (running_health_container,),
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
+
+    matching = [row for row in rows if row[0].endswith(FIXTURE)]
+    assert matching, f"reconciler recorded no row for {FIXTURE}; got {[r[0] for r in rows]}"
+
+    _, scope, mtime = matching[0]
+    assert scope == SCOPE
+    # check_quadlets() skips rows with a NULL mtime, so a row without one would
+    # trade the empty-table bug for a silently disabled watcher.
+    assert mtime is not None, "row was inserted without an mtime seeded from the scan"
+
+
+@pytest.mark.timeout(300)
+async def test_unit_names_come_from_the_database(running_health_container):
     """Guard the vacuity trap described in the module docstring."""
     names = await _unit_names_for_scope(running_health_container, SCOPE)
-    assert names == [UNIT], (
-        f"expected exactly {UNIT} from the quadlets table, got {names}. "
+    # Membership, not equality: the reconciler records every .container file in
+    # the scope, and the host may carry others besides this fixture.
+    assert UNIT in names, (
+        f"expected {UNIT} from the quadlets table, got {names}. "
         "An empty list here makes every other assertion in this module vacuous."
     )
 
