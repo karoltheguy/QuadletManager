@@ -55,7 +55,22 @@ jobs:
           case "$GITHUB_REF_NAME" in
             *-*) prerelease="--prerelease" ;;
           esac
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes \
-            $prerelease
+
+          # The release may already exist. Publishing one from the GitHub UI
+          # creates the tag, and that tag push is what triggered this run, so
+          # `create` would fail with a 422 and turn the whole release run red.
+          # An existing release was written by hand, so its title and notes are
+          # left untouched; only the prerelease guard below is still enforced,
+          # since the UI makes it easy to forget and GitHub would otherwise
+          # promote the tag to "Latest".
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; keeping its title and notes."
+            if [ -n "$prerelease" ]; then
+              gh release edit "$GITHUB_REF_NAME" --prerelease
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              $prerelease
+          fi
