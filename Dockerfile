@@ -59,7 +59,12 @@ RUN mkdir -p /data && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-ARG APP_VERSION=dev
+# CI always passes --build-arg, so this default is what an unparameterized local
+# `docker build` gets. It matches core/version.py's no-git fallback rather than
+# a bare `dev`, which rendered in the profile menu as the versionless `vdev`.
+# The runtime image ships neither git nor .git, so deriving it here is not an
+# option; a valid semver that sorts below every release is the honest stand-in.
+ARG APP_VERSION=0.0.0+dev
 ENV APP_VERSION=${APP_VERSION}
 ENV QUADLET_CONFIG_PATH=/data/config.yaml
 ENV QUADLET_DB_PATH=/data/quadlets.db

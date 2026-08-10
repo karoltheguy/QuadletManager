@@ -16,10 +16,19 @@ Nothing about ordinary development changes:
 2. Open a PR. `tests.yml` runs, and `container-build.yml` builds the image
    without pushing it (`push:` is gated on the event not being a PR).
 3. Merge to `main`. That publishes `ghcr.io/karoltheguy/quadletmanager:main`
-   and `:sha-<full-sha>`, with an app version derived from the most recent
-   tag as `<base>+build.<run>`.
+   and `:sha-<full-sha>`, with an app version derived from the most recent tag
+   as a prerelease of the *next* release: one commit past `v0.3.0`, run 514
+   builds as `0.4.0-dev.514`.
 
 `main` is a development build. It is **not** `latest`.
+
+The version a `main` build reports is therefore always a minor ahead of the
+latest release, by design: `0.4.0-dev.N` means "after `0.3.0`, heading for
+`0.4.0`". It is a semver prerelease, so it sorts after `0.3.0` and before
+`0.4.0`, and the `-dev.` segment tells you at a glance that you are not on a
+release. See the Versioning section of
+[ARCHITECTURE.md](ARCHITECTURE.md#versioning) for why build metadata
+(`0.3.0+build.514`) could not do this job.
 
 ## Cutting a release
 
@@ -43,8 +52,10 @@ test ──> image ──> release
 - **`test`** calls `tests.yml` as a reusable workflow. The full suite must be
   green before anything outward-facing happens.
 - **`image`** calls `container-build.yml`, publishing `:0.2.0`, `:0.2`,
-  `:latest`, and `:sha-<full-sha>`, with the app version baked in as a clean
-  `0.2.0`.
+  `:latest`, and `:sha-<full-sha>`, with the app version baked in as
+  `0.2.0+build.<run>`. The run number is semver build metadata, which is
+  ignored for precedence, so the image still compares equal to `0.2.0` while
+  naming the Actions run that produced it.
 - **`release`** creates the GitHub Release with auto-generated notes. GitHub
   attaches the source `.tar.gz` and `.zip` automatically — that is the
   download for anyone running from source, so no artifact needs to be built
