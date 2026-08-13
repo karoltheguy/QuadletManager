@@ -17,7 +17,13 @@ merge_msg_regex="^(Merge (branch|pull request|remote-tracking branch) .+|Revert 
 #
 # Usage: subject_is_conventional "<subject line>"
 subject_is_conventional() {
-  [[ "$1" =~ $commit_msg_regex ]]
+  local subject="$1"
+
+  if [[ "$subject" =~ $commit_msg_regex ]]; then
+    return 0
+  fi
+
+  return 1
 }
 
 # The format, plus the messages git and the merge button write on our behalf. Use it
@@ -25,7 +31,13 @@ subject_is_conventional() {
 #
 # Usage: subject_is_valid "<subject line>"
 subject_is_valid() {
-  subject_is_conventional "$1" || [[ "$1" =~ $merge_msg_regex ]]
+  local subject="$1"
+
+  if subject_is_conventional "$subject" || [[ "$subject" =~ $merge_msg_regex ]]; then
+    return 0
+  fi
+
+  return 1
 }
 
 commit_msg_help() {
@@ -36,4 +48,6 @@ commit_msg_help() {
   echo "  description  1-100 characters"
   echo
   echo "For example:  fix(stats): populate the podman stats fixture through the reconciler"
+
+  return 0
 }
