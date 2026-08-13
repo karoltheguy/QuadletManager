@@ -24,7 +24,13 @@ pip install --only-binary :all: --require-hashes -r requirements.txt
 pip install --only-binary :all: --require-hashes -r requirements-test.txt
 
 npm ci
+
+git config core.hooksPath .githooks
 ```
+
+That last line enables the commit-message hook described under [Commit and PR
+messages](#commit-and-pr-messages). It is a one-time, per-clone step: git will
+not pick the directory up on its own.
 
 ### Changing a Python dependency
 
@@ -151,27 +157,44 @@ the same one every change goes through.
 2. Make the change, with a test that fails before it and passes after.
 3. Push and open a PR. Say what problem it solves. The diff already shows
    what you did, so spend the words on why.
-4. Wait for checks. The five test suites and the container build must pass.
+4. Wait for checks. The five test suites, the container build and the commit
+   message check must pass.
    Codacy, SonarCloud, CodeQL and GitGuardian also report; they're advisory,
    but a legitimate finding should be addressed rather than ignored.
 5. If it fixes an issue, put `fixes #123` in the PR body so it closes on merge.
 
-PRs are squash-merged, so your branch's intermediate commits don't need to be
-tidy. The PR title becomes the commit subject on `main`, so make that one good.
+PRs are squash-merged, and the PR title becomes the commit subject on `main`,
+so make that one good. It has to match the format below, same as the commits.
 
 ### Commit and PR messages
 
-Imperative mood, sentence case, no trailing period:
+Subjects follow [Conventional Commits][cc]: `<type>(<optional scope>):
+<description>`, where type is one of `build`, `chore`, `ci`, `docs`, `feat`,
+`fix`, `perf`, `refactor`, `revert`, `style` or `test`. The scope is optional
+and up to 20 characters; the description is imperative, sentence case, no
+trailing period, and up to 100 characters.
 
 ```
-Derive an accessible --brand-on-primary for custom brand colors (fixes #232)
-Give every test its own database
-Gate the tag pipeline on a green test suite
+fix(stats): populate the podman stats fixture through the reconciler
+feat: derive an accessible --brand-on-primary for custom brand colors
+ci: gate the tag pipeline on a green test suite
 ```
+
+Enable the hook that checks this as you commit:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+A pull request whose commits do not match is blocked from merging either way,
+so running the hook just moves that feedback from the pull request back to
+`git commit`.
 
 If the reasoning behind a change isn't obvious from the diff, put it in the
 body. Several of this repo's more useful commit messages exist because the
 non-obvious part was written down at the time.
+
+[cc]: https://www.conventionalcommits.org/en/v1.0.0/
 
 ---
 
