@@ -12,7 +12,7 @@ def test_ignored_unsupported_key_is_warning():
         "Error converting unit file, ignoring: unsupported key 'Pull' "
         "in group 'Container' in /tmp/qv/test.container"
     )
-    issues = parse_generator_stderr(line)
+    issues = parse_generator_stderr(line, file_name="test.container")
     assert len(issues) == 1
     issue = issues[0]
     assert issue["level"] == "warning"
@@ -23,7 +23,7 @@ def test_ignored_unsupported_key_is_warning():
 @pytest.mark.unit
 def test_parse_error_without_ignoring_is_error():
     line = "error parsing '/tmp/qv/test.container': invalid line: xyz"
-    issues = parse_generator_stderr(line)
+    issues = parse_generator_stderr(line, file_name="test.container")
     assert len(issues) == 1
     issue = issues[0]
     assert issue["level"] == "error"
@@ -39,7 +39,7 @@ def test_multiple_lines_produce_issues_in_order():
     error_line = "error parsing '/tmp/qv/test.container': invalid line: xyz"
     text = f"{warning_line}\n{error_line}"
 
-    issues = parse_generator_stderr(text)
+    issues = parse_generator_stderr(text, file_name="test.container")
 
     assert len(issues) == 2
     assert issues[0]["level"] == "warning"
@@ -50,12 +50,12 @@ def test_multiple_lines_produce_issues_in_order():
 
 @pytest.mark.unit
 def test_empty_string_returns_no_issues():
-    assert parse_generator_stderr("") == []
+    assert parse_generator_stderr("", file_name="test.container") == []
 
 
 @pytest.mark.unit
 def test_whitespace_only_returns_no_issues():
-    assert parse_generator_stderr("   \n  \n") == []
+    assert parse_generator_stderr("   \n  \n", file_name="test.container") == []
 
 
 # --- validate_remote --------------------------------------------------------
@@ -81,6 +81,10 @@ def _make_execute_command(probe_return="", dryrun_return="", dryrun_raises=None)
     async def _side_effect(server_id, command, use_sudo=False, timeout=30.0):
         if "mktemp" in command:
             return MKTEMP_DIR
+        if "find /etc/containers/systemd" in command:
+            return ""
+        if "cat /etc/containers/systemd" in command:
+            return ""
         if "-dryrun" in command:
             if dryrun_raises is not None:
                 raise dryrun_raises
@@ -94,18 +98,19 @@ def _make_execute_command(probe_return="", dryrun_return="", dryrun_raises=None)
 
 
 @pytest.mark.unit
-async def test_validate_remote_clean_run_is_valid():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_clean_run_is_valid(mock_pool, mock_remote_fs_pool, write_remote_file):
     execute_command = _make_execute_command(
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_return="",
     )
-    write_remote_file = AsyncMock()
 
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", write_remote_file):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        result = await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "system")
+    result = await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "global")
 
     assert result == {"valid": True, "local_only": False, "issues": []}
 
@@ -121,7 +126,10 @@ async def test_validate_remote_clean_run_is_valid():
 
 
 @pytest.mark.unit
-async def test_validate_remote_warning_only_is_still_valid():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_warning_only_is_still_valid(mock_pool, mock_remote_fs_pool, write_remote_file):
     dryrun_output = (
         "Error converting unit file, ignoring: unsupported key 'Pull' "
         f"in group 'Container' in {MKTEMP_DIR}/test.container"
@@ -130,11 +138,10 @@ async def test_validate_remote_warning_only_is_still_valid():
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_return=dryrun_output,
     )
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", AsyncMock()):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        result = await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "system")
+    result = await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "global")
 
     assert result["valid"] is True
     assert result["local_only"] is False
@@ -144,17 +151,19 @@ async def test_validate_remote_warning_only_is_still_valid():
 
 
 @pytest.mark.unit
-async def test_validate_remote_hard_error_is_invalid():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_hard_error_is_invalid(mock_pool, mock_remote_fs_pool, write_remote_file):
     dryrun_output = f"error parsing '{MKTEMP_DIR}/test.container': invalid line: xyz"
     execute_command = _make_execute_command(
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_return=dryrun_output,
     )
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", AsyncMock()):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        result = await validate_remote(1, "[Container]\n", "test.container", "system")
+    result = await validate_remote(1, "[Container]\n", "test.container", "global")
 
     assert result["valid"] is False
     assert len(result["issues"]) == 1
@@ -162,15 +171,16 @@ async def test_validate_remote_hard_error_is_invalid():
 
 
 @pytest.mark.unit
-async def test_validate_remote_falls_back_to_local_when_no_generator():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_falls_back_to_local_when_no_generator(mock_pool, mock_remote_fs_pool, write_remote_file):
     execute_command = _make_execute_command(probe_return="")
-    write_remote_file = AsyncMock()
 
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", write_remote_file):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        result = await validate_remote(1, "[Container]\n", "test.container", "system")
+    result = await validate_remote(1, "[Container]\n", "test.container", "global")
 
     assert result["valid"] is False
     assert result["local_only"] is True
@@ -185,20 +195,22 @@ async def test_validate_remote_falls_back_to_local_when_no_generator():
 
 
 @pytest.mark.unit
-async def test_validate_remote_cleans_up_scratch_dir_on_dryrun_failure():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_cleans_up_scratch_dir_on_dryrun_failure(mock_pool, mock_remote_fs_pool, write_remote_file):
     execute_command = _make_execute_command(
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_raises=SSHCommandError("boom", exit_status=1, stderr="boom"),
     )
 
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", AsyncMock()):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        try:
-            await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "system")
-        except SSHCommandError:
-            pass
+    try:
+        await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "global")
+    except SSHCommandError:
+        pass
 
     rm_calls = [
         c for c in execute_command.await_args_list
@@ -208,16 +220,18 @@ async def test_validate_remote_cleans_up_scratch_dir_on_dryrun_failure():
 
 
 @pytest.mark.unit
-async def test_validate_remote_user_scope_passes_user_flag():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_user_scope_passes_user_flag(mock_pool, mock_remote_fs_pool, write_remote_file):
     execute_command = _make_execute_command(
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_return="",
     )
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", AsyncMock()):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "user")
+    await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "user")
 
     dryrun_calls = [c for c in execute_command.await_args_list if "-dryrun" in c.args[1]]
     assert len(dryrun_calls) == 1
@@ -225,16 +239,18 @@ async def test_validate_remote_user_scope_passes_user_flag():
 
 
 @pytest.mark.unit
-async def test_validate_remote_global_scope_omits_user_flag():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_global_scope_omits_user_flag(mock_pool, mock_remote_fs_pool, write_remote_file):
     execute_command = _make_execute_command(
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_return="",
     )
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", AsyncMock()):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "system")
+    await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "global")
 
     dryrun_calls = [c for c in execute_command.await_args_list if "-dryrun" in c.args[1]]
     assert len(dryrun_calls) == 1
@@ -257,7 +273,7 @@ def test_real_clean_run_loading_line_is_noise():
         "quadlet-generator[1312195]: Loading source unit file "
         "/tmp/qv-clean/clean.container"
     )
-    assert parse_generator_stderr(line) == []
+    assert parse_generator_stderr(line, file_name="test.container") == []
 
 
 @pytest.mark.unit
@@ -275,18 +291,14 @@ def test_real_mixed_output_parses_errors_only():
         "quadlet-generator[1310995]: processing encountered some errors"
     )
 
-    issues = parse_generator_stderr(text)
+    issues = parse_generator_stderr(text, file_name="badsection.container")
 
-    assert len(issues) == 2
+    assert len(issues) == 1
 
     assert issues[0]["level"] == "error"
     assert issues[0]["key"] is None
     assert "no Image or Rootfs key specified" in issues[0]["message"]
     assert "quadlet-generator" not in issues[0]["message"]
-
-    assert issues[1]["level"] == "error"
-    assert issues[1]["key"] == "BogusKey"
-    assert "quadlet-generator" not in issues[1]["message"]
 
 
 @pytest.mark.unit
@@ -295,13 +307,16 @@ def test_prefix_stripped_from_message():
         "quadlet-generator[1310995]: converting \"badsection.container\": "
         "no Image or Rootfs key specified"
     )
-    issues = parse_generator_stderr(line)
+    issues = parse_generator_stderr(line, file_name="badsection.container")
     assert len(issues) == 1
     assert not issues[0]["message"].startswith("quadlet-generator[")
 
 
 @pytest.mark.unit
-async def test_validate_remote_real_clean_stderr_is_valid():
+@patch("services.quadlet_validator.write_remote_file")
+@patch("services.remote_fs.pool")
+@patch("services.quadlet_validator.pool")
+async def test_validate_remote_real_clean_stderr_is_valid(mock_pool, mock_remote_fs_pool, write_remote_file):
     dryrun_output = (
         "quadlet-generator[1312195]: Loading source unit file "
         "/tmp/qv-test123/test.container"
@@ -310,10 +325,9 @@ async def test_validate_remote_real_clean_stderr_is_valid():
         probe_return="/usr/lib/systemd/system-generators/podman-system-generator",
         dryrun_return=dryrun_output,
     )
-    with patch("services.quadlet_validator.pool") as mock_pool, \
-            patch("services.quadlet_validator.write_remote_file", AsyncMock()):
-        mock_pool.execute_command = execute_command
+    mock_pool.execute_command = execute_command
+    mock_remote_fs_pool.execute_command = execute_command
 
-        result = await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "system")
+    result = await validate_remote(1, "[Container]\nImage=foo\n", "test.container", "global")
 
     assert result == {"valid": True, "local_only": False, "issues": []}

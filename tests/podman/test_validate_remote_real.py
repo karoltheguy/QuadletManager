@@ -9,10 +9,14 @@ writes into its own `mktemp -d` scratch and removes it in a finally. So there is
 nothing here for the e2e- teardown to clean up.
 """
 
+import shlex
+
 import pytest
 
 from services.quadlet_validator import validate_remote
-from tests.podman.conftest import fixture_content
+from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
+from services.ssh_manager import pool
+from tests.podman.conftest import ensure_quadlet_dir, fixture_content
 
 pytestmark = pytest.mark.podman
 
@@ -93,3 +97,35 @@ async def test_noise_lines_are_not_reported_as_issues(podman_server):
     messages = " ".join(issue["message"] for issue in result["issues"])
     assert "Loading source unit file" not in messages
     assert "processing encountered some errors" not in messages
+
+
+@pytest.mark.parametrize("scope", ["user", "global"])
+async def test_validate_resolves_pod_reference_in_real_directory(podman_server, scope):
+    """A container that references an existing pod on the server validates
+    cleanly because the generator sees the real quadlet directory.
+
+    validate_remote currently writes into an empty `mktemp -d` scratch, so a
+    Pod= reference to a unit that only exists in the real quadlet directory
+    cannot resolve there.
+    """
+    directory = await ensure_quadlet_dir(podman_server, scope)
+    pod_path = f"{directory}/e2e-test.pod"
+    await write_remote_file(
+        podman_server, pod_path, fixture_content("e2e-test.pod"), use_sudo=is_global_scope(scope)
+    )
+    try:
+        container_content = (
+            "[Container]\n"
+            "Image=busybox\n"
+            "Pod=e2e-test.pod\n"
+        )
+        result = await validate_remote(
+            podman_server, container_content, "test-pod-ref.container", scope
+        )
+        assert result["valid"] is True, result["issues"]
+    finally:
+        await pool.execute_command(
+            podman_server,
+            f"rm -f {shlex.quote(pod_path)}",
+            use_sudo=is_global_scope(scope),
+        )

@@ -25,7 +25,11 @@ USER_QUADLET_SUBDIR = ".config/containers/systemd"
 
 
 def is_global_scope(scope: str) -> bool:
-    """Return True for the global (rootful) scope, which requires sudo."""
+    """Return True for the global (rootful) scope, which requires sudo.
+
+    ``scope`` is always exactly ``"global"`` or ``"user"``; callers never
+    pass any other value (in particular, never ``"system"``).
+    """
     return scope == "global"
 
 
