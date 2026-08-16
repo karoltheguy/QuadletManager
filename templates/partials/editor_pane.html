@@ -5,7 +5,8 @@
         <div class="header-actions">
             <div id="editor-actions">
                 {% if user_role == 'editor' %}
-                <button id="validate-btn" class="btn btn-secondary btn-md" onclick="validateQuadlet()">
+                <!-- .catch( is a no-op because the error message has already been rendered into #validation-results by the time the promise rejects -->
+                <button id="validate-btn" class="btn btn-secondary btn-md" onclick="validateQuadlet().catch(function() {})">
                     Validate
                 </button>
                 <button id="save-btn" class="btn btn-primary btn-md" onclick="saveQuadlet()">
