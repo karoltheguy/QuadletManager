@@ -773,6 +773,11 @@ async def api_systemctl_status(server_id: int, unit: str, scope: str, role: str 
     try:
         output = await systemctl_action(server_id, "status", unit, scope)
         return HTMLResponse(output)
+    except SSHCommandError as e:
+        if e.exit_status in (3, 4) and e.stderr:
+            return HTMLResponse(e.stderr)
+        ref = _log_error_ref("Error fetching systemctl status", e)
+        return HTMLResponse(f"Failed to get status (ref: {ref})")
     except Exception as e:
         ref = _log_error_ref("Error fetching systemctl status", e)
         return HTMLResponse(f"Failed to get status (ref: {ref})")
