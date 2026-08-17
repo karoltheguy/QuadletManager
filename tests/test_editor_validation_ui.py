@@ -152,3 +152,62 @@ class TestMainJsValidation:
             "saveQuadlet must tolerate a failed/unavailable validation call "
             "(try/catch or .catch) so save still proceeds"
         )
+
+    @pytest.mark.unit
+    def test_validate_quadlet_surfaces_error_body_on_non_ok_response(self):
+        # When /api/validate/{server_id} responds with a non-OK status (e.g.
+        # 502 with {"error": "Validation failed (ref: abc123)"}), that body
+        # is currently discarded: the code only throws a generic status-code
+        # error. The user never sees the real error or a ref they can search
+        # server logs for. The `if (!response.ok) { ... }` block must read
+        # the JSON error body and render it into #validation-results so the
+        # message reaches the user, while still throwing so saveQuadlet can
+        # tell "could not validate" apart from "invalid".
+        match = re.search(
+            r"if \(!response\.ok\) \{.*?\n    \}",
+            self.js,
+            re.DOTALL,
+        )
+        assert match, "expected to locate the `if (!response.ok) { ... }` block in validateQuadlet"
+        block = match.group(0)
+
+        assert "json()" in block, (
+            "the non-ok branch of validateQuadlet must call response.json() to read "
+            "the {\"error\": ...} body instead of discarding it"
+        )
+        assert "validation-results" in block, (
+            "the non-ok branch of validateQuadlet must render the error body into "
+            "#validation-results so the user actually sees it"
+        )
+        assert "throw" in block, (
+            "the non-ok branch must still throw so saveQuadlet can distinguish "
+            "'could not validate' from 'invalid'"
+        )
+
+
+# =============================================================================
+# Client-side: templates/partials/editor_pane.html #validate-btn error handling
+# =============================================================================
+
+
+class TestValidateButtonErrorHandling:
+    def setup_method(self):
+        self.html = _editor_pane_html()
+
+    @pytest.mark.unit
+    def test_validate_button_handles_validation_rejection(self):
+        # validateQuadlet() throws when the request fails or the server
+        # returns a non-ok status. Called bare from onclick, that rejection
+        # is unhandled and the user sees nothing. The #validate-btn onclick
+        # must chain a .catch( to handle that rejection.
+        match = re.search(
+            r'<button[^>]*id="validate-btn"[^>]*onclick="([^"]*)"',
+            self.html,
+        )
+        assert match, "expected a button with id=\"validate-btn\" in editor_pane.html"
+        onclick = match.group(1)
+        assert ".catch(" in onclick, (
+            "#validate-btn onclick must chain .catch( onto validateQuadlet() so a "
+            "rejected validation request is handled instead of becoming an "
+            "unhandled promise rejection"
+        )
