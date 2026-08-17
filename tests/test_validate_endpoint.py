@@ -15,6 +15,39 @@ from services.ssh_manager import SSHCommandError
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+@pytest.mark.parametrize("exit_code", [3, 4])
+@patch('api.routes.pool.execute_command', new_callable=AsyncMock)
+async def test_systemctl_status_returns_body_for_inactive_and_failed_units(mock_execute_command, exit_code):
+    """systemctl status exits 3 (inactive) or 4 (failed) even though it
+    successfully produced status output; the endpoint should surface that
+    output with HTTP 200, not treat the non-zero exit as an error (#336).
+    """
+    from api.routes import api_systemctl_status
+
+    status_output = (
+        "unit.service - description\n"
+        "  Loaded: loaded\n"
+        "  Active: inactive (dead)\n"
+    )
+    mock_execute_command.side_effect = SSHCommandError(
+        f"Command execution failed: {status_output}",
+        exit_status=exit_code,
+        stderr=status_output,
+    )
+
+    response = await api_systemctl_status(
+        server_id=1,
+        unit="unit.service",
+        scope="system",
+        role="viewer",
+    )
+
+    assert response.status_code == 200
+    assert status_output in response.body.decode()
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 @patch('api.routes.validate_remote', new_callable=AsyncMock)
 async def test_validate_endpoint_happy_path(mock_validate_remote):
     from api.routes import validate_quadlet
