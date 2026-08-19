@@ -250,25 +250,39 @@ def _extract_single_container_health(c: dict) -> str:
     return str(raw_health).lower()
 
 
-def _parse_running_containers_and_health(ps_data: list[dict]) -> tuple[list[str], dict[str, str]]:
-    """Build running container names list and health_map dictionary from podman ps JSON data."""
+def _parse_running_containers_and_health(
+    ps_data: list[dict],
+) -> tuple[list[str], dict[str, str], dict[str, str]]:
+    """Build running container names list, health_map, and unit_map from podman ps JSON data."""
     running_names: list[str] = []
     health_map: dict[str, str] = {}
+    unit_map: dict[str, str] = {}
     for c in ps_data:
         name = _extract_name(c.get("Names", ""))
         if not name:
             continue
         running_names.append(name)
         health_map[name] = _extract_single_container_health(c)
-    return running_names, health_map
+        # Labels["PODMAN_SYSTEMD_UNIT"] is the authoritative link from a
+        # running container back to its Quadlet-generated systemd unit;
+        # container names can't provide this since a Quadlet container is
+        # named "systemd-<base>" by default and can be renamed via
+        # ContainerName=.
+        labels = c.get("Labels")
+        unit_map[name] = labels.get("PODMAN_SYSTEMD_UNIT", "") if isinstance(labels, dict) else ""
+    return running_names, health_map, unit_map
 
 
-def _merge_stats_and_health(stats_data: list[dict], health_map: dict[str, str]) -> list[dict]:
-    """Combine normalized stats dicts with matching container health status."""
+def _merge_stats_and_health(
+    stats_data: list[dict], health_map: dict[str, str], unit_map: dict[str, str] | None = None
+) -> list[dict]:
+    """Combine normalized stats dicts with matching container health status and unit name."""
+    unit_map = unit_map or {}
     result = []
     for raw in stats_data:
         container = normalize_container_stats(raw)
         container["health"] = health_map.get(container["name"], "")
+        container["unit"] = unit_map.get(container["name"], "")
         result.append(container)
     return result
 
@@ -335,7 +349,7 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> ScopeResult:
             return ScopeResult([], unit_states)
 
         ps_data = json.loads(ps_json_str)
-        running_names, health_map = _parse_running_containers_and_health(ps_data)
+        running_names, health_map, unit_map = _parse_running_containers_and_health(ps_data)
         if not running_names:
             return ScopeResult([], unit_states)
 
@@ -349,7 +363,7 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> ScopeResult:
             return ScopeResult([], unit_states)
 
         stats_data = json.loads(stats_json_str)
-        return ScopeResult(_merge_stats_and_health(stats_data, health_map), unit_states)
+        return ScopeResult(_merge_stats_and_health(stats_data, health_map, unit_map), unit_states)
 
     except Exception as e:
         scope_label = "global" if rootful else "user"

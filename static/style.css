@@ -1015,6 +1015,21 @@ ul { list-style: none; }
   color: var(--warning, #f59e0b);
 }
 
+.stat-badge.unit-active {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+}
+
+.stat-badge.unit-failed {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
+.stat-badge.unit-other {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+}
+
 .cell-warn   { color: #d97706; }
 .cell-danger { color: var(--danger); font-weight: 600; }
 .cell-flag   { margin-left: 0.25rem; }
