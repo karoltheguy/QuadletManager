@@ -73,15 +73,13 @@ def inject_stats(page: Page, server_id, server_name, containers, units=None):
 def select_injected_server(page: Page, server_id, option_count):
     """Select an injected server once the dropdown has `option_count` options.
 
-    Injecting stats directly causes main.js to auto-adopt the first injected
-    server as "active" before the dropdown is ever touched; clearing that makes
-    the select_option() below exercise the normal server-selection code path.
+    The dropdown selection drives the Monitor pane on its own, via
+    `window._monitoringServerId`.
     """
     page.wait_for_function(
         "document.getElementById('monitoring-server-select').options.length >= "
         f"{option_count}"
     )
-    page.evaluate("window.activeServerId = null")
     page.locator("#monitoring-server-select").select_option(str(server_id))
     page.evaluate(
         """([id]) => {
@@ -371,6 +369,68 @@ def test_monitor_filter_narrows_glance_bar_and_shows_match_count(page: Page):
 
     expect(count_el).to_be_hidden()
     expect(page.locator("#mstat-running")).to_have_text("3")
+
+
+@pytest.mark.e2e
+def test_switching_between_three_servers_renders_each_selection(page: Page):
+    """Selecting a different server in the Monitor dropdown must always
+    re-render the stats table for that server, even after the Editor file
+    tree has claimed a server id via `window.setActiveServer`.
+
+    Regression guard for issue #365: the Monitor pane keys some of its
+    rendering on the global `window.activeServerId`, which the Editor file
+    tree also writes, instead of the dropdown's own
+    `window._monitoringServerId`. This test drives the dropdown through the
+    normal selection path and lets the Editor claim a server id via
+    `window.setActiveServer` partway through. The injected
+    server ids (101-103) cannot collide with the auto-seeded "Mock Server"
+    (id 1), so no real SSE traffic can repaint them underneath the
+    assertions.
+    """
+    open_monitor_pane(page, history=[])
+
+    # Claim a sentinel server id (matching none of the injected ones below)
+    # so the first injected stats frame cannot auto-adopt as the active
+    # server (main.js only does that while window.activeServerId is still
+    # null), leaving the Editor/Monitor divergence at step 4 as the only
+    # thing under test.
+    page.evaluate("window.setActiveServer(999)")
+
+    inject_stats(page, 101, "alpha", [WEB_CONTAINER])
+    inject_stats(page, 102, "beta", [DB_CONTAINER])
+    inject_stats(page, 103, "gamma", [CACHE_CONTAINER])
+
+    page.wait_for_function(
+        "['101', '102', '103'].every(v => "
+        "Array.from(document.getElementById('monitoring-server-select').options)"
+        ".some(o => o.value === v))"
+    )
+
+    table = page.locator("#monitoring-stats-table")
+
+    # Select alpha (101) through the dropdown.
+    select_injected_server(page, 101, 4)
+    expect(table).to_contain_text("web")
+    expect(table).not_to_contain_text("db")
+    expect(table).not_to_contain_text("cache")
+
+    # The Editor file tree claims server 102, writing window.activeServerId
+    # directly, the way it does when a user browses files for a different
+    # server than the one shown in the Monitor dropdown.
+    page.evaluate("window.setActiveServer(102)")
+
+    # Select beta (102) through the dropdown. This must repaint the table
+    # for beta even though window.activeServerId already equals 102.
+    select_injected_server(page, 102, 4)
+    expect(table).to_contain_text("db")
+    expect(table).not_to_contain_text("web")
+    expect(table).not_to_contain_text("cache")
+
+    # Select gamma (103) through the dropdown.
+    select_injected_server(page, 103, 4)
+    expect(table).to_contain_text("cache")
+    expect(table).not_to_contain_text("web")
+    expect(table).not_to_contain_text("db")
 
 
 @pytest.mark.e2e
