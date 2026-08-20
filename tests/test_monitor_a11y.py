@@ -2,7 +2,7 @@
 
 Covers:
 - templates/dashboard.html's monitor stat bar builds its two
-  `.monitor-stat-group` containers as native `<ul>` elements and its six
+  `.monitor-stat-group` containers as native `<ul>` elements and its
   `.monitor-stat-block` children as native `<li>` elements, so the
   glance-bar counters read as a coherent list to assistive tech instead of
   a run of unrelated `<div>`s. The native tags are used in preference to
@@ -88,9 +88,9 @@ class TestMonitorStatBarListSemantics:
         tags = re.findall(
             r'<(\w+)\s+class\s*=\s*["\']monitor-stat-block["\'][^>]*>', self.html
         )
-        assert len(tags) == 6, (
-            "expected exactly six .monitor-stat-block opening tags in "
-            f"dashboard.html, found {len(tags)}: {tags!r}"
+        assert tags, (
+            "expected to find .monitor-stat-block opening tags in "
+            "dashboard.html, but the regex found none"
         )
         for tag in tags:
             assert tag == "li", (

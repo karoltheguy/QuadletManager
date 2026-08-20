@@ -1189,6 +1189,25 @@ function getHealthBadgeInfo(health) {
     return { badgeClass: 'unhealthy', label: h };
 }
 
+// The Monitor table joins each container to its systemd unit by the unit name
+// the stats engine attaches to the container. A server that has not reported
+// units yet indexes to null, which renders as a placeholder rather than as a
+// container with no unit.
+function buildUnitIndex(units) {
+    if (units === undefined || units === null) return null;
+    const index = new Map();
+    units.forEach(function(u) {
+        if (u?.unit) index.set(u.unit, u);
+    });
+    return index;
+}
+
+function getUnitBadgeInfo(activeState = '') {
+    if (activeState === 'failed') return { badgeClass: 'unit-failed', label: activeState };
+    if (activeState === 'active') return { badgeClass: 'unit-active', label: activeState };
+    return { badgeClass: 'unit-other', label: activeState || STAT_PLACEHOLDER };
+}
+
 function applyPercentSeverity(td, severityClass) {
     if (!severityClass) return;
     const glyph = severityClass === 'cell-danger' ? '▲' : '●';
@@ -1206,7 +1225,7 @@ function applyPercentSeverity(td, severityClass) {
     td.appendChild(hidden);
 }
 
-function renderContainerRow(c) {
+function renderContainerRow(c, unitIndex) {
     const cpuClass = getPercentClass(parsePercent(c.cpu));
     const memClass = getPercentClass(parsePercent(c.mem));
     const badgeInfo = getHealthBadgeInfo(c.health);
@@ -1226,6 +1245,34 @@ function renderContainerRow(c) {
     badgeSpan.textContent = badgeInfo.label;
     tdStatus.appendChild(badgeSpan);
     tr.appendChild(tdStatus);
+
+    const tdUnit = document.createElement('td');
+    tdUnit.className = 'p-4 text-left';
+    const unitRec = unitIndex && c.unit ? unitIndex.get(c.unit) : null;
+    if (unitRec) {
+        const unitInfo = getUnitBadgeInfo(unitRec.active_state);
+        const unitBadge = document.createElement('span');
+        unitBadge.className = 'stat-badge ' + unitInfo.badgeClass;
+        unitBadge.textContent = unitInfo.label;
+        tdUnit.appendChild(unitBadge);
+        if (unitRec.n_restarts > 0) {
+            // The restart count reads as a bare number to a screen reader, so
+            // name it with a visually-hidden label.
+            const count = document.createElement('span');
+            count.className = 'cell-flag';
+            count.setAttribute('aria-hidden', 'true');
+            count.textContent = '\u00d7' + unitRec.n_restarts;
+            tdUnit.appendChild(count);
+
+            const hidden = document.createElement('span');
+            hidden.className = 'visually-hidden';
+            hidden.textContent = unitRec.n_restarts + ' restarts';
+            tdUnit.appendChild(hidden);
+        }
+    } else {
+        tdUnit.textContent = STAT_PLACEHOLDER;
+    }
+    tr.appendChild(tdUnit);
 
     const tdCpu = document.createElement('td');
     tdCpu.className = 'p-4 text-right' + (cpuClass ? ' ' + cpuClass : '');
@@ -1272,6 +1319,7 @@ function renderContainerStatsTable(tableElId, data) {
     const headers = [
         { text: 'Container', align: 'left' },
         { text: 'Status', align: 'left' },
+        { text: 'Unit', align: 'left' },
         { text: 'CPU', align: 'right' },
         { text: 'MEM', align: 'right' },
         { text: 'NET I/O', align: 'right' }
@@ -1295,9 +1343,11 @@ function renderContainerStatsTable(tableElId, data) {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
+    const unitIndex = buildUnitIndex(data.units);
+
     const tbody = document.createElement('tbody');
     containers.forEach(function(c) {
-        const tr = renderContainerRow(c);
+        const tr = renderContainerRow(c, unitIndex);
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -1843,7 +1893,8 @@ function computeUnitCounts(units) {
     return {
       total: STAT_PLACEHOLDER,
       running: STAT_PLACEHOLDER,
-      stopped: STAT_PLACEHOLDER
+      stopped: STAT_PLACEHOLDER,
+      failed: STAT_PLACEHOLDER
     };
   }
   // Units are matched against the same lowercase substring filter used for
@@ -1854,7 +1905,10 @@ function computeUnitCounts(units) {
   });
   const total = filteredUnits.length;
   const running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
-  return { total: total, running: running, stopped: total - running };
+  // A failed unit is not simply "stopped": stopped stays total - running so the
+  // three load counts still add up, and failed overlaps it as its own signal.
+  const failed = filteredUnits.filter(function(u) { return u.active_state === 'failed'; }).length;
+  return { total: total, running: running, stopped: total - running, failed: failed };
 }
 
 function setStatText(id, value) {
@@ -1875,6 +1929,21 @@ function renderUnhealthyStat(unhealthy) {
     flag.setAttribute('aria-hidden', 'true');
     flag.textContent = '⚠';
     elUnhealthy.appendChild(flag);
+  }
+}
+
+// Same colour-plus-glyph treatment as the unhealthy stat, for the same reason.
+function renderFailedStat(failed) {
+  const elFailed = document.getElementById('mstat-failed');
+  if (!elFailed) return;
+  elFailed.textContent = failed;
+  elFailed.classList.toggle('danger', failed > 0);
+  if (failed > 0) {
+    const flag = document.createElement('span');
+    flag.className = 'monitor-stat-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = '\u26a0';
+    elFailed.appendChild(flag);
   }
 }
 
@@ -1908,6 +1977,7 @@ function updateSummaryStrip(data) {
   setStatText('mstat-running', counts.running);
   setStatText('mstat-stopped', counts.stopped);
   renderUnhealthyStat(unhealthy);
+  renderFailedStat(counts.failed);
   setStatText('mstat-cpu', hasLoad ? totals.cpu.toFixed(1) + '%' : STAT_PLACEHOLDER);
   setStatText('mstat-mem', hasLoad ? totals.mem.toFixed(1) + '%' : STAT_PLACEHOLDER);
 

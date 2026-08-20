@@ -781,7 +781,7 @@ def test_parse_running_containers_and_health():
         {"Names": "", "HealthStatus": "healthy"},  # Empty name should be skipped
     ]
 
-    names, health_map = _parse_running_containers_and_health(ps_data)
+    names, health_map, unit_map = _parse_running_containers_and_health(ps_data)
     assert names == ["c1", "c2"]
     assert health_map == {"c1": "healthy", "c2": "unhealthy"}
 
@@ -800,6 +800,40 @@ def test_merge_stats_and_health_attaches_health_and_defaults_to_empty():
     assert [c["name"] for c in merged] == ["c1", "unknown-to-ps"]
     assert merged[0]["health"] == "healthy"
     assert merged[1]["health"] == ""
+
+
+@pytest.mark.unit
+def test_parse_running_containers_and_health_returns_unit_map():
+    """Verify _parse_running_containers_and_health returns a third value: a unit map
+    from container name to unit name, taken from Labels["PODMAN_SYSTEMD_UNIT"]."""
+    from services.stats_engine import _parse_running_containers_and_health
+
+    ps_data = [
+        {"Names": "c1", "HealthStatus": "healthy", "Labels": {"PODMAN_SYSTEMD_UNIT": "web.service"}},
+        {"Names": ["c2"], "Status": "Up 10 minutes (unhealthy)", "Labels": {}},
+        {"Names": "c3", "HealthStatus": "healthy", "Labels": None},
+        {"Names": "c4", "HealthStatus": "healthy"},
+    ]
+
+    names, health_map, unit_map = _parse_running_containers_and_health(ps_data)
+    assert names == ["c1", "c2", "c3", "c4"]
+    assert unit_map == {"c1": "web.service", "c2": "", "c3": "", "c4": ""}
+
+
+@pytest.mark.unit
+def test_merge_stats_and_health_attaches_unit_and_defaults_to_empty():
+    """Verify _merge_stats_and_health accepts a unit map and sets container["unit"],
+    defaulting to "" when the container is not in the map."""
+    from services.stats_engine import _merge_stats_and_health
+
+    stats_data = [
+        {"name": "c1", "cpu_percent": "5%", "mem_percent": "10%"},
+        {"name": "unknown-to-ps", "cpu_percent": "1%", "mem_percent": "2%"},
+    ]
+
+    merged = _merge_stats_and_health(stats_data, {}, {"c1": "web.service"})
+    assert merged[0]["unit"] == "web.service"
+    assert merged[1]["unit"] == ""
 
 
 @pytest.mark.unit
