@@ -1071,7 +1071,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
     btnEl.classList.add('active');
   }
 
-  const serverId = window.activeServerId;
+  const serverId = window._monitoringServerId;
   if (!serverId) return;
 
   fetch('/api/health/history/' + serverId + '?minutes=' + minutes)
@@ -1433,12 +1433,13 @@ function handleStatsUpdate(e) {
 
     populateServerSelector();
 
+    updateMonitoringView(data);
+
     if (data.server_id !== window.activeServerId) return;
 
     const tableEl = document.getElementById('stats-table');
     if (tableEl) tableEl.classList.remove('stats-error');
     updateStats(data);
-    updateMonitoringView(data);
   } catch (err) {
     console.error('Stats parse error:', err);
   }
@@ -1756,9 +1757,6 @@ window.selectMonitoringServer = function(serverId) {
   if (contentEl) contentEl.style.display = '';
 
   window._monitoringServerId = numId;
-
-  if (window.activeServerId === numId) return;
-  window.activeServerId = numId;
 
   renderMonitoringServerStats(numId);
 };
