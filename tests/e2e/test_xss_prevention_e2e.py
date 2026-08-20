@@ -175,12 +175,18 @@ def test_stats_error_xss_prevention(page: Page):
     
     _goto_dashboard(page)
     
+    # The handler now paints a pane only when the event names the server that
+    # pane is showing (issue #365), so both ids have to match the payload or
+    # this test would pass without ever rendering the hostile string.
     page.evaluate("""() => {
         window.xssConfirmed = false;
+        window.activeServerId = 77;
+        window._monitoringServerId = 77;
         const handler = window.MockEventSourceListeners['stats_error'];
         if (handler) {
             handler({
                 data: JSON.stringify({
+                    server_id: 77,
                     server_name: "<img src=x onerror='window.xssConfirmed=true'>",
                     error: "Some connection failure"
                 })

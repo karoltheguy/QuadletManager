@@ -56,10 +56,10 @@ class TestMonitorServerPersistence:
         )
 
     @pytest.mark.unit
-    def test_populate_server_selector_restores_saved_server(self):
+    def test_restore_monitoring_selection_reads_saved_server(self):
         assert "localStorage.getItem('qm-monitor-server')" in self.js, (
-            "populateServerSelector must read 'qm-monitor-server' from "
-            "localStorage and auto-select it when data is available."
+            "restoreMonitoringServerSelection must read 'qm-monitor-server' "
+            "from localStorage and auto-select it once the option exists."
         )
 
     @pytest.mark.unit

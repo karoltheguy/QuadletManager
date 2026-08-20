@@ -330,6 +330,11 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
     syncInspectorToggleBtn();
     // Re-apply poll-health warning badges after the server tree reloads
     applyPollHealthBadges();
+    // The Monitor's server dropdown is swapped whole on reload-servers, which
+    // drops the user's selection along with the old options.
+    if (e.target?.id === 'monitoring-server-select') {
+        restoreMonitoringServerSelection(e.target);
+    }
 });
 
 // ── Monaco Editor Configuration ──────────────────────────
@@ -1411,6 +1416,35 @@ function cacheServerStats(data) {
   return { oldSet: oldSet, runningSet: runningSet };
 }
 
+// Each pane is gated on its own server id, and separately: the Editor's table
+// follows activeServerId while the Monitor's follows _monitoringServerId, and
+// both can legitimately be showing the same server. A single early return
+// would suppress Editor errors for the server the Editor is displaying.
+function handleStatsError(e) {
+  try {
+    const data = JSON.parse(e.data);
+
+    if (data.server_id === window.activeServerId) {
+      const tableEl = document.getElementById('stats-table');
+      if (tableEl) {
+        tableEl.classList.add('stats-error');
+        tableEl.textContent = '';
+        tableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
+      }
+    }
+
+    if (data.server_id === window._monitoringServerId) {
+      const monitoringTableEl = document.getElementById('monitoring-stats-table');
+      if (monitoringTableEl) {
+        monitoringTableEl.textContent = '';
+        monitoringTableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
+      }
+    }
+  } catch (err) {
+    console.error('Stats error parse error:', err);
+  }
+}
+
 function handleStatsUpdate(e) {
   try {
     const data = JSON.parse(e.data);
@@ -1430,8 +1464,6 @@ function handleStatsUpdate(e) {
     if (window.activeServerId === null) {
       window.activeServerId = data.server_id;
     }
-
-    populateServerSelector();
 
     updateMonitoringView(data);
 
@@ -1551,25 +1583,7 @@ function connectSSE() {
   });
 
   // Stats error events (when podman is unreachable/timed out)
-  evtSource.addEventListener('stats_error', function(e) {
-    try {
-      const data = JSON.parse(e.data);
-      const tableEl = document.getElementById('stats-table');
-      if (tableEl) {
-        tableEl.classList.add('stats-error');
-        tableEl.textContent = '';
-        tableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
-      }
-      // Also show error in monitoring table
-      const monitoringTableEl = document.getElementById('monitoring-stats-table');
-      if (monitoringTableEl) {
-        monitoringTableEl.textContent = '';
-        monitoringTableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
-      }
-    } catch (err) {
-      console.error('Stats error parse error:', err);
-    }
-  });
+  evtSource.addEventListener('stats_error', handleStatsError);
 
     // File change notifications (from sync_engine)
     evtSource.addEventListener('file_changed', function(e) {
@@ -1635,6 +1649,20 @@ function handleMonitorTabActivation() {
   if (cpuHistoryChart) cpuHistoryChart.resize();
   if (memHistoryChart) memHistoryChart.resize();
   loadMonitorCharts(window._monitorChartMinutes || 15);
+  refreshMonitoringServerDropdown();
+}
+
+// The select's hx-trigger="load" fires while the Monitor pane is still
+// display:none, where HTMX event timing is unreliable (issue #86, same
+// workaround as refreshSshKeyDropdown). Refetch when the pane becomes
+// visible, but only while the list is still empty: unlike the SSH key
+// dropdown, refetching here would replace the options under a live
+// selection.
+function refreshMonitoringServerDropdown() {
+  const sel = document.getElementById('monitoring-server-select');
+  if (sel && sel.options.length <= 1) {
+    htmx.ajax('GET', '/api/servers/options', {target: sel, swap: 'innerHTML'});
+  }
 }
 
 function updateNavItemActive(tabId) {
@@ -1729,12 +1757,44 @@ function renderMonitoringServerStats(numId) {
       tableEl.textContent = '';
       tableEl.appendChild(el('div', { className: 'p-4 text-muted italic' }, 'Waiting for stats data...'));
     }
-    if (monitoringChart) {
+    // `typeof` guard, as at the chart-theme sweep above: monitoringChart is
+    // never assigned in this file. Until the dropdown was fed from the
+    // database this branch was unreachable, because a server only had an
+    // option once its stats had arrived (issue #365).
+    if (typeof monitoringChart !== 'undefined' && monitoringChart) {
       monitoringChart.data.labels = [];
       monitoringChart.data.datasets[0].data = [];
       monitoringChart.data.datasets[1].data = [];
       monitoringChart.update();
     }
+  }
+}
+
+// Re-apply the Monitor's server selection to a freshly swapped option list.
+// Gated on the option existing, never on lastStatsPerServer having an entry:
+// renderMonitoringServerStats already shows "Waiting for stats data..." for a
+// server that has not reported yet.
+function restoreMonitoringServerSelection(select) {
+  let target = window._monitoringServerId ? String(window._monitoringServerId) : '';
+  if (!target) {
+    try {
+      target = localStorage.getItem('qm-monitor-server') || '';
+    } catch {
+      // Ignore localStorage restrictions
+    }
+  }
+  if (!target) return;
+
+  const hasOption = Array.from(select.options).some(function(o) { return o.value === target; });
+  if (!hasOption) return;
+
+  select.value = target;
+
+  // Assigning .value fires no change event, and none should be dispatched: on
+  // a reload-servers swap of an unchanged selection this only has to restore
+  // the visible value, not repaint the pane.
+  if (String(window._monitoringServerId) !== target) {
+    selectMonitoringServer(target);
   }
 }
 
@@ -1983,42 +2043,6 @@ function updateSummaryStrip(data) {
   if (elBar) elBar.style.display = '';
 
   announceHealthChange(unhealthy);
-}
-
-function populateServerSelector() {
-  const select = document.getElementById('monitoring-server-select');
-  if (!select) return;
-
-  // Clear existing options except the placeholder
-  select.textContent = '';
-  select.appendChild(el('option', { value: '' }, 'Select a server...'));
-
-  // Add servers from the cached stats data
-  Object.keys(lastStatsPerServer).forEach(function(serverId) {
-    const data = Reflect.get(lastStatsPerServer, serverId);
-    const option = document.createElement('option');
-    option.value = serverId;
-    option.textContent = data.server_name || ('Server ' + serverId);
-    if (window._monitoringServerId && Number.parseInt(serverId, 10) === window._monitoringServerId) {
-      option.selected = true;
-    }
-    select.appendChild(option);
-  });
-
-  // Restore saved monitor server on first population if not yet selected.
-  if (!window._monitoringServerId) {
-    let savedServer;
-    try {
-      savedServer = localStorage.getItem('qm-monitor-server');
-    } catch {
-      // Ignore localStorage restrictions
-    }
-    const cachedSaved = Reflect.get(lastStatsPerServer, savedServer);
-    if (savedServer && cachedSaved) {
-      select.value = savedServer;
-      selectMonitoringServer(savedServer);
-    }
-  }
 }
 
 // ── Terminal Session Management ──────────────────────────

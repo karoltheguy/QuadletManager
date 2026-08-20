@@ -94,8 +94,11 @@
       <h2 class="panel-title">Monitor</h2>
       <div class="server-selector">
         <span id="sync-cycle-indicator" class="sync-cycle-indicator" hidden></span>
-        <select id="monitoring-server-select" class="form-control" aria-label="Monitoring server" onchange="selectMonitoringServer(this.value)">
-          <option value="">Select a server...</option>
+        <select id="monitoring-server-select" class="form-control" aria-label="Monitoring server"
+                onchange="selectMonitoringServer(this.value)"
+                hx-get="/api/servers/options" hx-trigger="load, reload-servers from:body"
+                hx-target="this" hx-swap="innerHTML">
+          <option value="">Loading servers...</option>
         </select>
         <span class="monitor-filter-group">
           <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" aria-label="Filter containers" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
