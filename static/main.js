@@ -1197,16 +1197,15 @@ function buildUnitIndex(units) {
     if (units === undefined || units === null) return null;
     const index = new Map();
     units.forEach(function(u) {
-        if (u && u.unit) index.set(u.unit, u);
+        if (u?.unit) index.set(u.unit, u);
     });
     return index;
 }
 
-function getUnitBadgeInfo(activeState) {
-    const s = activeState || '';
-    if (s === 'failed') return { badgeClass: 'unit-failed', label: s };
-    if (s === 'active') return { badgeClass: 'unit-active', label: s };
-    return { badgeClass: 'unit-other', label: s || STAT_PLACEHOLDER };
+function getUnitBadgeInfo(activeState = '') {
+    if (activeState === 'failed') return { badgeClass: 'unit-failed', label: activeState };
+    if (activeState === 'active') return { badgeClass: 'unit-active', label: activeState };
+    return { badgeClass: 'unit-other', label: activeState || STAT_PLACEHOLDER };
 }
 
 function applyPercentSeverity(td, severityClass) {
