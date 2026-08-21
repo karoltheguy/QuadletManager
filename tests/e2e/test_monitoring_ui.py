@@ -625,6 +625,34 @@ def test_reload_servers_swap_keeps_the_monitor_selection(page: Page):
 
 
 @pytest.mark.e2e
+def test_monitor_keeps_updating_after_a_container_disappears(page: Page):
+    """The stats table must repaint when a container drops out of a later
+    stats frame, even after both containers have already been charted.
+
+    Regression guard for issue #370: appending to the CPU/Memory history
+    charts throws inside appendToChart (Chart.js `this.getDataset() is
+    undefined`) when a previously-charted container is missing from the new
+    frame, which aborts updateMonitoringView before the table is repainted.
+    """
+    open_monitor_pane(
+        page,
+        history=TWO_CONTAINER_HISTORY,
+        servers=[(1, "alpha")],
+    )
+
+    select_injected_server(page, 1, option_count=2)
+
+    # Both containers are charted before the one that disappears is dropped.
+    inject_stats(page, 1, "alpha", [WEB_CONTAINER, DB_CONTAINER])
+    wait_for_chart_series(page, 2)
+
+    # A later frame drops "web" entirely.
+    inject_stats(page, 1, "alpha", [DB_CONTAINER])
+
+    assert_only_row(page, "db")
+
+
+@pytest.mark.e2e
 def test_saved_server_restores_before_any_stats_arrive(page: Page):
     """The `qm-monitor-server` restore keys on the option, not on the cache.
 
