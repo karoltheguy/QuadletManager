@@ -1837,6 +1837,13 @@ function updateMonitoringView(data) {
 
   const filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers, units: data.units };
 
+  // Render the table, summary strip and filter count before touching the
+  // charts: handleStatsUpdate catches a throw from the chart append below,
+  // so the data render must not depend on it succeeding or the pane freezes.
+  renderContainerStatsTable('monitoring-stats-table', filteredData);
+  updateSummaryStrip(filteredData);
+  updateFilterCount(containers.length, allContainers.length);
+
   // Append the latest SSE data point to the live time-series charts.
   if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
     const now = new Date();
@@ -1854,9 +1861,16 @@ function updateMonitoringView(data) {
       // Drop datasets for containers the filter no longer matches; otherwise a
       // series drawn before the filter was typed stays on the canvas with
       // nothing appending to it, since this path never refetches history.
+      // Chart.js controllers hold dataset indexes, so when a dataset is
+      // removed the chart must re-sync before any push into a surviving
+      // dataset, or the stale controller throws on the now-shifted index.
       const visibleNames = {};
       containersToShow.forEach(function(c) { visibleNames[c.name] = true; });
+      const datasetCountBeforeFilter = chart.data.datasets.length;
       chart.data.datasets = chart.data.datasets.filter(function(ds) { return visibleNames[ds.label]; });
+      if (chart.data.datasets.length !== datasetCountBeforeFilter) {
+        chart.update('none');
+      }
 
       // Build a map of current dataset labels for quick lookup
       const datasetByName = {};
@@ -1896,10 +1910,6 @@ function updateMonitoringView(data) {
     appendToChart(cpuHistoryChart, 'cpu');
     appendToChart(memHistoryChart, 'mem');
   }
-
-  renderContainerStatsTable('monitoring-stats-table', filteredData);
-  updateSummaryStrip(filteredData);
-  updateFilterCount(containers.length, allContainers.length);
 }
 
 // "N of M shown" next to the filter box. Both counts come from the running
