@@ -18,12 +18,37 @@ TWO_CONTAINER_HISTORY = [
 ]
 
 
-def open_monitor_pane(page: Page, history=None):
+def servers_options_html(servers):
+    """Render the `<option>` list that /api/servers/options returns."""
+    options = '<option value="">Select a server...</option>'
+    for server_id, name in servers:
+        options += f'<option value="{server_id}">{name}</option>'
+    return options
+
+
+def open_monitor_pane(page: Page, history=None, servers=None):
     """Load the app and switch to the Monitor tab, skipping if no backend.
 
     When `history` is given, the chart history endpoint is stubbed with that
     body before the Monitor tab is opened, so no real fetch can slip through.
+
+    When `servers` is given as a list of (id, name) pairs, /api/servers/options
+    is stubbed with them. The dropdown is populated from the database, not from
+    telemetry (issue #365), so a test using synthetic server ids has to supply
+    them here or they will never appear as options. The stub is installed before
+    the navigation because the select fetches on `hx-trigger="load"`.
     """
+    if servers is not None:
+        body = servers_options_html(servers)
+        page.route(
+            "**/api/servers/options",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="text/html",
+                body=body,
+            ),
+        )
+
     try:
         page.goto("http://localhost:8000/")
     except PlaywrightError:
@@ -71,10 +96,11 @@ def inject_stats(page: Page, server_id, server_name, containers, units=None):
 
 
 def select_injected_server(page: Page, server_id, option_count):
-    """Select an injected server once the dropdown has `option_count` options.
+    """Select a server once the dropdown has `option_count` options.
 
     The dropdown selection drives the Monitor pane on its own, via
-    `window._monitoringServerId`.
+    `window._monitoringServerId`. The option must already exist, which means
+    the test supplied `servers=` to `open_monitor_pane`.
     """
     page.wait_for_function(
         "document.getElementById('monitoring-server-select').options.length >= "
@@ -246,15 +272,19 @@ def test_monitor_container_filter_applies_to_charts_and_persists_across_servers(
 
     Regression guard for issue #259.
     """
-    open_monitor_pane(page, history=TWO_CONTAINER_HISTORY)
+    open_monitor_pane(
+        page,
+        history=TWO_CONTAINER_HISTORY,
+        servers=[(201, "Server A"), (202, "Server B")],
+    )
 
     # Inject two synthetic servers' stats so the test is deterministic
     # regardless of what is actually being monitored on this machine.
-    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER])
-    inject_stats(page, 2, "Server B", [WEB_CONTAINER, DB_CONTAINER])
+    inject_stats(page, 201, "Server A", [WEB_CONTAINER, DB_CONTAINER])
+    inject_stats(page, 202, "Server B", [WEB_CONTAINER, DB_CONTAINER])
 
     # Both injected servers, plus the placeholder option.
-    select_injected_server(page, 1, option_count=3)
+    select_injected_server(page, 201, option_count=3)
     select = page.locator("#monitoring-server-select")
 
     # Wait for the (mocked) chart history fetch triggered by server selection
@@ -279,7 +309,7 @@ def test_monitor_container_filter_applies_to_charts_and_persists_across_servers(
 
     # Switch to the other server — the filter value must be preserved, not
     # cleared, and continue to be applied.
-    select.select_option("2")
+    select.select_option("202")
     expect(page.locator("#monitoring-content")).to_be_visible()
 
     expect(filter_input).to_have_value("web")
@@ -301,10 +331,14 @@ def test_monitor_filter_drops_chart_series_without_a_chart_rebuild(page: Page):
     Regression guard for issue #259 — distinct from the test above, which
     clicks a range button and therefore exercises the full-rebuild path.
     """
-    open_monitor_pane(page, history=TWO_CONTAINER_HISTORY)
+    open_monitor_pane(
+        page,
+        history=TWO_CONTAINER_HISTORY,
+        servers=[(201, "Server A")],
+    )
 
-    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER])
-    select_injected_server(page, 1, option_count=2)
+    inject_stats(page, 201, "Server A", [WEB_CONTAINER, DB_CONTAINER])
+    select_injected_server(page, 201, option_count=2)
 
     # Both series are drawn before any filter is applied.
     wait_for_chart_series(page, 2)
@@ -314,7 +348,7 @@ def test_monitor_filter_drops_chart_series_without_a_chart_rebuild(page: Page):
     page.locator("#monitor-container-filter").fill("web")
 
     # Drive one more stats tick through the append path.
-    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER])
+    inject_stats(page, 201, "Server A", [WEB_CONTAINER, DB_CONTAINER])
     page.wait_for_timeout(300)
 
     assert_chart_series(page, ["web"], "kept a filtered-out series")
@@ -329,15 +363,15 @@ def test_monitor_filter_narrows_glance_bar_and_shows_match_count(page: Page):
     unfiltered data, so its totals described the whole server while the table
     and charts showed a subset.
     """
-    open_monitor_pane(page, history=[])
+    open_monitor_pane(page, history=[], servers=[(201, "Server A")])
 
     units = [
         {"unit": "web.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
         {"unit": "db.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
         {"unit": "cache.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
     ]
-    inject_stats(page, 1, "Server A", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER], units=units)
-    select_injected_server(page, 1, option_count=2)
+    inject_stats(page, 201, "Server A", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER], units=units)
+    select_injected_server(page, 201, option_count=2)
 
     count_el = page.locator("#monitor-filter-count")
 
@@ -387,7 +421,11 @@ def test_switching_between_three_servers_renders_each_selection(page: Page):
     (id 1), so no real SSE traffic can repaint them underneath the
     assertions.
     """
-    open_monitor_pane(page, history=[])
+    open_monitor_pane(
+        page,
+        history=[],
+        servers=[(101, "alpha"), (102, "beta"), (103, "gamma")],
+    )
 
     # Claim a sentinel server id (matching none of the injected ones below)
     # so the first injected stats frame cannot auto-adopt as the active
@@ -443,7 +481,7 @@ def test_glance_bar_counts_come_from_unit_state(page: Page):
     report 1 / 1 / 0 from the stray container alone, ignoring the actual
     Quadlet unit state entirely.
     """
-    open_monitor_pane(page, history=[])
+    open_monitor_pane(page, history=[], servers=[(999, "Server Synthetic")])
 
     stray_container = {"name": "stray", "cpu": "1.0%", "mem": "1.0%", "net_io": "1kB / 1kB", "health": "healthy"}
     units = [
@@ -458,3 +496,148 @@ def test_glance_bar_counts_come_from_unit_state(page: Page):
     expect(page.locator("#mstat-total")).to_have_text("3")
     expect(page.locator("#mstat-running")).to_have_text("2")
     expect(page.locator("#mstat-stopped")).to_have_text("1")
+
+
+@pytest.mark.e2e
+def test_dropdown_lists_a_server_that_has_never_sent_stats(page: Page):
+    """The dropdown is inventory, not telemetry.
+
+    Regression guard for issue #365: options used to be built from the
+    `lastStatsPerServer` cache, so a server appeared only after its first
+    stats frame. They now come from the database via /api/servers/options,
+    which is what lets the list stay still while stats stream in.
+    """
+    open_monitor_pane(page, history=[], servers=[(101, "alpha")])
+
+    select = page.locator("#monitoring-server-select")
+    expect(select.locator('option[value="101"]')).to_have_count(1)
+
+    # No stats frame has ever been injected for 101.
+    select_injected_server(page, 101, option_count=2)
+    expect(page.locator("#monitoring-stats-table")).to_contain_text(
+        "Waiting for stats data"
+    )
+
+
+@pytest.mark.e2e
+def test_stats_frames_never_touch_the_server_dropdown(page: Page):
+    """No stats frame may add, remove or relabel an `<option>`.
+
+    Regression guard for issue #365. The user-visible symptom is a swallowed
+    click: rebuilding the option list while the native dropdown is open
+    invalidates the browser's popup, so `change` never fires. Playwright's
+    `select_option` sets the value directly and never opens that popup, so the
+    symptom itself is untestable here. The mutation is the cause, and it is
+    observable, so that is what this asserts.
+    """
+    open_monitor_pane(page, history=[], servers=[(101, "alpha"), (102, "beta")])
+
+    page.wait_for_function(
+        "document.getElementById('monitoring-server-select').options.length === 3"
+    )
+
+    page.evaluate(
+        """() => {
+            window._selectMutations = 0;
+            const sel = document.getElementById('monitoring-server-select');
+            new MutationObserver(function(records) {
+                window._selectMutations += records.length;
+            }).observe(sel, { childList: true, subtree: true, characterData: true });
+        }"""
+    )
+
+    inject_stats(page, 101, "alpha", [WEB_CONTAINER])
+    inject_stats(page, 102, "beta", [DB_CONTAINER])
+    inject_stats(page, 101, "alpha", [WEB_CONTAINER, DB_CONTAINER])
+
+    assert page.evaluate("window._selectMutations") == 0
+
+
+@pytest.mark.e2e
+def test_stats_error_for_another_server_leaves_the_monitor_table_alone(page: Page):
+    """A `stats_error` may only repaint the pane whose server it names.
+
+    The handler paints two tables owned by two different ids: the Editor's
+    `#stats-table` follows `window.activeServerId`, the Monitor's
+    `#monitoring-stats-table` follows `window._monitoringServerId`. Both were
+    unguarded, so any server's error wiped both panes. Only the Monitor half
+    is asserted here: `#stats-table` is not in the rendered dashboard.
+    """
+    open_monitor_pane(page, history=[], servers=[(101, "alpha"), (102, "beta")])
+
+    inject_stats(page, 101, "alpha", [WEB_CONTAINER])
+    select_injected_server(page, 101, option_count=3)
+    expect(page.locator("#monitoring-stats-table")).to_contain_text("web")
+
+    # The Editor is pointed at a different server than the Monitor.
+    page.evaluate("window.setActiveServer(102)")
+    page.evaluate(
+        """() => window.handleStatsError({
+            data: JSON.stringify({
+                server_id: 102,
+                server_name: 'beta',
+                error: 'connection refused',
+            })
+        })"""
+    )
+
+    # Server 102's failure is not the Monitor's to show.
+    expect(page.locator("#monitoring-stats-table")).to_contain_text("web")
+    expect(page.locator("#monitoring-stats-table")).not_to_contain_text(
+        "connection refused"
+    )
+
+    # The selected server's own failure does reach the Monitor pane.
+    page.evaluate(
+        """() => window.handleStatsError({
+            data: JSON.stringify({
+                server_id: 101,
+                server_name: 'alpha',
+                error: 'podman timed out',
+            })
+        })"""
+    )
+    expect(page.locator("#monitoring-stats-table")).to_contain_text("podman timed out")
+
+
+@pytest.mark.e2e
+def test_reload_servers_swap_keeps_the_monitor_selection(page: Page):
+    """Refreshing the server inventory must not clear the user's selection.
+
+    The select is swapped by HTMX on the body's `reload-servers` event, which
+    replaces its options. The selection has to be re-applied afterwards, and
+    without a spurious re-render of the pane.
+    """
+    open_monitor_pane(page, history=[], servers=[(101, "alpha"), (102, "beta")])
+
+    inject_stats(page, 101, "alpha", [WEB_CONTAINER])
+    select_injected_server(page, 101, option_count=3)
+    expect(page.locator("#monitoring-stats-table")).to_contain_text("web")
+
+    page.evaluate("() => htmx.trigger(document.body, 'reload-servers')")
+    page.wait_for_function(
+        "document.getElementById('monitoring-server-select').options.length === 3"
+    )
+
+    expect(page.locator("#monitoring-server-select")).to_have_value("101")
+    expect(page.locator("#monitoring-content")).to_be_visible()
+    expect(page.locator("#monitoring-stats-table")).to_contain_text("web")
+
+
+@pytest.mark.e2e
+def test_saved_server_restores_before_any_stats_arrive(page: Page):
+    """The `qm-monitor-server` restore keys on the option, not on the cache.
+
+    It used to require an entry in `lastStatsPerServer`, so a reload landed on
+    the empty state until the saved server's next stats frame. The pane
+    already renders a "Waiting for stats data..." placeholder for that case.
+    """
+    page.add_init_script("localStorage.setItem('qm-monitor-server', '101')")
+
+    open_monitor_pane(page, history=[], servers=[(101, "alpha")])
+
+    expect(page.locator("#monitoring-server-select")).to_have_value("101")
+    expect(page.locator("#monitoring-content")).to_be_visible()
+    expect(page.locator("#monitoring-stats-table")).to_contain_text(
+        "Waiting for stats data"
+    )

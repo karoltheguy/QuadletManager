@@ -542,6 +542,25 @@ async def api_servers(request: Request, role: str = Depends(get_current_user_rol
         "user_role": role,
     })
 
+
+@router.get("/api/servers/options", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
+async def api_servers_options(request: Request, role: str = Depends(get_current_user_role)):
+    """Return <option> elements for the Monitor pane's server dropdown.
+
+    The dropdown is server inventory, so it is fed from the database and
+    refreshed only when the inventory changes. It used to be rebuilt from the
+    stats cache on every SSE frame, which destroyed the options underneath an
+    open native dropdown and swallowed the user's click (issue #365).
+    """
+    async with get_db_connection() as db:
+        async with db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
+            servers = await cursor.fetchall()
+
+    options = '<option value="">Select a server...</option>'
+    for server_id, name in servers:
+        options += f'<option value="{server_id}">{html.escape(name)}</option>'
+    return HTMLResponse(options)
+
 @router.get("/api/overview", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_overview(request: Request, role: str = Depends(get_current_user_role)):
     """Return the fleet-level overview partial for HTMX polling."""
