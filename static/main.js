@@ -1264,13 +1264,18 @@ function applyPercentSeverity(td, severityClass) {
     td.appendChild(hidden);
 }
 
+// A synthesized row stands for a unit with no running container, so it has no
+// health to report; its status comes from the systemd state instead.
+function getStatusBadgeInfo(c, unitRec) {
+    if (c.not_running) return getUnitBadgeInfo(unitRec?.active_state);
+    return getHealthBadgeInfo(c.health);
+}
+
 function renderContainerRow(c, unitIndex) {
     const cpuClass = getPercentClass(parsePercent(c.cpu));
     const memClass = getPercentClass(parsePercent(c.mem));
     const unitRec = unitIndex && c.unit ? unitIndex.get(c.unit) : null;
-    const badgeInfo = c.not_running
-        ? getUnitBadgeInfo(unitRec ? unitRec.active_state : '')
-        : getHealthBadgeInfo(c.health);
+    const badgeInfo = getStatusBadgeInfo(c, unitRec);
 
     const tr = document.createElement('tr');
     tr.className = 'border-b';

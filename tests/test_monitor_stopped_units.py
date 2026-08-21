@@ -119,26 +119,39 @@ class TestMergeUnitRowsNameFallback:
         )
 
 
-class TestRenderContainerRowUsesNotRunningFlag:
+class TestStatusBadgeForNotRunningRows:
     def setup_method(self):
         self.js = _js()
 
     @pytest.mark.unit
-    def test_render_container_row_references_not_running(self):
-        match = _extract_function_body(self.js, "renderContainerRow")
-        assert match, "expected to find renderContainerRow function body in main.js"
-        body = match.group(0)
-        assert "not_running" in body, (
-            "expected renderContainerRow to reference not_running"
+    def test_get_status_badge_info_function_defined(self):
+        assert "function getStatusBadgeInfo(" in self.js, (
+            "expected main.js to define a getStatusBadgeInfo function"
         )
 
     @pytest.mark.unit
-    def test_render_container_row_uses_unit_badge_for_not_running_rows(self):
+    def test_get_status_badge_info_branches_on_not_running(self):
+        match = _extract_function_body(self.js, "getStatusBadgeInfo")
+        assert match, "expected to find getStatusBadgeInfo function body in main.js"
+        body = match.group(0)
+        assert "not_running" in body, (
+            "expected getStatusBadgeInfo to branch on the not_running flag"
+        )
+        assert "getUnitBadgeInfo" in body, (
+            "expected getStatusBadgeInfo to take a not_running row's badge from "
+            "the unit state via getUnitBadgeInfo"
+        )
+        assert "getHealthBadgeInfo" in body, (
+            "expected getStatusBadgeInfo to keep using getHealthBadgeInfo for "
+            "rows backed by a running container"
+        )
+
+    @pytest.mark.unit
+    def test_render_container_row_delegates_to_get_status_badge_info(self):
         match = _extract_function_body(self.js, "renderContainerRow")
         assert match, "expected to find renderContainerRow function body in main.js"
         body = match.group(0)
-        assert "getUnitBadgeInfo" in body, (
-            "expected renderContainerRow to call getUnitBadgeInfo so a "
-            "not_running row's Status badge comes from the unit state rather "
-            "than getHealthBadgeInfo"
+        assert re.search(r"getStatusBadgeInfo\(\s*c\s*,\s*\w+\s*\)", body), (
+            "expected renderContainerRow to get its status badge from "
+            "getStatusBadgeInfo, passing the container and its unit record"
         )
