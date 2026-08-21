@@ -451,3 +451,38 @@ def test_monitor_glance_bar_counts_a_really_running_container(
     expect(page.locator("#mstat-running")).to_have_text(
         re.compile(r"^[1-9]\d*$"), timeout=15000
     )
+
+
+@pytest.mark.timeout(300)
+def test_monitor_table_still_lists_a_unit_that_is_stopped(
+    page, running_monitor_container
+):
+    """Stopping a real unit leaves its row in the Monitor table, marked with
+    its systemd state instead of vanishing.
+
+    Issue #372 end to end: `podman ps` reports running containers only, so
+    the row can only survive if the table merges the `units` array in. This
+    suite is the only place that proves it against a real host, a real
+    systemd stop and the browser at once.
+
+    Restarts the unit afterwards because the fixture is module-scoped and the
+    other Monitor journeys need it running.
+    """
+    unit = f"{running_monitor_container}.service"
+
+    _open_monitor_for_podman_host(page)
+    _expect_stats_row(page, running_monitor_container)
+
+    try:
+        _ssh(f"systemctl --user stop {shlex.quote(unit)}")
+
+        # The row is keyed on the unit stem, which is the container name here,
+        # so the same text identifies it before and after the stop.
+        row = page.locator("#monitoring-stats-table table tbody tr").filter(
+            has_text=running_monitor_container
+        )
+        expect(row).to_have_count(1, timeout=90000)
+        expect(row).to_contain_text("inactive", timeout=90000)
+        expect(row).not_to_contain_text("running")
+    finally:
+        _ssh(f"systemctl --user start {shlex.quote(unit)}")

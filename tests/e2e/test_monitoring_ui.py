@@ -499,6 +499,58 @@ def test_glance_bar_counts_come_from_unit_state(page: Page):
 
 
 @pytest.mark.e2e
+def test_table_lists_units_that_have_no_running_container(page: Page):
+    """A stopped or failed unit must still get a table row, so the list says
+    which Quadlet is missing instead of silently dropping it.
+
+    Regression guard for issue #372: the table was built from the containers
+    array alone, which `podman ps` fills with running containers only.
+    """
+    open_monitor_pane(page, history=[], servers=[(301, "Server Merged")])
+
+    web = dict(WEB_CONTAINER, unit="web.service")
+    units = [
+        {"unit": "web.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+        {"unit": "cache.service", "scope": "user", "load_state": "loaded", "active_state": "inactive", "sub_state": "dead", "n_restarts": 0},
+        {"unit": "api.service", "scope": "user", "load_state": "loaded", "active_state": "failed", "sub_state": "failed", "n_restarts": 2},
+    ]
+
+    inject_stats(page, 301, "Server Merged", [web], units=units)
+    select_injected_server(page, 301, option_count=2)
+
+    rows = page.locator("#monitoring-stats-table table tbody tr")
+    expect(rows).to_have_count(3)
+
+    # The stopped and failed units carry their systemd state as the status
+    # badge, never the "running" badge a container row would get.
+    expect(rows.filter(has_text="cache")).to_contain_text("inactive")
+    expect(rows.filter(has_text="api")).to_contain_text("failed")
+    expect(rows.filter(has_text="cache")).not_to_contain_text("running")
+
+
+@pytest.mark.e2e
+def test_a_container_missing_its_unit_label_is_not_listed_twice(page: Page):
+    """A running container whose PODMAN_SYSTEMD_UNIT label is absent still
+    claims its unit, so merging units into the table cannot duplicate it.
+
+    The join falls back to the container name stem, which Quadlet derives the
+    container name from unless ContainerName= overrides it.
+    """
+    open_monitor_pane(page, history=[], servers=[(302, "Server Unlabelled")])
+
+    units = [
+        {"unit": "web.service", "scope": "user", "load_state": "loaded", "active_state": "active", "sub_state": "running", "n_restarts": 0},
+    ]
+
+    inject_stats(page, 302, "Server Unlabelled", [WEB_CONTAINER], units=units)
+    select_injected_server(page, 302, option_count=2)
+
+    rows = page.locator("#monitoring-stats-table table tbody tr")
+    expect(rows).to_have_count(1)
+    expect(rows.filter(has_text="web")).to_have_count(1)
+
+
+@pytest.mark.e2e
 def test_dropdown_lists_a_server_that_has_never_sent_stats(page: Page):
     """The dropdown is inventory, not telemetry.
 

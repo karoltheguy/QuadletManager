@@ -1213,6 +1213,40 @@ function getUnitBadgeInfo(activeState = '') {
     return { badgeClass: 'unit-other', label: activeState || STAT_PLACEHOLDER };
 }
 
+// A stopped systemd unit has no running container, so the stats engine never
+// reports it among containers. The Monitor table still needs a row for it, so
+// we synthesize placeholder rows for any unit that no container has claimed.
+function mergeUnitRows(containers, units) {
+    if (units === undefined || units === null) return containers;
+    const claimed = new Set();
+    containers.forEach(function(c) {
+        if (c.unit) claimed.add(c.unit);
+        // A container whose PODMAN_SYSTEMD_UNIT label is missing still belongs
+        // to its unit. Quadlet names the container "systemd-<base>" unless
+        // ContainerName= overrides it, so the name stem claims the unit too,
+        // or the container would be drawn twice: once real, once synthesized.
+        const stem = (c.name || '').replace(/^systemd-/, '');
+        if (stem) claimed.add(stem + '.service');
+    });
+    const synthesized = [];
+    units.forEach(function(u) {
+        if (u.unit && !claimed.has(u.unit)) {
+            synthesized.push({
+                name: u.unit.replace(/\.service$/, ''),
+                unit: u.unit,
+                health: '',
+                not_running: true,
+                cpu: STAT_PLACEHOLDER,
+                mem: STAT_PLACEHOLDER,
+                mem_usage: STAT_PLACEHOLDER,
+                net_io: STAT_PLACEHOLDER,
+                pids: STAT_PLACEHOLDER
+            });
+        }
+    });
+    return containers.concat(synthesized);
+}
+
 function applyPercentSeverity(td, severityClass) {
     if (!severityClass) return;
     const glyph = severityClass === 'cell-danger' ? '▲' : '●';
@@ -1230,10 +1264,18 @@ function applyPercentSeverity(td, severityClass) {
     td.appendChild(hidden);
 }
 
+// A synthesized row stands for a unit with no running container, so it has no
+// health to report; its status comes from the systemd state instead.
+function getStatusBadgeInfo(c, unitRec) {
+    if (c.not_running) return getUnitBadgeInfo(unitRec?.active_state);
+    return getHealthBadgeInfo(c.health);
+}
+
 function renderContainerRow(c, unitIndex) {
     const cpuClass = getPercentClass(parsePercent(c.cpu));
     const memClass = getPercentClass(parsePercent(c.mem));
-    const badgeInfo = getHealthBadgeInfo(c.health);
+    const unitRec = unitIndex && c.unit ? unitIndex.get(c.unit) : null;
+    const badgeInfo = getStatusBadgeInfo(c, unitRec);
 
     const tr = document.createElement('tr');
     tr.className = 'border-b';
@@ -1253,7 +1295,6 @@ function renderContainerRow(c, unitIndex) {
 
     const tdUnit = document.createElement('td');
     tdUnit.className = 'p-4 text-left';
-    const unitRec = unitIndex && c.unit ? unitIndex.get(c.unit) : null;
     if (unitRec) {
         const unitInfo = getUnitBadgeInfo(unitRec.active_state);
         const unitBadge = document.createElement('span');
@@ -1821,6 +1862,16 @@ window.selectMonitoringServer = function(serverId) {
   renderMonitoringServerStats(numId);
 };
 
+// The Monitor's name filter is a lowercase substring match, applied to the
+// container list and to the merged row list alike so the table, the charts and
+// the glance bar always narrow over the same names.
+function applyMonitorFilter(list) {
+  if (!monitorContainerFilter) return list;
+  return list.filter(function(c) {
+    return (c.name || '').toLowerCase().includes(monitorContainerFilter);
+  });
+}
+
 function updateMonitoringView(data) {
   // Only render when this data is for the server currently selected in the dropdown.
   if (data.server_id !== window._monitoringServerId) return;
@@ -1829,20 +1880,26 @@ function updateMonitoringView(data) {
   // glance bar all narrow together, so the numbers always describe what is
   // on screen.
   const allContainers = data.containers || [];
-  const containers = monitorContainerFilter
-    ? allContainers.filter(function(c) {
-        return (c.name || '').toLowerCase().includes(monitorContainerFilter);
-      })
-    : allContainers;
+  const containers = applyMonitorFilter(allContainers);
 
-  const filteredData = { server_id: data.server_id, server_name: data.server_name, containers: containers, units: data.units };
+  // The table shows one row per unit, including stopped units that have no
+  // running container, so it renders merged rows. The charts and summary
+  // strip only have real measurements to plot, so they keep using the real
+  // containers list; a placeholder row would draw a flat-zero chart series
+  // and drag the CPU/MEM totals down to a false 0.0%.
+  const allRows = mergeUnitRows(allContainers, data.units);
+  const rows = applyMonitorFilter(allRows);
+
+  const paneData = function(list) {
+    return { server_id: data.server_id, server_name: data.server_name, containers: list, units: data.units };
+  };
 
   // Render the table, summary strip and filter count before touching the
   // charts: handleStatsUpdate catches a throw from the chart append below,
   // so the data render must not depend on it succeeding or the pane freezes.
-  renderContainerStatsTable('monitoring-stats-table', filteredData);
-  updateSummaryStrip(filteredData);
-  updateFilterCount(containers.length, allContainers.length);
+  renderContainerStatsTable('monitoring-stats-table', paneData(rows));
+  updateSummaryStrip(paneData(containers));
+  updateFilterCount(rows.length, allRows.length);
 
   // Append the latest SSE data point to the live time-series charts.
   if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
@@ -1854,10 +1911,6 @@ function updateMonitoringView(data) {
 
     const appendToChart = function(chart, valueKey) {
       if (!chart) return;
-      const containersToShow = monitorContainerFilter
-        ? allContainers.filter(function(c) { return (c.name || '').toLowerCase().includes(monitorContainerFilter); })
-        : allContainers;
-
       // Drop datasets for containers the filter no longer matches; otherwise a
       // series drawn before the filter was typed stays on the canvas with
       // nothing appending to it, since this path never refetches history.
@@ -1865,7 +1918,7 @@ function updateMonitoringView(data) {
       // removed the chart must re-sync before any push into a surviving
       // dataset, or the stale controller throws on the now-shifted index.
       const visibleNames = {};
-      containersToShow.forEach(function(c) { visibleNames[c.name] = true; });
+      containers.forEach(function(c) { visibleNames[c.name] = true; });
       const datasetCountBeforeFilter = chart.data.datasets.length;
       chart.data.datasets = chart.data.datasets.filter(function(ds) { return visibleNames[ds.label]; });
       if (chart.data.datasets.length !== datasetCountBeforeFilter) {
@@ -1876,7 +1929,7 @@ function updateMonitoringView(data) {
       const datasetByName = {};
       chart.data.datasets.forEach(function(ds) { datasetByName[ds.label] = ds; });
 
-      containersToShow.forEach(function(c) {
+      containers.forEach(function(c) {
         const val = valueKey === 'cpu' ? parsePercent(c.cpu) : parsePercent(c.mem);
         if (datasetByName[c.name]) {
           datasetByName[c.name].data.push(val);
