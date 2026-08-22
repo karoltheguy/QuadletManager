@@ -17,6 +17,17 @@ TWO_CONTAINER_HISTORY = [
     {"container_name": "db", "history": [{"ts": 1000, "cpu": 2.0, "mem": 20.0}]},
 ]
 
+TWO_CONTAINER_HISTORY_REVERSED = [
+    {"container_name": "db", "history": [{"ts": 1000, "cpu": 2.0, "mem": 20.0}]},
+    {"container_name": "web", "history": [{"ts": 1000, "cpu": 5.0, "mem": 10.0}]},
+]
+
+THREE_CONTAINER_HISTORY = [
+    {"container_name": "web", "history": [{"ts": 1000, "cpu": 5.0, "mem": 10.0}]},
+    {"container_name": "db", "history": [{"ts": 1000, "cpu": 2.0, "mem": 20.0}]},
+    {"container_name": "cache", "history": [{"ts": 1000, "cpu": 1.0, "mem": 4.0}]},
+]
+
 
 def servers_options_html(servers):
     """Render the `<option>` list that /api/servers/options returns."""
@@ -139,10 +150,14 @@ def assert_chart_series(page: Page, expected, context):
 
 
 def assert_only_row(page: Page, name):
-    """Assert the stats table shows exactly one row, for container `name`."""
+    """Assert the stats table shows exactly one row, for container `name`.
+
+    The first `<td>` is the leading chart-swatch cell (issue #256), so the
+    container name lives in the second `<td>` instead.
+    """
     rows = page.locator("#monitoring-stats-table table tbody tr")
     expect(rows).to_have_count(1)
-    expect(rows.first.locator("td").first).to_have_text(name)
+    expect(rows.first.locator("td").nth(1)).to_have_text(name)
 
 
 @pytest.mark.e2e
@@ -352,6 +367,123 @@ def test_monitor_filter_drops_chart_series_without_a_chart_rebuild(page: Page):
     page.wait_for_timeout(300)
 
     assert_chart_series(page, ["web"], "kept a filtered-out series")
+
+
+@pytest.mark.e2e
+def test_chart_colors_are_stable_across_history_reordering(page: Page):
+    """A container's chart line color must be derived from its name, not from
+    its position in the array that built the dataset.
+
+    `loadMonitorCharts` assigns colors with `HISTORY_COLORS[i % HISTORY_COLORS.length]`
+    where `i` is the index into the filtered history array, so reordering the
+    history payload reassigns colors instead of keeping them tied to the
+    container name.
+    """
+    open_monitor_pane(
+        page,
+        history=TWO_CONTAINER_HISTORY,
+        servers=[(101, "srv-a")],
+    )
+
+    inject_stats(page, 101, "srv-a", [WEB_CONTAINER, DB_CONTAINER])
+    select_injected_server(page, 101, 2)
+    wait_for_chart_series(page, 2)
+
+    colors_before = page.evaluate(
+        "Object.fromEntries(Chart.getChart('cpu-history-chart').data.datasets"
+        ".map(d => [d.label, d.borderColor]))"
+    )
+
+    # Re-stub the history endpoint with the containers in the opposite order.
+    page.route(
+        "**/api/health/history/*",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(TWO_CONTAINER_HISTORY_REVERSED),
+        ),
+    )
+
+    # Trigger a range reload so the reversed payload is actually fetched.
+    page.click(".health-history-controls .health-range-btn:has-text('6h')")
+
+    wait_for_chart_series(page, 2)
+    page.wait_for_function(
+        "Chart.getChart('cpu-history-chart').data.datasets.map(d => d.label)"
+        "[0] === 'db'"
+    )
+
+    colors_after = page.evaluate(
+        "Object.fromEntries(Chart.getChart('cpu-history-chart').data.datasets"
+        ".map(d => [d.label, d.borderColor]))"
+    )
+
+    assert colors_after["web"] == colors_before["web"], (
+        f"web color changed from {colors_before['web']} to {colors_after['web']}"
+    )
+    assert colors_after["db"] == colors_before["db"], (
+        f"db color changed from {colors_before['db']} to {colors_after['db']}"
+    )
+
+
+def _chart_visibility_map(page: Page, canvas_id):
+    """Return {label: (dataset.hidden is falsy, isDatasetVisible(i))} for a chart."""
+    return page.evaluate(
+        "(id) => { const c = Chart.getChart(id);"
+        " return Object.fromEntries(c.data.datasets.map((d, i) => [d.label, [!d.hidden, c.isDatasetVisible(i)]])); }",
+        canvas_id,
+    )
+
+
+@pytest.mark.e2e
+def test_chart_selection_toggles_follow_the_isolate_truth_table(page: Page):
+    """`window.toggleChartSelection(name)` drives a single shared selection
+    of container names that governs both the CPU and Memory history charts.
+
+    An empty selection means "all visible". Regression guard for issue #256,
+    which replaces the Chart.js canvas legend with a selection driven from
+    the Monitor container table.
+    """
+    open_monitor_pane(
+        page,
+        history=THREE_CONTAINER_HISTORY,
+        servers=[(101, "srv-a")],
+    )
+
+    inject_stats(page, 101, "srv-a", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER])
+    select_injected_server(page, 101, 2)
+    wait_for_chart_series(page, 3)
+
+    def assert_step(step, expected_visible):
+        expected = {
+            name: (True, True) if name in expected_visible else (False, False)
+            for name in ("web", "db", "cache")
+        }
+        for canvas_id, chart_name in (
+            ("cpu-history-chart", "CPU"),
+            ("mem-history-chart", "Memory"),
+        ):
+            actual = _chart_visibility_map(page, canvas_id)
+            actual = {name: tuple(value) for name, value in actual.items()}
+            assert actual == expected, (
+                f"step {step} ({chart_name} chart): expected {expected}, got {actual}"
+            )
+
+    # Step 1: all visible -> click web -> web only.
+    page.evaluate("(n) => window.toggleChartSelection(n)", "web")
+    assert_step(1, {"web"})
+
+    # Step 2: {web} -> click db -> web, db.
+    page.evaluate("(n) => window.toggleChartSelection(n)", "db")
+    assert_step(2, {"web", "db"})
+
+    # Step 3: {web, db} -> click web -> db only.
+    page.evaluate("(n) => window.toggleChartSelection(n)", "web")
+    assert_step(3, {"db"})
+
+    # Step 4: {db} -> click db -> all three (reset path).
+    page.evaluate("(n) => window.toggleChartSelection(n)", "db")
+    assert_step(4, {"web", "db", "cache"})
 
 
 @pytest.mark.e2e
@@ -721,3 +853,159 @@ def test_saved_server_restores_before_any_stats_arrive(page: Page):
     expect(page.locator("#monitoring-stats-table")).to_contain_text(
         "Waiting for stats data"
     )
+
+
+@pytest.mark.e2e
+def test_swatch_click_isolates_the_container_on_both_charts(page: Page):
+    """Clicking a row's chart-swatch button isolates that container's series
+    on both history charts, and the swatch buttons reflect the selection via
+    `aria-pressed` and the `chart-swatch-off` class.
+
+    Regression guard for issue #256, which replaces the Chart.js canvas
+    legend with the container table as the selector for the two history
+    charts.
+    """
+    open_monitor_pane(
+        page,
+        history=THREE_CONTAINER_HISTORY,
+        servers=[(101, "srv-a")],
+    )
+
+    inject_stats(page, 101, "srv-a", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER])
+    select_injected_server(page, 101, 2)
+    wait_for_chart_series(page, 3)
+
+    page.click('#monitoring-stats-table button.chart-swatch[data-container="web"]')
+
+    expected = {
+        "web": (True, True),
+        "db": (False, False),
+        "cache": (False, False),
+    }
+    for canvas_id, chart_name in (
+        ("cpu-history-chart", "CPU"),
+        ("mem-history-chart", "Memory"),
+    ):
+        actual = _chart_visibility_map(page, canvas_id)
+        actual = {name: tuple(value) for name, value in actual.items()}
+        assert actual == expected, (
+            f"{chart_name} chart: expected {expected}, got {actual}"
+        )
+
+    web_swatch = page.locator(
+        '#monitoring-stats-table button.chart-swatch[data-container="web"]'
+    )
+    db_swatch = page.locator(
+        '#monitoring-stats-table button.chart-swatch[data-container="db"]'
+    )
+    cache_swatch = page.locator(
+        '#monitoring-stats-table button.chart-swatch[data-container="cache"]'
+    )
+
+    expect(web_swatch).to_have_attribute("aria-pressed", "true")
+    expect(web_swatch).not_to_contain_class("chart-swatch-off")
+
+    expect(db_swatch).to_have_attribute("aria-pressed", "false")
+    expect(db_swatch).to_contain_class("chart-swatch-off")
+
+    expect(cache_swatch).to_have_attribute("aria-pressed", "false")
+    expect(cache_swatch).to_contain_class("chart-swatch-off")
+
+
+@pytest.mark.e2e
+def test_theme_toggle_survives_the_disabled_canvas_legend(page: Page):
+    """The history charts set `plugins.legend: {display: false}` (issue #256),
+    but `patchChartOptions` still writes `plugins.legend.labels.color` on every
+    theme switch. Guards against that path throwing, which is how the bug in
+    test_editor_theme_follow_e2e.py originally presented."""
+    open_monitor_pane(page, history=THREE_CONTAINER_HISTORY, servers=[(101, "srv-a")])
+    inject_stats(page, 101, "srv-a", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER])
+    select_injected_server(page, 101, 2)
+    wait_for_chart_series(page, 3)
+
+    before = page.evaluate("document.documentElement.getAttribute('data-theme')")
+    result = page.evaluate(
+        "() => { try { window.toggleTheme(); return 'ok'; }"
+        " catch (e) { return String(e); } }"
+    )
+    assert result == "ok", f"toggleTheme threw with the monitor charts up: {result}"
+
+    after = page.evaluate("document.documentElement.getAttribute('data-theme')")
+    # Restore before asserting: the e2e fixtures are package-scoped, so a theme
+    # left flipped here leaks into every test that runs after this one.
+    page.evaluate("() => window.toggleTheme()")
+    assert after != before, f"theme did not change: {before!r} -> {after!r}"
+
+
+@pytest.mark.e2e
+def test_history_charts_have_no_canvas_legend(page: Page):
+    """The CPU/Memory history charts must not render the built-in Chart.js
+    legend, since the container table now drives series selection (#256).
+    """
+    open_monitor_pane(
+        page,
+        history=THREE_CONTAINER_HISTORY,
+        servers=[(101, "srv-a")],
+    )
+
+    inject_stats(page, 101, "srv-a", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER])
+    select_injected_server(page, 101, 2)
+    wait_for_chart_series(page, 3)
+
+    for canvas_id in ("cpu-history-chart", "mem-history-chart"):
+        legend_display = page.evaluate(
+            "(id) => { const c = Chart.getChart(id);"
+            " const legend = c && c.options && c.options.plugins && c.options.plugins.legend;"
+            " if (!legend) return 'MISSING'; return legend.display; }",
+            canvas_id,
+        )
+        assert legend_display is False, (
+            f"{canvas_id}: expected legend.display === False, got {legend_display!r}"
+        )
+
+
+@pytest.mark.e2e
+def test_changing_the_filter_resets_the_chart_selection(page: Page):
+    """Changing the container filter must clear the chart selection, so no
+    surviving dataset stays hidden because of a stale isolate/selection made
+    before the filter changed.
+
+    Regression guard for issue #256.
+    """
+    open_monitor_pane(
+        page,
+        history=THREE_CONTAINER_HISTORY,
+        servers=[(101, "srv-a")],
+    )
+
+    inject_stats(page, 101, "srv-a", [WEB_CONTAINER, DB_CONTAINER, CACHE_CONTAINER])
+    select_injected_server(page, 101, 2)
+    wait_for_chart_series(page, 3)
+
+    # Isolate "web" first, so "db" is hidden and the test can't pass vacuously.
+    page.click('#monitoring-stats-table button.chart-swatch[data-container="web"]')
+
+    db_visible = page.evaluate(
+        "() => { const c = Chart.getChart('cpu-history-chart');"
+        " const i = c.data.datasets.findIndex(d => d.label === 'db');"
+        " return i === -1 ? null : !c.data.datasets[i].hidden; }"
+    )
+    assert db_visible is False, (
+        f"expected 'db' to be hidden after isolating 'web', got {db_visible!r}"
+    )
+
+    # Change the filter to something that matches "web" and "cache", not "db".
+    page.evaluate("() => window.applyContainerFilter('e')")
+
+    for canvas_id, chart_name in (
+        ("cpu-history-chart", "CPU"),
+        ("mem-history-chart", "Memory"),
+    ):
+        hidden_flags = page.evaluate(
+            f"() => Chart.getChart('{canvas_id}').data.datasets.map(d => [d.label, !!d.hidden])"
+        )
+        for label, hidden in hidden_flags:
+            assert not hidden, (
+                f"{chart_name} chart: dataset {label!r} still hidden after filter change: "
+                f"{hidden_flags}"
+            )

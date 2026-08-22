@@ -857,6 +857,37 @@ ul { list-style: none; }
     border-bottom: none;
 }
 
+/* Chart-swatch buttons: the leading cell in #monitoring-stats-table, used to
+   isolate a container's series on the two history charts (issue #256). The
+   background color is set inline by JS from chartColorFor(). */
+.chart-swatch {
+    position: relative;
+    display: block;
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.chart-swatch-off {
+    opacity: 0.35;
+}
+
+/* Strikethrough drawn across the square itself, never the container name
+   text next to it. */
+.chart-swatch-off::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -2px;
+    right: -2px;
+    height: 1px;
+    background-color: var(--text-primary);
+    transform: rotate(-45deg);
+}
+
 /* Toast */
 .toast-msg {
     padding: 0.65rem 0.9rem;
