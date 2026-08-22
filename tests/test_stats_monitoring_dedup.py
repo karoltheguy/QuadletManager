@@ -18,29 +18,6 @@ def _src():
 # ── Chart factory ────────────────────────────────────────────────────────────
 
 @pytest.mark.unit
-def test_build_bar_chart_config_factory_exists():
-    """A shared buildBarChartConfig(elementId) factory function must exist."""
-    assert re.search(r'function\s+buildBarChartConfig\s*\(', _src()), (
-        "buildBarChartConfig factory function not found in main.js"
-    )
-
-
-@pytest.mark.unit
-def test_init_stats_chart_uses_factory():
-    """initStatsChart must delegate to buildBarChartConfig, not inline the config."""
-    src = _src()
-    # Find the body of initStatsChart
-    m = re.search(r'function\s+initStatsChart\s*\(\)(.*?)(?=\nfunction\s|\Z)', src, re.DOTALL)
-    assert m, "initStatsChart not found"
-    body = m.group(1)
-    assert 'buildBarChartConfig' in body, "initStatsChart must call buildBarChartConfig"
-    # Must NOT contain the full duplicated dataset inline config
-    assert "backgroundColor: 'rgba(99, 102, 241" not in body, (
-        "initStatsChart still contains inline dataset config — extract into buildBarChartConfig"
-    )
-
-
-@pytest.mark.unit
 def test_monitor_time_series_charts_use_factory():
     """initCpuChart and initMemChart must delegate to _buildTimeSeriesConfig (#88)."""
     src = _src()
@@ -64,21 +41,6 @@ def test_render_container_stats_table_exists():
 
 
 @pytest.mark.unit
-def test_update_stats_uses_shared_table_renderer():
-    """updateStats must delegate table rendering to renderContainerStatsTable."""
-    src = _src()
-    m = re.search(r'function\s+updateStats\s*\(data\)(.*?)(?=\n\nfunction\s|\Z)', src, re.DOTALL)
-    assert m, "updateStats not found"
-    body = m.group(1)
-    assert 'renderContainerStatsTable' in body, (
-        "updateStats must call renderContainerStatsTable"
-    )
-    assert '<table class=' not in body, (
-        "updateStats still contains inline table HTML — extract into renderContainerStatsTable"
-    )
-
-
-@pytest.mark.unit
 def test_update_monitoring_view_uses_shared_table_renderer():
     """updateMonitoringView must delegate table rendering to renderContainerStatsTable."""
     src = _src()
@@ -90,4 +52,37 @@ def test_update_monitoring_view_uses_shared_table_renderer():
     )
     assert '<table class=' not in body, (
         "updateMonitoringView must not contain inline table HTML"
+    )
+
+
+# ── Dead #stats-table removal ────────────────────────────────────────────────
+
+@pytest.mark.unit
+def test_dead_stats_table_paths_removed():
+    """The dead #stats-table element and its chart/update paths must be gone from main.js."""
+    src = _src()
+    assert not re.search(r'\bstatsChart\b', src), (
+        "statsChart identifier still present in main.js — dead chart code not removed"
+    )
+    assert not re.search(r'\bupdateStats\b', src), (
+        "updateStats identifier still present in main.js — dead update path not removed"
+    )
+    assert not re.search(r'\binitStatsChart\b', src), (
+        "initStatsChart identifier still present in main.js — dead chart init not removed"
+    )
+    assert not re.search(r'\bbuildBarChartConfig\b', src), (
+        "buildBarChartConfig identifier still present in main.js — dead chart config factory not removed"
+    )
+    assert not re.search(r'(?<!monitoring-)stats-table(?!-wrapper)', src), (
+        "stats-table element id still present in main.js — dead #stats-table references not removed"
+    )
+
+
+@pytest.mark.unit
+def test_dead_stats_table_css_removed():
+    """The dead #stats-table selector must be gone from style.css."""
+    style_css = pathlib.Path(__file__).parent.parent / "static" / "style.css"
+    css = style_css.read_text()
+    assert not re.search(r'(?<!monitoring-)#stats-table', css), (
+        "#stats-table selector still present in style.css — dead styling not removed"
     )

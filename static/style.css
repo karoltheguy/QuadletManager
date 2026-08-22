@@ -794,7 +794,6 @@ ul { list-style: none; }
     overflow-y: auto;
 }
 
-#stats-table table,
 #monitoring-stats-table table {
     border-collapse: collapse;
     width: 100%;
@@ -841,18 +840,15 @@ ul { list-style: none; }
     box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
-#stats-table tbody tr,
 #monitoring-stats-table tbody tr {
     transition: background-color 0.15s ease;
 }
 
-#stats-table tbody tr:hover,
 #monitoring-stats-table tbody tr:hover {
     background-color: var(--bg-element);
 }
 
 /* Avoids doubling against the .stats-table-wrapper border (style.css:1015). */
-#stats-table tbody tr:last-child,
 #monitoring-stats-table tbody tr:last-child {
     border-bottom: none;
 }

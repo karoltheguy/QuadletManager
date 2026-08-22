@@ -222,34 +222,3 @@ def test_sidebar_width_persists_across_reload(page: Page):
         f"Sidebar width not persisted: dragged={width_after_drag}, "
         f"after reload={width_after_reload}"
     )
-
-
-@pytest.mark.skip(reason="#stats-chart removed from inspector; charts are now in the Monitor tab")
-@pytest.mark.e2e
-def test_drag_left_handle_resizes_stats_chart(page: Page):
-    """Dragging the left handle to the right should narrow the inspector and change chart width."""
-    _goto(page)
-
-    chart = page.locator("#stats-chart")
-    handle = page.locator("#resize-handle-left")
-    
-    # Wait for chart to be rendered
-    chart.wait_for(state="visible")
-    initial_width = chart.bounding_box()["width"]
-
-    handle_box = handle.bounding_box()
-    start_x = handle_box["x"] + handle_box["width"] / 2
-    start_y = handle_box["y"] + handle_box["height"] / 2
-
-    page.mouse.move(start_x, start_y)
-    page.mouse.down()
-    page.mouse.move(start_x + 150, start_y, steps=10)
-    page.mouse.up()
-    
-    # Wait a tiny bit for resize logic to apply
-    page.wait_for_timeout(200)
-
-    final_width = chart.bounding_box()["width"]
-    assert final_width < initial_width, (
-        f"Chart should have shrunk after left-drag right: {initial_width} → {final_width}"
-    )

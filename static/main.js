@@ -534,7 +534,6 @@ document.body.addEventListener('user-updated', function(evt) {
 
 
 // ── Stats Chart ──────────────────────────────────────────
-let statsChart = null;
 let cpuHistoryChart = null;
 let memHistoryChart = null;
 
@@ -658,7 +657,7 @@ function patchChartOptions(opts, t) {
 
 function applyChartTheme() {
     const t = getChartTheme();
-    const charts = [statsChart];
+    const charts = [];
     if (typeof monitoringChart !== 'undefined' && monitoringChart) {
         charts.push(monitoringChart);
     }
@@ -927,21 +926,7 @@ window.setActiveServer = function(serverId) {
     // Re-render immediately with cached data for this server, if we have it.
     const cached = Reflect.get(lastStatsPerServer, serverId);
     if (cached) {
-        updateStats(cached);
         applyStatusDots(serverId);
-    } else {
-        // No data yet for this server – show a waiting message.
-        const tableEl = document.getElementById('stats-table');
-        if (tableEl) {
-            tableEl.textContent = '';
-            tableEl.appendChild(el('div', { className: 'p-4 text-muted italic' }, 'Waiting for stats data...'));
-        }
-        if (statsChart) {
-            statsChart.data.labels = [];
-            statsChart.data.datasets[0].data = [];
-            statsChart.data.datasets[1].data = [];
-            statsChart.update();
-        }
     }
 };
 
@@ -992,85 +977,6 @@ function applyStatusDots(serverId) {
     });
 }
 
-
-function buildBarChartConfig() {
-  const t = getChartTheme();
-  return {
-    type: 'bar',
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: 'CPU %',
-          data: [],
-          backgroundColor: t.accentBg,
-          borderColor: t.accent,
-          borderWidth: 1,
-          borderRadius: 4
-        },
-        {
-          label: 'Memory %',
-          data: [],
-          backgroundColor: t.secondaryBg,
-          borderColor: t.secondary,
-          borderWidth: 1,
-          borderRadius: 4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: {
-            color: t.tickColor,
-            font: { size: 11 },
-            callback: function(value) { return value + '%'; }
-          },
-          grid: { color: t.gridColor }
-        },
-        x: {
-          ticks: {
-            color: t.tickColor,
-            font: { size: 11 },
-            maxRotation: 45,
-            minRotation: 0
-          },
-          grid: { display: false }
-        }
-      },
-      plugins: {
-        legend: {
-          labels: {
-            color: t.legendColor,
-            font: { size: 11 },
-            boxWidth: 12,
-            padding: 8
-          }
-        },
-        tooltip: {
-          backgroundColor: t.tooltipBg,
-          titleColor: t.tooltipTitle,
-          bodyColor: t.tooltipBody,
-          borderColor: t.tooltipBorder,
-          borderWidth: 1,
-          cornerRadius: 6,
-          padding: 8
-        }
-      }
-    }
-  };
-}
-
-function initStatsChart() {
-  const ctx = document.getElementById('stats-chart');
-  if (!ctx) return;
-  statsChart = new Chart(ctx, buildBarChartConfig());
-}
 
 function _buildTimeSeriesConfig() {
   const t = getChartTheme();
@@ -1500,21 +1406,6 @@ function renderContainerStatsTable(tableElId, data) {
     tableEl.appendChild(footerDiv);
 }
 
-function updateStats(data) {
-    const containers = data.containers || [];
-
-    // ── Update Chart ──
-    if (statsChart) {
-        statsChart.data.labels = containers.map(function(c) { return c.name; });
-        statsChart.data.datasets[0].data = containers.map(function(c) { return parsePercent(c.cpu); });
-        statsChart.data.datasets[1].data = containers.map(function(c) { return parsePercent(c.mem); });
-        statsChart.update();
-    }
-
-    renderContainerStatsTable('stats-table', data);
-}
-
-
 function isManualStop(serverId, oldName) {
   let wasManual = false;
   manualStops.forEach(function(manualKey) {
@@ -1552,22 +1443,11 @@ function cacheServerStats(data) {
   return { oldSet: oldSet, runningSet: runningSet };
 }
 
-// Each pane is gated on its own server id, and separately: the Editor's table
-// follows activeServerId while the Monitor's follows _monitoringServerId, and
-// both can legitimately be showing the same server. A single early return
-// would suppress Editor errors for the server the Editor is displaying.
+// Gated on _monitoringServerId so errors only surface for the server the
+// Monitor pane is currently displaying.
 function handleStatsError(e) {
   try {
     const data = JSON.parse(e.data);
-
-    if (data.server_id === window.activeServerId) {
-      const tableEl = document.getElementById('stats-table');
-      if (tableEl) {
-        tableEl.classList.add('stats-error');
-        tableEl.textContent = '';
-        tableEl.appendChild(createStatsErrorDOM(data.server_name, data.error));
-      }
-    }
 
     if (data.server_id === window._monitoringServerId) {
       const monitoringTableEl = document.getElementById('monitoring-stats-table');
@@ -1602,12 +1482,6 @@ function handleStatsUpdate(e) {
     }
 
     updateMonitoringView(data);
-
-    if (data.server_id !== window.activeServerId) return;
-
-    const tableEl = document.getElementById('stats-table');
-    if (tableEl) tableEl.classList.remove('stats-error');
-    updateStats(data);
   } catch (err) {
     console.error('Stats parse error:', err);
   }
@@ -2670,7 +2544,6 @@ function initResizableHandles() {
                 const delta = e.clientX - startX;
                 const newPx = Math.min(maxPx, Math.max(minPx, startPx + delta));
                 document.documentElement.style.setProperty(cssVar, newPx + 'px');
-                if (statsChart) statsChart.resize();
             }
 
             function onUp() {
@@ -2686,7 +2559,6 @@ function initResizableHandles() {
 
                 // Re-layout Monaco if open
                 if (window.editor) window.editor.layout();
-                if (statsChart) statsChart.resize();
             }
 
             document.addEventListener('mousemove', onMove);
@@ -2734,7 +2606,6 @@ function initResizableHandles() {
                 const delta = startX - e.clientX;   // dragging left widens inspector
                 const newPx = Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, startPx + delta));
                 document.documentElement.style.setProperty('--inspector-width', newPx + 'px');
-                if (statsChart) statsChart.resize();
             }
 
             function onUp() {
@@ -2746,7 +2617,6 @@ function initResizableHandles() {
                     .getPropertyValue('--inspector-width').trim();
                 localStorage.setItem('qm-inspector-width', finalPx);
                 if (window.editor) window.editor.layout();
-                if (statsChart) statsChart.resize();
             }
 
             document.addEventListener('mousemove', onMove);
@@ -2815,7 +2685,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.switchTab(localStorage.getItem('qm-active-tab') || 'overview');
 switchBottomTab(localStorage.getItem('qm-bottom-tab') || 'terminal');
-initStatsChart();
 initCpuChart();
 initMemChart();
 setupShellSelector();
@@ -2888,15 +2757,10 @@ initResizableHandles();
     });
 })();
 
-// If no stats arrive within 15s of page load, update the placeholder
-// so the user isn't left staring at "Waiting for stats data..." forever.
+// If no stats arrive within 15s of page load, update the monitoring
+// placeholder so the user isn't left staring at it forever.
 _statsWaitTimeout = setTimeout(function() {
   if (!_statsReceived) {
-    const tableEl = document.getElementById('stats-table');
-    if (tableEl) {
-      tableEl.textContent = '';
-      tableEl.appendChild(el('div', { className: 'p-4 text-warning italic' }, 'No stats received yet — verify server connectivity.'));
-    }
     const monitoringTableEl = document.getElementById('monitoring-stats-table');
     if (monitoringTableEl) {
       monitoringTableEl.textContent = '';
