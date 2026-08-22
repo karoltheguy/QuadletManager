@@ -18,6 +18,7 @@ from services.stats_engine import (
     ROOTLESS_ENV_PREFIX,
     ScopeResult,
 )
+from services.ssh_manager import SSHCommandError
 
 
 # =============================================================================
@@ -208,6 +209,38 @@ async def test_ssh_error_returns_empty_list(mock_pool, mock_unit_names):
     mock_pool.execute_command = AsyncMock(side_effect=Exception("Connection refused"))
 
     result = await _fetch_scope_stats(server_id=1, rootful=False)
+
+    assert result.containers == []
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
+@patch("services.stats_engine.pool")
+@pytest.mark.unit
+async def test_connection_refused_propagates(mock_pool, mock_unit_names):
+    """A connection-level failure (server unreachable) must propagate out of
+    _fetch_scope_stats rather than being swallowed into an empty ScopeResult,
+    so fetch_server_stats() can publish stats_error instead of a false
+    zero-containers stats_update."""
+    mock_unit_names.return_value = []
+    mock_pool.execute_command = AsyncMock(side_effect=ConnectionRefusedError("Connection refused"))
+
+    with pytest.raises(ConnectionRefusedError):
+        await _fetch_scope_stats(server_id=1, rootful=False)
+
+
+@pytest.mark.asyncio
+@patch("services.stats_engine._unit_names_for_scope")
+@patch("services.stats_engine.pool")
+@pytest.mark.unit
+async def test_ssh_command_error_still_swallowed(mock_pool, mock_unit_names):
+    """SSHCommandError is a scope-level failure (e.g. sudo denied) and must
+    still be swallowed, returning an empty ScopeResult rather than
+    propagating. Regression guard on the half that must NOT change."""
+    mock_unit_names.return_value = []
+    mock_pool.execute_command = AsyncMock(side_effect=SSHCommandError("sudo: a password is required"))
+
+    result = await _fetch_scope_stats(server_id=1, rootful=True)
 
     assert result.containers == []
 
