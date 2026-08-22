@@ -549,6 +549,75 @@ const HISTORY_COLORS = [
     'rgba(251, 146, 60, 1)',   // orange
 ];
 
+// Colors are keyed off container name, not position: the table swatch and
+// the chart line have to agree, but the two dataset-building paths visit
+// containers in different orders.
+const chartColorByName = new Map();
+
+// An empty set means every series is visible; a non-empty set is the exact
+// set of visible container names. Both history charts share this selection.
+const monitorChartSelection = new Set();
+
+// Single source of truth for "is this series/swatch on": both the row
+// renderer and the click refresh use it, so the button state and
+// `ds.hidden` can never drift apart.
+function chartSwatchIsOn(name) {
+    return monitorChartSelection.size === 0 || monitorChartSelection.has(name);
+}
+
+// Sets a swatch button's aria-pressed and class from the shared predicate.
+// `chart-swatch` is the permanent identity class (styling and test hooks key
+// off it regardless of state); `chart-swatch-off` is added alongside it,
+// never in place of it, when the series is hidden.
+function applySwatchState(btn, name) {
+    const on = chartSwatchIsOn(name);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.className = on ? 'chart-swatch' : 'chart-swatch chart-swatch-off';
+}
+
+function chartColorFor(name) {
+    if (chartColorByName.has(name)) {
+        return chartColorByName.get(name);
+    }
+    const color = HISTORY_COLORS[chartColorByName.size % HISTORY_COLORS.length];
+    chartColorByName.set(name, color);
+    return color;
+}
+
+function applyChartSelection(chart) {
+    if (!chart) return;
+    chart.data.datasets.forEach(function(ds) {
+        ds.hidden = monitorChartSelection.size > 0 && !monitorChartSelection.has(ds.label);
+    });
+}
+
+// One click on a container's swatch. From all-visible, it isolates that
+// container; from a subset it adds or removes; and clicking the only selected
+// container clears the selection, so a user is never stranded in a filtered view.
+function toggleChartSelection(name) {
+    if (!monitorChartSelection.has(name)) {
+        monitorChartSelection.add(name);
+    } else if (monitorChartSelection.size >= 2) {
+        monitorChartSelection.delete(name);
+    } else {
+        monitorChartSelection.clear();
+    }
+    applyChartSelection(cpuHistoryChart);
+    applyChartSelection(memHistoryChart);
+    if (cpuHistoryChart) cpuHistoryChart.update('none');
+    if (memHistoryChart) memHistoryChart.update('none');
+    refreshChartSwatches();
+}
+window.toggleChartSelection = toggleChartSelection;
+
+// Gives the click immediate feedback without waiting for the next stats
+// frame to re-render the table.
+function refreshChartSwatches() {
+    document.querySelectorAll('#monitoring-stats-table button.chart-swatch').forEach(function(btn) {
+        applySwatchState(btn, btn.dataset.container);
+    });
+}
+
 function hexToRgba(hex, alpha) {
     const r = Number.parseInt(hex.slice(1, 3), 16);
     const g = Number.parseInt(hex.slice(3, 5), 16);
@@ -1034,9 +1103,9 @@ function _buildTimeSeriesConfig() {
         }
       },
       plugins: {
-        legend: {
-          labels: { color: t.legendColor, font: { size: 11 }, boxWidth: 12, padding: 8 }
-        },
+        // The container table is the legend now (issue #256); the canvas
+        // legend would just duplicate the chart-swatch buttons.
+        legend: { display: false },
         tooltip: {
           backgroundColor: t.tooltipBg,
           titleColor: t.tooltipTitle,
@@ -1120,10 +1189,10 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         ? data.filter(function(c) { return (c.container_name || '').toLowerCase().includes(monitorContainerFilter); })
         : data;
 
-      const cpuDatasets = filteredData.map(function(c, i) {
+      const cpuDatasets = filteredData.map(function(c) {
         const byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.cpu !== null ? p.cpu : null); });
-        const color = HISTORY_COLORS[i % HISTORY_COLORS.length];
+        const color = chartColorFor(c.container_name);
         return {
           label: c.container_name,
           data: tsSorted.map(function(ts) {
@@ -1139,10 +1208,10 @@ window.loadMonitorCharts = function(minutes, btnEl) {
         };
       });
 
-      const memDatasets = filteredData.map(function(c, i) {
+      const memDatasets = filteredData.map(function(c) {
         const byTs = {};
         c.history.forEach(function(p) { Reflect.set(byTs, p.ts, p.mem !== null ? p.mem : null); });
-        const color = HISTORY_COLORS[i % HISTORY_COLORS.length];
+        const color = chartColorFor(c.container_name);
         return {
           label: c.container_name,
           data: tsSorted.map(function(ts) {
@@ -1160,10 +1229,12 @@ window.loadMonitorCharts = function(minutes, btnEl) {
 
       cpuHistoryChart.data.labels = labels;
       cpuHistoryChart.data.datasets = cpuDatasets;
+      applyChartSelection(cpuHistoryChart);
       cpuHistoryChart.update();
 
       memHistoryChart.data.labels = labels;
       memHistoryChart.data.datasets = memDatasets;
+      applyChartSelection(memHistoryChart);
       memHistoryChart.update();
     })
     .catch(function(err) {
@@ -1280,6 +1351,22 @@ function renderContainerRow(c, unitIndex) {
     const tr = document.createElement('tr');
     tr.className = 'border-b';
 
+    const tdSwatch = document.createElement('td');
+    tdSwatch.className = 'p-4 chart-swatch-cell';
+    if (!c.not_running) {
+        const swatchBtn = document.createElement('button');
+        swatchBtn.type = 'button';
+        swatchBtn.dataset.container = c.name;
+        swatchBtn.style.backgroundColor = chartColorFor(c.name);
+        swatchBtn.setAttribute('aria-label', 'Toggle ' + c.name + ' in the history charts');
+        applySwatchState(swatchBtn, c.name);
+        swatchBtn.addEventListener('click', function() {
+            toggleChartSelection(c.name);
+        });
+        tdSwatch.appendChild(swatchBtn);
+    }
+    tr.appendChild(tdSwatch);
+
     const tdName = document.createElement('td');
     tdName.className = 'text-left p-4 text-accent font-semibold';
     tdName.textContent = c.name;
@@ -1363,6 +1450,7 @@ function renderContainerStatsTable(tableElId, data) {
     headerRow.className = 'text-muted';
 
     const headers = [
+        { text: 'Series color', align: 'left', visuallyHidden: true },
         { text: 'Container', align: 'left' },
         { text: 'Status', align: 'left' },
         { text: 'Unit', align: 'left' },
@@ -1375,7 +1463,14 @@ function renderContainerStatsTable(tableElId, data) {
         const th = document.createElement('th');
         th.className = (h.align === 'left' ? 'text-left p-4' : 'p-4 text-right');
         th.scope = 'col';
-        th.textContent = h.text;
+        if (h.visuallyHidden) {
+            const label = document.createElement('span');
+            label.className = 'visually-hidden';
+            label.textContent = h.text;
+            th.appendChild(label);
+        } else {
+            th.textContent = h.text;
+        }
         headerRow.appendChild(th);
     });
 
@@ -1935,7 +2030,7 @@ function updateMonitoringView(data) {
           datasetByName[c.name].data.push(val);
         } else {
           // New container not yet in chart — add a new dataset
-          const color = HISTORY_COLORS[chart.data.datasets.length % HISTORY_COLORS.length];
+          const color = chartColorFor(c.name);
           chart.data.datasets.push({
             label: c.name,
             data: [val],
@@ -1957,6 +2052,7 @@ function updateMonitoringView(data) {
         chart.data.datasets.forEach(function(ds) { ds.data.shift(); });
       }
 
+      applyChartSelection(chart);
       chart.update('none');
     }
 
@@ -1983,6 +2079,10 @@ function updateFilterCount(shown, total) {
 }
 
 function applyContainerFilter(value) {
+  // The filter decides which containers are available, so a filter change
+  // resets which of them are selected, otherwise the user can end up with
+  // an empty chart and no visible reason.
+  monitorChartSelection.clear();
   monitorContainerFilter = (value || '').toLowerCase().trim();
   const serverId = window._monitoringServerId;
   const cached = Reflect.get(lastStatsPerServer, serverId);
