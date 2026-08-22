@@ -26,6 +26,7 @@ import shlex
 import subprocess
 import tempfile
 import time
+import urllib.request
 
 import pytest
 from playwright.sync_api import expect
@@ -45,6 +46,37 @@ UI_QUADLET = "e2e-ui-created"
 MONITOR_CONTAINER = "e2e-monitor"
 
 USER_QUADLET_DIR = "~/.config/containers/systemd"
+
+
+def _podman_host_is_seeded(base_url: str) -> bool:
+    """True when the app at base_url lists a server named SERVER_LABEL."""
+    try:
+        with urllib.request.urlopen(f"{base_url}/api/servers/options", timeout=5) as resp:
+            body = resp.read().decode()
+        return SERVER_LABEL in body
+    except Exception:
+        return False
+
+
+def _skip_unless_seeded(base_url: str) -> None:
+    if not _podman_host_is_seeded(base_url):
+        pytest.skip(
+            f"no server named '{SERVER_LABEL}' at {base_url}; seed it with "
+            "scripts/seed_test_db.py (an app that requires a login looks the "
+            "same from here, since this check reads plain HTTP with no cookie)"
+        )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _require_seeded_podman_host():
+    """Skip all journeys in this module legibly when nothing seeded the app.
+
+    tests/conftest.py only skips page tests when nothing answers QM_APP_URL,
+    so a developer's own dev server on port 8000 satisfies that gate while
+    having no `Podman Host` row, and the journeys then fail as UI assertions
+    that read like an app regression rather than as a missing-fixture skip.
+    """
+    _skip_unless_seeded(BASE_URL)
 
 # %b, not %s. printf '%s' does not expand \n, so writing this with %s produces a
 # single literal line reading `[Container]\nImage=...`, which is not a quadlet at

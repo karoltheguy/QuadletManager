@@ -54,7 +54,8 @@ Container target (default, matches CI):
   up                    build the image and start the podman host
   status                is the host reachable? (no sudo needed)
   down                  stop and remove the container
-  test [pytest args]    run `pytest -m podman` against the selected target
+  test [pytest args]    run `pytest -m podman`; provisions a seeded scratch
+                        app unless QM_APP_URL is already set
   shell                 ssh into the target with the test key
   logs [args]           journalctl from inside the container
 
@@ -67,6 +68,8 @@ Environment (read identically here and in tests/podman/conftest.py):
   QM_PODMAN_USER   default editor           ssh user
   QM_PODMAN_KEY    default tests/fixtures/test_key
   QM_PODMAN_NARROW_USER  default narrow     ssh user for the sudo policy test
+  QM_APP_URL       unset (auto-provisioned)  base URL of an already-running,
+                   already-seeded app; when unset, `test` starts its own
 EOF
 }
 
@@ -227,6 +230,19 @@ target_user() { echo "${QM_PODMAN_USER:-editor}"; }
 target_key()  { echo "${QM_PODMAN_KEY:-$TEST_KEY}"; }
 
 _KEY_COPY=""
+_APP_PID=""
+_APP_DIR=""
+
+# One EXIT trap for the whole script. ensure_key_copy used to install its own,
+# and a second `trap ... EXIT` anywhere would silently replace it and leak the
+# private key copy.
+cleanup() {
+    [ -n "$_APP_PID" ] && kill "$_APP_PID" 2>/dev/null
+    [ -n "$_APP_DIR" ] && rm -rf "$_APP_DIR"
+    [ -n "$_KEY_COPY" ] && rm -f "$_KEY_COPY"
+    return 0
+}
+trap cleanup EXIT
 
 # ssh refuses a private key that is readable by group or other, and falls back
 # to password auth. The committed fixture is mode 644 because git records only
@@ -235,8 +251,8 @@ _KEY_COPY=""
 #
 # MUST be called as a plain statement, never as `$(ensure_key_copy)`. Command
 # substitution runs the function in a subshell, so the assignment below would be
-# discarded and, worse, the EXIT trap would fire when that subshell ended and
-# delete the key before ssh ever opened it. The symptom is
+# discarded, and, worse, the subshell exiting fires the same shared EXIT trap
+# and deletes the key before ssh ever opened it. The symptom is
 # "Identity file /tmp/tmp.XXXX not accessible" followed by a permission-denied,
 # which reads like a broken key rather than a shell scoping mistake.
 ensure_key_copy() {
@@ -244,7 +260,6 @@ ensure_key_copy() {
         _KEY_COPY="$(mktemp)"
         chmod 600 "$_KEY_COPY"
         cat "$(target_key)" > "$_KEY_COPY"
-        trap 'rm -f "$_KEY_COPY"' EXIT
     fi
 }
 
@@ -270,7 +285,54 @@ cmd_shell() {
     ssh_target
 }
 
+free_port() {
+    python -c 'import socket; s = socket.socket(); s.bind(("localhost", 0)); print(s.getsockname()[1]); s.close()'
+}
+
+wait_for_app() {
+    local url="$1"
+    for _ in $(seq 1 30); do
+        if curl -sS -o /dev/null "$url/" 2>/dev/null; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+start_scratch_app() {
+    _APP_DIR="$(mktemp -d)"
+    export QUADLET_DB_PATH="$_APP_DIR/app.db"
+    # The seeder and the app must share this, or the encrypted SSH key cannot
+    # be decrypted and the host is unreachable from the UI while staying
+    # reachable from the service-level tests.
+    export QUADLET_MASTER_KEY="${QUADLET_MASTER_KEY:-$(python -c "print('0'*64)")}"
+
+    PYTHONPATH=. python -c "import asyncio, core.database as d; asyncio.run(d.init_db())"
+
+    QM_SEED_PODMAN=1 QM_PODMAN_HOST="$(target_host):$(target_port)" \
+        QM_PODMAN_USER="$(target_user)" QM_PODMAN_KEY="$(target_key)" \
+        PYTHONPATH=. python scripts/seed_test_db.py
+
+    local port; port="$(free_port)"
+    export QM_APP_URL="http://localhost:$port"
+
+    DEV_AUTO_LOGIN=1 PYTHONPATH=. python -m uvicorn main:app --port "$port" \
+        > "$_APP_DIR/uvicorn.log" 2>&1 &
+    _APP_PID=$!
+
+    if ! wait_for_app "$QM_APP_URL"; then
+        cat "$_APP_DIR/uvicorn.log" >&2
+        die "the scratch app did not start; see the uvicorn log above"
+    fi
+}
+
 cmd_test() {
+    if [ -z "${QM_APP_URL:-}" ]; then
+        start_scratch_app
+    else
+        log "QM_APP_URL is already set; using the app at $QM_APP_URL"
+    fi
     log "pytest -m podman against $(target_user)@$(target_host):$(target_port)"
     PYTHONPATH=. python -m pytest tests/ -m podman "$@"
 }

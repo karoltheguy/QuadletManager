@@ -219,8 +219,14 @@ in your environment adds `-n auto` for you.
 ### Running the browser journeys
 
 `tests/e2e/test_podman_e2e.py` needs an app instance whose database has been
-seeded with the podman host. If you already have a dev server on port 8000, run
-a second instance against a scratch database rather than seeding your real one:
+seeded with the podman host. `./scripts/podman-e2e.sh test` builds one for you:
+a scratch database in a temp directory, the seeder, and uvicorn on a free port,
+all torn down when the script exits. Nothing below is needed for the normal
+path.
+
+Do it by hand only when you want the app to outlive the run, or want to point
+the suite at an instance you already have. Exporting `QM_APP_URL` is what tells
+the script to stand aside:
 
 ```bash
 export QUADLET_DB_PATH=/tmp/qm-podman/app.db
@@ -246,7 +252,13 @@ Point it at an app that is not running and the browser journeys skip rather than
 fail, which reads as a green run.
 
 Re-run the seeder after any `podman-e2e.sh up`, since a rebuilt host presents a
-new SSH host key. See the host-key trap below.
+new SSH host key. See the host-key trap below. The scratch instance the script
+builds is immune to this: it seeds a fresh database on every run.
+
+A journey that finds no `Podman Host` row at `QM_APP_URL` now skips with a
+message naming the seeder, rather than failing as a UI assertion. An app that
+requires a login looks the same to that check, which reads the server list over
+plain HTTP with no cookie, so run the manual app with `DEV_AUTO_LOGIN=1`.
 
 ### Safety rails
 
