@@ -1,6 +1,6 @@
 """Seed a test database with the servers the browser-driven suites expect.
 
-Two rows, seeded independently:
+Four rows, seeded independently:
 
 * "Mock Server": unchanged from the original script, kept exactly as it was so
   the existing e2e suite is unaffected. It has no ssh_key_id and therefore can
@@ -10,6 +10,17 @@ Two rows, seeded independently:
   server it is meant to actually work. connect_to_server() inner-joins ssh_keys,
   so a server row without a usable ssh_key_id is unreachable no matter what else
   is right; this row gets one.
+
+* "Podman User Scope": seeded alongside "Podman Host", same address,
+  ssh user and ssh_key_id, but scope_filter 'user'. It exists so the dropdown,
+  lastStatsPerServer and the overview counts see more than one real server id,
+  without a second SSH target.
+
+* "Unreachable Host": seeded alongside "Podman Host", same ssh user and
+  ssh_key_id but on a dead port. It has a valid ssh_key_id on purpose, so it
+  fails at the TCP layer and produces genuine stats_error frames; port 1 is
+  privileged and unbound, which makes connection-refused deterministic rather
+  than a race against an ephemeral port.
 
 The target address is deliberately not hardcoded. It differs by caller:
   CI (app container -> host container):  podman-host:22
@@ -45,6 +56,8 @@ from core.crypto import encrypt_private_key  # noqa: E402 - needs the path above
 KEY_NAME = "test_key"
 MOCK_SERVER_NAME = "Mock Server"
 PODMAN_SERVER_NAME = "Podman Host"
+PODMAN_USER_SCOPE_NAME = "Podman User Scope"
+UNREACHABLE_SERVER_NAME = "Unreachable Host"
 
 
 async def _ensure_ssh_key(db, key_path: str) -> int:
@@ -78,7 +91,14 @@ async def _ensure_ssh_key(db, key_path: str) -> int:
     return cursor.lastrowid
 
 
-async def _ensure_server(db, name: str, ip_address: str, ssh_user: str, ssh_key_id):
+async def _ensure_server(
+    db,
+    name: str,
+    ip_address: str,
+    ssh_user: str,
+    ssh_key_id,
+    scope_filter: str = "both",
+):
     """Insert one server row if a row with that name is not already there.
 
     host_key is left NULL on purpose. Host keys are TOFU-pinned on first
@@ -114,8 +134,8 @@ async def _ensure_server(db, name: str, ip_address: str, ssh_user: str, ssh_key_
 
     await db.execute(
         "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter) "
-        "VALUES (?, ?, ?, ?, 'both')",
-        (name, ip_address, ssh_user, ssh_key_id),
+        "VALUES (?, ?, ?, ?, ?)",
+        (name, ip_address, ssh_user, ssh_key_id, scope_filter),
     )
     print(f"Seeded server '{name}' at {ssh_user}@{ip_address}.")
 
@@ -152,11 +172,41 @@ async def main():
             key_id = await _ensure_ssh_key(
                 db, os.environ.get("QM_PODMAN_KEY", "tests/fixtures/test_key")
             )
+            podman_host = os.environ.get("QM_PODMAN_HOST", "localhost:2223")
+            podman_user = os.environ.get("QM_PODMAN_USER", "editor")
             await _ensure_server(
                 db,
                 PODMAN_SERVER_NAME,
-                os.environ.get("QM_PODMAN_HOST", "localhost:2223"),
-                os.environ.get("QM_PODMAN_USER", "editor"),
+                podman_host,
+                podman_user,
+                key_id,
+            )
+
+            # Second row on the same host: gives the dropdown, lastStatsPerServer
+            # and the overview counts more than one real server id to see,
+            # without standing up a second SSH target. Named without "Podman
+            # Host" as a substring: Playwright's get_by_role(name=...) is a
+            # substring match, so a name containing another server's name
+            # makes locators ambiguous.
+            await _ensure_server(
+                db,
+                PODMAN_USER_SCOPE_NAME,
+                podman_host,
+                podman_user,
+                key_id,
+                scope_filter="user",
+            )
+
+            # Same key, dead port: fails at the TCP layer rather than the ssh_key
+            # join, so it produces genuine stats_error frames. Port 1 is
+            # privileged and unbound, making connection-refused deterministic
+            # rather than a race against an ephemeral port.
+            unreachable_host = podman_host.split(":")[0]
+            await _ensure_server(
+                db,
+                UNREACHABLE_SERVER_NAME,
+                f"{unreachable_host}:1",
+                podman_user,
                 key_id,
             )
 
