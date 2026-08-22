@@ -1,4 +1,5 @@
 import asyncio
+import asyncssh
 import json
 import logging
 import re
@@ -6,7 +7,12 @@ import shlex
 import time
 from collections import namedtuple
 from core.database import get_db_connection
-from services.ssh_manager import pool
+from services.ssh_manager import (
+    pool,
+    ServerConfigurationError,
+    KeyDecryptionError,
+    HostKeyMismatchError,
+)
 from core.events_manager import publisher
 from services.systemd_manager import ROOTLESS_ENV_PREFIX, build_unit_state_command, parse_systemctl_show
 from services.quadlet_naming import base_name_of, quadlet_type_of, unit_name_for
@@ -365,6 +371,29 @@ async def _fetch_scope_stats(server_id: int, rootful: bool) -> ScopeResult:
         stats_data = json.loads(stats_json_str)
         return ScopeResult(_merge_stats_and_health(stats_data, health_map, unit_map), unit_states)
 
+    # A scope failing is a scope's problem; a server being unreachable is the
+    # server's. The two used to be indistinguishable from the Monitor pane:
+    # both surfaced as an empty, healthy-looking ScopeResult. So: failures
+    # that mean this particular scope (rootful/rootless) can't be polled
+    # right now, e.g. a denied sudo or a malformed reply, are swallowed here
+    # and reported as zero containers for that scope. Failures that mean the
+    # server itself can't be reached or authenticated to at all are
+    # re-raised so fetch_server_stats() publishes stats_error instead of a
+    # false "0 containers" stats_update.
+    #
+    # Ordering note: the swallow clause is a bare `except Exception`, so it
+    # catches SSHCommandError and its SSHTimeoutError subclass without naming
+    # either. None of the re-raise types below subclass Exception in a way
+    # that changes this, so only one thing matters: the re-raise clause must
+    # come first, or `except Exception` would swallow it too.
+    except (
+        OSError,
+        ServerConfigurationError,
+        KeyDecryptionError,
+        HostKeyMismatchError,
+        asyncssh.PermissionDenied,
+    ):
+        raise
     except Exception as e:
         scope_label = "global" if rootful else "user"
         logger.warning(

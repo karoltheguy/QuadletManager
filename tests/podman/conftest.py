@@ -41,6 +41,8 @@ DEFAULT_HOST = "localhost:2223"
 DEFAULT_USER = "editor"
 DEFAULT_KEY = "tests/fixtures/test_key"
 
+UNREACHABLE_HOST_NAME = "Unreachable Host"
+
 
 def refuse_parallel_execution() -> None:
     """Refuse to run in parallel. This suite has exactly one host.
@@ -351,6 +353,34 @@ async def podman_server(podman_target, isolated_database, monkeypatch):
             except Exception as exc:  # noqa: BLE001 - teardown must not mask the test's own failure
                 print(f"warning: teardown failed for scope {scope}: {exc}")
         await pool.close_all()
+
+
+@pytest.fixture
+async def podman_fleet(podman_server, isolated_database):
+    """Add an unreachable row alongside `podman_server`'s reachable one.
+
+    Shares the reachable row's ssh_key_id on purpose: a row without a usable
+    key is unreachable for a reason that has nothing to do with the network,
+    and connect_to_server() inner-joins ssh_keys, so the failure would come
+    from the wrong layer.
+    """
+    async with aiosqlite.connect(str(isolated_database)) as db:
+        async with db.execute(
+            "SELECT ssh_key_id, ssh_user, ip_address FROM servers WHERE id = ?",
+            (podman_server,),
+        ) as cursor:
+            ssh_key_id, ssh_user, ip_address = await cursor.fetchone()
+
+        unreachable_host = ip_address.split(":")[0]
+        cursor = await db.execute(
+            "INSERT INTO servers (name, ip_address, ssh_user, ssh_key_id, scope_filter) "
+            "VALUES (?, ?, ?, ?, 'both')",
+            (UNREACHABLE_HOST_NAME, f"{unreachable_host}:1", ssh_user, ssh_key_id),
+        )
+        unreachable_id = cursor.lastrowid
+        await db.commit()
+
+    return {"reachable": podman_server, "unreachable": unreachable_id}
 
 
 async def _preflight(server_id: int) -> None:

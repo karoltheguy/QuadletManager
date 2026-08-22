@@ -255,6 +255,15 @@ Re-run the seeder after any `podman-e2e.sh up`, since a rebuilt host presents a
 new SSH host key. See the host-key trap below. The scratch instance the script
 builds is immune to this: it seeds a fresh database on every run.
 
+`QM_SEED_PODMAN` seeds a fleet, not one row: `Podman Host` on the real target,
+`Podman User Scope` at the same address with `scope_filter` `user`, and
+`Unreachable Host` on port 1. The second gives the dropdown, `lastStatsPerServer`
+and the overview counts two real server ids without a second SSH target; the
+third has a valid `ssh_key_id` and fails at the TCP layer, so it produces genuine
+`stats_error` frames every poll. Neither name contains `Podman Host`, on purpose:
+Playwright's `get_by_role(name=...)` matches by substring, so a name that
+contains another server's name makes locators ambiguous.
+
 A journey that finds no `Podman Host` row at `QM_APP_URL` now skips with a
 message naming the seeder, rather than failing as a UI assertion. An app that
 requires a login looks the same to that check, which reads the server list over
