@@ -9,7 +9,7 @@
 #   pip-compile --generate-hashes --allow-unsafe --strip-extras \
 #       -c requirements.txt --output-file requirements-test.txt requirements-test.in
 fastapi>=0.141.1
-uvicorn[standard]>=0.52.0
+uvicorn[standard]>=0.52.4
 asyncssh>=2.24.0
 cryptography>=49.0.0
 aiosqlite>=0.22.1
