@@ -953,6 +953,10 @@ ul { list-style: none; }
     color: var(--danger);
 }
 
+.cycle-flag {
+    margin-right: 0.25rem;
+}
+
 /* Monitor time-series chart section — a recessed data surface like the table
    above it, not a card. The pane is the only raised element in this view. */
 .monitor-chart-section {
