@@ -3206,7 +3206,6 @@ window.safeReload = function() {
 
 window.softRefresh = function() {
     htmx.trigger(document.body, 'reload-servers');
-    loadMonitorCharts(window._monitorChartMinutes || 15);
 };
 
 // ── Editor Validation / Save ────────────────────────────────

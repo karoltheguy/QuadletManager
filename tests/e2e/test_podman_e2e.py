@@ -217,7 +217,7 @@ def _open_app(page):
 def _open_containers_tab(page, refresh: bool = False):
     """Land on the Containers tab with the tree in a known, expanded state.
 
-    `refresh` clicks Refresh data, which is what a journey wants when it wrote
+    `refresh` clicks Refresh server list, which is what a journey wants when it wrote
     a file on the host a moment ago and does not want to wait out a reconcile
     cycle. The journey that is specifically about updating *without* a manual
     refresh must leave it off.
@@ -225,7 +225,7 @@ def _open_containers_tab(page, refresh: bool = False):
     _open_app(page)
     page.get_by_role("button", name="Containers").click()
     if refresh:
-        page.get_by_role("button", name="Refresh data").click()
+        page.get_by_role("button", name="Refresh server list").click()
 
 
 def _tree_entry(page, file_name: str):
