@@ -41,8 +41,23 @@ templates = Jinja2Templates(directory="templates")
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 
+
+class AuthRedirect(Exception):
+    """Raised by the auth dependencies to send an unauthenticated caller to a login page.
+
+    Not an HTTPException: this is a redirect, not an error, and the app-level
+    handler in main.py turns it into a RedirectResponse with no body.
+    """
+
+    status_code = 303
+
+    def __init__(self, location: str) -> None:
+        super().__init__(location)
+        self.location = location
+
+
 # Every route behind an auth dependency can answer this instead of running:
-# _get_session raises a 303 to /login when the session cookie is missing or
+# _get_session raises AuthRedirect to /login when the session cookie is missing or
 # unreadable, so the schema has to admit the redirect. The dicts below compose
 # off this one rather than restating the 303, which keeps the wording single-
 # sourced; tests/test_api_auth_sweep.py pins the code to the actual raise.
@@ -276,25 +291,25 @@ async def _persist_log_level(level: str) -> None:
 async def _get_session(request: Request) -> dict:
     """Return the full session dict {"username": ..., "role": ...}.
 
-    Raises HTTPException(303) redirect to /login if not authenticated.
+    Raises AuthRedirect to /login if not authenticated.
     """
     if global_config.dev_auto_login:
         return {"username": "admin", "role": "editor", "is_admin": True}
 
     cookie = request.cookies.get(COOKIE_NAME)
     if not cookie:
-        raise HTTPException(status_code=303, headers={"Location": LOGIN_PATH})
+        raise AuthRedirect(LOGIN_PATH)
 
     session = _read_session_cookie(cookie)
     if not session:
-        raise HTTPException(status_code=303, headers={"Location": LOGIN_PATH})
+        raise AuthRedirect(LOGIN_PATH)
 
     if (
         session.get("must_change_password")
         and request.url.path != CHANGE_PASSWORD_PATH
         and request.url.path != "/logout"
     ):
-        raise HTTPException(status_code=303, headers={"Location": CHANGE_PASSWORD_PATH})
+        raise AuthRedirect(CHANGE_PASSWORD_PATH)
 
     return session
 
@@ -302,7 +317,7 @@ async def _get_session(request: Request) -> dict:
 async def get_current_user_role(request: Request) -> str:
     """Extract the user role from the session cookie.
 
-    Raises HTTPException(303) redirect to /login if not authenticated.
+    Raises AuthRedirect to /login if not authenticated.
     Set DEV_AUTO_LOGIN=1 or dev_auto_login: true in config.yaml
     to bypass auth entirely during development.
     """
