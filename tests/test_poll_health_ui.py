@@ -194,11 +194,6 @@ class TestUpdateCycleIndicatorFunction:
         assert re.search(r"function updateCycleIndicator\s*\(", self.js)
 
     @pytest.mark.unit
-    def test_update_cycle_indicator_builds_sync_cycle_text(self):
-        pattern = r"function updateCycleIndicator[\s\S]{0,1000}'Sync cycle: '"
-        assert re.search(pattern, self.js)
-
-    @pytest.mark.unit
     def test_update_cycle_indicator_formats_with_tofixed(self):
         pattern = r"function updateCycleIndicator[\s\S]{0,1500}\.toFixed\(1\)"
         assert re.search(pattern, self.js)
@@ -270,3 +265,34 @@ class TestCycleIndicatorCSSRules:
         assert re.search(
             r"\.cycle-over-budget\s*\{|\.sync-cycle-indicator\.cycle-over-budget\s*\{", self.css
         )
+
+
+# -- Plain-language cycle indicator (Issue #261) --
+class TestCycleIndicatorPlainLanguage:
+    def setup_method(self):
+        self.js = _js()
+
+    @pytest.mark.unit
+    def test_healthy_copy_is_plain_language(self):
+        pattern = r"function updateCycleIndicator[\s\S]{0,1500}'Sync on time'"
+        assert re.search(pattern, self.js)
+
+    @pytest.mark.unit
+    def test_slow_copy_names_the_overrun(self):
+        pattern = r"function updateCycleIndicator[\s\S]{0,1500}'Sync running slow \('"
+        assert re.search(pattern, self.js)
+
+    @pytest.mark.unit
+    def test_indicator_carries_explanatory_title(self):
+        pattern = r"function updateCycleIndicator[\s\S]{0,1500}\.title[\s\S]{0,200}(?i:sync cycle)"
+        assert re.search(pattern, self.js)
+
+    @pytest.mark.unit
+    def test_slow_state_has_non_colour_glyph(self):
+        pattern = r"function updateCycleIndicator[\s\S]{0,1500}aria-hidden"
+        assert re.search(pattern, self.js)
+
+    @pytest.mark.unit
+    def test_slow_state_has_screen_reader_word(self):
+        pattern = r"function updateCycleIndicator[\s\S]{0,1500}visually-hidden"
+        assert re.search(pattern, self.js)
