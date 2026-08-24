@@ -1,19 +1,21 @@
 import asyncio
 import logging
 import os
+
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from core.database import init_db
+from api.routes import (AuthRedirect, _load_log_level_from_db,
+                        _load_session_duration_from_db, ensure_session_secret)
+from api.routes import router as web_router
 from core.crypto import ensure_master_key
+from core.database import init_db
 from core.version import get_version
-from services.sync_engine import polling_engine_loop
-from services.stats_engine import stats_engine_loop
 from services.container_events import container_events_cleanup_loop
 from services.ssh_manager import pool
-from api.routes import router as web_router
-from api.routes import _load_session_duration_from_db, _load_log_level_from_db, ensure_session_secret, AuthRedirect
+from services.stats_engine import stats_engine_loop
+from services.sync_engine import polling_engine_loop
 
 _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
