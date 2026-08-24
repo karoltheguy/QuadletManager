@@ -6,8 +6,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import (AuthRedirect, _load_log_level_from_db,
-                        _load_session_duration_from_db, ensure_session_secret)
+from api.routes import (
+    AuthRedirect,
+    _load_log_level_from_db,
+    _load_session_duration_from_db,
+    ensure_session_secret,
+)
 from api.routes import router as web_router
 from core.crypto import ensure_master_key
 from core.database import init_db
