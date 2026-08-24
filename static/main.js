@@ -1518,7 +1518,31 @@ function updateCycleIndicator(cycle) {
   if (!cycle) return;
   const indicator = document.getElementById('sync-cycle-indicator');
   if (!indicator) return;
-  indicator.textContent = 'Sync cycle: ' + Number(cycle.duration).toFixed(1) + 's / ' + cycle.interval + 's';
+  indicator.textContent = '';
+  indicator.title = 'Each sync cycle refreshes container status from every '
+    + 'server. It has ' + cycle.interval + 's to finish; longer means data '
+    + 'can lag.';
+  if (cycle.budget_exceeded) {
+    const flag = document.createElement('span');
+    flag.className = 'cycle-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = '▲';
+    indicator.appendChild(flag);
+
+    const hidden = document.createElement('span');
+    hidden.className = 'visually-hidden';
+    hidden.textContent = 'warning';
+    indicator.appendChild(hidden);
+
+    indicator.appendChild(
+      document.createTextNode(
+        'Sync running slow (' + Number(cycle.duration).toFixed(1) + 's of '
+          + cycle.interval + 's)'
+      )
+    );
+  } else {
+    indicator.appendChild(document.createTextNode('Sync on time'));
+  }
   indicator.removeAttribute('hidden');
   indicator.classList.toggle('cycle-over-budget', cycle.budget_exceeded);
 }
