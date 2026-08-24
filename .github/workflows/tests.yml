@@ -179,7 +179,7 @@ jobs:
       # default docker driver cannot export a build cache at all.
       - name: Set up Buildx for the podman host image
         if: ${{ matrix.compose_profile != '' }}
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
 
       - name: Cache the podman host image layers
         if: ${{ matrix.compose_profile != '' }}
