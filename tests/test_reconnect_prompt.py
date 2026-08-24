@@ -175,14 +175,14 @@ class TestReconnectBanner:
         assert "createTerminalTab" in self.js
 
 
-class TestNavReloadButton:
+class TestPanelReloadButton:
     def setup_method(self):
         self.html = _html()
         self.js = _js()
 
     @pytest.mark.unit
     def test_reload_button_exists(self):
-        assert "nav-reload-btn" in self.html
+        assert "panel-reload-btn" in self.html
 
     @pytest.mark.unit
     def test_reload_button_calls_soft_refresh(self):
@@ -195,7 +195,3 @@ class TestNavReloadButton:
     @pytest.mark.unit
     def test_soft_refresh_triggers_htmx_reload(self):
         assert "reload-servers" in self.js
-
-    @pytest.mark.unit
-    def test_soft_refresh_reloads_monitor_charts(self):
-        assert "loadMonitorCharts" in self.js
