@@ -1,19 +1,25 @@
 import asyncio
 import logging
 import os
-from fastapi import FastAPI, Request, HTTPException
+
+from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from core.database import init_db
+from api.routes import (
+    AuthRedirect,
+    _load_log_level_from_db,
+    _load_session_duration_from_db,
+    ensure_session_secret,
+)
+from api.routes import router as web_router
 from core.crypto import ensure_master_key
+from core.database import init_db
 from core.version import get_version
-from services.sync_engine import polling_engine_loop
-from services.stats_engine import stats_engine_loop
 from services.container_events import container_events_cleanup_loop
 from services.ssh_manager import pool
-from api.routes import router as web_router
-from api.routes import _load_session_duration_from_db, _load_log_level_from_db, ensure_session_secret
+from services.stats_engine import stats_engine_loop
+from services.sync_engine import polling_engine_loop
 
 _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
@@ -84,17 +90,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="QuadletManager Dashboard", lifespan=lifespan)
 
-@app.exception_handler(HTTPException)
-async def redirect_on_auth(request: Request, exc: HTTPException):
-    """Convert 303 auth-redirect exceptions into actual browser redirects."""
-    if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
-        return RedirectResponse(url=exc.headers["Location"], status_code=303)
-    # For all other HTTPExceptions, return the default JSON response
-    from fastapi.responses import JSONResponse
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail},
-    )
+@app.exception_handler(AuthRedirect)
+async def redirect_on_auth(request: Request, exc: AuthRedirect):
+    """Send an unauthenticated caller to the login page.
+
+    Every other HTTPException falls through to FastAPI's built-in handler,
+    which is what the deleted status-code branch here was reimplementing.
+    """
+    return RedirectResponse(url=exc.location, status_code=exc.status_code)
 
 # Mock static files mount to prevent startup crash if missing
 app.mount("/static", StaticFiles(directory="static"), name="static")

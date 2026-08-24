@@ -14,7 +14,6 @@ Two layers of protection:
 """
 import pytest
 from unittest.mock import patch
-from fastapi import HTTPException
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.requests import Request
@@ -22,7 +21,7 @@ from main import app
 from api import routes as routes_module
 from api.routes import router as web_router
 
-# Dependencies that reject cookieless requests (all raise a 303 redirect to
+# Dependencies that reject cookieless requests (all raise AuthRedirect to
 # /login via _get_session when no valid session cookie is present).
 AUTH_ENFORCING_DEPS = {
     routes_module._get_session,
@@ -143,7 +142,7 @@ async def test_auth_redirect_constant_matches_the_status_actually_raised():
     })
 
     with patch("core.config_loader.global_config.dev_auto_login", False):
-        with pytest.raises(HTTPException) as excinfo:
+        with pytest.raises(routes_module.AuthRedirect) as excinfo:
             await routes_module._get_session(cookieless)
 
     assert excinfo.value.status_code in routes_module.AUTH_REDIRECT_RESPONSES, (
