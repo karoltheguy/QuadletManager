@@ -137,13 +137,14 @@ def _render_dashboard(is_admin: bool, user_role: str = 'editor') -> str:
     from jinja2 import Environment, FileSystemLoader
     import os
 
-    from api.routes import asset_url
+    from api.routes import asset_url, module_import_map
 
     template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
     env = Environment(loader=FileSystemLoader(template_dir))
     # This bare Environment is not the app's, so it needs the app's Jinja
     # globals wired in explicitly or dashboard.html cannot render.
     env.globals['asset_url'] = asset_url
+    env.globals['module_import_map'] = module_import_map
     template = env.get_template('dashboard.html')
     return template.render(
         user_role=user_role,
