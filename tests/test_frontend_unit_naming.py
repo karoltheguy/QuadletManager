@@ -76,7 +76,7 @@ def test_hand_rolled_unit_name_pattern_removed():
 @pytest.mark.unit
 def test_show_file_context_menu_uses_unit_name_for():
     js = _read_js()
-    start = js.find("window.showFileContextMenu = function")
+    start = js.find("function showFileContextMenu(")
     assert start != -1, "showFileContextMenu must be defined"
     end = js.find("\nwindow.", start + 1)
     body = js[start:end if end != -1 else len(js)]
@@ -87,7 +87,7 @@ def test_show_file_context_menu_uses_unit_name_for():
 @pytest.mark.unit
 def test_tail_logs_from_panel_uses_unit_name_for():
     js = _read_js()
-    start = js.find("window.tailLogsFromPanel = function")
+    start = js.find("function tailLogsFromPanel(")
     assert start != -1, "tailLogsFromPanel must be defined"
     end = js.find("\nwindow.", start + 1)
     body = js[start:end if end != -1 else len(js)]
@@ -117,7 +117,7 @@ def test_quadlet_tree_button_has_data_type_attribute():
 @pytest.mark.unit
 def test_select_container_stem_accepts_type_parameter():
     js = _read_js()
-    start = js.find("window.selectContainerStem = function")
+    start = js.find("function selectContainerStem(")
     assert start != -1, "selectContainerStem must be defined"
     end = js.find("\n", start)
     signature = js[start:end]
@@ -128,7 +128,7 @@ def test_select_container_stem_accepts_type_parameter():
 @pytest.mark.unit
 def test_select_container_stem_assigns_selected_container_type():
     js = _read_js()
-    start = js.find("window.selectContainerStem = function")
+    start = js.find("function selectContainerStem(")
     assert start != -1, "selectContainerStem must be defined"
     end = js.find("\nwindow.", start + 1)
     body = js[start:end if end != -1 else len(js)]
@@ -184,7 +184,7 @@ def test_before_request_handler_reads_quadlet_type_from_params():
 @pytest.mark.unit
 def test_context_menu_start_url_includes_quadlet_type():
     js = _read_js()
-    start = js.find("window.showFileContextMenu = function")
+    start = js.find("function showFileContextMenu(")
     assert start != -1, "showFileContextMenu must be defined"
     end = js.find("\nwindow.", start + 1)
     body = js[start:end if end != -1 else len(js)]
@@ -199,7 +199,7 @@ def test_context_menu_start_url_includes_quadlet_type():
 @pytest.mark.unit
 def test_context_menu_stop_url_includes_quadlet_type():
     js = _read_js()
-    start = js.find("window.showFileContextMenu = function")
+    start = js.find("function showFileContextMenu(")
     assert start != -1, "showFileContextMenu must be defined"
     end = js.find("\nwindow.", start + 1)
     body = js[start:end if end != -1 else len(js)]

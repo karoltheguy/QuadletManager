@@ -128,7 +128,7 @@ class TestMainJsShowSettingsSectionAriaCurrent:
         self.js = _js()
 
     def _function_region(self):
-        start = self.js.find("window.showSettingsSection")
+        start = self.js.find("function showSettingsSection(")
         assert start != -1, (
             "expected to locate window.showSettingsSection in main.js"
         )

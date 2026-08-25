@@ -41,12 +41,12 @@ def test_switchtab_restores_bottom_panel_expanded_class():
     
     # Find the switchTab function body
     switchtab_match = re.search(
-        r"window\.switchTab\s*=\s*function\s*\([^)]*\)\s*\{",
+        r"function\s+switchTab\s*\([^)]*\)\s*\{",
         js
     )
     
     assert switchtab_match, (
-        "Expected window.switchTab function to be defined in main.js"
+        "Expected the switchTab function to be declared in the static JS sources"
     )
     
     # Extract the function body by finding matching braces

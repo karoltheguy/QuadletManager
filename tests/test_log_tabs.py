@@ -20,8 +20,8 @@ def _read_js():
 @pytest.mark.unit
 def test_log_tabs_map_replaces_singular_log_socket():
     js = _read_js()
-    assert "window._logTabs = new Map()" in js, (
-        "Expected window._logTabs = new Map() mirroring window._terminalTabs, "
+    assert "const _logTabs = new Map()" in js, (
+        "Expected const _logTabs = new Map() mirroring window._terminalTabs, "
         "to support multiple simultaneous named log sessions."
     )
     assert "let currentLogSocket" not in js, (
@@ -55,8 +55,8 @@ def test_log_chips_render_into_shared_sessions_strip():
 @pytest.mark.unit
 def test_switch_bottom_tab_does_not_clear_sessions_strip():
     js = _read_js()
-    switchtab_start = js.index("window.switchBottomTab = function")
-    switchtab_body = js[switchtab_start:js.index("\n};", switchtab_start)]
+    switchtab_start = js.index("function switchBottomTab(")
+    switchtab_body = js[switchtab_start:js.index("\n}", switchtab_start)]
 
     destructive_calls = ("innerHTML = ''", "innerHTML=''", ".remove()")
     strip_related = "terminal-conn-tabs" in switchtab_body or "bottom-panel-sessions-strip" in switchtab_body
@@ -86,11 +86,11 @@ def test_switch_functions_clear_active_across_both_chip_types():
     """
     js = _read_js()
 
-    terminal_start = js.index("window.switchTerminalTab = function")
-    terminal_body = js[terminal_start:js.index("\n};", terminal_start)]
+    terminal_start = js.index("function switchTerminalTab(")
+    terminal_body = js[terminal_start:js.index("\n}", terminal_start)]
 
-    log_start = js.index("window.switchLogTab = function")
-    log_body = js[log_start:js.index("\n};", log_start)]
+    log_start = js.index("function switchLogTab(")
+    log_body = js[log_start:js.index("\n}", log_start)]
 
     combined_variants = (
         ".terminal-conn-tab, .log-conn-tab",
@@ -128,11 +128,11 @@ def test_chip_switch_functions_switch_bottom_mode():
     """
     js = _read_js()
 
-    terminal_start = js.index("window.switchTerminalTab = function")
-    terminal_body = js[terminal_start:js.index("\n};", terminal_start)]
+    terminal_start = js.index("function switchTerminalTab(")
+    terminal_body = js[terminal_start:js.index("\n}", terminal_start)]
 
-    log_start = js.index("window.switchLogTab = function")
-    log_body = js[log_start:js.index("\n};", log_start)]
+    log_start = js.index("function switchLogTab(")
+    log_body = js[log_start:js.index("\n}", log_start)]
 
     terminal_variants = ("switchBottomTab('terminal')", 'switchBottomTab("terminal")')
     log_variants = ("switchBottomTab('logs')", 'switchBottomTab("logs")')
@@ -158,8 +158,8 @@ def test_switch_bottom_tab_reapplies_chip_highlight():
     re-highlighted after a mode switch.
     """
     js = _read_js()
-    switchtab_start = js.index("window.switchBottomTab = function")
-    switchtab_body = js[switchtab_start:js.index("\n};", switchtab_start)]
+    switchtab_start = js.index("function switchBottomTab(")
+    switchtab_body = js[switchtab_start:js.index("\n}", switchtab_start)]
 
     assert "_activeTerminalTabKey" in switchtab_body, (
         "Expected switchBottomTab to still reference window._activeTerminalTabKey."
