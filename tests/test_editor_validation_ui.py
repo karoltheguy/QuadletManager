@@ -163,25 +163,39 @@ class TestMainJsValidation:
         # the JSON error body and render it into #validation-results so the
         # message reaches the user, while still throwing so saveQuadlet can
         # tell "could not validate" apart from "invalid".
-        match = re.search(
+        # The handling lives in throwValidationRequestError, which the non-ok
+        # branch awaits. Assert the branch delegates there, then assert on that
+        # helper's body, so the checks follow the code rather than its location.
+        branch = re.search(
             r"if \(!response\.ok\) \{.*?\n    \}",
             self.js,
             re.DOTALL,
         )
-        assert match, "expected to locate the `if (!response.ok) { ... }` block in validateQuadlet"
+        assert branch, "expected to locate the `if (!response.ok) { ... }` block in validateQuadlet"
+        assert "throwValidationRequestError(response)" in branch.group(0), (
+            "the non-ok branch of validateQuadlet must delegate to "
+            "throwValidationRequestError so the error body reaches the user"
+        )
+
+        match = re.search(
+            r"async function throwValidationRequestError\(response\) \{.*?\n\}",
+            self.js,
+            re.DOTALL,
+        )
+        assert match, "expected to locate the throwValidationRequestError function"
         block = match.group(0)
 
         assert "json()" in block, (
-            "the non-ok branch of validateQuadlet must call response.json() to read "
+            "throwValidationRequestError must call response.json() to read "
             "the {\"error\": ...} body instead of discarding it"
         )
         assert "validation-results" in block, (
-            "the non-ok branch of validateQuadlet must render the error body into "
+            "throwValidationRequestError must render the error body into "
             "#validation-results so the user actually sees it"
         )
         assert "throw" in block, (
-            "the non-ok branch must still throw so saveQuadlet can distinguish "
-            "'could not validate' from 'invalid'"
+            "throwValidationRequestError must still throw so saveQuadlet can "
+            "distinguish 'could not validate' from 'invalid'"
         )
 
 

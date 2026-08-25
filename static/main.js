@@ -1,6 +1,6 @@
-/* global htmx, Chart, Terminal, closeLogTab, closeTerminalTab, connectTerminal, healthHistoryChart, loadMonitorCharts, monitoringChart, openBottomPanel, selectMonitoringServer, switchBottomTab, switchLogTab, switchTerminalTab, tailLogsFromPanel, require */
+/* global htmx, Chart, Terminal, healthHistoryChart, monitoringChart, require */
 // ── Server Collapse ───────────────────────────────────────
-window.toggleServerCollapse = function(serverId) {
+function toggleServerCollapse(serverId) {
     const li = document.querySelector('li[data-server-id="' + serverId + '"]');
     if (!li) return;
     const collapsed = li.classList.toggle('is-collapsed');
@@ -11,7 +11,7 @@ window.toggleServerCollapse = function(serverId) {
     } catch {
         // Ignore localStorage restrictions
     }
-};
+}
 
 function restoreServerCollapseStates() {
     document.querySelectorAll('li[data-server-id]').forEach(function(li) {
@@ -60,7 +60,6 @@ function toggleProfileMenu(event) {
     const menu = document.getElementById('profile-menu');
     menu.hidden = !menu.hidden;
 }
-window.toggleProfileMenu = toggleProfileMenu;
 
 document.addEventListener('click', function() {
     const menu = document.getElementById('profile-menu');
@@ -87,10 +86,9 @@ function toggleTheme() {
     applyChartTheme();
     applyEditorTheme();
 }
-window.toggleTheme = toggleTheme;
 
 // ── Density Toggle ───────────────────────────────────────
-window.toggleDensity = function(value) {
+function toggleDensity(value) {
     const root = document.documentElement;
     if (value === 'compact') {
         root.dataset.density = 'compact';
@@ -102,7 +100,7 @@ window.toggleDensity = function(value) {
     } catch {
         // Ignore localStorage restrictions
     }
-};
+}
 
 function initDensityRadio() {
     let stored = 'relaxed';
@@ -116,14 +114,14 @@ function initDensityRadio() {
 }
 
 // ── Editor Theme Toggle ──────────────────────────────────
-window.toggleEditorTheme = function(value) {
+function toggleEditorTheme(value) {
     try {
         localStorage.setItem('qm-editor-theme', value);
     } catch {
         // Ignore localStorage restrictions
     }
     applyEditorTheme();
-};
+}
 
 function initEditorThemeRadio() {
     let stored = 'follow';
@@ -205,7 +203,6 @@ function applyThemePreview(form) {
     }
     el.textContent = css;
 }
-window.applyThemePreview = applyThemePreview;
 
 function clearThemePreview() {
     const el = document.getElementById('qm-theme-preview');
@@ -252,7 +249,6 @@ function unitNameFor(fileName) {
     if (SUFFIXED_QUADLET_TYPES.has(type)) return base + '-' + type + '.service';
     return base + '.service';
 }
-window.unitNameFor = unitNameFor;
 
 // Podman's generator maps both `my.pod` and `my-pod.container` to the same
 // unit name `my-pod.service`, so stripping a `-<type>` suffix by guessing
@@ -272,7 +268,6 @@ function stemFromUnitName(unitName, quadletType) {
     }
     return result;
 }
-window.stemFromUnitName = stemFromUnitName;
 
 // Mark the clicked quadlet tree button as selected (inset state).
 // Called inline from partials/quadlet_tree.html onclick.
@@ -281,7 +276,6 @@ function setSelectedQuadletBtn(el) {
         .forEach(function (b) { b.classList.remove('is-selected'); });
     if (el) el.classList.add('is-selected');
 }
-window.setSelectedQuadletBtn = setSelectedQuadletBtn;
 
 // Re-apply the .is-selected class after htmx swaps the quadlet tree.
 // Source of truth is window._selectedContainerStem / _selectedContainerServerId,
@@ -607,7 +601,6 @@ function toggleChartSelection(name) {
     if (memHistoryChart) memHistoryChart.update('none');
     refreshChartSwatches();
 }
-window.toggleChartSelection = toggleChartSelection;
 
 // Gives the click immediate feedback without waiting for the next stats
 // frame to re-render the table.
@@ -700,12 +693,10 @@ function applyEditorTheme() {
         window.monaco.editor.setTheme(resolved === 'light' ? 'vs' : 'vs-dark');
     }
 }
-window.applyEditorTheme = applyEditorTheme;
 
 // Track which server the user is currently working in.
 // The stats chart only renders updates for this server.
 // null = show whichever server reports first (auto-set on first update).
-window.activeServerId = null;
 
 // Cache the last-seen data per server so we can re-render immediately
 // when the user switches servers without waiting for the next 5s poll.
@@ -714,7 +705,7 @@ const lastStatsPerServer = {};
 // Per-server map of currently running container name stems.
 // Key: serverId (int), Value: Set<string> of lowercase container name stems.
 // Explicitly attached to window so page.evaluate() in tests can access it.
-const runningContainersBySid = window.runningContainersBySid = {};
+const runningContainersBySid = {};
 
 // Active container name filter for the Monitor view (lowercase substring).
 // Empty string means show all containers.
@@ -725,15 +716,10 @@ let monitorContainerFilter = '';
 let lastAnnouncedUnhealthy = null;
 
 // Currently selected container stem in the inspector (lowercase).
-window._selectedContainerStem = null;
-window._selectedContainerServerId = null;
-window._selectedContainerScope = null;
-window._selectedContainerType = null;
 // Set to true after the saved quadlet selection has been restored once,
 // so subsequent htmx:afterSwap tree re-renders don't override user clicks.
-window._quadletRestored = false;
 
-window.selectContainerStem = function(stem, serverId, scope, type) {
+function selectContainerStem(stem, serverId, scope, type) {
     window._selectedContainerStem = (stem || '').toLowerCase();
     window._selectedContainerServerId = Number.parseInt(serverId, 10);
     window._selectedContainerScope = scope || 'global';
@@ -751,7 +737,7 @@ window.selectContainerStem = function(stem, serverId, scope, type) {
     if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
     updateInspectorStatsCard();
     updateInspectorActivityLog();
-};
+}
 
 function updateInspectorStatsCard() {
     const card = document.getElementById('container-stats-card');
@@ -919,7 +905,7 @@ function getRelativeTime(timestamp) {
 
 
 // Called from quadlet_tree.html when the user clicks a file button.
-window.setActiveServer = function(serverId) {
+function setActiveServer(serverId) {
     serverId = Number.parseInt(serverId, 10);
     if (window.activeServerId === serverId) return;
     window.activeServerId = serverId;
@@ -928,7 +914,7 @@ window.setActiveServer = function(serverId) {
     if (cached) {
         applyStatusDots(serverId);
     }
-};
+}
 
 /**
  * Update all status dots for a given server based on the cached
@@ -1041,9 +1027,8 @@ function initMemChart() {
   memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
 
-window._monitorChartMinutes = 60;
 
-window.loadMonitorCharts = function(minutes, btnEl) {
+function loadMonitorCharts(minutes, btnEl) {
   window._monitorChartMinutes = minutes;
 
   if (btnEl) {
@@ -1148,7 +1133,7 @@ window.loadMonitorCharts = function(minutes, btnEl) {
       const errorEl = document.getElementById('monitor-charts-error');
       if (errorEl) errorEl.style.display = '';
     });
-};
+}
 
 function parsePercent(val) {
     if (typeof val === 'string') {
@@ -1578,14 +1563,14 @@ function fetchPollHealthSnapshot() {
     });
 }
 
-window.handleQuadletsChanged = function (data) {
+function handleQuadletsChanged(data) {
   const container = document.querySelector(
     '.server-quadlet-tree[data-server-id="' + data.server_id + '"]'
   );
   if (!container) return;
   htmx.ajax('GET', '/api/quadlets/' + data.server_id,
             { target: container, swap: 'innerHTML' });
-};
+}
 
 function createStatsErrorDOM(serverName, errorMsg) {
   return el('div', { className: 'p-4 text-danger' }, [
@@ -1709,7 +1694,7 @@ function updateNavItemActive(tabId) {
   });
 }
 
-window.switchTab = function(tabId) {
+function switchTab(tabId) {
   localStorage.setItem('qm-active-tab', tabId);
   document.body.className = 'view-' + tabId;
   syncInspectorToggleBtn();
@@ -1723,7 +1708,7 @@ window.switchTab = function(tabId) {
   } else if (tabId === 'monitor') {
     handleMonitorTabActivation();
   }
-};
+}
 
 // ── SSH Key Dropdown Refresh ──────────────────────────────
 // The hx-trigger="load" on the select fires once at DOMContentLoaded when the
@@ -1735,7 +1720,7 @@ function refreshSshKeyDropdown() {
 }
 
 // ── Settings Section Switcher ─────────────────────────────
-window.showSettingsSection = function(name) {
+function showSettingsSection(name) {
   document.querySelectorAll('.settings-group').forEach(function(g) {
     g.style.display = g.dataset.group === name ? 'grid' : 'none';
   });
@@ -1752,7 +1737,7 @@ window.showSettingsSection = function(name) {
   if (name !== 'themes') clearThemePreview();
   if (name === 'themes') initDensityRadio();
   if (name === 'themes') initEditorThemeRadio();
-};
+}
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
 function syncInspectorToggleBtn() {
@@ -1763,13 +1748,13 @@ function syncInspectorToggleBtn() {
   btn.setAttribute('aria-label', btn.title);
 }
 
-window.toggleInspectorExpand = function() {
+function toggleInspectorExpand() {
   const expanded = document.body.classList.toggle('inspector-expanded');
   localStorage.setItem('qm-inspector-expanded', expanded ? 'true' : 'false');
   syncInspectorToggleBtn();
   // Monaco must re-layout after the inspector width changes
   if (window.editor) window.editor.layout();
-};
+}
 
 // ── Monitoring Server Selector ────────────────────────────
 function showMonitoringEmptyState(emptyEl, contentEl) {
@@ -1832,7 +1817,7 @@ function restoreMonitoringServerSelection(select) {
   }
 }
 
-window.selectMonitoringServer = function(serverId) {
+function selectMonitoringServer(serverId) {
   try {
     localStorage.setItem('qm-monitor-server', serverId ? String(serverId) : '');
   } catch {
@@ -1853,7 +1838,7 @@ window.selectMonitoringServer = function(serverId) {
   window._monitoringServerId = numId;
 
   renderMonitoringServerStats(numId);
-};
+}
 
 // The Monitor's name filter is a lowercase substring match, applied to the
 // container list and to the merged row list alike so the table, the charts and
@@ -1988,7 +1973,6 @@ function applyContainerFilter(value) {
     updateMonitoringView(cached);
   }
 }
-window.applyContainerFilter = applyContainerFilter;
 
 function computeServerTotals(containers) {
   const list = containers || [];
@@ -2107,8 +2091,7 @@ function updateSummaryStrip(data) {
 }
 
 // ── Terminal Session Management ──────────────────────────
-window._terminalTabs = new Map();   // tabKey → { term, ws, fitAddon, tabEl, paneEl }
-window._activeTerminalTabKey = null;
+const _terminalTabs = new Map();   // tabKey → { term, ws, fitAddon, tabEl, paneEl }
 function loadFitAddon(callback) {
     callback();
 }
@@ -2140,7 +2123,7 @@ function showTerminalMessage(msg) {
 }
 
 // ── Bottom Panel Management ───────────────────────────────
-window.openBottomPanel = function(tab) {
+function openBottomPanel(tab) {
     const panel = document.getElementById('bottom-panel');
     if (!panel) return;
     panel.classList.remove('is-collapsed');
@@ -2155,7 +2138,7 @@ window.openBottomPanel = function(tab) {
         const session = window._terminalTabs.get(key);
         if (session?.fitAddon) session.fitAddon.fit();
     }
-};
+}
 
 function fitActiveTerminal() {
     const key = window._activeTerminalTabKey;
@@ -2166,7 +2149,7 @@ function fitActiveTerminal() {
     }
 }
 
-window.toggleBottomPanel = function() {
+function toggleBottomPanel() {
     const panel = document.getElementById('bottom-panel');
     if (!panel) return;
     const isCollapsed = panel.classList.toggle('is-collapsed');
@@ -2178,9 +2161,9 @@ window.toggleBottomPanel = function() {
     if (!isCollapsed) {
         fitActiveTerminal();
     }
-};
+}
 
-window.toggleBottomPanelExpand = function() {
+function toggleBottomPanelExpand() {
     const panel = document.getElementById('bottom-panel');
     if (!panel) return;
     const expanded = panel.classList.toggle('is-expanded');
@@ -2196,9 +2179,9 @@ window.toggleBottomPanelExpand = function() {
         const session = window._terminalTabs.get(key);
         if (session?.fitAddon) session.fitAddon.fit();
     }
-};
+}
 
-window.switchBottomTab = function(pane) {
+function switchBottomTab(pane) {
     try {
         localStorage.setItem('qm-bottom-tab', pane);
     } catch {
@@ -2238,7 +2221,7 @@ window.switchBottomTab = function(pane) {
             });
         }
     }
-};
+}
 
 function findActualRunningContainerName(running, stem) {
     let actualName = null;
@@ -2260,7 +2243,7 @@ function getTerminalShellCommand() {
     return shell;
 }
 
-window.connectTerminal = function() {
+function connectTerminal() {
     const stem = window._selectedContainerStem;
     const serverId = window._selectedContainerServerId;
     const scope = window._selectedContainerScope || 'global';
@@ -2296,7 +2279,7 @@ window.connectTerminal = function() {
     loadFitAddon(function() {
         createTerminalTab(tabKey, serverId, actualContainerName, cmd, scope);
     });
-};
+}
 
 function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     const cached = Reflect.get(lastStatsPerServer, serverId);
@@ -2409,7 +2392,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
     }, 10);
 }
 
-window.switchTerminalTab = function(key) {
+function switchTerminalTab(key) {
     window._activeTerminalTabKey = key;
 
     document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
@@ -2428,7 +2411,7 @@ window.switchTerminalTab = function(key) {
     if (session?.fitAddon) {
         setTimeout(function() { session.fitAddon.fit(); }, 50);
     }
-};
+}
 
 function disposeTerminalSession(session) {
     if (session.ws && session.ws.readyState !== WebSocket.CLOSED) {
@@ -2453,7 +2436,7 @@ function handleClosedTabFallback(key) {
     refreshSessionsStripVisibility();
 }
 
-window.closeTerminalTab = function(key) {
+function closeTerminalTab(key) {
     const session = window._terminalTabs.get(key);
     if (!session) return;
 
@@ -2462,14 +2445,14 @@ window.closeTerminalTab = function(key) {
 
     window._terminalTabs.delete(key);
     handleClosedTabFallback(key);
-};
+}
 
-window.disconnectTerminal = function() {
+function disconnectTerminal() {
     const key = window._activeTerminalTabKey;
     if (key) closeTerminalTab(key);
-};
+}
 
-window.sessionAddNew = function() {
+function sessionAddNew() {
     const activeTab = document.querySelector('.bottom-tab.is-active');
     const pane = activeTab ? activeTab.dataset.pane : 'terminal';
     if (pane === 'logs') {
@@ -2477,7 +2460,7 @@ window.sessionAddNew = function() {
     } else {
         connectTerminal();
     }
-};
+}
 
 // Handle shell selector changes (setup after DOM is ready)
 const setupShellSelector = function() {
@@ -2792,12 +2775,13 @@ _statsWaitTimeout = setTimeout(function() {
     }
   }
 }, 15000);
+    document.documentElement.dataset.appReady = '1';
 });
 
 // ── File Deletion ─────────────────────────────────────────
 let _ctxMenu = null;
 
-window.showFileContextMenu = function(event, serverId, path, scope) {
+function showFileContextMenu(event, serverId, path, scope) {
     event.preventDefault();
 
     if (_ctxMenu) _ctxMenu.remove();
@@ -2875,9 +2859,9 @@ window.showFileContextMenu = function(event, serverId, path, scope) {
             document.removeEventListener('click', closeMenu);
         }, { once: true });
     }, 0);
-};
+}
 
-window.confirmDeleteFile = function(serverId, path, scope) {
+function confirmDeleteFile(serverId, path, scope) {
     const existing = document.getElementById('delete-confirm-modal');
     if (existing) existing.remove();
 
@@ -2927,9 +2911,9 @@ window.confirmDeleteFile = function(serverId, path, scope) {
     modal.appendChild(content);
     document.body.appendChild(modal);
     window.setupModalDismissal('delete-confirm-modal');
-};
+}
 
-window.executeDeleteFile = async function(serverId, path, scope) {
+async function executeDeleteFile(serverId, path, scope) {
     document.getElementById('delete-confirm-modal')?.remove();
 
     const targetUrl = new URL('/api/files', window.location.origin);
@@ -2967,11 +2951,10 @@ window.executeDeleteFile = async function(serverId, path, scope) {
     if (response.headers.get('HX-Trigger') === 'reload-servers') {
         document.body.dispatchEvent(new Event('reload-servers'));
     }
-};
+}
 
 // ── Real-time Logs WebSocket ─────────────────────────────
-window._logTabs = new Map();   // tabKey → { ws, logDiv, tabEl, paneEl, serverId, unitName, scope }
-window._activeLogTabKey = null;
+const _logTabs = new Map(); // window._logTabs = new Map()   // tabKey → { ws, logDiv, tabEl, paneEl, serverId, unitName, scope }
 
 function showLogMessage(msg) {
     const hint = document.getElementById('log-empty-hint');
@@ -2986,7 +2969,7 @@ function showLogMessage(msg) {
     }
 }
 
-window.tailLogsFromPanel = function() {
+function tailLogsFromPanel() {
     const stem = window._selectedContainerStem;
     const serverId = window._selectedContainerServerId;
     const scope = window._selectedContainerScope || 'global';
@@ -3008,7 +2991,7 @@ window.tailLogsFromPanel = function() {
     }
 
     createLogTab(tabKey, serverId, unitName, scope);
-};
+}
 
 function createLogTab(tabKey, serverId, unitName, scope) {
     const cached = Reflect.get(lastStatsPerServer, serverId);
@@ -3110,7 +3093,7 @@ function openLogSocket(tabKey) {
     window._logTabs.set(tabKey, entry);
 }
 
-window.switchLogTab = function(key) {
+function switchLogTab(key) {
     window._activeLogTabKey = key;
 
     document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
@@ -3130,7 +3113,7 @@ window.switchLogTab = function(key) {
     }
 
     switchBottomTab('logs');
-};
+}
 
 function handleClosedLogTabFallback(key) {
     if (window._logTabs.size === 0) {
@@ -3143,7 +3126,7 @@ function handleClosedLogTabFallback(key) {
     refreshSessionsStripVisibility();
 }
 
-window.closeLogTab = function(key) {
+function closeLogTab(key) {
     const session = window._logTabs.get(key);
     if (!session) return;
 
@@ -3156,7 +3139,7 @@ window.closeLogTab = function(key) {
 
     window._logTabs.delete(key);
     handleClosedLogTabFallback(key);
-};
+}
 
 // ── Session Save / Reload / Reconnect ────────────────────
 function saveActiveSessionsToStorage() {
@@ -3222,18 +3205,42 @@ document.body.addEventListener('quadlet-saved', function() {
     if (indicator) indicator.setAttribute('hidden', '');
 });
 
-window.safeReload = function() {
+function safeReload() {
     saveActiveSessionsToStorage();
     window.removeEventListener('beforeunload', _beforeunloadHandler);
     window.location.reload();
-};
+}
 
-window.softRefresh = function() {
+function softRefresh() {
     htmx.trigger(document.body, 'reload-servers');
-};
+}
+
+// Report a failed validation request in the results pane and throw. Split out
+// of validateQuadlet so that function stays under the cognitive-complexity limit.
+async function throwValidationRequestError(response) {
+    let message = 'Validation request failed with status ' + response.status;
+    try {
+        const errorBody = await response.json();
+        if (errorBody && typeof errorBody.error === 'string' && errorBody.error) {
+            message = errorBody.error;
+        }
+    } catch (e) {
+        // response body was not JSON; fall back to the default message
+    }
+    const resultsEl = document.getElementById('validation-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.removeAttribute('hidden');
+        const line = document.createElement('div');
+        line.className = 'validation-issue validation-issue-error';
+        line.textContent = message;
+        resultsEl.appendChild(line);
+    }
+    throw new Error(message);
+}
 
 // ── Editor Validation / Save ────────────────────────────────
-window.validateQuadlet = async function() {
+async function validateQuadlet() {
     const form = document.getElementById('save-form');
     const serverId = form.querySelector('[name="server_id"]').value;
     const filePath = form.querySelector('[name="file_path"]').value;
@@ -3250,25 +3257,7 @@ window.validateQuadlet = async function() {
         body: body
     });
     if (!response.ok) {
-        let message = 'Validation request failed with status ' + response.status;
-        try {
-            const errorBody = await response.json();
-            if (errorBody && typeof errorBody.error === 'string' && errorBody.error) {
-                message = errorBody.error;
-            }
-        } catch (e) {
-            // response body was not JSON; fall back to the default message
-        }
-        const resultsEl = document.getElementById('validation-results');
-        if (resultsEl) {
-            resultsEl.innerHTML = '';
-            resultsEl.removeAttribute('hidden');
-            const line = document.createElement('div');
-            line.className = 'validation-issue validation-issue-error';
-            line.textContent = message;
-            resultsEl.appendChild(line);
-        }
-        throw new Error(message);
+        await throwValidationRequestError(response);
     }
     const verdict = await response.json();
     const issues = verdict.issues || [];
@@ -3318,9 +3307,9 @@ window.validateQuadlet = async function() {
     }
 
     return verdict;
-};
+}
 
-window.saveQuadlet = async function saveQuadlet() {
+async function saveQuadlet() {
     try {
         const verdict = await validateQuadlet();
         if (!verdict.valid && !confirm('Validation found errors. Save anyway?')) {
@@ -3332,7 +3321,7 @@ window.saveQuadlet = async function saveQuadlet() {
 
     document.getElementById('hidden-content').value = window.editor.getValue();
     document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
-};
+}
 
 // ── Modal Dismissal Handlers ───────────────────────────────
 // Wire ESC-key and backdrop-click dismissal onto an already-resolved element.
@@ -3357,11 +3346,11 @@ function bindModalDismissal(modal) {
   });
 }
 
-window.setupModalDismissal = function(modalId) {
+function setupModalDismissal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
   bindModalDismissal(modal);
-};
+}
 
 // Auto-setup for modals added via HTMX
 document.body.addEventListener('htmx:afterSwap', function() {
@@ -3370,4 +3359,73 @@ document.body.addEventListener('htmx:afterSwap', function() {
     modal.dataset.dismissalSetup = 'true';
     bindModalDismissal(modal);
   });
+});
+
+// ── Window Bridge ──────────────────────────────────────────
+// Expose functions and state on `window` for backward compatibility with 45
+// inline event handlers across templates/ that still depend on global names.
+// This bridge shrinks over time as handlers are converted to delegated listeners.
+Object.assign(window, {
+  _activeLogTabKey: null,
+  _activeTerminalTabKey: null,
+  _editorDirty: false,
+  _logTabs,
+  _monitorChartMinutes: 60,
+  _monitoringServerId: null,
+  _quadletRestored: false,
+  _selectedContainerScope: null,
+  _selectedContainerServerId: null,
+  _selectedContainerStem: null,
+  _selectedContainerType: null,
+  _terminalTabs,
+  activeServerId: null,
+  applyContainerFilter,
+  applyEditorTheme,
+  applyThemePreview,
+  applyStatusDots,
+  clearThemePreview,
+  closeLogTab,
+  closeTerminalTab,
+  confirmDeleteFile,
+  connectTerminal,
+  disconnectTerminal,
+  executeDeleteFile,
+  handleQuadletsChanged,
+  handleStatsError,
+  handleStatsUpdate,
+  lastStatsPerServer,
+  loadMonitorCharts,
+  openBottomPanel,
+  renderContainerStatsTable,
+  runningContainersBySid,
+  safeReload,
+  saveQuadlet,
+  selectContainerStem,
+  selectMonitoringServer,
+  sessionAddNew,
+  setActiveServer,
+  setSelectedQuadletBtn,
+  setupModalDismissal,
+  showFileContextMenu,
+  showSettingsSection,
+  softRefresh,
+  stemFromUnitName,
+  switchBottomTab,
+  switchLogTab,
+  switchTab,
+  switchTerminalTab,
+  tailLogsFromPanel,
+  toggleBottomPanel,
+  toggleBottomPanelExpand,
+  toggleChartSelection,
+  toggleDensity,
+  toggleEditorTheme,
+  toggleInspectorExpand,
+  toggleProfileMenu,
+  toggleServerCollapse,
+  toggleTheme,
+  unitNameFor,
+  updateInspectorActivityLog,
+  updateInspectorStatsCard,
+  validateQuadlet,
 });

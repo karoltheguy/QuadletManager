@@ -158,7 +158,7 @@ def page(context: Any) -> Generator[Any, None, None]:
         response = orig_goto(*args, **kwargs)
         try:
             if response and response.status == 200 and "localhost:8000" in page.url:
-                page.wait_for_function("typeof window.runningContainersBySid !== 'undefined'", timeout=10000)
+                page.wait_for_function("document.documentElement.dataset.appReady === '1'", timeout=10000)
         except Exception:
             pass
         return response

@@ -121,14 +121,14 @@ def _read_js() -> str:
 
 
 def _extract_soft_refresh_body(js_content: str) -> str:
-    """Extracts only the body of window.softRefresh = function() { ... }; from JS content."""
+    """Extracts only the body of the `function softRefresh() { ... }` declaration."""
     match = re.search(
-        r"window\.softRefresh\s*=\s*(?:async\s*)?(?:function\s*\([^)]*\)|(?:\([^)]*\)|[a-zA-Z0-9_$]+)\s*=>)\s*\{",
+        r"(?:async\s+)?function\s+softRefresh\s*\([^)]*\)\s*\{",
         js_content,
     )
     if not match:
         raise AssertionError(
-            "Could not locate window.softRefresh function definition in static/main.js"
+            "Could not locate the softRefresh function declaration in the static JS sources"
         )
 
     start_idx = match.end()  # position immediately after opening '{'

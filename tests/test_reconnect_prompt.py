@@ -54,7 +54,7 @@ class TestSafeReload:
 
     @pytest.mark.unit
     def test_safe_reload_function_exists(self):
-        assert "window.safeReload" in self.js
+        assert "function safeReload(" in self.js
 
     @pytest.mark.unit
     def test_safe_reload_saves_sessions(self):
@@ -112,7 +112,7 @@ class TestLogMetaTracking:
 
     @pytest.mark.unit
     def test_log_tabs_map_exists(self):
-        assert "window._logTabs = new Map()" in self.js
+        assert "const _logTabs = new Map()" in self.js
 
     @pytest.mark.unit
     def test_log_tab_stores_server_id(self):
@@ -124,7 +124,7 @@ class TestLogMetaTracking:
 
     @pytest.mark.unit
     def test_log_tab_cleared_on_close(self):
-        pattern = r"window\.closeLogTab\s*=\s*function[\s\S]{0,500}_logTabs\.delete"
+        pattern = r"function\s+closeLogTab\s*\([\s\S]{0,500}_logTabs\.delete"
         assert re.search(pattern, self.js)
 
 
@@ -190,7 +190,7 @@ class TestPanelReloadButton:
 
     @pytest.mark.unit
     def test_soft_refresh_function_exists(self):
-        assert "window.softRefresh" in self.js
+        assert "function softRefresh(" in self.js
 
     @pytest.mark.unit
     def test_soft_refresh_triggers_htmx_reload(self):

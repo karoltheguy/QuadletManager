@@ -25,8 +25,8 @@ When writing or maintaining E2E tests, be aware that client-side scripts (such a
 
 - Do not rely solely on HTMX swap states or element visibility (like `wait_for(state="hidden")` on loading indicators) before interacting with JS-driven elements.
 - Avoid raw immediate assertions (like `assert "value" in element.get_attribute("attr")`) on elements undergoing dynamic state changes. Instead, use Playwright's `expect()` assertions (e.g., `expect(locator).to_have_class(...)` or wait for the target selector `page.locator("#el.class").wait_for()`) which automatically retry and wait for the transition to complete, avoiding timing flakes in CPU-constrained environments.
-- The `page` fixture in `tests/e2e/conftest.py` has been globally customized to automatically wrap `page.goto` and block until `window.runningContainersBySid` is defined on `localhost:8000` dashboard routes.
+- The `page` fixture in `tests/e2e/conftest.py` has been globally customized to automatically wrap `page.goto` and block until the `appReady` flag (`document.documentElement.dataset.appReady === '1'`) is set on `localhost:8000` dashboard routes.
 - If you write new test routes or helper scripts that navigate pages in non-standard ways (or if you need to access global JS state variables), always ensure `main.js` has finished executing by explicitly waiting:
   ```python
-  page.wait_for_function("typeof window.runningContainersBySid !== 'undefined'")
+  page.wait_for_function("document.documentElement.dataset.appReady === '1'")
   ```
