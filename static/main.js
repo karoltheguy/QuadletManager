@@ -3215,6 +3215,30 @@ function softRefresh() {
     htmx.trigger(document.body, 'reload-servers');
 }
 
+// Report a failed validation request in the results pane and throw. Split out
+// of validateQuadlet so that function stays under the cognitive-complexity limit.
+async function throwValidationRequestError(response) {
+    let message = 'Validation request failed with status ' + response.status;
+    try {
+        const errorBody = await response.json();
+        if (errorBody && typeof errorBody.error === 'string' && errorBody.error) {
+            message = errorBody.error;
+        }
+    } catch (e) {
+        // response body was not JSON; fall back to the default message
+    }
+    const resultsEl = document.getElementById('validation-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.removeAttribute('hidden');
+        const line = document.createElement('div');
+        line.className = 'validation-issue validation-issue-error';
+        line.textContent = message;
+        resultsEl.appendChild(line);
+    }
+    throw new Error(message);
+}
+
 // ── Editor Validation / Save ────────────────────────────────
 async function validateQuadlet() {
     const form = document.getElementById('save-form');
@@ -3233,25 +3257,7 @@ async function validateQuadlet() {
         body: body
     });
     if (!response.ok) {
-        let message = 'Validation request failed with status ' + response.status;
-        try {
-            const errorBody = await response.json();
-            if (errorBody && typeof errorBody.error === 'string' && errorBody.error) {
-                message = errorBody.error;
-            }
-        } catch (e) {
-            // response body was not JSON; fall back to the default message
-        }
-        const resultsEl = document.getElementById('validation-results');
-        if (resultsEl) {
-            resultsEl.innerHTML = '';
-            resultsEl.removeAttribute('hidden');
-            const line = document.createElement('div');
-            line.className = 'validation-issue validation-issue-error';
-            line.textContent = message;
-            resultsEl.appendChild(line);
-        }
-        throw new Error(message);
+        await throwValidationRequestError(response);
     }
     const verdict = await response.json();
     const issues = verdict.issues || [];
