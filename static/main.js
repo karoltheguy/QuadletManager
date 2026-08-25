@@ -3376,6 +3376,7 @@ Object.assign(window, {
   applyContainerFilter,
   applyEditorTheme,
   applyThemePreview,
+  applyStatusDots,
   clearThemePreview,
   closeLogTab,
   closeTerminalTab,
@@ -3386,6 +3387,7 @@ Object.assign(window, {
   handleQuadletsChanged,
   handleStatsError,
   handleStatsUpdate,
+  lastStatsPerServer,
   loadMonitorCharts,
   openBottomPanel,
   renderContainerStatsTable,
@@ -3418,5 +3420,6 @@ Object.assign(window, {
   toggleTheme,
   unitNameFor,
   updateInspectorActivityLog,
+  updateInspectorStatsCard,
   validateQuadlet,
 });

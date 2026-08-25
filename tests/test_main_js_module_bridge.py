@@ -121,7 +121,7 @@ def test_every_template_inline_handler_is_on_the_bridge():
     inline_handler_attr_pattern = re.compile(r'\bon[a-z]+\s*=\s*(["\'])(.*?)\1', re.IGNORECASE | re.DOTALL)
     call_target_pattern = re.compile(r"\b([A-Za-z_$][\w$]*)\s*\(")
     window_ref_pattern = re.compile(r"\bwindow\.([A-Za-z_$][\w$]*)\b")
-    script_block_pattern = re.compile(r"<script\b[^>]*>(.*?)</script>", re.IGNORECASE | re.DOTALL)
+    script_block_pattern = re.compile(r"<script\b[^>]*>(.*?)</script\s*>", re.IGNORECASE | re.DOTALL)
     script_func_pattern = re.compile(r"\bfunction\s+([A-Za-z_$][\w$]*)\b")
 
     used_names = set()
