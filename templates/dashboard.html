@@ -24,7 +24,7 @@
     <script src="/static/vendor/xterm/xterm.js"></script>
     <script src="/static/vendor/xterm/xterm-addon-fit.js"></script>
     <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
-    <link rel="stylesheet" href="/static/style.css?v={{ static_style_css_version }}">
+    <link rel="stylesheet" href="{{ asset_url('style.css') }}">
     <style id="qm-theme-overrides">
       :root[data-theme="light"] {
         {% for k, v in active_theme_light.items() %}--{{ k|replace('_','-') }}: {{ v }};{% endfor %}
@@ -561,14 +561,14 @@
     </div><!-- /.app-container -->
 
     <script src="/static/vendor/monaco/vs/loader.js"></script>
-    <script type="module" src="/static/quadlet_lint.js" data-quadlet-lint-loader></script>
+    <script type="module" src="{{ asset_url('quadlet_lint.js') }}" data-quadlet-lint-loader></script>
     <script type="module">
-        import { attachQuadletLint, registerQuadletLintProviders } from '/static/quadlet_lint.js';
+        import { attachQuadletLint, registerQuadletLintProviders } from '{{ asset_url('quadlet_lint.js') }}';
         window.attachQuadletLint = attachQuadletLint;
         window.registerQuadletLintProviders = registerQuadletLintProviders;
         window._quadletLintReady = true;
         document.dispatchEvent(new Event('quadlet-lint-ready'));
     </script>
-    <script src="/static/main.js?v={{ static_main_js_version }}"></script>
+    <script src="{{ asset_url('main.js') }}"></script>
 </body>
 </html>

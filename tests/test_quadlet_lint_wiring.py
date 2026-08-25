@@ -38,13 +38,16 @@ def _quadlet_lint_js():
 def test_dashboard_loads_quadlet_lint_as_module_script():
     html = _dashboard_html()
     match = re.search(
-        r'<script[^>]*type="module"[^>]*src="/static/quadlet_lint\.js[^"]*"[^>]*>'
-        r'|<script[^>]*src="/static/quadlet_lint\.js[^"]*"[^>]*type="module"[^>]*>',
+        r'<script[^>]*type="module"[^>]*src="(?:/static/quadlet_lint\.js[^"]*|'
+        r'\{\{ *asset_url\(.quadlet_lint\.js.\) *\}\})"[^>]*>'
+        r'|<script[^>]*src="(?:/static/quadlet_lint\.js[^"]*|'
+        r'\{\{ *asset_url\(.quadlet_lint\.js.\) *\}\})"[^>]*type="module"[^>]*>',
         html,
     )
     assert match, (
-        "Expected dashboard.html to load /static/quadlet_lint.js via "
-        '<script type="module" src="/static/quadlet_lint.js">. Without this, the '
+        "Expected dashboard.html to load quadlet_lint.js via a "
+        '<script type="module"> tag, either with a literal /static/ path or '
+        "through asset_url(). Without this, the "
         "client-side quadlet-lint adapter is never loaded into the page."
     )
 
