@@ -84,6 +84,17 @@ def _asset_version(filename: str) -> int:
     return int(os.path.getmtime(os.path.join(STATIC_DIR, filename)))
 
 
+def asset_url(filename: str) -> str:
+    """Return a cache-busted URL for a static asset, e.g. /static/main.js?v=1712345678.
+
+    Registered as a Jinja global so any template can version any static file
+    without the route having to pass a per-asset context key.
+    """
+    return f"/static/{filename}?v={_asset_version(filename)}"
+
+
+templates.env.globals["asset_url"] = asset_url
+
 
 # Fire-and-forget tasks are parked here until they finish. The event loop only
 # keeps a weak reference to a running task, so a bare create_task() whose result
@@ -542,8 +553,6 @@ async def dashboard_view(
         "active_theme_light": active_theme["light"],
         "active_theme_dark": active_theme["dark"],
         "app_version": get_version(),
-        "static_main_js_version": _asset_version("main.js"),
-        "static_style_css_version": _asset_version("style.css"),
     })
 
 @router.get("/api/servers", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)

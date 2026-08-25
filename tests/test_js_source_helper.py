@@ -14,7 +14,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ALLOWLISTED_BASENAMES = {
+    # Needs the real single-file path to read main.js mtime, does not read JS source text
     "test_static_asset_cache_busting.py",
+    "test_static_asset_versioning.py",
     "test_code_quality.py",
     "test_js_source_helper.py",
 }
