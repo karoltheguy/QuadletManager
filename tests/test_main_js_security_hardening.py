@@ -3,14 +3,13 @@ Structural tests for frontend security hardening in main.js (#161).
 These verify source patterns directly — no running backend or browser required.
 """
 import re
-import pathlib
 import pytest
 
-MAIN_JS = pathlib.Path(__file__).parent.parent / "static" / "main.js"
+from tests.js_source import read_static_js
 
 
 def _src():
-    return MAIN_JS.read_text()
+    return read_static_js()
 
 
 @pytest.mark.unit

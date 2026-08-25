@@ -4,15 +4,13 @@ Tests for active section persistence across page refreshes (Issue #117).
 - switchTab must save the active tab to localStorage under 'qm-active-tab'
 - DOMContentLoaded must restore from 'qm-active-tab' instead of hard-coding 'overview'
 """
-import os
 import re
 
-JS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "main.js")
+from tests.js_source import read_static_js
 
 
 def _read():
-    with open(JS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 class TestActiveTabPersistence:

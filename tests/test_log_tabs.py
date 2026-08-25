@@ -8,15 +8,13 @@ Verifies:
 - Log chips render into the same shared sessions strip as terminal chips.
 - Switching the Terminal/Logs mode tab does not clear the shared sessions strip.
 """
-import os
 import pytest
 
-JS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "main.js")
+from tests.js_source import read_static_js
 
 
 def _read_js():
-    with open(JS_PATH) as f:
-        return f.read()
+    return read_static_js()
 
 
 @pytest.mark.unit

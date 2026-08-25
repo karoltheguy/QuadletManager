@@ -5,14 +5,11 @@ Verifies that static/main.js contains the correct patterns for the new
 context menu items and that the unit name derivation matches what the
 backend expects (stem + '.service').
 """
-import os
-
-MAIN_JS = os.path.join(os.path.dirname(__file__), '..', 'static', 'main.js')
+from tests.js_source import read_static_js
 
 
 def _read_js():
-    with open(MAIN_JS, 'r') as f:
-        return f.read()
+    return read_static_js()
 
 
 # =============================================================================

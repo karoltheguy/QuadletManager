@@ -33,19 +33,17 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import pathlib
 
 import pytest
+
+from tests.js_source import read_static_js
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tests.test_brand_teal_contrast import (
-    relative_luminance,
     contrast_ratio,
     WCAG_AA_MIN,
 )
-
-MAIN_JS = pathlib.Path(__file__).parent.parent / "static" / "main.js"
 
 # Corpus shared with tests/test_theme_on_primary_contrast.py's hostile-color
 # and hand-picked-default coverage, plus pure black/white edge cases.
@@ -61,7 +59,7 @@ COLOR_CORPUS = (
 
 
 def _src():
-    return MAIN_JS.read_text()
+    return read_static_js()
 
 
 def _extract_function(src, name):
