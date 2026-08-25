@@ -4,7 +4,6 @@ These tests specify the upcoming migration where mutable frontend state is moved
 from static/main.js into an ES module static/modules/state.js, resolved via an
 import map rendered in templates/dashboard.html.
 """
-import json
 import pathlib
 import re
 from unittest.mock import patch
@@ -67,8 +66,11 @@ def test_import_map_maps_every_static_module_to_a_versioned_url():
     assert hasattr(routes, "module_import_map"), "module_import_map is not defined in api.routes"
     from api.routes import module_import_map
 
-    raw_map = module_import_map()
-    import_map = json.loads(raw_map)
+    import_map = module_import_map()
+    assert isinstance(import_map, dict), (
+        "module_import_map must return a mapping so the template can render it "
+        "with Jinja's tojson rather than disabling auto-escaping with |safe"
+    )
     imports = import_map.get("imports", import_map)
 
     assert "@qm/state" in imports, "Bare specifier '@qm/state' not found in import map"

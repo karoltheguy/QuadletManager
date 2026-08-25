@@ -23,7 +23,7 @@
     <script src="/static/vendor/chartjs/chart.umd.js"></script>
     <script src="/static/vendor/xterm/xterm.js"></script>
     <script src="/static/vendor/xterm/xterm-addon-fit.js"></script>
-    <script type="importmap">{{ module_import_map()|safe }}</script>
+    <script type="importmap">{{ module_import_map()|tojson }}</script>
     <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
     <link rel="stylesheet" href="{{ asset_url('style.css') }}">
     <style id="qm-theme-overrides">
