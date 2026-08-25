@@ -642,6 +642,35 @@ Real-time log streaming via `journalctl -f`:
 
 ## Background Services
 
+Two independent pollers run against every server: the sync engine on a 10s
+cadence and the stats engine on a 5s one. Merging them into a single SSH pass
+per server has been proposed (issue #182) and deliberately rejected.
+
+**Why they stay separate.** They poll for different goals, and that difference
+runs all the way down:
+
+| | Sync engine | Stats engine |
+|---|---|---|
+| Reads | quadlet file mtimes (configuration state) | live container CPU and memory (runtime state) |
+| Cadence | 10s, tied to how fast external edits need to surface | 5s, tied to how smooth the monitoring charts look |
+| Cost of a missed cycle | the UI shows a stale quadlet until the next cycle | one gap in a graph |
+| Consumers | the quadlet tree, the editor's collision check, `quadlets` inventory rows | the Monitor pane and `container_health_history` |
+
+Because the failure costs differ, the error handling has to differ, and each
+engine's failure must stay invisible to the other: a server whose `podman stats`
+is failing must still have its file changes detected, and a host that has become
+unreachable for `stat` must not blank the charts. A merged pass would put both
+behind one scheduler and one error path, coupling two cadences that have no
+reason to move together.
+
+The measured argument points the same way. Poll health instrumentation
+(issues #183 to #186, see [Poll Health Instrumentation](#poll-health-instrumentation-servicessync_enginepy))
+exists to detect whether connection churn is actually hurting, and the batching
+from issue #170 already removed the `O(servers x files)` scaling problem the
+merge was meant to address. Revisit the merge only if cycle-budget `poll_health`
+events start firing.
+
+
 ### Sync Engine ([`services/sync_engine.py`](services/sync_engine.py))
 
 ```mermaid
