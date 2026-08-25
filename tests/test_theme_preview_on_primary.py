@@ -28,6 +28,7 @@ yet reference --brand-on-primary or call onPrimaryFor.
 """
 import json
 import os
+import pathlib
 import re
 import shutil
 import subprocess
@@ -84,60 +85,23 @@ def _extract_function(src, name):
 @pytest.mark.unit
 def test_on_primary_for_js_matches_python_for_color_corpus():
     """The JS onPrimaryFor() helper (plus its linearize/relativeLuminance/
-    contrastRatio dependencies) must exist in static/main.js and must return
+    contrastRatio dependencies) must exist in static/modules/color.js and must return
     exactly the same on-color as the Python _on_primary_for() for every
     color in COLOR_CORPUS."""
     if shutil.which("node") is None:
         pytest.skip("node binary is not available in this environment")
 
-    src = _src()
+    color_module_path = pathlib.Path(__file__).parent.parent / "static" / "modules" / "color.js"
+    color_module_url = color_module_path.resolve().as_uri()
 
-    required_functions = ("linearize", "relativeLuminance", "contrastRatio", "onPrimaryFor")
-    extracted = {}
-    for fn_name in required_functions:
-        body = _extract_function(src, fn_name)
-        assert body is not None, (
-            f"static/main.js does not define a top-level `function {fn_name}(...) "
-            f"{{ ... }}` -- the JS mirror of api/routes.py's on-primary-color "
-            f"derivation (Issue #233) has not been implemented yet."
-        )
-        extracted[fn_name] = body
-
-    # The candidate list / threshold may be declared as top-level var/const;
-    # include them if present, otherwise fall back to the known Python values
-    # so the driver script can still run once the functions themselves exist.
-    candidates_match = re.search(
-        r'(?:var|const)\s+(\w*ON_PRIMARY_CANDIDATES\w*)\s*=\s*(\[[^\]]*\])', src
-    )
-    threshold_match = re.search(
-        r'(?:var|const)\s+(\w*WCAG_AA_MIN\w*|\w*AA_MIN\w*)\s*=\s*([\d.]+)', src
-    )
-
-    js_lines = []
-    if candidates_match:
-        js_lines.append(f"var {candidates_match.group(1)} = {candidates_match.group(2)};")
-    else:
-        js_lines.append('var ON_PRIMARY_CANDIDATES = ["#1c1f24", "#ffffff", "#000000"];')
-    if threshold_match:
-        js_lines.append(f"var {threshold_match.group(1)} = {threshold_match.group(2)};")
-    else:
-        js_lines.append("var WCAG_AA_MIN = 4.5;")
-
-    for fn_name in required_functions:
-        js_lines.append(extracted[fn_name])
-
-    driver = """
-var corpus = %s;
-var result = {};
-corpus.forEach(function(c) {
-    result[c] = onPrimaryFor(c);
-});
+    js_source = f"""import {{ onPrimaryFor }} from '{color_module_url}';
+const corpus = {json.dumps(list(COLOR_CORPUS))};
+const result = {{}};
+corpus.forEach(c => {{ result[c] = onPrimaryFor(c); }});
 console.log(JSON.stringify(result));
-""" % json.dumps(list(COLOR_CORPUS))
+"""
 
-    js_source = "\n".join(js_lines) + "\n" + driver
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".mjs", delete=False) as f:
         f.write(js_source)
         js_path = f.name
 
