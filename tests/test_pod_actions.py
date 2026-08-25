@@ -16,13 +16,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-MAIN_JS = os.path.join(os.path.dirname(__file__), '..', 'static', 'main.js')
+from tests.js_source import read_static_js
+
 EDITOR_PANE_HTML = os.path.join(os.path.dirname(__file__), '..', 'templates', 'partials', 'editor_pane.html')
 
 
 def _read_js():
-    with open(MAIN_JS, 'r') as f:
-        return f.read()
+    return read_static_js()
 
 
 def _read_editor():

@@ -21,15 +21,15 @@ from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from main import app
 
-JS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "main.js")
+from tests.js_source import read_static_js
+
 EDITOR_PANE_HTML_PATH = os.path.join(
     os.path.dirname(__file__), "..", "templates", "partials", "editor_pane.html"
 )
 
 
 def _js():
-    with open(JS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 def _editor_pane_html():

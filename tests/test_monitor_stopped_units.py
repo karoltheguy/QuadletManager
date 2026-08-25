@@ -12,17 +12,15 @@ Covers:
 - renderContainerRow uses the not_running flag to source a non-running row's
   Status badge from getUnitBadgeInfo instead of getHealthBadgeInfo.
 """
-import os
 import re
 
 import pytest
 
-JS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "main.js")
+from tests.js_source import read_static_js
 
 
 def _js():
-    with open(JS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 def _extract_function_body(js, name):

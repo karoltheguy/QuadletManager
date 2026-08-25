@@ -19,9 +19,10 @@ import re
 
 import pytest
 
+from tests.js_source import read_static_js
+
 TESTS_DIR = os.path.dirname(__file__)
 HTML_PATH = os.path.join(TESTS_DIR, "..", "templates", "dashboard.html")
-MAIN_JS_PATH = os.path.join(TESTS_DIR, "..", "static", "main.js")
 TEMPLATES_DIR = os.path.join(TESTS_DIR, "..", "templates")
 STATIC_DIR = os.path.join(TESTS_DIR, "..", "static")
 
@@ -114,7 +115,7 @@ def test_no_template_loads_a_script_from_a_third_party_host():
 
 @pytest.mark.unit
 def test_main_js_require_config_uses_vendored_vs_path():
-    main_js = _read_text(MAIN_JS_PATH)
+    main_js = read_static_js()
     assert VENDORED_MONACO_PREFIX + "vs" in main_js, (
         "Expected static/main.js's require.config({ paths: { 'vs': ... } }) to "
         f"point at the same-origin vendored path '{VENDORED_MONACO_PREFIX}vs' "

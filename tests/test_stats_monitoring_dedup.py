@@ -8,11 +8,11 @@ No running backend is required.
 import re
 import pathlib
 
-MAIN_JS = pathlib.Path(__file__).parent.parent / "static" / "main.js"
+from tests.js_source import read_static_js
 
 
 def _src():
-    return MAIN_JS.read_text()
+    return read_static_js()
 
 
 # ── Chart factory ────────────────────────────────────────────────────────────

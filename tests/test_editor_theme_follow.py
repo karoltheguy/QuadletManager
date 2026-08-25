@@ -15,9 +15,10 @@ import re
 
 import pytest
 
+from tests.js_source import read_static_js
+
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 EDITOR_PANE_HTML_PATH = os.path.join(BASE_DIR, "templates", "partials", "editor_pane.html")
-MAIN_JS_PATH = os.path.join(BASE_DIR, "static", "main.js")
 
 
 def _editor_pane_html():
@@ -26,8 +27,7 @@ def _editor_pane_html():
 
 
 def _main_js():
-    with open(MAIN_JS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 @pytest.mark.unit

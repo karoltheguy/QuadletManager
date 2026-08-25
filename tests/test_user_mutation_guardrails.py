@@ -23,11 +23,12 @@ import re
 
 import pytest
 
+from tests.js_source import read_static_js
+
 SETTINGS_USERS_HTML_PATH = os.path.join(
     os.path.dirname(__file__), "..", "templates", "partials", "settings_users.html"
 )
 ROUTES_PY_PATH = os.path.join(os.path.dirname(__file__), "..", "api", "routes.py")
-JS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "main.js")
 
 
 def _settings_users_html():
@@ -41,8 +42,7 @@ def _routes_py():
 
 
 def _js():
-    with open(JS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 # =============================================================================

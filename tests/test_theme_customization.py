@@ -12,6 +12,8 @@ import pytest_asyncio
 import aiosqlite
 from unittest.mock import AsyncMock, MagicMock
 
+from tests.js_source import read_static_js
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import core.database as db_module
@@ -508,14 +510,8 @@ async def test_dashboard_route_emits_light_override_selector_when_set(fresh_db):
 
 
 # ── Issue #77: Frontend JS (static/main.js) ───────────────────────────────────
-
-import os as _os
-_MAIN_JS = _os.path.join(_os.path.dirname(__file__), '..', 'static', 'main.js')
-
-
 def _read_main_js():
-    with open(_MAIN_JS) as f:
-        return f.read()
+    return read_static_js()
 
 
 @pytest.mark.unit

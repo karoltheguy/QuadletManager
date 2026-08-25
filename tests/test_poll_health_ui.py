@@ -13,15 +13,15 @@ Covers:
 import os
 import re
 
-JS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "main.js")
+from tests.js_source import read_static_js
+
 HTML_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "partials", "servers_list.html")
 CSS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "style.css")
 DASHBOARD_HTML_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "dashboard.html")
 
 
 def _js():
-    with open(JS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 def _html():

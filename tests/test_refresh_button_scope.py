@@ -3,11 +3,10 @@ import re
 from html.parser import HTMLParser
 import pytest
 
+from tests.js_source import read_static_js
+
 TEMPLATE_PATH = os.path.join(
     os.path.dirname(__file__), "..", "templates", "dashboard.html"
-)
-JS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "static", "main.js"
 )
 
 VOID_TAGS = {
@@ -118,8 +117,7 @@ def _read_template() -> str:
 
 
 def _read_js() -> str:
-    with open(JS_PATH, "r", encoding="utf-8") as f:
-        return f.read()
+    return read_static_js()
 
 
 def _extract_soft_refresh_body(js_content: str) -> str:

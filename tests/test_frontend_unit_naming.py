@@ -8,14 +8,14 @@ quadlet_tree.html exposes the quadlet type needed to drive that logic.
 """
 import os
 
-MAIN_JS = os.path.join(os.path.dirname(__file__), '..', 'static', 'main.js')
+from tests.js_source import read_static_js
+
 TREE_HTML = os.path.join(os.path.dirname(__file__), '..', 'templates', 'partials', 'quadlet_tree.html')
 EDITOR_PANE_HTML = os.path.join(os.path.dirname(__file__), '..', 'templates', 'partials', 'editor_pane.html')
 
 
 def _read_js():
-    with open(MAIN_JS, 'r') as f:
-        return f.read()
+    return read_static_js()
 
 
 def _read_tree_html():
