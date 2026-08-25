@@ -2,6 +2,8 @@
 import { lastStatsPerServer, runningContainersBySid, manualStops,
          pendingStarts, chartColorByName, monitorChartSelection,
          _terminalTabs, _logTabs, state } from '@qm/state';
+import { el, sendNotification, getRelativeTime, setStatText } from '@qm/dom';
+import { onPrimaryFor, hexToRgba } from '@qm/color';
 
 // ── Server Collapse ───────────────────────────────────────
 function toggleServerCollapse(serverId) {
@@ -139,45 +141,6 @@ function initEditorThemeRadio() {
 }
 
 // ── Theme Preview ─────────────────────────────────────────
-
-// WCAG contrast helpers (mirrors api/routes.py's _linearize / _relative_luminance /
-// _contrast_ratio / _on_primary_for, see lines ~1285-1322). These must stay in
-// exact result-parity with the Python implementation -- see
-// tests/test_theme_preview_on_primary.py's parity assertion over a shared color
-// corpus.
-function linearize(channel) {
-    if (channel <= 0.04045) return channel / 12.92;
-    return Math.pow((channel + 0.055) / 1.055, 2.4);
-}
-
-function relativeLuminance(hexColor) {
-    const hex = hexColor.replace(/^#/, '');
-    let r = Number.parseInt(hex.substring(0, 2), 16) / 255;
-    let g = Number.parseInt(hex.substring(2, 4), 16) / 255;
-    let b = Number.parseInt(hex.substring(4, 6), 16) / 255;
-    r = linearize(r);
-    g = linearize(g);
-    b = linearize(b);
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrastRatio(hexA, hexB) {
-    const la = relativeLuminance(hexA);
-    const lb = relativeLuminance(hexB);
-    const lighter = Math.max(la, lb);
-    const darker = Math.min(la, lb);
-    return (lighter + 0.05) / (darker + 0.05);
-}
-
-const ON_PRIMARY_CANDIDATES = ['#1c1f24', '#ffffff', '#000000'];
-const WCAG_AA_MIN = 4.5;
-
-function onPrimaryFor(brandHex) {
-    for (const candidate of ON_PRIMARY_CANDIDATES) {
-        if (contrastRatio(candidate, brandHex) >= WCAG_AA_MIN) return candidate;
-    }
-    return '#ffffff';
-}
 
 // NOTE: load_active_theme() in api/routes.py only injects --brand-on-primary
 // when a saved theme has a custom brand_primary override; the live preview
@@ -351,45 +314,6 @@ if ('Notification' in window && Notification.permission !== 'granted' && Notific
     Notification.requestPermission();
 }
 
-function el(tag, attrs, children) {
-    const element = document.createElement(tag);
-    if (attrs) {
-        Object.keys(attrs).forEach(function(k) {
-            const val = Reflect.get(attrs, k);
-            if (k === 'className') {
-                element.className = val;
-            } else if (k === 'style' && typeof val === 'object') {
-                Object.keys(val).forEach(function(sk) {
-                    Reflect.set(element.style, sk, Reflect.get(val, sk));
-                });
-            } else {
-                element.setAttribute(k, val);
-            }
-        });
-    }
-    if (children !== undefined && children !== null) {
-        if (Array.isArray(children)) {
-            children.forEach(function(child) {
-                if (typeof child === 'string') {
-                    element.appendChild(document.createTextNode(child));
-                } else if (child) {
-                    element.appendChild(child);
-                }
-            });
-        } else if (typeof children === 'string') {
-            element.textContent = children;
-        } else {
-            element.appendChild(children);
-        }
-    }
-    return element;
-}
-
-function sendNotification(title, body) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body: body });
-    }
-}
 
 function checkQuadletStartup(watchId, stem, serverId, unitName, scope) {
     Reflect.deleteProperty(pendingStarts, watchId);
@@ -606,12 +530,6 @@ function refreshChartSwatches() {
     });
 }
 
-function hexToRgba(hex, alpha) {
-    const r = Number.parseInt(hex.slice(1, 3), 16);
-    const g = Number.parseInt(hex.slice(3, 5), 16);
-    const b = Number.parseInt(hex.slice(5, 7), 16);
-    return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
-}
 
 function getChartTheme() {
     const s = getComputedStyle(document.documentElement);
@@ -876,15 +794,6 @@ function updateInspectorActivityLog() {
         });
 }
 
-function getRelativeTime(timestamp) {
-    const now = Math.floor(Date.now() / 1000);
-    const diff = now - timestamp;
-
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-    return Math.floor(diff / 86400) + 'd ago';
-}
 
 
 // Called from quadlet_tree.html when the user clicks a file button.
@@ -1995,11 +1904,6 @@ function computeUnitCounts(units) {
   // three load counts still add up, and failed overlaps it as its own signal.
   const failed = filteredUnits.filter(function(u) { return u.active_state === 'failed'; }).length;
   return { total: total, running: running, stopped: total - running, failed: failed };
-}
-
-function setStatText(id, value) {
-  const node = document.getElementById(id);
-  if (node) node.textContent = value;
 }
 
 // The 'danger' class carries the unhealthy state by colour alone, so repeat it
