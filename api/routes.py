@@ -93,7 +93,23 @@ def asset_url(filename: str) -> str:
     return f"/static/{filename}?v={_asset_version(filename)}"
 
 
+def module_import_map() -> str:
+    """Module-to-module imports bypass the asset_url busting that template
+    script tags get, so without this a changed module could be served stale
+    behind an unchanged main.js.
+    """
+    modules_dir = os.path.join(STATIC_DIR, "modules")
+    imports = {}
+    if os.path.isdir(modules_dir):
+        for entry in sorted(os.listdir(modules_dir)):
+            if entry.endswith(".js"):
+                stem = entry[:-3]
+                imports[f"@qm/{stem}"] = f"/static/modules/{entry}?v={_asset_version(os.path.join('modules', entry))}"
+    return json.dumps({"imports": imports})
+
+
 templates.env.globals["asset_url"] = asset_url
+templates.env.globals["module_import_map"] = module_import_map
 
 
 # Fire-and-forget tasks are parked here until they finish. The event loop only

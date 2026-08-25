@@ -1,4 +1,8 @@
 /* global htmx, Chart, Terminal, healthHistoryChart, monitoringChart, require */
+import { lastStatsPerServer, runningContainersBySid, manualStops,
+         pendingStarts, chartColorByName, monitorChartSelection,
+         _terminalTabs, _logTabs, state } from '@qm/state';
+
 // ── Server Collapse ───────────────────────────────────────
 function toggleServerCollapse(serverId) {
     const li = document.querySelector('li[data-server-id="' + serverId + '"]');
@@ -278,12 +282,12 @@ function setSelectedQuadletBtn(el) {
 }
 
 // Re-apply the .is-selected class after htmx swaps the quadlet tree.
-// Source of truth is window._selectedContainerStem / _selectedContainerServerId,
+// Source of truth is state._selectedContainerStem / _selectedContainerServerId,
 // set by selectContainerStem() — the editor pane is the real state, we're
 // just re-syncing the sidebar visual to match.
 function reapplyQuadletSelection() {
-    const stem = window._selectedContainerStem;
-    const sid  = window._selectedContainerServerId;
+    const stem = state._selectedContainerStem;
+    const sid  = state._selectedContainerServerId;
     if (!stem || !sid) return;
     const btn = document.querySelector(
         '.quadlet-tree-btn[data-stem="' + stem + '"][data-server-id="' + sid + '"]'
@@ -293,7 +297,7 @@ function reapplyQuadletSelection() {
 // Restore the saved quadlet selection after the tree loads via HTMX.
 // Uses a once-flag so subsequent tree re-renders don't clobber user clicks.
 function restoreQuadletSelection() {
-    if (window._quadletRestored) return;
+    if (state._quadletRestored) return;
     let saved;
     try {
         saved = JSON.parse(localStorage.getItem('qm-selected-quadlet'));
@@ -305,7 +309,7 @@ function restoreQuadletSelection() {
         '.quadlet-tree-btn[data-stem="' + saved.stem + '"][data-server-id="' + saved.serverId + '"]'
     );
     if (!btn) return;
-    window._quadletRestored = true;
+    state._quadletRestored = true;
     btn.click();
 }
 
@@ -346,9 +350,6 @@ window.addEventListener('resize', function() {
 if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
     Notification.requestPermission();
 }
-
-const manualStops = new Set(); // tracks serverId:stem that we intentionally stopped
-const pendingStarts = {}; // tracks stems waiting for active status
 
 function el(tag, attrs, children) {
     const element = document.createElement(tag);
@@ -528,9 +529,6 @@ document.body.addEventListener('user-updated', function(evt) {
 
 
 // ── Stats Chart ──────────────────────────────────────────
-let cpuHistoryChart = null;
-let memHistoryChart = null;
-
 const HISTORY_COLORS = [
     'rgba(20, 184, 166, 1)',   // teal  — matches brand-primary
     'rgba(16, 185, 129, 1)',   // emerald
@@ -545,11 +543,9 @@ const HISTORY_COLORS = [
 // Colors are keyed off container name, not position: the table swatch and
 // the chart line have to agree, but the two dataset-building paths visit
 // containers in different orders.
-const chartColorByName = new Map();
 
 // An empty set means every series is visible; a non-empty set is the exact
 // set of visible container names. Both history charts share this selection.
-const monitorChartSelection = new Set();
 
 // Single source of truth for "is this series/swatch on": both the row
 // renderer and the click refresh use it, so the button state and
@@ -595,10 +591,10 @@ function toggleChartSelection(name) {
     } else {
         monitorChartSelection.clear();
     }
-    applyChartSelection(cpuHistoryChart);
-    applyChartSelection(memHistoryChart);
-    if (cpuHistoryChart) cpuHistoryChart.update('none');
-    if (memHistoryChart) memHistoryChart.update('none');
+    applyChartSelection(state.cpuHistoryChart);
+    applyChartSelection(state.memHistoryChart);
+    if (state.cpuHistoryChart) state.cpuHistoryChart.update('none');
+    if (state.memHistoryChart) state.memHistoryChart.update('none');
     refreshChartSwatches();
 }
 
@@ -669,7 +665,7 @@ function applyChartTheme() {
     }
     // Monitor time-series charts build their own per-container datasets, so only
     // the shared axis/legend/tooltip colors need repainting on a theme switch.
-    [cpuHistoryChart, memHistoryChart].forEach(function(chart) {
+    [state.cpuHistoryChart, state.memHistoryChart].forEach(function(chart) {
         if (!chart) return;
         patchChartOptions(chart.options, t);
         chart.update('none');
@@ -698,19 +694,6 @@ function applyEditorTheme() {
 // The stats chart only renders updates for this server.
 // null = show whichever server reports first (auto-set on first update).
 
-// Cache the last-seen data per server so we can re-render immediately
-// when the user switches servers without waiting for the next 5s poll.
-const lastStatsPerServer = {};
-
-// Per-server map of currently running container name stems.
-// Key: serverId (int), Value: Set<string> of lowercase container name stems.
-// Explicitly attached to window so page.evaluate() in tests can access it.
-const runningContainersBySid = {};
-
-// Active container name filter for the Monitor view (lowercase substring).
-// Empty string means show all containers.
-let monitorContainerFilter = '';
-
 // Last unhealthy count announced to #monitor-health-status, so repeated
 // SSE ticks with an unchanged count do not re-trigger the live region.
 let lastAnnouncedUnhealthy = null;
@@ -720,15 +703,15 @@ let lastAnnouncedUnhealthy = null;
 // so subsequent htmx:afterSwap tree re-renders don't override user clicks.
 
 function selectContainerStem(stem, serverId, scope, type) {
-    window._selectedContainerStem = (stem || '').toLowerCase();
-    window._selectedContainerServerId = Number.parseInt(serverId, 10);
-    window._selectedContainerScope = scope || 'global';
-    window._selectedContainerType = (type || '').toLowerCase();
+    state._selectedContainerStem = (stem || '').toLowerCase();
+    state._selectedContainerServerId = Number.parseInt(serverId, 10);
+    state._selectedContainerScope = scope || 'global';
+    state._selectedContainerType = (type || '').toLowerCase();
     try {
         localStorage.setItem('qm-selected-quadlet', JSON.stringify({
-            stem: window._selectedContainerStem,
-            serverId: window._selectedContainerServerId,
-            scope: window._selectedContainerScope
+            stem: state._selectedContainerStem,
+            serverId: state._selectedContainerServerId,
+            scope: state._selectedContainerScope
         }));
     } catch {
         // Ignore localStorage restrictions
@@ -743,8 +726,8 @@ function updateInspectorStatsCard() {
     const card = document.getElementById('container-stats-card');
     if (!card) return;
 
-    const stem = window._selectedContainerStem;
-    const serverId = window._selectedContainerServerId;
+    const stem = state._selectedContainerStem;
+    const serverId = state._selectedContainerServerId;
     if (!stem || !serverId) {
         card.classList.add('hidden');
         hideTerminalSection();
@@ -817,8 +800,8 @@ function updateInspectorActivityLog() {
     const activityLog = document.getElementById('container-activity-log');
     if (!activityLog) return;
 
-    const stem = window._selectedContainerStem;
-    const serverId = window._selectedContainerServerId;
+    const stem = state._selectedContainerStem;
+    const serverId = state._selectedContainerServerId;
     if (!stem || !serverId) {
         activityLog.classList.add('hidden');
         return;
@@ -907,8 +890,8 @@ function getRelativeTime(timestamp) {
 // Called from quadlet_tree.html when the user clicks a file button.
 function setActiveServer(serverId) {
     serverId = Number.parseInt(serverId, 10);
-    if (window.activeServerId === serverId) return;
-    window.activeServerId = serverId;
+    if (state.activeServerId === serverId) return;
+    state.activeServerId = serverId;
     // Re-render immediately with cached data for this server, if we have it.
     const cached = Reflect.get(lastStatsPerServer, serverId);
     if (cached) {
@@ -1018,25 +1001,25 @@ function _buildTimeSeriesConfig() {
 function initCpuChart() {
   const ctx = document.getElementById('cpu-history-chart');
   if (!ctx) return;
-  cpuHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
+  state.cpuHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
 
 function initMemChart() {
   const ctx = document.getElementById('mem-history-chart');
   if (!ctx) return;
-  memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
+  state.memHistoryChart = new Chart(ctx, _buildTimeSeriesConfig());
 }
 
 
 function loadMonitorCharts(minutes, btnEl) {
-  window._monitorChartMinutes = minutes;
+  state._monitorChartMinutes = minutes;
 
   if (btnEl) {
     document.querySelectorAll('.health-range-btn').forEach(function(b) { b.classList.remove('active'); });
     btnEl.classList.add('active');
   }
 
-  const serverId = window._monitoringServerId;
+  const serverId = state._monitoringServerId;
   if (!serverId) return;
 
   fetch('/api/health/history/' + serverId + '?minutes=' + minutes)
@@ -1052,14 +1035,14 @@ function loadMonitorCharts(minutes, btnEl) {
       }
       if (emptyEl) emptyEl.style.display = 'none';
 
-      if (!cpuHistoryChart || !memHistoryChart) return;
+      if (!state.cpuHistoryChart || !state.memHistoryChart) return;
 
       // Build unified sorted timestamp labels from all containers
       const tsSet = new Set();
       data.forEach(function(c) { c.history.forEach(function(p) { tsSet.add(p.ts); }); });
       const tsSorted = Array.from(tsSet).sort(function(a, b) { return a - b; });
 
-      const _rangeMinutes = window._monitorChartMinutes;
+      const _rangeMinutes = state._monitorChartMinutes;
       const _dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       const labels = tsSorted.map(function(ts) {
         const d = new Date(ts * 1000);
@@ -1076,8 +1059,8 @@ function loadMonitorCharts(minutes, btnEl) {
       });
 
       // Apply container filter to chart data
-      const filteredData = monitorContainerFilter
-        ? data.filter(function(c) { return (c.container_name || '').toLowerCase().includes(monitorContainerFilter); })
+      const filteredData = state.monitorContainerFilter
+        ? data.filter(function(c) { return (c.container_name || '').toLowerCase().includes(state.monitorContainerFilter); })
         : data;
 
       const cpuDatasets = filteredData.map(function(c) {
@@ -1118,15 +1101,15 @@ function loadMonitorCharts(minutes, btnEl) {
         };
       });
 
-      cpuHistoryChart.data.labels = labels;
-      cpuHistoryChart.data.datasets = cpuDatasets;
-      applyChartSelection(cpuHistoryChart);
-      cpuHistoryChart.update();
+      state.cpuHistoryChart.data.labels = labels;
+      state.cpuHistoryChart.data.datasets = cpuDatasets;
+      applyChartSelection(state.cpuHistoryChart);
+      state.cpuHistoryChart.update();
 
-      memHistoryChart.data.labels = labels;
-      memHistoryChart.data.datasets = memDatasets;
-      applyChartSelection(memHistoryChart);
-      memHistoryChart.update();
+      state.memHistoryChart.data.labels = labels;
+      state.memHistoryChart.data.datasets = memDatasets;
+      applyChartSelection(state.memHistoryChart);
+      state.memHistoryChart.update();
     })
     .catch(function(err) {
       console.error('Monitor chart fetch error:', err);
@@ -1434,7 +1417,7 @@ function handleStatsError(e) {
   try {
     const data = JSON.parse(e.data);
 
-    if (data.server_id === window._monitoringServerId) {
+    if (data.server_id === state._monitoringServerId) {
       const monitoringTableEl = document.getElementById('monitoring-stats-table');
       if (monitoringTableEl) {
         monitoringTableEl.textContent = '';
@@ -1458,12 +1441,12 @@ function handleStatsUpdate(e) {
 
     applyStatusDots(data.server_id);
 
-    if (data.server_id === window._selectedContainerServerId) {
+    if (data.server_id === state._selectedContainerServerId) {
       updateInspectorStatsCard();
     }
 
-    if (window.activeServerId === null) {
-      window.activeServerId = data.server_id;
+    if (state.activeServerId === null) {
+      state.activeServerId = data.server_id;
     }
 
     updateMonitoringView(data);
@@ -1665,9 +1648,9 @@ function handleContainersTabActivation() {
 }
 
 function handleMonitorTabActivation() {
-  if (cpuHistoryChart) cpuHistoryChart.resize();
-  if (memHistoryChart) memHistoryChart.resize();
-  loadMonitorCharts(window._monitorChartMinutes || 15);
+  if (state.cpuHistoryChart) state.cpuHistoryChart.resize();
+  if (state.memHistoryChart) state.memHistoryChart.resize();
+  loadMonitorCharts(state._monitorChartMinutes || 15);
   refreshMonitoringServerDropdown();
 }
 
@@ -1762,14 +1745,14 @@ function showMonitoringEmptyState(emptyEl, contentEl) {
   if (contentEl) contentEl.style.display = 'none';
   const barEl = document.getElementById('monitor-stat-bar');
   if (barEl) barEl.style.display = 'none';
-  window._monitoringServerId = null;
+  state._monitoringServerId = null;
 }
 
 function renderMonitoringServerStats(numId) {
   const cached = Reflect.get(lastStatsPerServer, numId);
   if (cached) {
     updateMonitoringView(cached);
-    loadMonitorCharts(window._monitorChartMinutes || 15);
+    loadMonitorCharts(state._monitorChartMinutes || 15);
   } else {
     const tableEl = document.getElementById('monitoring-stats-table');
     if (tableEl) {
@@ -1794,7 +1777,7 @@ function renderMonitoringServerStats(numId) {
 // renderMonitoringServerStats already shows "Waiting for stats data..." for a
 // server that has not reported yet.
 function restoreMonitoringServerSelection(select) {
-  let target = window._monitoringServerId ? String(window._monitoringServerId) : '';
+  let target = state._monitoringServerId ? String(state._monitoringServerId) : '';
   if (!target) {
     try {
       target = localStorage.getItem('qm-monitor-server') || '';
@@ -1812,7 +1795,7 @@ function restoreMonitoringServerSelection(select) {
   // Assigning .value fires no change event, and none should be dispatched: on
   // a reload-servers swap of an unchanged selection this only has to restore
   // the visible value, not repaint the pane.
-  if (String(window._monitoringServerId) !== target) {
+  if (String(state._monitoringServerId) !== target) {
     selectMonitoringServer(target);
   }
 }
@@ -1835,7 +1818,7 @@ function selectMonitoringServer(serverId) {
   if (emptyEl) emptyEl.style.display = 'none';
   if (contentEl) contentEl.style.display = '';
 
-  window._monitoringServerId = numId;
+  state._monitoringServerId = numId;
 
   renderMonitoringServerStats(numId);
 }
@@ -1844,15 +1827,15 @@ function selectMonitoringServer(serverId) {
 // container list and to the merged row list alike so the table, the charts and
 // the glance bar always narrow over the same names.
 function applyMonitorFilter(list) {
-  if (!monitorContainerFilter) return list;
+  if (!state.monitorContainerFilter) return list;
   return list.filter(function(c) {
-    return (c.name || '').toLowerCase().includes(monitorContainerFilter);
+    return (c.name || '').toLowerCase().includes(state.monitorContainerFilter);
   });
 }
 
 function updateMonitoringView(data) {
   // Only render when this data is for the server currently selected in the dropdown.
-  if (data.server_id !== window._monitoringServerId) return;
+  if (data.server_id !== state._monitoringServerId) return;
 
   // Apply the active filter to every part of the pane: table, charts and the
   // glance bar all narrow together, so the numbers always describe what is
@@ -1880,12 +1863,12 @@ function updateMonitoringView(data) {
   updateFilterCount(rows.length, allRows.length);
 
   // Append the latest SSE data point to the live time-series charts.
-  if ((cpuHistoryChart || memHistoryChart) && allContainers.length > 0) {
+  if ((state.cpuHistoryChart || state.memHistoryChart) && allContainers.length > 0) {
     const now = new Date();
     const timeLabel = now.getHours().toString().padStart(2, '0') + ':' +
                     now.getMinutes().toString().padStart(2, '0') + ':' +
                     now.getSeconds().toString().padStart(2, '0');
-    const windowSec = (window._monitorChartMinutes || 15) * 60;
+    const windowSec = (state._monitorChartMinutes || 15) * 60;
 
     const appendToChart = function(chart, valueKey) {
       if (!chart) return;
@@ -1939,8 +1922,8 @@ function updateMonitoringView(data) {
       chart.update('none');
     }
 
-    appendToChart(cpuHistoryChart, 'cpu');
-    appendToChart(memHistoryChart, 'mem');
+    appendToChart(state.cpuHistoryChart, 'cpu');
+    appendToChart(state.memHistoryChart, 'mem');
   }
 }
 
@@ -1951,7 +1934,7 @@ function updateFilterCount(shown, total) {
   const el = document.getElementById('monitor-filter-count');
   if (!el) return;
 
-  if (!monitorContainerFilter) {
+  if (!state.monitorContainerFilter) {
     el.hidden = true;
     el.textContent = '';
     return;
@@ -1966,8 +1949,8 @@ function applyContainerFilter(value) {
   // resets which of them are selected, otherwise the user can end up with
   // an empty chart and no visible reason.
   monitorChartSelection.clear();
-  monitorContainerFilter = (value || '').toLowerCase().trim();
-  const serverId = window._monitoringServerId;
+  state.monitorContainerFilter = (value || '').toLowerCase().trim();
+  const serverId = state._monitoringServerId;
   const cached = Reflect.get(lastStatsPerServer, serverId);
   if (serverId && cached) {
     updateMonitoringView(cached);
@@ -2004,7 +1987,7 @@ function computeUnitCounts(units) {
   // container names, keyed off the unit stem (name without ".service").
   const filteredUnits = units.filter(function(u) {
     const stem = (u.unit || '').replace(/\.service$/, '').toLowerCase();
-    return !monitorContainerFilter || stem.includes(monitorContainerFilter);
+    return !state.monitorContainerFilter || stem.includes(state.monitorContainerFilter);
   });
   const total = filteredUnits.length;
   const running = filteredUnits.filter(function(u) { return u.active_state === 'active'; }).length;
@@ -2091,7 +2074,6 @@ function updateSummaryStrip(data) {
 }
 
 // ── Terminal Session Management ──────────────────────────
-const _terminalTabs = new Map();   // tabKey → { term, ws, fitAddon, tabEl, paneEl }
 function loadFitAddon(callback) {
     callback();
 }
@@ -2133,7 +2115,7 @@ function openBottomPanel(tab) {
     if (handle) handle.classList.remove('hidden');
     localStorage.setItem('qm-bottom-panel-open', '1');
     if (tab) switchBottomTab(tab);
-    const key = window._activeTerminalTabKey;
+    const key = state._activeTerminalTabKey;
     if (key) {
         const session = window._terminalTabs.get(key);
         if (session?.fitAddon) session.fitAddon.fit();
@@ -2141,7 +2123,7 @@ function openBottomPanel(tab) {
 }
 
 function fitActiveTerminal() {
-    const key = window._activeTerminalTabKey;
+    const key = state._activeTerminalTabKey;
     if (!key) return;
     const session = window._terminalTabs.get(key);
     if (session?.fitAddon) {
@@ -2174,7 +2156,7 @@ function toggleBottomPanelExpand() {
         btn.title = expanded ? 'Align with editor' : 'Expand panel to full width';
         btn.setAttribute('aria-label', btn.title);
     }
-    const key = window._activeTerminalTabKey;
+    const key = state._activeTerminalTabKey;
     if (key) {
         const session = window._terminalTabs.get(key);
         if (session?.fitAddon) session.fitAddon.fit();
@@ -2203,7 +2185,7 @@ function switchBottomTab(pane) {
         el.classList.remove('is-active');
     });
     if (pane === 'terminal') {
-        const key = window._activeTerminalTabKey;
+        const key = state._activeTerminalTabKey;
         if (key) {
             document.querySelectorAll('.terminal-conn-tab').forEach(function(el) {
                 el.classList.toggle('is-active', el.dataset.key === key);
@@ -2214,7 +2196,7 @@ function switchBottomTab(pane) {
             }
         }
     } else if (pane === 'logs') {
-        const logKey = window._activeLogTabKey;
+        const logKey = state._activeLogTabKey;
         if (logKey) {
             document.querySelectorAll('.log-conn-tab').forEach(function(el) {
                 el.classList.toggle('is-active', el.dataset.key === logKey);
@@ -2244,9 +2226,9 @@ function getTerminalShellCommand() {
 }
 
 function connectTerminal() {
-    const stem = window._selectedContainerStem;
-    const serverId = window._selectedContainerServerId;
-    const scope = window._selectedContainerScope || 'global';
+    const stem = state._selectedContainerStem;
+    const serverId = state._selectedContainerServerId;
+    const scope = state._selectedContainerScope || 'global';
     if (!stem || !serverId) {
         showTerminalMessage('Select a container from the sidebar first.');
         return;
@@ -2393,7 +2375,7 @@ function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
 }
 
 function switchTerminalTab(key) {
-    window._activeTerminalTabKey = key;
+    state._activeTerminalTabKey = key;
 
     document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
         el.classList.remove('is-active');
@@ -2429,8 +2411,8 @@ function handleClosedTabFallback(key) {
     if (window._terminalTabs.size === 0) {
         const hint = document.getElementById('terminal-empty-hint');
         if (hint) hint.style.display = '';
-        window._activeTerminalTabKey = null;
-    } else if (window._activeTerminalTabKey === key) {
+        state._activeTerminalTabKey = null;
+    } else if (state._activeTerminalTabKey === key) {
         switchTerminalTab(window._terminalTabs.keys().next().value);
     }
     refreshSessionsStripVisibility();
@@ -2448,7 +2430,7 @@ function closeTerminalTab(key) {
 }
 
 function disconnectTerminal() {
-    const key = window._activeTerminalTabKey;
+    const key = state._activeTerminalTabKey;
     if (key) closeTerminalTab(key);
 }
 
@@ -2489,7 +2471,7 @@ const setupLogSinceSelector = function() {
                 // Ignore localStorage restrictions
             }
 
-            const key = window._activeLogTabKey;
+            const key = state._activeLogTabKey;
             const entry = key ? window._logTabs.get(key) : null;
             if (!entry) return;
 
@@ -2514,7 +2496,7 @@ document.addEventListener('keydown', function(e) {
 
 // ── Global window resize handler for the active terminal tab ────────────────
 window.addEventListener('resize', function() {
-    const key = window._activeTerminalTabKey;
+    const key = state._activeTerminalTabKey;
     if (!key) return;
     const session = window._terminalTabs.get(key);
     if (!session?.fitAddon) return;
@@ -2647,7 +2629,7 @@ function initResizableHandles() {
                 const delta = startY - e.clientY; // dragging up increases height
                 const newH = Math.min(BOTTOM_PANEL_MAX, Math.max(BOTTOM_PANEL_MIN, startH + delta));
                 document.documentElement.style.setProperty('--bottom-panel-height', newH + 'px');
-                const _rk = window._activeTerminalTabKey;
+                const _rk = state._activeTerminalTabKey;
                 if (_rk) { const _rs = window._terminalTabs.get(_rk); if (_rs?.fitAddon) _rs.fitAddon.fit(); }
             }
 
@@ -2659,7 +2641,7 @@ function initResizableHandles() {
                 const finalH = getComputedStyle(document.documentElement)
                     .getPropertyValue('--bottom-panel-height').trim();
                 localStorage.setItem('qm-bottom-panel-height', finalH);
-                const _uk = window._activeTerminalTabKey;
+                const _uk = state._activeTerminalTabKey;
                 if (_uk) { const _us = window._terminalTabs.get(_uk); if (_us?.fitAddon) _us.fitAddon.fit(); }
             }
 
@@ -2954,8 +2936,6 @@ async function executeDeleteFile(serverId, path, scope) {
 }
 
 // ── Real-time Logs WebSocket ─────────────────────────────
-const _logTabs = new Map(); // window._logTabs = new Map()   // tabKey → { ws, logDiv, tabEl, paneEl, serverId, unitName, scope }
-
 function showLogMessage(msg) {
     const hint = document.getElementById('log-empty-hint');
     if (hint) {
@@ -2970,15 +2950,15 @@ function showLogMessage(msg) {
 }
 
 function tailLogsFromPanel() {
-    const stem = window._selectedContainerStem;
-    const serverId = window._selectedContainerServerId;
-    const scope = window._selectedContainerScope || 'global';
+    const stem = state._selectedContainerStem;
+    const serverId = state._selectedContainerServerId;
+    const scope = state._selectedContainerScope || 'global';
     if (!stem || !serverId) {
         showLogMessage('Select a container from the sidebar first.');
         return;
     }
 
-    const quadletType = window._selectedContainerType || '';
+    const quadletType = state._selectedContainerType || '';
     const unitName = unitNameFor(quadletType ? stem + '.' + quadletType : stem);
     const tabKey = 'log:' + serverId + ':' + unitName;
 
@@ -3094,7 +3074,7 @@ function openLogSocket(tabKey) {
 }
 
 function switchLogTab(key) {
-    window._activeLogTabKey = key;
+    state._activeLogTabKey = key;
 
     document.querySelectorAll('.terminal-conn-tab, .log-conn-tab').forEach(function(el) {
         el.classList.remove('is-active');
@@ -3119,8 +3099,8 @@ function handleClosedLogTabFallback(key) {
     if (window._logTabs.size === 0) {
         const hint = document.getElementById('log-empty-hint');
         if (hint) hint.style.display = '';
-        window._activeLogTabKey = null;
-    } else if (window._activeLogTabKey === key) {
+        state._activeLogTabKey = null;
+    } else if (state._activeLogTabKey === key) {
         switchLogTab(window._logTabs.keys().next().value);
     }
     refreshSessionsStripVisibility();
@@ -3366,19 +3346,9 @@ document.body.addEventListener('htmx:afterSwap', function() {
 // inline event handlers across templates/ that still depend on global names.
 // This bridge shrinks over time as handlers are converted to delegated listeners.
 Object.assign(window, {
-  _activeLogTabKey: null,
-  _activeTerminalTabKey: null,
   _editorDirty: false,
   _logTabs,
-  _monitorChartMinutes: 60,
-  _monitoringServerId: null,
-  _quadletRestored: false,
-  _selectedContainerScope: null,
-  _selectedContainerServerId: null,
-  _selectedContainerStem: null,
-  _selectedContainerType: null,
   _terminalTabs,
-  activeServerId: null,
   applyContainerFilter,
   applyEditorTheme,
   applyThemePreview,
@@ -3429,3 +3399,16 @@ Object.assign(window, {
   updateInspectorStatsCard,
   validateQuadlet,
 });
+
+// Scalars live on `state`. Expose them as accessors rather than copying
+// them onto window, so the two can never hold divergent values.
+Object.defineProperties(window, Object.fromEntries(
+    Object.keys(state).map(function (key) {
+        return [key, {
+            get: function () { return state[key]; },
+            set: function (value) { state[key] = value; },
+            configurable: true,
+            enumerable: true,
+        }];
+    })
+));

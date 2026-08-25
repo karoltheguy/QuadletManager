@@ -130,10 +130,14 @@ def test_select_container_stem_assigns_selected_container_type():
     js = _read_js()
     start = js.find("function selectContainerStem(")
     assert start != -1, "selectContainerStem must be defined"
-    end = js.find("\nwindow.", start + 1)
-    body = js[start:end if end != -1 else len(js)]
-    assert "window._selectedContainerType" in body, \
-        "selectContainerStem must assign window._selectedContainerType from its new parameter"
+    # The declaration is at column 0, so its body ends at the next line that is
+    # exactly "}". Anchoring on a following "\nwindow." stopped working once the
+    # scattered window assignments were consolidated into a single bridge.
+    end = js.find("\n}", start)
+    assert end != -1, "could not find the end of the selectContainerStem body"
+    body = js[start:end]
+    assert "state._selectedContainerType" in body, \
+        "selectContainerStem must record the quadlet type in shared state from its new parameter"
 
 
 # =============================================================================
