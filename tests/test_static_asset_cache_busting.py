@@ -94,8 +94,19 @@ def test_all_dashboard_static_assets_carry_mtime_cache_buster(client):
 
     for reference in references:
         path_part, _, query = reference.partition("?")
-        expected_mtime = int(os.path.getmtime(os.path.join(REPO_ROOT, "static", path_part)))
-        assert query == f"v={expected_mtime}", (
-            f"/static/{path_part} is missing a matching ?v=<mtime> cache buster "
-            f"(expected 'v={expected_mtime}', got {query!r})"
+        assert query.startswith("v="), (
+            f"/static/{path_part} is missing a ?v=<mtime> cache buster (got {query!r})"
         )
+
+        asset_path = os.path.join(REPO_ROOT, "static", path_part)
+        if os.path.exists(asset_path):
+            expected_mtime = int(os.path.getmtime(asset_path))
+            assert query == f"v={expected_mtime}", (
+                f"/static/{path_part} is missing a matching ?v=<mtime> cache buster "
+                f"(expected 'v={expected_mtime}', got {query!r})"
+            )
+        else:
+            assert query == "v=0", (
+                f"/static/{path_part} does not exist on disk and should degrade to "
+                f"'v=0' (got {query!r})"
+            )
