@@ -35,8 +35,16 @@ class TestDensityHTML:
 
     @pytest.mark.unit
     def test_density_toggle_calls_js(self):
-        assert "toggleDensity('relaxed')" in self.html
-        assert "toggleDensity('compact')" in self.html
+        relaxed_start = self.html.find('id="density-relaxed"')
+        compact_start = self.html.find('id="density-compact"')
+        assert relaxed_start != -1
+        assert compact_start != -1
+        relaxed_input = self.html[relaxed_start - 200:relaxed_start]
+        compact_input = self.html[compact_start - 200:compact_start]
+        assert 'data-action="toggle-density"' in relaxed_input
+        assert 'value="relaxed"' in relaxed_input
+        assert 'data-action="toggle-density"' in compact_input
+        assert 'value="compact"' in compact_input
 
     @pytest.mark.unit
     def test_density_section_is_outside_themes_root(self):

@@ -39,6 +39,9 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "toggleTheme",
     "toggleProfileMenu",
     "softRefresh",
+    # group 6 (#416): appearance radios
+    "toggleDensity",
+    "toggleEditorTheme",
 })
 
 
@@ -533,3 +536,69 @@ def test_retired_names_are_not_reached_from_e2e_tests():
         f"Retired bridge names still called from e2e tests ({len(violations)}):\n"
         + "\n".join(f"  - {v}" for v in violations)
     )
+
+
+@pytest.mark.unit
+def test_appearance_radios_declare_delegated_actions():
+    """Verify that the density and editor-theme radios declare data-action and target identifiers."""
+    dashboard_path = REPO_ROOT / "templates" / "dashboard.html"
+    content = dashboard_path.read_text(encoding="utf-8")
+
+    input_pattern = re.compile(r"<input\b([^>]*)>", re.IGNORECASE)
+    all_inputs = input_pattern.findall(content)
+
+    expected_id_actions = {
+        "density-relaxed": "toggle-density",
+        "density-compact": "toggle-density",
+        "editor-theme-follow": "toggle-editor-theme",
+        "editor-theme-light": "toggle-editor-theme",
+        "editor-theme-dark": "toggle-editor-theme",
+    }
+
+    for input_id, expected_action in expected_id_actions.items():
+        matching = [
+            attrs for attrs in all_inputs
+            if re.search(rf'\bid=["\']{re.escape(input_id)}["\']', attrs)
+        ]
+        assert matching, (
+            f"Expected input with id='{input_id}' in templates/dashboard.html"
+        )
+        assert len(matching) == 1, (
+            f"Expected exactly 1 input with id='{input_id}' in templates/dashboard.html, found {len(matching)}"
+        )
+        attrs = matching[0]
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected input #{input_id} to have a data-action attribute, got: <input{attrs}>"
+        )
+        assert action_match.group(1) == expected_action, (
+            f"Expected input #{input_id} to have data-action='{expected_action}', got: <input{attrs}>"
+        )
+
+
+@pytest.mark.unit
+def test_appearance_dispatch_reads_the_input_value():
+    """Verify the toggle-density and toggle-editor-theme dispatch entries pass elt.value through.
+
+    Five radios share only two dispatch keys because the handler reads elt.value; a
+    hardcoded literal in either entry would silently make every radio in that group
+    perform the same action regardless of which one was actually selected.
+    """
+    js_source = read_static_js()
+
+    for action in ("toggle-density", "toggle-editor-theme"):
+        entry_match = re.search(
+            r"'" + re.escape(action) + r"'\s*:\s*function\s*\(([^)]*)\)\s*\{"
+            r"(?:[^{}]|\{[^{}]*\})*?\}",
+            js_source,
+        )
+        assert entry_match, (
+            f"Could not find a '{action}' entry in a delegated dispatch table in JS source"
+        )
+        entry_body = entry_match.group(0)
+        assert re.search(r"\.value\b", entry_body), (
+            f"Expected the '{action}' dispatch entry to pass the element's value through "
+            "(e.g. elt.value) rather than a hardcoded string literal, since five radios "
+            "share only two dispatch keys and a hardcoded literal would silently make "
+            f"every radio in that group do the same thing. Entry body: {entry_body}"
+        )

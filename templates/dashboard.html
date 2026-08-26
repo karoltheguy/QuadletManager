@@ -373,12 +373,12 @@
               <div class="radio-group" id="density-radio-group" role="radiogroup" aria-labelledby="density-group-label">
                 <label class="radio-label">
                   <input type="radio" name="ui_density" value="relaxed"
-                         onchange="toggleDensity('relaxed')"
+                         data-action="toggle-density"
                          id="density-relaxed"> Relaxed
                 </label>
                 <label class="radio-label">
                   <input type="radio" name="ui_density" value="compact"
-                         onchange="toggleDensity('compact')"
+                         data-action="toggle-density"
                          id="density-compact"> Compact
                 </label>
               </div>
@@ -391,17 +391,17 @@
               <div class="radio-group" id="editor-theme-radio-group" role="radiogroup" aria-labelledby="editor-theme-group-label">
                 <label class="radio-label">
                   <input type="radio" name="editor_theme" value="follow"
-                         onchange="toggleEditorTheme('follow')"
+                         data-action="toggle-editor-theme"
                          id="editor-theme-follow"> Follow app theme
                 </label>
                 <label class="radio-label">
                   <input type="radio" name="editor_theme" value="light"
-                         onchange="toggleEditorTheme('light')"
+                         data-action="toggle-editor-theme"
                          id="editor-theme-light"> Always light
                 </label>
                 <label class="radio-label">
                   <input type="radio" name="editor_theme" value="dark"
-                         onchange="toggleEditorTheme('dark')"
+                         data-action="toggle-editor-theme"
                          id="editor-theme-dark"> Always dark
                 </label>
               </div>

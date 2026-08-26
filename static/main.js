@@ -1699,6 +1699,12 @@ const delegatedChangeActions = {
   'select-monitoring-server': function(elt) {
     selectMonitoringServer(elt.value);
   },
+  'toggle-density': function(elt) {
+    toggleDensity(elt.value);
+  },
+  'toggle-editor-theme': function(elt) {
+    toggleEditorTheme(elt.value);
+  },
 };
 
 document.addEventListener('change', function(e) {
@@ -3365,8 +3371,6 @@ Object.assign(window, {
   switchLogTab,
   switchTerminalTab,
   toggleChartSelection,
-  toggleDensity,
-  toggleEditorTheme,
   toggleServerCollapse,
   unitNameFor,
   updateInspectorActivityLog,
