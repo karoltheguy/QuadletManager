@@ -916,16 +916,15 @@ def test_theme_toggle_survives_the_disabled_canvas_legend(page: Page):
     wait_for_chart_series(page, 3)
 
     before = page.evaluate("document.documentElement.getAttribute('data-theme')")
-    result = page.evaluate(
-        "() => { try { window.toggleTheme(); return 'ok'; }"
-        " catch (e) { return String(e); } }"
-    )
-    assert result == "ok", f"toggleTheme threw with the monitor charts up: {result}"
+    page_errors = []
+    page.on("pageerror", lambda exc: page_errors.append(exc))
+    page.click(".theme-toggle")
+    assert not page_errors, f"toggleTheme threw with the monitor charts up: {page_errors}"
 
     after = page.evaluate("document.documentElement.getAttribute('data-theme')")
     # Restore before asserting: the e2e fixtures are package-scoped, so a theme
     # left flipped here leaks into every test that runs after this one.
-    page.evaluate("() => window.toggleTheme()")
+    page.click(".theme-toggle")
     assert after != before, f"theme did not change: {before!r} -> {after!r}"
 
 

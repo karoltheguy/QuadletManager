@@ -61,13 +61,18 @@ function handleGlobalKeydown(e) {
 document.addEventListener('keydown', handleGlobalKeydown);
 
 // ── Profile Menu ─────────────────────────────────────────
-function toggleProfileMenu(event) {
-    event.stopPropagation();
+function toggleProfileMenu() {
     const menu = document.getElementById('profile-menu');
     menu.hidden = !menu.hidden;
 }
 
-document.addEventListener('click', function() {
+// Both this listener and the delegated dispatch below are registered on
+// document, so stopPropagation in a button handler cannot stop this one;
+// listener registration order does not help either. Excluding clicks that
+// land on #profile-btn is what lets the click that opens the menu survive
+// instead of being immediately undone by this listener.
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#profile-btn')) return;
     const menu = document.getElementById('profile-menu');
     if (menu) menu.hidden = true;
 });
@@ -1670,6 +1675,15 @@ const delegatedActions = {
   },
   'toggle-inspector-expand': function() {
     toggleInspectorExpand();
+  },
+  'toggle-theme': function() {
+    toggleTheme();
+  },
+  'toggle-profile-menu': function() {
+    toggleProfileMenu();
+  },
+  'soft-refresh': function() {
+    softRefresh();
   },
 };
 
@@ -3347,16 +3361,13 @@ Object.assign(window, {
   setSelectedQuadletBtn,
   setupModalDismissal,
   showFileContextMenu,
-  softRefresh,
   stemFromUnitName,
   switchLogTab,
   switchTerminalTab,
   toggleChartSelection,
   toggleDensity,
   toggleEditorTheme,
-  toggleProfileMenu,
   toggleServerCollapse,
-  toggleTheme,
   unitNameFor,
   updateInspectorActivityLog,
   updateInspectorStatsCard,
