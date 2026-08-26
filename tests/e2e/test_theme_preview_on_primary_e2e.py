@@ -131,3 +131,31 @@ def test_on_primary_meets_wcag_aa_after_hostile_dark_brand_preview(page: Page):
         f"({brand_primary_hex!r}) contrast ratio {token_ratio:.2f} is below "
         f"WCAG AA minimum {WCAG_AA_MIN}"
     )
+
+
+@pytest.mark.e2e
+def test_cancel_preview_removes_the_preview_style_element(page: Page):
+    """Cancel preview must drop the injected #qm-theme-preview style (#418).
+
+    The Preview and Cancel preview buttons became delegated 'apply-theme-preview'
+    and 'clear-theme-preview' actions. Preview is covered by the test above;
+    without this one, a broken 'clear-theme-preview' key would leave the button
+    inert with every unit test still green.
+    """
+    _goto_themes(page)
+
+    page.click(".color-editor .seg-btn:has-text('Dark mode')")
+    dark_form = page.locator("form.color-editor-form[data-mode='dark']")
+    dark_form.locator("#dark-5").fill(_HOSTILE_BRAND)
+    dark_form.get_by_role("button", name="Preview", exact=True).click()
+
+    assert page.locator("#qm-theme-preview").count() == 1, (
+        "Expected Preview to inject a #qm-theme-preview style element."
+    )
+
+    dark_form.get_by_role("button", name="Cancel preview", exact=True).click()
+
+    assert page.locator("#qm-theme-preview").count() == 0, (
+        "Expected Cancel preview to remove the #qm-theme-preview style element. "
+        "The 'clear-theme-preview' delegated action is not reaching its handler."
+    )
