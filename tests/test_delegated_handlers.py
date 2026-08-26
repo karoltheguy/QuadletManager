@@ -35,6 +35,10 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "validateQuadlet",
     "saveQuadlet",
     "toggleInspectorExpand",
+    # group 5 (#414): top nav leftovers
+    "toggleTheme",
+    "toggleProfileMenu",
+    "softRefresh",
 })
 
 
@@ -331,6 +335,98 @@ def test_editor_pane_buttons_declare_delegated_actions():
             assert action_match.group(1) == expected_action, (
                 f"Expected button #{btn_id} in {template_name} to have data-action='{expected_action}', got: <button{attrs}>"
             )
+
+
+@pytest.mark.unit
+def test_top_nav_leftover_buttons_declare_delegated_actions():
+    """Verify that top nav leftover controls declare the expected data-action attribute."""
+    dashboard_path = REPO_ROOT / "templates" / "dashboard.html"
+    content = dashboard_path.read_text(encoding="utf-8")
+
+    button_pattern = re.compile(r"<button\b([^>]*)>", re.IGNORECASE)
+    all_buttons = button_pattern.findall(content)
+
+    theme_toggle_buttons = [
+        attrs for attrs in all_buttons
+        if re.search(r'\bclass=["\'][^"\']*\btheme-toggle\b[^"\']*["\']', attrs)
+    ]
+    assert theme_toggle_buttons, "No theme-toggle buttons found in templates/dashboard.html"
+    assert len(theme_toggle_buttons) == 1, (
+        f"Expected 1 theme-toggle button in templates/dashboard.html, found {len(theme_toggle_buttons)}"
+    )
+    attrs = theme_toggle_buttons[0]
+    action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+    assert action_match, (
+        f'Expected theme-toggle button to have a data-action attribute, got: <button{attrs}>'
+    )
+    assert action_match.group(1) == "toggle-theme", (
+        f'Expected theme-toggle button to have data-action="toggle-theme", got: <button{attrs}>'
+    )
+
+    profile_btn_matches = [
+        attrs for attrs in all_buttons
+        if re.search(r'\bid=["\']profile-btn["\']', attrs)
+    ]
+    assert profile_btn_matches, "Expected button with id='profile-btn' in templates/dashboard.html"
+    assert len(profile_btn_matches) == 1, (
+        f"Expected exactly 1 button with id='profile-btn' in templates/dashboard.html, found {len(profile_btn_matches)}"
+    )
+    attrs = profile_btn_matches[0]
+    action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+    assert action_match, (
+        f"Expected button #profile-btn to have a data-action attribute, got: <button{attrs}>"
+    )
+    assert action_match.group(1) == "toggle-profile-menu", (
+        f"Expected button #profile-btn to have data-action='toggle-profile-menu', got: <button{attrs}>"
+    )
+
+    panel_reload_buttons = [
+        attrs for attrs in all_buttons
+        if re.search(r'\bclass=["\'][^"\']*\bpanel-reload-btn\b[^"\']*["\']', attrs)
+    ]
+    assert panel_reload_buttons, "No panel-reload-btn buttons found in templates/dashboard.html"
+    assert len(panel_reload_buttons) == 1, (
+        f"Expected 1 panel-reload-btn button in templates/dashboard.html, found {len(panel_reload_buttons)}"
+    )
+    attrs = panel_reload_buttons[0]
+    action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+    assert action_match, (
+        f'Expected panel-reload-btn button to have a data-action attribute, got: <button{attrs}>'
+    )
+    assert action_match.group(1) == "soft-refresh", (
+        f'Expected panel-reload-btn button to have data-action="soft-refresh", got: <button{attrs}>'
+    )
+
+
+@pytest.mark.unit
+def test_profile_menu_close_listener_ignores_the_profile_button():
+    """Verify the document click listener that hides #profile-menu excludes #profile-btn.
+
+    `stopPropagation` in the button's own click handler does not stop sibling
+    listeners bound to the same node (or its ancestors) that were registered
+    independently, such as a document-level listener. So the click that opens
+    the menu also reaches the document listener that hides it, unless that
+    listener explicitly excludes clicks that originated on profile-btn.
+    """
+    js_source = read_static_js()
+
+    listener_match = re.search(
+        r"document\.addEventListener\(\s*'click'\s*,\s*function\s*\([^)]*\)\s*\{"
+        r"(?:[^{}]|\{[^{}]*\})*?profile-menu(?:[^{}]|\{[^{}]*\})*?\}\s*\)",
+        js_source,
+    )
+    assert listener_match, (
+        "Could not find the document click listener that hides #profile-menu in JS source"
+    )
+    listener_body = listener_match.group(0)
+
+    assert "profile-btn" in listener_body, (
+        "Expected the document click listener that hides #profile-menu to also reference "
+        "profile-btn, so it can exclude clicks on the button itself; stopPropagation in "
+        "the button's own handler does not stop this independently-registered listener, "
+        "so without an explicit exclusion the very click that opens the menu immediately "
+        "closes it again. Listener body: " + listener_body
+    )
 
 
 @pytest.mark.unit

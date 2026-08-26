@@ -37,22 +37,22 @@ class RefreshButtonStructureParser(HTMLParser):
                 return value.split() if value else []
         return []
 
-    def _get_onclick(self, attrs):
+    def _get_data_action(self, attrs):
         for name, value in attrs:
-            if name == "onclick":
+            if name == "data-action":
                 return value or ""
         return ""
 
     def handle_starttag(self, tag, attrs):
         classes = self._get_classes(attrs)
         el_id = self._get_id(attrs)
-        onclick = self._get_onclick(attrs)
+        data_action = self._get_data_action(attrs)
 
-        # Identify reload button elements by target class, current class, or handler
+        # Identify reload button elements by target class, current class, or delegated action
         is_reload_btn = (
             "panel-reload-btn" in classes
             or "nav-reload-btn" in classes
-            or "softRefresh" in onclick
+            or data_action == "soft-refresh"
         )
 
         if is_reload_btn:
@@ -60,7 +60,7 @@ class RefreshButtonStructureParser(HTMLParser):
                 "tag": tag,
                 "id": el_id,
                 "classes": classes,
-                "onclick": onclick,
+                "data_action": data_action,
                 "ancestors": list(self._stack),
             }
             self.all_reload_buttons.append(btn_record)

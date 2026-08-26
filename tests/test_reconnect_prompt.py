@@ -186,7 +186,7 @@ class TestPanelReloadButton:
 
     @pytest.mark.unit
     def test_reload_button_calls_soft_refresh(self):
-        assert "softRefresh()" in self.html
+        assert 'data-action="soft-refresh"' in self.html
 
     @pytest.mark.unit
     def test_soft_refresh_function_exists(self):
