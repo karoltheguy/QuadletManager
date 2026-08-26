@@ -42,6 +42,9 @@ RETIRED_BRIDGE_NAMES = frozenset({
     # group 6 (#416): appearance radios
     "toggleDensity",
     "toggleEditorTheme",
+    # group 7 (#418): theme customization controls
+    "applyThemePreview",
+    "clearThemePreview",
 })
 
 
@@ -602,3 +605,117 @@ def test_appearance_dispatch_reads_the_input_value():
             "share only two dispatch keys and a hardcoded literal would silently make "
             f"every radio in that group do the same thing. Entry body: {entry_body}"
         )
+
+
+@pytest.mark.unit
+def test_theme_customization_controls_declare_delegated_actions():
+    """Verify that theme customization controls declare data-action and target identifiers."""
+    partial_path = REPO_ROOT / "templates" / "partials" / "settings_themes.html"
+    content = partial_path.read_text(encoding="utf-8")
+
+    button_pattern = re.compile(r"<button\b([^>]*)>(.*?)</button>", re.IGNORECASE | re.DOTALL)
+    all_buttons = button_pattern.findall(content)
+
+    preview_buttons = [
+        attrs for attrs, text in all_buttons
+        if text.strip() == "Preview"
+    ]
+    assert preview_buttons, "No 'Preview' buttons found in templates/partials/settings_themes.html"
+    assert len(preview_buttons) == 2, (
+        f"Expected 2 'Preview' buttons in templates/partials/settings_themes.html, found {len(preview_buttons)}"
+    )
+    for attrs in preview_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected 'Preview' button to have a data-action attribute, got: <button{attrs}>"
+        )
+        assert action_match.group(1) == "apply-theme-preview", (
+            f"Expected 'Preview' button to have data-action='apply-theme-preview', got: <button{attrs}>"
+        )
+
+    cancel_buttons = [
+        attrs for attrs, text in all_buttons
+        if text.strip() == "Cancel preview"
+    ]
+    assert cancel_buttons, "No 'Cancel preview' buttons found in templates/partials/settings_themes.html"
+    assert len(cancel_buttons) == 2, (
+        f"Expected 2 'Cancel preview' buttons in templates/partials/settings_themes.html, found {len(cancel_buttons)}"
+    )
+    for attrs in cancel_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected 'Cancel preview' button to have a data-action attribute, got: <button{attrs}>"
+        )
+        assert action_match.group(1) == "clear-theme-preview", (
+            f"Expected 'Cancel preview' button to have data-action='clear-theme-preview', got: <button{attrs}>"
+        )
+
+    mode_buttons = {
+        "Light mode": "light",
+        "Dark mode": "dark",
+    }
+    for mode_text, expected_mode in mode_buttons.items():
+        matching = [
+            attrs for attrs, text in all_buttons
+            if text.strip() == mode_text
+        ]
+        assert matching, (
+            f"Expected button with text '{mode_text}' in templates/partials/settings_themes.html"
+        )
+        assert len(matching) == 1, (
+            f"Expected exactly 1 button with text '{mode_text}' in templates/partials/settings_themes.html, found {len(matching)}"
+        )
+        attrs = matching[0]
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected '{mode_text}' button to have a data-action attribute, got: <button{attrs}>"
+        )
+        assert action_match.group(1) == "set-editor-mode", (
+            f"Expected '{mode_text}' button to have data-action='set-editor-mode', got: <button{attrs}>"
+        )
+        mode_match = re.search(r'\bdata-mode=["\']([^"\']+)["\']', attrs)
+        assert mode_match, (
+            f"Expected '{mode_text}' button to have a data-mode attribute, got: <button{attrs}>"
+        )
+        assert mode_match.group(1) == expected_mode, (
+            f"Expected '{mode_text}' button to have data-mode='{expected_mode}', got: <button{attrs}>"
+        )
+
+
+@pytest.mark.unit
+def test_hx_on_attributes_do_not_reference_retired_names():
+    """Verify that htmx hx-on attributes in templates do not reference retired bridge names."""
+    templates_dir = REPO_ROOT / "templates"
+    hx_on_attr_pattern = re.compile(
+        r'\bhx-on[^\s=>]*\s*=\s*(["\'])(.*?)\1', re.IGNORECASE | re.DOTALL
+    )
+
+    violations = []
+    for html_file in templates_dir.rglob("*.html"):
+        content = html_file.read_text(encoding="utf-8")
+        for _, handler_code in hx_on_attr_pattern.findall(content):
+            for target in sorted(RETIRED_BRIDGE_NAMES):
+                if target in handler_code:
+                    rel_path = html_file.relative_to(REPO_ROOT)
+                    violations.append(f"{rel_path}: hx-on attribute mentions {target}")
+
+    assert not violations, (
+        f"Found hx-on attributes referencing retired names in templates ({len(violations)}). "
+        "htmx hx-on attribute bodies are evaluated against globals just like inline handlers, "
+        "but the inline-handler regex cannot see them:\n"
+        + "\n".join(f"  - {v}" for v in violations)
+    )
+
+
+@pytest.mark.unit
+def test_settings_themes_partial_has_no_inline_script():
+    """Verify that templates/partials/settings_themes.html contains no inline script blocks."""
+    partial_path = REPO_ROOT / "templates" / "partials" / "settings_themes.html"
+    content = partial_path.read_text(encoding="utf-8")
+
+    assert not re.search(r"<script\b", content, re.IGNORECASE), (
+        "Expected templates/partials/settings_themes.html to contain no inline <script> blocks. "
+        "Template-local script blocks require the same 'unsafe-inline' CSP allowance as inline "
+        "event handlers, which this refactoring removes."
+    )
+

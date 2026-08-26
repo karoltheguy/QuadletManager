@@ -181,6 +181,17 @@ function clearThemePreview() {
     if (el) el.remove();
 }
 
+function setEditorMode(editor, mode) {
+  editor.dataset.editingMode = mode;
+  editor.querySelectorAll('.color-editor-form').forEach(f => {
+    f.style.display = f.dataset.mode === mode ? '' : 'none';
+  });
+  // Match on data-mode instead of button text so translation or rewording does not break active state.
+  editor.querySelectorAll('.seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+
 // ── Hex ⇄ Color-picker sync (event delegation on #themes-root) ───────────────
 document.addEventListener('change', function(e) {
     if (e.target.type === 'color' && e.target.dataset.hexId) {
@@ -1685,6 +1696,15 @@ const delegatedActions = {
   'soft-refresh': function() {
     softRefresh();
   },
+  'apply-theme-preview': function(btn) {
+    applyThemePreview(btn.closest('form'));
+  },
+  'clear-theme-preview': function() {
+    clearThemePreview();
+  },
+  'set-editor-mode': function(btn) {
+    setEditorMode(btn.closest('.color-editor'), btn.dataset.mode);
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -1727,6 +1747,15 @@ document.addEventListener('input', function(e) {
   const action = elt.dataset.action;
   if (!Object.hasOwn(delegatedInputActions, action)) return;
   Reflect.get(delegatedInputActions, action)(elt);
+});
+
+// Clear theme preview after color editor form submissions. Replaces hx-on::after-request
+// attributes because htmx hx-on bodies are evaluated against globals (depending on the
+// window bridge just like inline handlers) while the inline-handler test cannot see them.
+document.addEventListener('htmx:afterRequest', function (e) {
+  if (e.target.closest && e.target.closest('.color-editor-form')) {
+    clearThemePreview();
+  }
 });
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
@@ -3347,9 +3376,7 @@ Object.assign(window, {
   _logTabs,
   _terminalTabs,
   applyEditorTheme,
-  applyThemePreview,
   applyStatusDots,
-  clearThemePreview,
   closeLogTab,
   closeTerminalTab,
   confirmDeleteFile,

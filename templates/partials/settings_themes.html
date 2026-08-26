@@ -81,8 +81,8 @@
     </div>
 
     <div class="segmented-control">
-      <button type="button" class="seg-btn active" onclick="setEditorMode(this.closest('.color-editor'), 'light')">Light mode</button>
-      <button type="button" class="seg-btn" onclick="setEditorMode(this.closest('.color-editor'), 'dark')">Dark mode</button>
+      <button type="button" class="seg-btn active" data-action="set-editor-mode" data-mode="light">Light mode</button>
+      <button type="button" class="seg-btn" data-action="set-editor-mode" data-mode="dark">Dark mode</button>
     </div>
 
     <!-- Light mode form -->
@@ -90,8 +90,7 @@
           data-mode="light"
           hx-put="/api/settings/themes/{{ active_theme.id }}/colors"
           hx-target="#themes-root"
-          hx-swap="outerHTML"
-          hx-on::after-request="clearThemePreview && clearThemePreview()">
+          hx-swap="outerHTML">
       <input type="hidden" name="mode" value="light">
       <div class="color-editor-grid">
         {% for key in allowlist %}
@@ -108,7 +107,7 @@
       </div>
       <div class="color-editor-actions">
         <button type="button" class="btn btn-sm btn-secondary"
-                onclick="applyThemePreview && applyThemePreview(this.closest('form'))">Preview</button>
+                data-action="apply-theme-preview">Preview</button>
         <button type="submit" class="btn btn-sm btn-primary">Save</button>
         <button type="button" class="btn btn-sm btn-secondary"
                 hx-post="/api/settings/themes/{{ active_theme.id }}/reset"
@@ -117,7 +116,7 @@
                 hx-swap="outerHTML"
                 hx-confirm="Reset light mode to defaults?">Reset</button>
         <button type="button" class="btn btn-sm btn-secondary"
-                onclick="clearThemePreview && clearThemePreview()">Cancel preview</button>
+                data-action="clear-theme-preview">Cancel preview</button>
       </div>
     </form>
 
@@ -127,8 +126,7 @@
           style="display:none"
           hx-put="/api/settings/themes/{{ active_theme.id }}/colors"
           hx-target="#themes-root"
-          hx-swap="outerHTML"
-          hx-on::after-request="clearThemePreview && clearThemePreview()">
+          hx-swap="outerHTML">
       <input type="hidden" name="mode" value="dark">
       <div class="color-editor-grid">
         {% for key in allowlist %}
@@ -145,7 +143,7 @@
       </div>
       <div class="color-editor-actions">
         <button type="button" class="btn btn-sm btn-secondary"
-                onclick="applyThemePreview && applyThemePreview(this.closest('form'))">Preview</button>
+                data-action="apply-theme-preview">Preview</button>
         <button type="submit" class="btn btn-sm btn-primary">Save</button>
         <button type="button" class="btn btn-sm btn-secondary"
                 hx-post="/api/settings/themes/{{ active_theme.id }}/reset"
@@ -154,22 +152,10 @@
                 hx-swap="outerHTML"
                 hx-confirm="Reset dark mode to defaults?">Reset</button>
         <button type="button" class="btn btn-sm btn-secondary"
-                onclick="clearThemePreview && clearThemePreview()">Cancel preview</button>
+                data-action="clear-theme-preview">Cancel preview</button>
       </div>
     </form>
   </div>
   {% endif %}
 
 </div>
-
-<script>
-function setEditorMode(editor, mode) {
-  editor.dataset.editingMode = mode;
-  editor.querySelectorAll('.color-editor-form').forEach(f => {
-    f.style.display = f.dataset.mode === mode ? '' : 'none';
-  });
-  editor.querySelectorAll('.seg-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.toLowerCase().includes(mode));
-  });
-}
-</script>
