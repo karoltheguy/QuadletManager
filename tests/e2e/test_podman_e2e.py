@@ -19,52 +19,34 @@ core.database.DATABASE_PATH at an empty per-test copy, so the pool in this
 process cannot resolve the server row the *app* is using.
 """
 
-import contextlib
-import os
 import re
 import shlex
-import subprocess
-import tempfile
 import time
-import urllib.request
 
 import pytest
 from playwright.sync_api import expect
 
+from .podman_ui import (
+    BASE_URL,
+    BUSYBOX_QUADLET,
+    E2E_PREFIX,
+    SERVER_LABEL,
+    USER_QUADLET_DIR,
+    absent_from_host,
+    open_app,
+    open_containers_tab,
+    quadlet_on_host,
+    remove_e2e_quadlet,
+    skip_unless_seeded,
+    ssh,
+    tree_entry,
+    write_e2e_quadlet,
+)
+
 pytestmark = pytest.mark.podman
 
-BASE_URL = os.environ.get("QM_APP_URL", "http://localhost:8000")
-SERVER_LABEL = "Podman Host"
-
-# Same env contract as tests/podman/conftest.py.
-PODMAN_HOST = os.environ.get("QM_PODMAN_HOST", "localhost:2223")
-PODMAN_USER = os.environ.get("QM_PODMAN_USER", "editor")
-PODMAN_KEY = os.environ.get("QM_PODMAN_KEY", "tests/fixtures/test_key")
-
-E2E_PREFIX = "e2e-"
 UI_QUADLET = "e2e-ui-created"
 MONITOR_CONTAINER = "e2e-monitor"
-
-USER_QUADLET_DIR = "~/.config/containers/systemd"
-
-
-def _podman_host_is_seeded(base_url: str) -> bool:
-    """True when the app at base_url lists a server named SERVER_LABEL."""
-    try:
-        with urllib.request.urlopen(f"{base_url}/api/servers/options", timeout=5) as resp:
-            body = resp.read().decode()
-        return SERVER_LABEL in body
-    except Exception:
-        return False
-
-
-def _skip_unless_seeded(base_url: str) -> None:
-    if not _podman_host_is_seeded(base_url):
-        pytest.skip(
-            f"no server named '{SERVER_LABEL}' at {base_url}; seed it with "
-            "scripts/seed_test_db.py (an app that requires a login looks the "
-            "same from here, since this check reads plain HTTP with no cookie)"
-        )
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -76,173 +58,7 @@ def _require_seeded_podman_host():
     having no `Podman Host` row, and the journeys then fail as UI assertions
     that read like an app regression rather than as a missing-fixture skip.
     """
-    _skip_unless_seeded(BASE_URL)
-
-# %b, not %s. printf '%s' does not expand \n, so writing this with %s produces a
-# single literal line reading `[Container]\nImage=...`, which is not a quadlet at
-# all. A test that only checks the tree lists the file name still passes, because
-# the scanner lists a file whatever is inside it.
-BUSYBOX_QUADLET = "[Container]\\nImage=quay.io/quay/busybox:latest\\n"
-
-
-def _ssh(command: str, check: bool = True) -> str:
-    """Run a command on the podman host over plain ssh.
-
-    The committed key is mode 644, which ssh refuses outright, so it is copied
-    to a private temp file first. BatchMode=yes guarantees a failure rather than
-    an interactive (and, with DISPLAY set, graphical) password prompt.
-
-    Raises on a non-zero exit by default. Returning stdout unconditionally,
-    which is what this did originally, turns an unreachable host or a failed
-    daemon-reload into an empty string, and that surfaces two steps later as an
-    assertion about the UI not showing a file. The failure then points at the
-    app rather than at the ssh that never ran.
-
-    Pass check=False where a non-zero exit is a legitimate answer rather than an
-    error. `systemctl is-active` is the one that matters here: it exits non-zero
-    precisely when it has something to tell you.
-    """
-    host, _, port = PODMAN_HOST.rpartition(":")
-    host = host or PODMAN_HOST
-    port = port or "22"
-
-    with tempfile.NamedTemporaryFile("w", delete=False) as handle:
-        handle.write(open(PODMAN_KEY, encoding="utf-8").read())
-        key_copy = handle.name
-    os.chmod(key_copy, 0o600)
-    try:
-        result = subprocess.run(
-            [
-                "ssh", "-i", key_copy, "-p", port,
-                "-o", "BatchMode=yes",
-                "-o", "PreferredAuthentications=publickey",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
-                "-o", "LogLevel=ERROR",
-                "-o", "ConnectTimeout=10",
-                f"{PODMAN_USER}@{host}", command,
-            ],
-            capture_output=True, text=True, timeout=90,
-        )
-        if check and result.returncode != 0:
-            raise RuntimeError(
-                f"ssh command failed with exit {result.returncode}: {command}\n"
-                f"stdout: {result.stdout.strip()!r}\n"
-                f"stderr: {result.stderr.strip()!r}"
-            )
-        return result.stdout
-    finally:
-        os.unlink(key_copy)
-
-
-def _remove_e2e_quadlet(file_name: str) -> None:
-    """Stop and delete one of our quadlets. Prefix-guarded, as everywhere else."""
-    assert file_name.startswith(E2E_PREFIX), f"refusing to remove {file_name!r}"
-    unit = f"{file_name.rsplit('.', 1)[0]}.service"
-    _ssh(
-        f"systemctl --user stop {shlex.quote(unit)} 2>/dev/null; "
-        f"rm -f {USER_QUADLET_DIR}/{shlex.quote(file_name)}; "
-        f"systemctl --user daemon-reload"
-    )
-
-
-def _write_e2e_quadlet(file_name: str, content: str = BUSYBOX_QUADLET) -> None:
-    """Write one of our quadlets into the user quadlet dir. Prefix-guarded.
-
-    Does not daemon-reload: callers that need systemd to see the unit issue
-    that themselves, and the tests that only watch the reconciler do not.
-    """
-    assert file_name.startswith(E2E_PREFIX), f"refusing to write {file_name!r}"
-    _ssh(
-        f"mkdir -p {USER_QUADLET_DIR} && "
-        f"printf '%b' {shlex.quote(content)} "
-        f"> {USER_QUADLET_DIR}/{shlex.quote(file_name)}"
-    )
-
-
-@contextlib.contextmanager
-def _absent_from_host(file_name: str):
-    """Guarantee the file is gone before the block and again after it.
-
-    The leading removal is not paranoia: this suite runs against one long-lived
-    host, so a previous run that died between creating a file and its teardown
-    would otherwise hand the next run a tree that already contains the entry it
-    is about to assert appears.
-    """
-    _remove_e2e_quadlet(file_name)
-    try:
-        yield file_name
-    finally:
-        _remove_e2e_quadlet(file_name)
-
-
-@contextlib.contextmanager
-def _quadlet_on_host(file_name: str, content: str = BUSYBOX_QUADLET):
-    """Put one quadlet on the host for the duration of the block, then remove it.
-
-    Removal inside the block is fine and is what the deletion journey does: the
-    teardown here is `rm -f`, so removing an already-removed file is a no-op.
-    """
-    with _absent_from_host(file_name):
-        _write_e2e_quadlet(file_name, content)
-        yield file_name
-
-
-def _open_app(page):
-    page.goto(f"{BASE_URL}/", wait_until="domcontentloaded")
-
-    # Reset server collapse state, then reload so the tree renders from a known
-    # starting point with every group expanded.
-    #
-    # main.js persists it to localStorage as qm-server-collapsed-<serverId>, and
-    # the package-scoped browser context is shared across this module, so
-    # whether a group starts open otherwise depends on what an earlier test did.
-    # Inferring the state from whether an entry is visible yet cannot work: it
-    # is indistinguishable from htmx not having finished rendering, and acting
-    # on that guess closes a group that was already open.
-    page.evaluate(
-        """() => Object.keys(localStorage)
-               .filter(k => k.startsWith('qm-server-collapsed-'))
-               .forEach(k => localStorage.removeItem(k))"""
-    )
-    page.reload(wait_until="domcontentloaded")
-
-    # The app polls continuously, so networkidle never settles. Wait for the
-    # marker the package conftest's robust_goto also keys on.
-    page.wait_for_function(
-        "typeof window.runningContainersBySid !== 'undefined'", timeout=20000
-    )
-
-
-def _open_containers_tab(page, refresh: bool = False):
-    """Land on the Containers tab with the tree in a known, expanded state.
-
-    `refresh` clicks Refresh server list, which is what a journey wants when it wrote
-    a file on the host a moment ago and does not want to wait out a reconcile
-    cycle. The journey that is specifically about updating *without* a manual
-    refresh must leave it off.
-    """
-    _open_app(page)
-    page.get_by_role("button", name="Containers").click()
-    if refresh:
-        page.get_by_role("button", name="Refresh server list").click()
-
-
-def _tree_entry(page, file_name: str):
-    """The server tree's entry for one file.
-
-    Callers assert visibility, not mere presence: the entry can sit in the DOM
-    inside a collapsed group, which would pass while the user sees nothing.
-    _open_app has cleared the persisted collapse state, so every group is
-    expanded and no toggling is needed.
-
-    Returns a locator for expect(), not a point-in-time lookup. The app
-    re-renders the tree on its poll cycle, so wait_for() plus is_visible() can
-    resolve the element, have it swapped out underneath, and report False
-    having just waited successfully for it to appear. expect() retries until
-    the condition holds.
-    """
-    return page.get_by_text(file_name, exact=False).first
+    skip_unless_seeded(BASE_URL)
 
 
 # Per-test ceilings rather than a higher global one. pytest.ini's `timeout = 120`
@@ -260,8 +76,8 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
     Asserted over ssh rather than by re-reading the UI, so a modal that reports
     success while writing nothing still fails.
     """
-    with _absent_from_host(f"{UI_QUADLET}.container"):
-        _open_containers_tab(page)
+    with absent_from_host(f"{UI_QUADLET}.container"):
+        open_containers_tab(page)
         page.get_by_role("button", name=f"New quadlet on {SERVER_LABEL}").click()
 
         # Role-based where the control has an accessible name, and attribute
@@ -294,7 +110,7 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
             # matches a neighbour like "old-e2e-ui-created.container" or a
             # ".container.bak" left behind by something else, which would pass
             # this test on a file the modal never wrote.
-            entries = _ssh(
+            entries = ssh(
                 f"ls -1 {USER_QUADLET_DIR}/ 2>/dev/null || true"
             ).splitlines()
             if file_name in entries:
@@ -310,7 +126,7 @@ def test_new_quadlet_modal_writes_a_file_to_the_real_host(page):
         # which is the same trap the comment on BUSYBOX_QUADLET describes for
         # the tree view. Read the file back and require the section header that
         # makes it a container quadlet rather than a stray file.
-        written = _ssh(f"cat {USER_QUADLET_DIR}/{shlex.quote(file_name)}")
+        written = ssh(f"cat {USER_QUADLET_DIR}/{shlex.quote(file_name)}")
         assert "[Container]" in written, (
             f"the modal wrote {file_name} but not a container quadlet: {written!r}"
         )
@@ -324,9 +140,9 @@ def test_containers_tab_lists_a_quadlet_that_exists_on_the_host(page):
     into the database, out of the endpoint and into the tree. The 30s assertion
     timeout has to cover a reconcile cycle (10s), which is why it is not instant.
     """
-    with _quadlet_on_host(f"{UI_QUADLET}.container") as file_name:
-        _open_containers_tab(page, refresh=True)
-        expect(_tree_entry(page, file_name)).to_be_visible(timeout=30000)
+    with quadlet_on_host(f"{UI_QUADLET}.container") as file_name:
+        open_containers_tab(page, refresh=True)
+        expect(tree_entry(page, file_name)).to_be_visible(timeout=30000)
 
 
 @pytest.mark.timeout(300)
@@ -336,13 +152,13 @@ def test_tree_drops_a_quadlet_deleted_on_the_host(page):
     This is the only end-to-end proof that the reconciler's DELETE reaches the UI.
     Nothing else covers the removal direction.
     """
-    with _quadlet_on_host(f"{UI_QUADLET}.container") as file_name:
-        _open_containers_tab(page, refresh=True)
+    with quadlet_on_host(f"{UI_QUADLET}.container") as file_name:
+        open_containers_tab(page, refresh=True)
 
-        entry = _tree_entry(page, file_name)
+        entry = tree_entry(page, file_name)
         expect(entry).to_be_visible(timeout=30000)
 
-        _remove_e2e_quadlet(file_name)
+        remove_e2e_quadlet(file_name)
         expect(entry).not_to_be_visible(timeout=30000)
 
 
@@ -354,16 +170,16 @@ def test_tree_picks_up_a_new_quadlet_without_a_manual_refresh(page):
     manual reload, and the podman suite is the only place where the reconcile,
     the SSE publish and the browser are all real at once.
     """
-    with _absent_from_host(f"{E2E_PREFIX}sse-push.container") as file_name:
+    with absent_from_host(f"{E2E_PREFIX}sse-push.container") as file_name:
         # No refresh=True anywhere in this journey: the point is that the tree
         # updates on its own.
-        _open_containers_tab(page)
+        open_containers_tab(page)
 
         expect(page.get_by_text(file_name, exact=False)).to_have_count(0)
 
-        _write_e2e_quadlet(file_name)
+        write_e2e_quadlet(file_name)
 
-        expect(_tree_entry(page, file_name)).to_be_visible(timeout=60000)
+        expect(tree_entry(page, file_name)).to_be_visible(timeout=60000)
 
 
 @pytest.fixture(scope="module")
@@ -391,11 +207,11 @@ def running_monitor_container():
         "[Service]\\nRestart=no\\n"
         "[Install]\\nWantedBy=default.target\\n"
     )
-    with _absent_from_host(file_name):
-        _write_e2e_quadlet(file_name, content)
+    with absent_from_host(file_name):
+        write_e2e_quadlet(file_name, content)
         # Separate from the write, unlike everything else here, because this is
         # the only unit that has to be visible to systemd and started.
-        _ssh(
+        ssh(
             f"systemctl --user daemon-reload && "
             f"systemctl --user start {shlex.quote(unit)}"
         )
@@ -404,7 +220,7 @@ def running_monitor_container():
         for _ in range(30):
             # check=False: is-active exits non-zero exactly when the unit is not
             # active, which is the answer this loop is waiting to change.
-            state = _ssh(
+            state = ssh(
                 f"systemctl --user is-active {shlex.quote(unit)}", check=False
             ).strip()
             if state == "active":
@@ -418,7 +234,7 @@ def running_monitor_container():
 
 
 def _open_monitor_for_podman_host(page):
-    _open_app(page)
+    open_app(page)
     page.get_by_role("button", name="Monitor").click()
     page.get_by_role("combobox").first.select_option(label=SERVER_LABEL)
 
@@ -506,7 +322,7 @@ def test_monitor_table_still_lists_a_unit_that_is_stopped(
     _expect_stats_row(page, running_monitor_container)
 
     try:
-        _ssh(f"systemctl --user stop {shlex.quote(unit)}")
+        ssh(f"systemctl --user stop {shlex.quote(unit)}")
 
         # The row is keyed on the unit stem, which is the container name here,
         # so the same text identifies it before and after the stop.
@@ -517,4 +333,4 @@ def test_monitor_table_still_lists_a_unit_that_is_stopped(
         expect(row).to_contain_text("inactive", timeout=90000)
         expect(row).not_to_contain_text("running")
     finally:
-        _ssh(f"systemctl --user start {shlex.quote(unit)}")
+        ssh(f"systemctl --user start {shlex.quote(unit)}")

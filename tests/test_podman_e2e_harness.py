@@ -98,21 +98,21 @@ def test_cmd_test_defers_to_an_explicit_app_url():
 
 @pytest.mark.unit
 def test_journeys_skip_when_the_podman_host_is_not_seeded(monkeypatch):
-    """The podman e2e journeys must expose _podman_host_is_seeded() and
-    _skip_unless_seeded() so a run against an unseeded host produces a
+    """podman_ui must expose podman_host_is_seeded() and
+    skip_unless_seeded() so a run against an unseeded host produces a
     legible pytest.skip pointing at scripts/seed_test_db.py, instead of a
     Playwright timeout deep inside a UI assertion."""
-    e2e = importlib.import_module("tests.e2e.test_podman_e2e")
+    podman_ui = importlib.import_module("tests.e2e.podman_ui")
 
-    monkeypatch.setattr(e2e, "_podman_host_is_seeded", lambda base_url: False)
+    monkeypatch.setattr(podman_ui, "podman_host_is_seeded", lambda base_url: False)
     with pytest.raises(pytest.skip.Exception) as exc_info:
-        e2e._skip_unless_seeded("http://localhost:8000")
+        podman_ui.skip_unless_seeded("http://localhost:8000")
     assert "scripts/seed_test_db.py" in str(exc_info.value), (
         "the skip message must point at scripts/seed_test_db.py so the "
         "caller knows how to fix it"
     )
 
-    monkeypatch.setattr(e2e, "_podman_host_is_seeded", lambda base_url: True)
-    assert e2e._skip_unless_seeded("http://localhost:8000") is None, (
-        "_skip_unless_seeded must not skip when the host is already seeded"
+    monkeypatch.setattr(podman_ui, "podman_host_is_seeded", lambda base_url: True)
+    assert podman_ui.skip_unless_seeded("http://localhost:8000") is None, (
+        "skip_unless_seeded must not skip when the host is already seeded"
     )
