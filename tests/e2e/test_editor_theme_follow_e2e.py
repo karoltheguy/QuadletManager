@@ -2,11 +2,9 @@
 E2E behavioral test: the Monaco editor must follow the app light/dark theme in
 'follow' mode (Issue #231; also covers the #230 live-follow regression).
 
-Reproduces the real bug: applyChartTheme() throws ReferenceError on the
-undefined global 'monitoringChart' (undefined on the editor view), which aborts
-toggleTheme() before it reaches applyEditorTheme(), so the editor never
-re-themes on an app theme toggle. This is the behavioral coverage the earlier
-source-grep unit tests could not express.
+Guards that the editor still follows the app theme when the app theme is
+toggled. This is the behavioral coverage the earlier source-grep unit tests
+could not express.
 """
 import pytest
 
