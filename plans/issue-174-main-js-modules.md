@@ -192,6 +192,20 @@ touches those lines.
 shrinking the F3 bridge each time until it is empty. Also removes the need for
 `unsafe-inline` script CSP.
 
+The first group (#401, PR #402) established the dispatch and surfaced the trap
+every later group will hit. Dropping a name from the bridge is only safe if
+nothing inside `main.js` calls it as `window.NAME`; `switchTab` had two such
+internal call sites, and removing it from the bridge left bootstrap throwing, so
+`appReady` never fired and all 137 e2e tests failed while the unit suite stayed
+green. `tests/test_delegated_handlers.py::test_internal_window_calls_stay_on_the_bridge`
+now fails on that condition directly. Convert internal `window.NAME(...)` calls
+to direct calls in the same PR that unbridges the name.
+
+The dispatch itself lives at `static/main.js:1634`: one `delegatedActions` lookup
+plus one document-level click listener. Later groups add a key, not a listener.
+Guard the lookup with `Object.hasOwn` before indexing, or
+`tests/test_code_quality.py::test_no_eslint_object_injection` fails.
+
 ## Verification
 
 Per sub-issue, in order:
