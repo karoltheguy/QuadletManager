@@ -1578,7 +1578,7 @@ function refreshMonitoringServerDropdown() {
 
 function updateNavItemActive(tabId) {
   document.querySelectorAll('.nav-item').forEach(function(btn) {
-    if (btn.innerText.toLowerCase() === tabId) {
+    if (btn.dataset.tab === tabId) {
       btn.classList.add('active');
     } else {
       btn.classList.remove('active');
@@ -1630,6 +1630,25 @@ function showSettingsSection(name) {
   if (name === 'themes') initDensityRadio();
   if (name === 'themes') initEditorThemeRadio();
 }
+
+// ── Delegated Action Dispatch ─────────────────────────────
+// Delegated click dispatch replacing inline handlers (issue #392).
+const delegatedActions = {
+  'switch-tab': function(btn) {
+    switchTab(btn.dataset.tab);
+  },
+  'show-settings-section': function(btn) {
+    showSettingsSection(btn.dataset.section);
+  },
+};
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  if (!Object.prototype.hasOwnProperty.call(delegatedActions, action)) return;
+  delegatedActions[action](btn);
+});
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
 function syncInspectorToggleBtn() {
@@ -2576,7 +2595,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 })();
 
-window.switchTab(localStorage.getItem('qm-active-tab') || 'overview');
+switchTab(localStorage.getItem('qm-active-tab') || 'overview');
 switchBottomTab(localStorage.getItem('qm-bottom-tab') || 'terminal');
 initCpuChart();
 initMemChart();
@@ -2696,7 +2715,7 @@ function showFileContextMenu(event, serverId, path, scope) {
             target: '#editor-pane',
             swap: 'outerHTML'
         });
-        window.switchTab('containers');
+        switchTab('containers');
     };
     _ctxMenu.appendChild(editBtn);
 
@@ -3281,12 +3300,10 @@ Object.assign(window, {
   setSelectedQuadletBtn,
   setupModalDismissal,
   showFileContextMenu,
-  showSettingsSection,
   softRefresh,
   stemFromUnitName,
   switchBottomTab,
   switchLogTab,
-  switchTab,
   switchTerminalTab,
   tailLogsFromPanel,
   toggleBottomPanel,
