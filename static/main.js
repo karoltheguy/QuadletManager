@@ -1658,6 +1658,9 @@ const delegatedActions = {
   'session-add-new': function() {
     sessionAddNew();
   },
+  'load-monitor-charts': function(btn) {
+    loadMonitorCharts(Number(btn.dataset.minutes), btn);
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -1665,7 +1668,35 @@ document.addEventListener('click', function(e) {
   if (!btn) return;
   const action = btn.dataset.action;
   if (!Object.hasOwn(delegatedActions, action)) return;
-  delegatedActions[action](btn);
+  Reflect.get(delegatedActions, action)(btn);
+});
+
+const delegatedChangeActions = {
+  'select-monitoring-server': function(elt) {
+    selectMonitoringServer(elt.value);
+  },
+};
+
+document.addEventListener('change', function(e) {
+  const elt = e.target.closest('[data-action]');
+  if (!elt) return;
+  const action = elt.dataset.action;
+  if (!Object.hasOwn(delegatedChangeActions, action)) return;
+  Reflect.get(delegatedChangeActions, action)(elt);
+});
+
+const delegatedInputActions = {
+  'filter-monitor-containers': function(elt) {
+    applyContainerFilter(elt.value);
+  },
+};
+
+document.addEventListener('input', function(e) {
+  const elt = e.target.closest('[data-action]');
+  if (!elt) return;
+  const action = elt.dataset.action;
+  if (!Object.hasOwn(delegatedInputActions, action)) return;
+  Reflect.get(delegatedInputActions, action)(elt);
 });
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
@@ -3285,7 +3316,6 @@ Object.assign(window, {
   _editorDirty: false,
   _logTabs,
   _terminalTabs,
-  applyContainerFilter,
   applyEditorTheme,
   applyThemePreview,
   applyStatusDots,
@@ -3298,14 +3328,12 @@ Object.assign(window, {
   handleStatsError,
   handleStatsUpdate,
   lastStatsPerServer,
-  loadMonitorCharts,
   openBottomPanel,
   renderContainerStatsTable,
   runningContainersBySid,
   safeReload,
   saveQuadlet,
   selectContainerStem,
-  selectMonitoringServer,
   setActiveServer,
   setSelectedQuadletBtn,
   setupModalDismissal,

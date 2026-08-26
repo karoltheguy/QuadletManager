@@ -119,14 +119,10 @@ def select_injected_server(page: Page, server_id, option_count):
     )
     page.locator("#monitoring-server-select").select_option(str(server_id))
     page.evaluate(
-        """([id]) => {
+        """() => {
             const sel = document.getElementById('monitoring-server-select');
             if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
-            if (window.selectMonitoringServer) {
-                window.selectMonitoringServer(id);
-            }
-        }""",
-        [server_id],
+        }"""
     )
     expect(page.locator("#monitoring-content")).to_be_visible()
 
@@ -246,14 +242,10 @@ def test_monitor_charts_show_error_on_history_fetch_failure(page: Page):
             pytest.skip("No servers available to select for this test.")
         select.select_option(candidate_values[0])
         page.evaluate(
-            """([id]) => {
+            """() => {
                 const sel = document.getElementById('monitoring-server-select');
                 if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
-                if (window.selectMonitoringServer) {
-                    window.selectMonitoringServer(id);
-                }
-            }""",
-            [candidate_values[0]],
+            }"""
         )
 
     expect(page.locator("#monitoring-content")).to_be_visible()
@@ -995,7 +987,13 @@ def test_changing_the_filter_resets_the_chart_selection(page: Page):
     )
 
     # Change the filter to something that matches "web" and "cache", not "db".
-    page.evaluate("() => window.applyContainerFilter('e')")
+    page.evaluate(
+        """() => {
+            const input = document.getElementById('monitor-container-filter');
+            input.value = 'e';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }"""
+    )
 
     for canvas_id, chart_name in (
         ("cpu-history-chart", "CPU"),

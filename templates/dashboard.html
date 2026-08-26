@@ -96,13 +96,13 @@
       <div class="server-selector">
         <span id="sync-cycle-indicator" class="sync-cycle-indicator" hidden></span>
         <select id="monitoring-server-select" class="form-control" aria-label="Monitoring server"
-                onchange="selectMonitoringServer(this.value)"
+                data-action="select-monitoring-server"
                 hx-get="/api/servers/options" hx-trigger="load, reload-servers from:body"
                 hx-target="this" hx-swap="innerHTML">
           <option value="">Loading servers...</option>
         </select>
         <span class="monitor-filter-group">
-          <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" aria-label="Filter containers" placeholder="Filter containers…" oninput="applyContainerFilter(this.value)">
+          <input type="search" id="monitor-container-filter" class="form-control monitor-filter-input" aria-label="Filter containers" placeholder="Filter containers…" data-action="filter-monitor-containers">
           <span id="monitor-filter-count" class="monitor-filter-count" aria-live="polite" hidden></span>
         </span>
       </div>
@@ -155,10 +155,10 @@
         <div class="monitor-chart-header">
           <span class="monitor-section-label">Resource history</span>
           <div class="health-history-controls">
-            <button class="btn btn-sm btn-secondary health-range-btn active" onclick="loadMonitorCharts(60, this)">1h</button>
-            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(360, this)">6h</button>
-            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(1440, this)">24h</button>
-            <button class="btn btn-sm btn-secondary health-range-btn" onclick="loadMonitorCharts(10080, this)">7d</button>
+            <button class="btn btn-sm btn-secondary health-range-btn active" data-action="load-monitor-charts" data-minutes="60">1h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" data-action="load-monitor-charts" data-minutes="360">6h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" data-action="load-monitor-charts" data-minutes="1440">24h</button>
+            <button class="btn btn-sm btn-secondary health-range-btn" data-action="load-monitor-charts" data-minutes="10080">7d</button>
           </div>
         </div>
         <figure class="monitor-chart">
