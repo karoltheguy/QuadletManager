@@ -12,6 +12,7 @@ modification time of the file on disk at request time - so the value
 changes automatically whenever the file changes, unlike a hardcoded
 app version string.
 """
+import html as html_module
 import os
 import re
 from unittest.mock import patch
@@ -77,3 +78,35 @@ def test_dashboard_static_asset_cache_buster_changes_with_file_mtime(client):
     finally:
         # Restore original mtime to avoid perturbing the working tree.
         os.utime(MAIN_JS_PATH, (current_mtime, current_mtime))
+
+
+@pytest.mark.unit
+def test_all_dashboard_static_assets_carry_mtime_cache_buster(client):
+    """Every /static/... reference in the rendered dashboard HTML - including
+    the ones inside the JSON import map - must carry a ?v=<mtime> cache
+    buster matching the real file's mtime on disk."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = html_module.unescape(response.text)
+
+    references = re.findall(r"/static/([^\s\"'>]+)", html)
+    assert references, "expected at least one /static/ reference in the dashboard HTML"
+
+    for reference in references:
+        path_part, _, query = reference.partition("?")
+        assert query.startswith("v="), (
+            f"/static/{path_part} is missing a ?v=<mtime> cache buster (got {query!r})"
+        )
+
+        asset_path = os.path.join(REPO_ROOT, "static", path_part)
+        if os.path.exists(asset_path):
+            expected_mtime = int(os.path.getmtime(asset_path))
+            assert query == f"v={expected_mtime}", (
+                f"/static/{path_part} is missing a matching ?v=<mtime> cache buster "
+                f"(expected 'v={expected_mtime}', got {query!r})"
+            )
+        else:
+            assert query == "v=0", (
+                f"/static/{path_part} does not exist on disk and should degrade to "
+                f"'v=0' (got {query!r})"
+            )

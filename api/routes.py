@@ -80,8 +80,17 @@ EDITOR_PATH_CONFINED_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def _asset_version(filename: str) -> int:
-    """Return the on-disk mtime (as an int) of a static asset, for cache-busting."""
-    return int(os.path.getmtime(os.path.join(STATIC_DIR, filename)))
+    """Return the on-disk mtime (as an int) of a static asset, for cache-busting.
+
+    Missing files (e.g. a build-generated vendor asset not present in this
+    environment) degrade to an unversioned-but-stable ?v=0 rather than take
+    the whole page down; the value corrects itself to a real mtime once the
+    file exists.
+    """
+    try:
+        return int(os.path.getmtime(os.path.join(STATIC_DIR, filename)))
+    except OSError:
+        return 0
 
 
 def asset_url(filename: str) -> str:

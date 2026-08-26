@@ -29,7 +29,13 @@ STATIC_DIR = os.path.join(TESTS_DIR, "..", "static")
 CDNJS_SUBSTRING = "cdnjs.cloudflare.com"
 VENDORED_MONACO_PREFIX = "/static/vendor/monaco/"
 
-MONACO_LOADER_SRC_RE = re.compile(r'src="/static/vendor/monaco/[^"]*loader[^"]*\.js"')
+MONACO_LOADER_SRC_RE = re.compile(
+    r'src="(?:'
+    r'/static/vendor/monaco/[^"]*loader[^"]*\.js'
+    r'|'
+    r"\{\{\s*asset_url\(\s*['\"]vendor/monaco/[^'\"]*loader[^'\"]*\.js['\"]\s*\)\s*\}\}"
+    r')"'
+)
 
 # A <script> whose src points at an absolute URL, i.e. a host we do not control.
 CROSS_ORIGIN_SCRIPT_RE = re.compile(r'<script[^>]*\ssrc="((?:https?:)?//[^"]+)"')
