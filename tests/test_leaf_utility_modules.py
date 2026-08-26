@@ -80,20 +80,11 @@ def test_main_js_declares_none_of_the_leaf_utilities():
 
 @pytest.mark.unit
 def test_main_js_imports_the_leaf_utilities_by_bare_specifier():
-    """Assert main.js imports DOM utilities from @qm/dom and color utilities from @qm/color."""
+    """Assert main.js imports each leaf module exactly while it still calls from it."""
     main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
     assert main_js_file is not None, "main.js not found in static_js_files()"
 
     content = main_js_file.read_text(encoding="utf-8")
-
-    dom_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/dom['\"]", content)
-    assert dom_match, "main.js must import from the '@qm/dom' bare specifier"
-
-    color_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/color['\"]", content)
-    assert color_match, "main.js must import from the '@qm/color' bare specifier"
-
-    imported = {n.strip() for n in dom_match.group(1).split(",") if n.strip()}
-    imported |= {n.strip() for n in color_match.group(1).split(",") if n.strip()}
 
     # The import list must match what main.js actually calls, in both directions.
     # Some utilities (linearize, relativeLuminance, contrastRatio) are only used
@@ -103,6 +94,21 @@ def test_main_js_imports_the_leaf_utilities_by_bare_specifier():
         name for name in ALL_LEAF_UTILITIES
         if re.search(rf"(?<![.\w$]){re.escape(name)}\s*\(", content)
     }
+
+    dom_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/dom['\"]", content)
+    assert dom_match, "main.js must import from the '@qm/dom' bare specifier"
+
+    # main.js imports a leaf module only while it still calls something from it.
+    # The theme extraction (#420) moved the last onPrimaryFor and hexToRgba call
+    # sites into theme.js, so requiring this import unconditionally would force an
+    # empty `import {} from '@qm/color'` that fetches the module for nothing.
+    color_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/color['\"]", content)
+    if called & set(COLOR_UTILITIES):
+        assert color_match, "main.js must import from the '@qm/color' bare specifier"
+
+    imported = {n.strip() for n in dom_match.group(1).split(",") if n.strip()}
+    if color_match:
+        imported |= {n.strip() for n in color_match.group(1).split(",") if n.strip()}
 
     missing = sorted(called - imported)
     assert not missing, f"main.js calls these but does not import them: {missing}"
