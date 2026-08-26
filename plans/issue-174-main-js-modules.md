@@ -1,4 +1,4 @@
-# Decomposition plan for issue #174: split `static/main.js` into ES modules
+# Decomposition plan for issue #174: split `static/main.js` into ES modules and `static/style.css` into per-concern sheets
 
 ## Context
 
@@ -42,6 +42,39 @@ Intended outcome: `main.js` becomes a thin entry module; each concern lives in i
 own file under `static/modules/`; the test and lint pipeline stops caring which
 file a given function lives in.
 
+`static/style.css` is the same problem one layer down: **2,939 lines** in a
+single sheet covering design tokens, the app shell grid, every component and
+every view. Point 4 of issue #174 asks for it too, and this plan treats it as in
+scope for closing the parent. Exploration found it carries two of the four
+constraints above in the same shape:
+
+5. **18 test files read `static/style.css` as text**, 71 hardcoded references in
+   all, with no shared fixture. That is constraint 2 again, and `tests/js_source.py`
+   from F1 is the model for the fix.
+6. **`@import` would bypass cache busting.** `asset_url` (`api/routes.py:96`)
+   versions each file it is called on, but a sheet pulled in by `@import` from
+   inside another sheet never passes through it. The JS side solved the
+   equivalent problem with an import map at `api/routes.py:108`. CSS has no such
+   mechanism, so the split must use one `<link>` per sheet in
+   `templates/dashboard.html:28`.
+
+Unlike the JS side there is no CSS lint gate to widen: `tests/test_code_quality.py`
+covers JavaScript and Python only. Adding one is optional scope, not a
+prerequisite.
+
+## Progress
+
+Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
+the only place that shows how much of #174 is left.
+
+- **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
+- **JS extractions:** 1 of 13 done. #399 landed `dom.js` and `color.js`.
+  `static/main.js` is still 3,369 lines.
+- **Window bridge (#392):** 3 template groups converted (#401, #404, #409). The
+  bridge at `static/main.js:3315` still lists 40 names.
+- **CSS foundation:** not started. C1 and C2 are unfiled.
+- **CSS split:** not started.
+
 ## Decisions taken
 
 - **No bundler.** Native ES modules served directly, matching
@@ -53,8 +86,16 @@ file a given function lives in.
   listeners and shrinks the bridge to zero.
 - **Shared test fixture before any code moves.** Source-pattern tests read all
   non-vendor static JS through one helper, so later extractions are pure moves.
+  The CSS split repeats this with its own helper before a single rule moves.
+- **One `<link>` per stylesheet, no `@import`.** Every sheet goes through
+  `asset_url` in the template, which is the only path that produces a `?v=`
+  value. This costs a few extra requests over HTTP/2 and buys correct cache
+  invalidation, which `@import` cannot give us.
+- **CSS split by view and concern, not by cascade order.** The sheets are linked
+  in a fixed order that preserves today's cascade, so no rule changes specificity
+  or wins a different tiebreak than it does now.
 
-## Foundation sub-issues
+## JS foundation sub-issues
 
 These four carry the design content and unblock every extraction. Each is
 independently implementable and committable. The issue bodies are deliberately
@@ -156,27 +197,31 @@ owned by `templates/partials/editor_pane.html`, not by `main.js`. Leave them on
 **Done when:** no cross-cluster mutable state is declared in `main.js`, and the
 full suite plus e2e is green.
 
-## Extraction sequence (file each when its turn comes)
+## JS extraction sequence (file each when its turn comes)
 
 File these as sub-issues one at a time, not upfront, because each one's scope depends on
 the shape `state.js` actually takes. Record the order as a checklist comment on
 #174. Ordered lowest-tangle first, so the pattern is proven on cheap modules:
 
-1. `dom.js` + `color.js`: leaf utilities. `el()`, `hexToRgba`, `getRelativeTime`,
-   `setStatText`, `sendNotification`; WCAG math (`linearize`, `relativeLuminance`,
-   `contrastRatio`, `onPrimaryFor`). Pure functions, zero inbound coupling.
-2. `theme.js`: theme/density/editor-theme toggles, theme preview,
+1. `dom.js` + `color.js` (#399, done): leaf utilities. `el()`, `hexToRgba`,
+   `getRelativeTime`, `setStatText`, `sendNotification`; WCAG math (`linearize`,
+   `relativeLuminance`, `contrastRatio`, `onPrimaryFor`). Pure functions, zero
+   inbound coupling.
+2. `toast.js`: one `showToast(message, kind)` helper replacing four near-identical
+   render blocks. See the section below; this one has a test trap the others do
+   not.
+3. `theme.js`: theme/density/editor-theme toggles, theme preview,
    `applyChartTheme`, `applyEditorTheme`.
-3. `modals.js`: `bindModalDismissal`, `setupModalDismissal`. A leaf.
-4. `panel.js`: bottom-panel chrome, sessions strip, resize handles.
-5. `logs.js`: the `/ws/logs` client.
-6. `terminal.js`: xterm + `/ws/exec` client.
-7. `sse.js`: the `EventSource` subscription, dispatch, poll health.
-8. `charts.js`: CPU/mem time-series charts.
-9. `stats.js`: stats table rendering, filter, summary strip.
-10. `inspector.js`: container detail pane.
-11. `tree.js`: quadlet tree selection, server collapse, context menu, deletion.
-12. `editor.js`: validate/save, dirty guard.
+4. `modals.js`: `bindModalDismissal`, `setupModalDismissal`. A leaf.
+5. `panel.js`: bottom-panel chrome, sessions strip, resize handles.
+6. `logs.js`: the `/ws/logs` client.
+7. `terminal.js`: xterm + `/ws/exec` client.
+8. `sse.js`: the `EventSource` subscription, dispatch, poll health.
+9. `charts.js`: CPU/mem time-series charts.
+10. `stats.js`: stats table rendering, filter, summary strip.
+11. `inspector.js`: container detail pane.
+12. `tree.js`: quadlet tree selection, server collapse, context menu, deletion.
+13. `editor.js`: validate/save, dirty guard.
 
 `main.js` ends as bootstrap plus the bridge.
 
@@ -184,6 +229,118 @@ Two dead globals surfaced during exploration: `monitoringChart` and
 `healthHistoryChart` are referenced behind `typeof` guards at `main.js:661`, `673`
 and `1798` but assigned nowhere in the repo. Delete them in whichever extraction
 touches those lines.
+
+### Extraction 2 in detail: `toast.js`
+
+Called out in the first comment on #174 and easy to lose, because it is a
+deduplication rather than a move. Four near-identical blocks build the same toast
+markup today:
+
+- `static/main.js:404` and `:437`: the `htmx:responseError` danger toast (#220)
+  and the `user-updated` success toast (#222).
+- `static/main.js:1503`: the `file_changed` SSE warning toast.
+- `static/main.js:2886`: the soft-refresh path, which reparses a server-rendered
+  toast out of an htmx swap.
+
+Extract `showToast(message, kind)` covering the first three. The fourth takes
+markup from the server rather than a message string, so fold it in only if it
+comes out cleanly; leave it alone otherwise.
+
+**The trap.** Two tests bound their assertions to a byte window rather than to a
+function. `tests/test_settings_form_error_handling.py:140` and
+`tests/test_user_mutation_guardrails.py:207` each slice 1500 characters after the
+listener registration and assert `status-toast`, `textContent` and the absence of
+`innerHTML` inside that slice. Moving the render into `showToast` empties the
+window and the assertions fail while the behavior is identical. Rewrite them to
+assert the listener calls `showToast`, and assert the DOM properties against the
+helper itself. Do this in the same PR as the extraction.
+
+**Done when:** one toast renderer exists, both test files assert through the
+helper, and the full suite is green.
+
+## CSS foundation sub-issues
+
+Two, mirroring F1 and F2. Both are unfiled. File them in order; C1 has to land
+before any rule moves, for the same reason F1 had to land before any function did.
+
+### C1. Shared CSS-source fixture for structural style tests
+`size: moderate` · `type: enhancement` · `prio: could-have`
+
+Add `tests/css_source.py` alongside `tests/js_source.py`, same shape: a
+`static_css_files()` that globs every non-vendor `static/**/*.css` sorted, and an
+`lru_cache`d `read_static_css()` that concatenates them. Migrate all 18
+source-reading test files, 71 hardcoded references in total, onto it.
+
+Files: `tests/test_design_lint_style.py`, `tests/test_settings_flat_data_soft_chrome.py`,
+`tests/test_settings_layout_unified.py`, `tests/test_theme_on_primary_contrast.py`,
+`tests/test_brand_teal_contrast.py`, `tests/test_sessions_strip_empty_state.py`,
+`tests/test_density_toggle.py`, `tests/test_settings_actions_spacing.py`,
+`tests/test_border_b_utility.py`, `tests/test_pulse_dot_keyframes.py`,
+`tests/test_poll_health_ui.py`, `tests/test_unhealthy_salience.py`,
+`tests/test_settings_a11y.py`, `tests/test_bottom_panel_align.py`,
+`tests/test_monitor_unit_state.py`, `tests/test_stats_monitoring_dedup.py`,
+`tests/test_static_asset_cache_busting.py`, and
+`tests/e2e/test_settings_flat_data_soft_chrome_e2e.py`.
+
+Two of those need care. `tests/test_static_asset_cache_busting.py` asserts on the
+loader rather than the source, so it belongs to C2, not here. Any test that
+brace-matches a rule block out of the full text has to keep working under
+concatenation; check before assuming a plain string swap is enough.
+
+**Done when:** no test hardcodes `static/style.css` for source reading, and the
+full suite is green with `style.css` unchanged.
+
+### C2. Load the dashboard's styles as multiple versioned sheets
+`size: straightforward` · `type: enhancement` · `prio: could-have`
+
+`templates/dashboard.html:28` links one `asset_url('style.css')`. Make the
+template emit one `<link>` per sheet, in an explicit order, each through
+`asset_url`. Drive it from a list so adding a sheet is a one-line change, and do
+not use `@import`, which bypasses versioning entirely.
+
+Extend `tests/test_static_asset_cache_busting.py` to assert every linked sheet
+carries a `?v=` value, the way it already does for the JS modules. Only
+`templates/dashboard.html` links `style.css`; `templates/login.html:24` and
+`templates/change_password.html:24` inline their own copy of the design tokens
+and are out of scope here.
+
+**Done when:** the dashboard loads its styles from more than one file, every one
+of them versioned, with no visual change.
+
+## CSS split sequence (file each when its turn comes)
+
+Same discipline as the JS side: one sub-issue at a time, each a pure move of
+whole rule blocks with no rewriting, no consolidation of near-duplicate rules,
+and no specificity changes. The link order in `dashboard.html` must reproduce
+today's source order exactly, since several later blocks deliberately override
+earlier ones (the light-theme status dot tweaks at `style.css:2001` are one
+example).
+
+Proposed sheets, in link order, with their current line ranges:
+
+1. `tokens.css`: default and light-theme design tokens, OS preference block,
+   density tokens (`style.css:1` to `:231`).
+2. `layout.css`: app shell, content wrapper, view control classes, the Containers
+   grid, resize handles, raised panel chrome (`:232` to `:437`, `:1559` to `:1744`).
+3. `components.css`: typography utilities, buttons, status outputs, context menu,
+   modals, toast, status dots, form inputs (`:617` to `:959`, `:1695` to `:1783`).
+4. `monitor.css`: monitoring pane, glance bar, per-container table, time-series
+   charts, health history (`:438` to `:616`, `:960` to `:1097`).
+5. `inspector.css`: container stats card (`:1098` to `:1213`).
+6. `terminal.css`: xterm styling, bottom panel, terminal and log tab strips
+   (`:1214` to `:1336`, `:2219` to `:2684`).
+7. `settings.css`: settings sidenav, sections, tables, panes (`:256` to `:390`,
+   `:1745` to `:1930`).
+8. `tree.css`: quadlet tree buttons, scope labels, server rows, collapse toggle
+   (`:1931` to `:2005`, `:2685` to `:2745`).
+9. `overview.css`: overview pane, stat tiles, server cards, container lists,
+   empty state (`:2006` to `:2218`).
+10. `theme_customization.css`: the theme editor surfaces (`:2746` to end),
+    including the reduced-motion block, which must stay last.
+
+Treat the ranges as a starting point, not a contract. Confirm each block's real
+boundaries when its turn comes; the file interleaves concerns in places, and a
+range that splits a media query is wrong.
 
 ## Follow-up issue
 
@@ -223,5 +380,32 @@ Per sub-issue, in order:
    tree context menu. The bridge test covers name presence, not that the function
    still does the right thing.
 
+For the CSS sub-issues, add:
+
+6. Diff the computed stylesheet, not just the test result. A pure move can still
+   change the cascade if link order slips, and no unit test in this repo would
+   see it. Load the dashboard before and after, and compare computed styles on a
+   sample from each pane.
+7. `venv/bin/pytest -m e2e` is mandatory for C2 and for any split that touches
+   the Containers grid or the bottom panel, since layout regressions surface as
+   element-not-visible failures there and nowhere else.
+
 Work lands through pull requests against `main`, one per sub-issue, each with
-`Fixes #N`. Parent #174 stays open until all sub-issues close.
+`Fixes #N`.
+
+## Close condition for #174
+
+The parent closes when all of the following are true. Nothing here is optional;
+if one becomes undesirable, drop it from this list explicitly rather than closing
+around it.
+
+- All 13 JS extractions have landed and `static/main.js` is bootstrap plus the
+  bridge.
+- The two dead globals `monitoringChart` and `healthHistoryChart` are gone.
+- C1 and C2 have landed and the CSS split sequence is complete.
+- No test hardcodes `static/main.js` or `static/style.css` as a source path.
+
+Retiring the window bridge (#392) is deliberately **not** on this list. It is a
+follow-up that outlives the split, and holding #174 open for it would keep the
+parent open indefinitely. Adding a CSS lint gate is likewise out of scope; file
+it separately if it is wanted.
