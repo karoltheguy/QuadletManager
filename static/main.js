@@ -1646,7 +1646,7 @@ document.addEventListener('click', function(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const action = btn.dataset.action;
-  if (!Object.prototype.hasOwnProperty.call(delegatedActions, action)) return;
+  if (!Object.hasOwn(delegatedActions, action)) return;
   delegatedActions[action](btn);
 });
 

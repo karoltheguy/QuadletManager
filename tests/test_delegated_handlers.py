@@ -81,12 +81,18 @@ def test_nav_buttons_declare_delegated_actions():
     nav_tabs = []
     for attrs in nav_buttons:
         action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
-        assert action_match and action_match.group(1) == "switch-tab", (
+        assert action_match, (
+            f'Expected nav-item button to have a data-action attribute, got: <button{attrs}>'
+        )
+        assert action_match.group(1) == "switch-tab", (
             f'Expected nav-item button to have data-action="switch-tab", got: <button{attrs}>'
         )
         tab_match = re.search(r'\bdata-tab=["\']([^"\']+)["\']', attrs)
-        assert tab_match and tab_match.group(1).strip(), (
-            f'Expected nav-item button to have non-empty data-tab attribute, got: <button{attrs}>'
+        assert tab_match, (
+            f'Expected nav-item button to have a data-tab attribute, got: <button{attrs}>'
+        )
+        assert tab_match.group(1).strip(), (
+            f'Expected nav-item button to have a non-empty data-tab attribute, got: <button{attrs}>'
         )
         nav_tabs.append(tab_match.group(1).strip())
 
@@ -98,12 +104,18 @@ def test_nav_buttons_declare_delegated_actions():
     settings_sections = []
     for attrs in settings_buttons:
         action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
-        assert action_match and action_match.group(1) == "show-settings-section", (
+        assert action_match, (
+            f'Expected settings-sidenav-item button to have a data-action attribute, got: <button{attrs}>'
+        )
+        assert action_match.group(1) == "show-settings-section", (
             f'Expected settings-sidenav-item button to have data-action="show-settings-section", got: <button{attrs}>'
         )
         section_match = re.search(r'\bdata-section=["\']([^"\']+)["\']', attrs)
-        assert section_match and section_match.group(1).strip(), (
-            f'Expected settings-sidenav-item button to have non-empty data-section attribute, got: <button{attrs}>'
+        assert section_match, (
+            f'Expected settings-sidenav-item button to have a data-section attribute, got: <button{attrs}>'
+        )
+        assert section_match.group(1).strip(), (
+            f'Expected settings-sidenav-item button to have a non-empty data-section attribute, got: <button{attrs}>'
         )
         settings_sections.append(section_match.group(1).strip())
 
