@@ -107,6 +107,6 @@ def test_editor_theme_radio_persists_the_selection(page: Page):
     stored = page.evaluate("localStorage.getItem('qm-editor-theme')")
     assert stored == "light", (
         f"Expected the Editor Theme radio to persist 'light', got {stored!r}. "
-        "The 'toggle-editor-theme' delegated action is not reaching "
-        "toggleEditorTheme()."
+        "The 'toggle-editor-theme' delegated action is not reaching the "
+        "toggleEditorTheme handler."
     )
