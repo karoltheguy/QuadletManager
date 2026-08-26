@@ -1640,6 +1640,24 @@ const delegatedActions = {
   'show-settings-section': function(btn) {
     showSettingsSection(btn.dataset.section);
   },
+  'switch-bottom-tab': function(btn) {
+    switchBottomTab(btn.dataset.pane);
+  },
+  'connect-terminal': function() {
+    connectTerminal();
+  },
+  'tail-logs': function() {
+    tailLogsFromPanel();
+  },
+  'toggle-bottom-panel-expand': function() {
+    toggleBottomPanelExpand();
+  },
+  'toggle-bottom-panel': function() {
+    toggleBottomPanel();
+  },
+  'session-add-new': function() {
+    sessionAddNew();
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -2350,11 +2368,6 @@ function closeTerminalTab(key) {
 
     window._terminalTabs.delete(key);
     handleClosedTabFallback(key);
-}
-
-function disconnectTerminal() {
-    const key = state._activeTerminalTabKey;
-    if (key) closeTerminalTab(key);
 }
 
 function sessionAddNew() {
@@ -3280,8 +3293,6 @@ Object.assign(window, {
   closeLogTab,
   closeTerminalTab,
   confirmDeleteFile,
-  connectTerminal,
-  disconnectTerminal,
   executeDeleteFile,
   handleQuadletsChanged,
   handleStatsError,
@@ -3295,19 +3306,14 @@ Object.assign(window, {
   saveQuadlet,
   selectContainerStem,
   selectMonitoringServer,
-  sessionAddNew,
   setActiveServer,
   setSelectedQuadletBtn,
   setupModalDismissal,
   showFileContextMenu,
   softRefresh,
   stemFromUnitName,
-  switchBottomTab,
   switchLogTab,
   switchTerminalTab,
-  tailLogsFromPanel,
-  toggleBottomPanel,
-  toggleBottomPanelExpand,
   toggleChartSelection,
   toggleDensity,
   toggleEditorTheme,

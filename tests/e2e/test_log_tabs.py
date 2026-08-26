@@ -202,7 +202,7 @@ def test_switching_mode_tabs_preserves_both_chip_kinds(page: Page):
             };
         }
     }""")
-    page.evaluate("switchBottomTab('terminal')")
+    page.click(".bottom-tab[data-pane='terminal']")
     page.evaluate("var btn = document.getElementById('terminal-connect-btn'); if(btn) btn.disabled = false;")
     page.click("#terminal-connect-btn", force=True)
     page.wait_for_timeout(100)
@@ -211,7 +211,7 @@ def test_switching_mode_tabs_preserves_both_chip_kinds(page: Page):
     # Both chips must coexist regardless of which mode tab is active.
     expect(page.locator(".log-conn-tab")).to_have_count(1)
 
-    page.evaluate("switchBottomTab('logs')")
+    page.click(".bottom-tab[data-pane='logs']")
     expect(page.locator(".terminal-conn-tab")).to_have_count(1)
     expect(page.locator(".log-conn-tab")).to_have_count(1)
 

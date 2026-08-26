@@ -1,9 +1,10 @@
-"""Tests for delegated navigation event handlers (issue #401).
+"""Tests for delegated event handlers (issue #392).
 
-These tests specify replacing inline onclick handlers for top navigation and settings
-sidenav buttons with data-action attributes and a delegated document click listener,
-allowing switchTab and showSettingsSection to be removed from the window bridge.
+These tests specify replacing inline onclick handlers in templates with data-action
+attributes and a delegated document click listener, allowing corresponding function
+names to be removed from the window bridge.
 """
+import ast
 import pathlib
 import re
 
@@ -13,10 +14,25 @@ from tests.js_source import read_static_js
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 
+# Each #392 group appends its retired function names here.
+RETIRED_BRIDGE_NAMES = frozenset({
+    # group 1 (#401): top nav and settings sidenav
+    "switchTab",
+    "showSettingsSection",
+    # group 2 (#404): bottom panel controls
+    "switchBottomTab",
+    "connectTerminal",
+    "tailLogsFromPanel",
+    "toggleBottomPanelExpand",
+    "toggleBottomPanel",
+    "sessionAddNew",
+    "disconnectTerminal",
+})
+
 
 @pytest.mark.unit
-def test_nav_handlers_are_not_inline():
-    """Verify that templates do not use inline switchTab or showSettingsSection event handlers."""
+def test_retired_names_are_not_inline_handlers():
+    """Verify that templates do not use inline event handlers for retired bridge names."""
     templates_dir = REPO_ROOT / "templates"
     inline_handler_attr_pattern = re.compile(
         r'\bon[a-z]+\s*=\s*(["\'])(.*?)\1', re.IGNORECASE | re.DOTALL
@@ -26,20 +42,20 @@ def test_nav_handlers_are_not_inline():
     for html_file in templates_dir.rglob("*.html"):
         content = html_file.read_text(encoding="utf-8")
         for _, handler_code in inline_handler_attr_pattern.findall(content):
-            for target in ("switchTab", "showSettingsSection"):
+            for target in sorted(RETIRED_BRIDGE_NAMES):
                 if target in handler_code:
                     rel_path = html_file.relative_to(REPO_ROOT)
                     violations.append(f"{rel_path}: inline handler mentions {target}")
 
     assert not violations, (
-        f"Found inline nav handlers in templates ({len(violations)}):\n"
+        f"Found inline handlers for retired names in templates ({len(violations)}):\n"
         + "\n".join(f"  - {v}" for v in violations)
     )
 
 
 @pytest.mark.unit
-def test_nav_names_are_off_the_window_bridge():
-    """Verify that switchTab and showSettingsSection are removed from the window bridge."""
+def test_retired_names_are_off_the_window_bridge():
+    """Verify that retired names are removed from the window bridge."""
     js_source = read_static_js()
     bridge_match = re.search(
         r"Object\.assign\s*\(\s*window\s*,\s*\{(.*?)\}\s*\)",
@@ -50,10 +66,10 @@ def test_nav_names_are_off_the_window_bridge():
     bridge_body = bridge_match.group(1)
     bridge_keys = set(re.findall(r"\b([A-Za-z_$][\w$]*)\b", bridge_body))
 
-    forbidden_keys = {"switchTab", "showSettingsSection"}
+    forbidden_keys = RETIRED_BRIDGE_NAMES
     exposed_forbidden = sorted(bridge_keys & forbidden_keys)
     assert not exposed_forbidden, (
-        f"Expected switchTab and showSettingsSection to be removed from window bridge, but found: {exposed_forbidden}"
+        f"Expected retired names to be removed from window bridge, but found: {exposed_forbidden}"
     )
 
 
@@ -126,16 +142,97 @@ def test_nav_buttons_declare_delegated_actions():
 
 
 @pytest.mark.unit
-def test_js_dispatches_the_delegated_nav_actions():
-    """Verify that static JS contains delegated nav action handlers and a click listener."""
+def test_bottom_panel_buttons_declare_delegated_actions():
+    """Verify that bottom panel buttons declare data-action and target identifiers."""
+    dashboard_path = REPO_ROOT / "templates" / "dashboard.html"
+    content = dashboard_path.read_text(encoding="utf-8")
+
+    button_pattern = re.compile(r"<button\b([^>]*)>", re.IGNORECASE)
+    all_buttons = button_pattern.findall(content)
+
+    bottom_tab_buttons = [
+        attrs for attrs in all_buttons
+        if re.search(r'\bclass=["\'][^"\']*\bbottom-tab\b[^"\']*["\']', attrs)
+    ]
+
+    assert bottom_tab_buttons, "No bottom-tab buttons found in templates/dashboard.html"
+    assert len(bottom_tab_buttons) == 2, (
+        f"Expected 2 bottom-tab buttons in templates/dashboard.html, found {len(bottom_tab_buttons)}"
+    )
+
+    bottom_panes = []
+    for attrs in bottom_tab_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f'Expected bottom-tab button to have a data-action attribute, got: <button{attrs}>'
+        )
+        assert action_match.group(1) == "switch-bottom-tab", (
+            f'Expected bottom-tab button to have data-action="switch-bottom-tab", got: <button{attrs}>'
+        )
+        pane_match = re.search(r'\bdata-pane=["\']([^"\']+)["\']', attrs)
+        assert pane_match, (
+            f'Expected bottom-tab button to have a data-pane attribute, got: <button{attrs}>'
+        )
+        assert pane_match.group(1).strip(), (
+            f'Expected bottom-tab button to have a non-empty data-pane attribute, got: <button{attrs}>'
+        )
+        bottom_panes.append(pane_match.group(1).strip())
+
+    expected_panes = ["terminal", "logs"]
+    assert bottom_panes == expected_panes, (
+        f"Expected bottom-tab data-pane values to be {expected_panes}, got: {bottom_panes}"
+    )
+
+    expected_id_actions = {
+        "terminal-connect-btn": "connect-terminal",
+        "toggle-logs-btn": "tail-logs",
+        "bottom-panel-expand-btn": "toggle-bottom-panel-expand",
+        "bottom-panel-minimize-btn": "toggle-bottom-panel",
+        "session-add-btn": "session-add-new",
+    }
+
+    for btn_id, expected_action in expected_id_actions.items():
+        matching = [
+            attrs for attrs in all_buttons
+            if re.search(rf'\bid=["\']{re.escape(btn_id)}["\']', attrs)
+        ]
+        assert matching, (
+            f"Expected button with id='{btn_id}' in templates/dashboard.html"
+        )
+        assert len(matching) == 1, (
+            f"Expected exactly 1 button with id='{btn_id}' in templates/dashboard.html, found {len(matching)}"
+        )
+        attrs = matching[0]
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected button #{btn_id} to have a data-action attribute, got: <button{attrs}>"
+        )
+        assert action_match.group(1) == expected_action, (
+            f"Expected button #{btn_id} to have data-action='{expected_action}', got: <button{attrs}>"
+        )
+
+
+@pytest.mark.unit
+def test_js_dispatches_every_delegated_action():
+    """Verify that static JS contains delegated action handlers and a click listener."""
     js_source = read_static_js()
 
-    assert "switch-tab" in js_source, (
-        "Expected 'switch-tab' action name string in static JS source"
-    )
-    assert "show-settings-section" in js_source, (
-        "Expected 'show-settings-section' action name string in static JS source"
-    )
+    expected_actions = [
+        "switch-tab",
+        "show-settings-section",
+        "switch-bottom-tab",
+        "connect-terminal",
+        "tail-logs",
+        "toggle-bottom-panel-expand",
+        "toggle-bottom-panel",
+        "session-add-new",
+    ]
+    for action in expected_actions:
+        # Quoted, so that 'toggle-bottom-panel' is not satisfied by the
+        # 'toggle-bottom-panel-expand' key that contains it as a substring.
+        assert f"'{action}'" in js_source, (
+            f"Expected '{action}' as a quoted action name in static JS source"
+        )
     assert "document.addEventListener('click'" in js_source, (
         "Expected static JS to register a document-level click listener with document.addEventListener('click'"
     )
@@ -167,4 +264,46 @@ def test_internal_window_calls_stay_on_the_bridge():
     assert not unbridged, (
         "These functions are declared in the module but reached through window.NAME "
         f"while absent from the bridge, so the call resolves to undefined: {unbridged}"
+    )
+
+
+@pytest.mark.unit
+def test_retired_names_are_not_reached_from_e2e_tests():
+    """Verify no e2e test calls a retired name from a page.evaluate string.
+
+    `tests/e2e/` is the third consumer of the bridge, after templates and
+    `main.js` itself, and the easiest to forget: a `page.evaluate("someName()")`
+    resolves against `window` exactly like an inline handler did. Catching it
+    here costs a second; catching it in the browser costs a full e2e run.
+
+    Only executable string literals count. A docstring naming a function is
+    prose, not a call, so docstrings are excluded rather than reported.
+    """
+    e2e_dir = REPO_ROOT / "tests" / "e2e"
+
+    violations = []
+    for py_file in sorted(e2e_dir.rglob("*.py")):
+        tree = ast.parse(py_file.read_text(encoding="utf-8"))
+
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                doc = node.body[0] if node.body else None
+                if isinstance(doc, ast.Expr) and isinstance(doc.value, ast.Constant):
+                    docstrings.add(id(doc.value))
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant):
+                continue
+            if not isinstance(node.value, str) or id(node) in docstrings:
+                continue
+            for name in sorted(RETIRED_BRIDGE_NAMES):
+                if re.search(rf"\b{re.escape(name)}\s*\(", node.value):
+                    violations.append(
+                        f"{py_file.relative_to(REPO_ROOT)}:{node.lineno}: calls {name}"
+                    )
+
+    assert not violations, (
+        f"Retired bridge names still called from e2e tests ({len(violations)}):\n"
+        + "\n".join(f"  - {v}" for v in violations)
     )
