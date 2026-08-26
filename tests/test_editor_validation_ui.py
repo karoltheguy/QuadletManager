@@ -1,14 +1,17 @@
 """Tests for the editor-side validation UI (Issue #194).
 
 Covers:
-- templates/partials/editor_pane.html gains a #validate-btn that calls
-  validateQuadlet(...) and lives inside the `{% if user_role == 'editor' %}`
-  block that wraps the Save button, so viewers cannot see or trigger it.
+- templates/partials/editor_pane.html gains a #validate-btn with
+  data-action="validate-quadlet", dispatched by the delegated click
+  handler in static/main.js to call validateQuadlet(...); it lives
+  inside the `{% if user_role == 'editor' %}` block that wraps the
+  Save button, so viewers cannot see or trigger it.
 - templates/partials/editor_pane.html gains a #validation-results div
   that appears after the #editor-container div, so validation output
   can be rendered near the editor.
-- The Save button (#save-btn) is rewired to call saveQuadlet(...) instead
-  of directly dispatching a submit event inline.
+- The Save button (#save-btn) carries data-action="save-quadlet", dispatched
+  by the delegated click handler to call saveQuadlet(...) instead of
+  directly dispatching a submit event inline.
 - static/main.js defines validateQuadlet(), which POSTs to
   /api/validate/, feeds Monaco's setModelMarkers with the results, and
   renders them into #validation-results.
@@ -40,6 +43,19 @@ def _editor_pane_html():
         return f.read()
 
 
+def _delegated_action_body(js_source, action):
+    """Isolate a single entry's function body from the delegatedActions table."""
+    match = re.search(
+        r"'%s':\s*function\([^)]*\)\s*\{.*?\n  \}," % re.escape(action),
+        js_source,
+        re.DOTALL,
+    )
+    assert match, (
+        f"expected a '{action}' entry in the delegatedActions table in main.js"
+    )
+    return match.group(0)
+
+
 # =============================================================================
 # Client-side: templates/partials/editor_pane.html markup
 # =============================================================================
@@ -52,11 +68,14 @@ class TestEditorPaneValidationMarkup:
     @pytest.mark.unit
     def test_validate_btn_present_and_calls_validate_quadlet(self):
         match = re.search(
-            r'<button[^>]*id="validate-btn"[^>]*onclick="([^"]*)"',
+            r'<button[^>]*id="validate-btn"[^>]*data-action="([^"]*)"',
             self.html,
         )
         assert match, "expected a button with id=\"validate-btn\" in editor_pane.html"
-        assert "validateQuadlet(" in match.group(1)
+        assert match.group(1) == "validate-quadlet"
+
+        body = _delegated_action_body(_js(), "validate-quadlet")
+        assert "validateQuadlet(" in body
 
     @pytest.mark.unit
     def test_validate_button_is_gated_to_editor_role(self):
@@ -85,13 +104,15 @@ class TestEditorPaneValidationMarkup:
     @pytest.mark.unit
     def test_save_btn_calls_save_quadlet_not_inline_dispatch(self):
         match = re.search(
-            r'<button[^>]*id="save-btn"[^>]*onclick="([^"]*)"',
+            r'<button[^>]*id="save-btn"[^>]*data-action="([^"]*)"',
             self.html,
         )
         assert match, "expected a button with id=\"save-btn\" in editor_pane.html"
-        onclick = match.group(1)
-        assert "saveQuadlet(" in onclick
-        assert "dispatchEvent(new Event('submit'" not in onclick
+        assert match.group(1) == "save-quadlet"
+
+        body = _delegated_action_body(_js(), "save-quadlet")
+        assert "saveQuadlet(" in body
+        assert "dispatchEvent(new Event('submit'" not in body
 
 
 # =============================================================================
@@ -206,22 +227,18 @@ class TestMainJsValidation:
 
 class TestValidateButtonErrorHandling:
     def setup_method(self):
-        self.html = _editor_pane_html()
+        self.js = _js()
 
     @pytest.mark.unit
     def test_validate_button_handles_validation_rejection(self):
         # validateQuadlet() throws when the request fails or the server
-        # returns a non-ok status. Called bare from onclick, that rejection
-        # is unhandled and the user sees nothing. The #validate-btn onclick
-        # must chain a .catch( to handle that rejection.
-        match = re.search(
-            r'<button[^>]*id="validate-btn"[^>]*onclick="([^"]*)"',
-            self.html,
-        )
-        assert match, "expected a button with id=\"validate-btn\" in editor_pane.html"
-        onclick = match.group(1)
-        assert ".catch(" in onclick, (
-            "#validate-btn onclick must chain .catch( onto validateQuadlet() so a "
-            "rejected validation request is handled instead of becoming an "
-            "unhandled promise rejection"
+        # returns a non-ok status. Called bare from the delegated click
+        # dispatch, that rejection is unhandled and the user sees nothing.
+        # The 'validate-quadlet' entry in the delegatedActions table must
+        # chain a .catch( to handle that rejection.
+        body = _delegated_action_body(self.js, "validate-quadlet")
+        assert ".catch(" in body, (
+            "the 'validate-quadlet' delegatedActions entry must chain .catch( onto "
+            "validateQuadlet() so a rejected validation request is handled instead of "
+            "becoming an unhandled promise rejection"
         )

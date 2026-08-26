@@ -174,7 +174,7 @@ MOCK_EDITOR_HTML = (
     '<div class="header-actions">'
     '<div id="editor-actions"></div>'
     '<button id="inspector-expand-btn" class="btn btn-sm btn-secondary"'
-    ' onclick="toggleInspectorExpand()" title="Collapse inspector"'
+    ' data-action="toggle-inspector-expand" title="Collapse inspector"'
     ' aria-label="Collapse inspector"></button>'
     '</div></div>'
     '<div id="editor-container" style="flex:1;min-height:200px;"></div>'

@@ -1661,6 +1661,16 @@ const delegatedActions = {
   'load-monitor-charts': function(btn) {
     loadMonitorCharts(Number(btn.dataset.minutes), btn);
   },
+  // .catch( is a no-op because the error message has already been rendered into #validation-results by the time the promise rejects
+  'validate-quadlet': function() {
+    validateQuadlet().catch(function() {});
+  },
+  'save-quadlet': function() {
+    saveQuadlet();
+  },
+  'toggle-inspector-expand': function() {
+    toggleInspectorExpand();
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -3332,7 +3342,6 @@ Object.assign(window, {
   renderContainerStatsTable,
   runningContainersBySid,
   safeReload,
-  saveQuadlet,
   selectContainerStem,
   setActiveServer,
   setSelectedQuadletBtn,
@@ -3345,14 +3354,12 @@ Object.assign(window, {
   toggleChartSelection,
   toggleDensity,
   toggleEditorTheme,
-  toggleInspectorExpand,
   toggleProfileMenu,
   toggleServerCollapse,
   toggleTheme,
   unitNameFor,
   updateInspectorActivityLog,
   updateInspectorStatsCard,
-  validateQuadlet,
 });
 
 // Scalars live on `state`. Expose them as accessors rather than copying
