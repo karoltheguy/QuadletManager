@@ -31,6 +31,10 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "selectMonitoringServer",
     "applyContainerFilter",
     "loadMonitorCharts",
+    # group 4 (#412): editor pane actions
+    "validateQuadlet",
+    "saveQuadlet",
+    "toggleInspectorExpand",
 })
 
 
@@ -286,6 +290,47 @@ def test_monitor_controls_declare_delegated_actions():
     assert minutes_values == expected_minutes, (
         f"Expected health-range-btn data-minutes values to be {expected_minutes}, got: {minutes_values}"
     )
+
+
+@pytest.mark.unit
+def test_editor_pane_buttons_declare_delegated_actions():
+    """Verify that editor pane buttons declare the expected data-action attribute."""
+    button_pattern = re.compile(r"<button\b([^>]*)>", re.IGNORECASE)
+
+    expected_id_actions = {
+        "validate-btn": "validate-quadlet",
+        "save-btn": "save-quadlet",
+        "inspector-expand-btn": "toggle-inspector-expand",
+    }
+
+    for template_name in ("templates/partials/editor_pane.html", "templates/dashboard.html"):
+        template_path = REPO_ROOT / template_name
+        content = template_path.read_text(encoding="utf-8")
+        all_buttons = button_pattern.findall(content)
+
+        ids_to_check = expected_id_actions if template_name == "templates/partials/editor_pane.html" else {
+            "inspector-expand-btn": expected_id_actions["inspector-expand-btn"],
+        }
+
+        for btn_id, expected_action in ids_to_check.items():
+            matching = [
+                attrs for attrs in all_buttons
+                if re.search(rf'\bid=["\']{re.escape(btn_id)}["\']', attrs)
+            ]
+            assert matching, (
+                f"Expected button with id='{btn_id}' in {template_name}"
+            )
+            assert len(matching) == 1, (
+                f"Expected exactly 1 button with id='{btn_id}' in {template_name}, found {len(matching)}"
+            )
+            attrs = matching[0]
+            action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+            assert action_match, (
+                f"Expected button #{btn_id} in {template_name} to have a data-action attribute, got: <button{attrs}>"
+            )
+            assert action_match.group(1) == expected_action, (
+                f"Expected button #{btn_id} in {template_name} to have data-action='{expected_action}', got: <button{attrs}>"
+            )
 
 
 @pytest.mark.unit

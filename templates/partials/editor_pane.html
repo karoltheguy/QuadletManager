@@ -5,16 +5,15 @@
         <div class="header-actions">
             <div id="editor-actions">
                 {% if user_role == 'editor' %}
-                <!-- .catch( is a no-op because the error message has already been rendered into #validation-results by the time the promise rejects -->
-                <button id="validate-btn" class="btn btn-secondary btn-md" onclick="validateQuadlet().catch(function() {})">
+                <button id="validate-btn" class="btn btn-secondary btn-md" data-action="validate-quadlet">
                     Validate
                 </button>
-                <button id="save-btn" class="btn btn-primary btn-md" onclick="saveQuadlet()">
+                <button id="save-btn" class="btn btn-primary btn-md" data-action="save-quadlet">
                     Save Quadlet
                 </button>
                 {% endif %}
             </div>
-            <button id="inspector-expand-btn" class="btn btn-sm btn-secondary" onclick="toggleInspectorExpand()" title="Collapse inspector" aria-label="Collapse inspector"></button>
+            <button id="inspector-expand-btn" class="btn btn-sm btn-secondary" data-action="toggle-inspector-expand" title="Collapse inspector" aria-label="Collapse inspector"></button>
         </div>
     </div>
     <form id="save-form" hx-post="/api/save" hx-target="#status-toast" class="hidden">
