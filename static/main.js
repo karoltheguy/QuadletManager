@@ -1668,7 +1668,7 @@ document.addEventListener('click', function(e) {
   if (!btn) return;
   const action = btn.dataset.action;
   if (!Object.hasOwn(delegatedActions, action)) return;
-  delegatedActions[action](btn);
+  Reflect.get(delegatedActions, action)(btn);
 });
 
 const delegatedChangeActions = {
@@ -1682,7 +1682,7 @@ document.addEventListener('change', function(e) {
   if (!elt) return;
   const action = elt.dataset.action;
   if (!Object.hasOwn(delegatedChangeActions, action)) return;
-  delegatedChangeActions[action](elt);
+  Reflect.get(delegatedChangeActions, action)(elt);
 });
 
 const delegatedInputActions = {
@@ -1696,7 +1696,7 @@ document.addEventListener('input', function(e) {
   if (!elt) return;
   const action = elt.dataset.action;
   if (!Object.hasOwn(delegatedInputActions, action)) return;
-  delegatedInputActions[action](elt);
+  Reflect.get(delegatedInputActions, action)(elt);
 });
 
 // ── Inspector Expand / Collapse Toggle ───────────────────
