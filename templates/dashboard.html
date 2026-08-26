@@ -19,12 +19,12 @@
         } catch (e) {}
       })();
     </script>
-    <script src="/static/vendor/htmx/htmx.min.js"></script>
-    <script src="/static/vendor/chartjs/chart.umd.js"></script>
-    <script src="/static/vendor/xterm/xterm.js"></script>
-    <script src="/static/vendor/xterm/xterm-addon-fit.js"></script>
+    <script src="{{ asset_url('vendor/htmx/htmx.min.js') }}"></script>
+    <script src="{{ asset_url('vendor/chartjs/chart.umd.js') }}"></script>
+    <script src="{{ asset_url('vendor/xterm/xterm.js') }}"></script>
+    <script src="{{ asset_url('vendor/xterm/xterm-addon-fit.js') }}"></script>
     <script type="importmap">{{ module_import_map()|tojson }}</script>
-    <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+    <link rel="stylesheet" href="{{ asset_url('vendor/xterm/xterm.css') }}">
     <link rel="stylesheet" href="{{ asset_url('style.css') }}">
     <style id="qm-theme-overrides">
       :root[data-theme="light"] {
@@ -561,7 +561,7 @@
 
     </div><!-- /.app-container -->
 
-    <script src="/static/vendor/monaco/vs/loader.js"></script>
+    <script src="{{ asset_url('vendor/monaco/vs/loader.js') }}"></script>
     <script type="module" src="{{ asset_url('quadlet_lint.js') }}" data-quadlet-lint-loader></script>
     <script type="module">
         import { attachQuadletLint, registerQuadletLintProviders } from '{{ asset_url('quadlet_lint.js') }}';
