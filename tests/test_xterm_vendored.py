@@ -13,6 +13,7 @@ package.json are migrated.
 """
 import json
 import os
+import re
 
 import pytest
 
@@ -31,18 +32,33 @@ def _package_json():
         return json.load(f)
 
 
+def _vendored_script_re(filename):
+    """Match a <script> tag whose src is either the literal self-hosted
+    vendored path (optionally with a ?v= cache-busting query) or a Jinja
+    asset_url('vendor/...') call resolving to that same vendored path."""
+    escaped = re.escape(filename)
+    return re.compile(
+        r'<script src="(?:'
+        r'/static/vendor/xterm/' + escaped + r'(?:\?v=[^"]*)?'
+        r'|'
+        r"\{\{\s*asset_url\(\s*['\"]vendor/xterm/" + escaped + r"['\"]\s*\)\s*\}\}"
+        r')"></script>'
+    )
+
+
 @pytest.mark.unit
 def test_xterm_scripts_are_vendored():
     html = _dashboard_html()
-    assert '<script src="/static/vendor/xterm/xterm.js"></script>' in html, (
+    assert _vendored_script_re("xterm.js").search(html), (
         "Expected dashboard.html to load xterm from the vendored path "
-        '/static/vendor/xterm/xterm.js via <script src="/static/vendor/xterm/xterm.js">. '
+        "/static/vendor/xterm/xterm.js, either directly or via "
+        "asset_url('vendor/xterm/xterm.js'). "
         "Without this, xterm is still being loaded from the committed root path."
     )
-    assert '<script src="/static/vendor/xterm/xterm-addon-fit.js"></script>' in html, (
+    assert _vendored_script_re("xterm-addon-fit.js").search(html), (
         "Expected dashboard.html to load the xterm fit addon from the vendored path "
-        '/static/vendor/xterm/xterm-addon-fit.js via '
-        '<script src="/static/vendor/xterm/xterm-addon-fit.js">. Without this, the fit '
+        "/static/vendor/xterm/xterm-addon-fit.js, either directly or via "
+        "asset_url('vendor/xterm/xterm-addon-fit.js'). Without this, the fit "
         "addon is still being loaded from the committed root path."
     )
 
@@ -50,10 +66,17 @@ def test_xterm_scripts_are_vendored():
 @pytest.mark.unit
 def test_xterm_css_is_vendored():
     html = _dashboard_html()
-    assert '<link rel="stylesheet" href="/static/vendor/xterm/xterm.css">' in html, (
+    css_re = re.compile(
+        r'<link rel="stylesheet" href="(?:'
+        r'/static/vendor/xterm/xterm\.css(?:\?v=[^"]*)?'
+        r'|'
+        r"\{\{\s*asset_url\(\s*['\"]vendor/xterm/xterm\.css['\"]\s*\)\s*\}\}"
+        r')">'
+    )
+    assert css_re.search(html), (
         "Expected dashboard.html to load the xterm stylesheet from the vendored path "
-        '/static/vendor/xterm/xterm.css via '
-        '<link rel="stylesheet" href="/static/vendor/xterm/xterm.css">. Without this, the '
+        "/static/vendor/xterm/xterm.css, either directly or via "
+        "asset_url('vendor/xterm/xterm.css'). Without this, the "
         "xterm CSS is still being loaded from the committed root path."
     )
 
