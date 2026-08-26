@@ -39,10 +39,10 @@
     <nav class="top-nav" aria-label="Main">
         <div class="nav-brand pl-4">QM</div>
         <div class="nav-tabs">
-            <button class="nav-item active" onclick="switchTab('overview')">Overview</button>
-            <button class="nav-item" onclick="switchTab('monitor')">Monitor</button>
-            <button class="nav-item" onclick="switchTab('containers')">Containers</button>
-            <button class="nav-item" onclick="switchTab('settings')">Settings</button>
+            <button class="nav-item active" data-action="switch-tab" data-tab="overview">Overview</button>
+            <button class="nav-item" data-action="switch-tab" data-tab="monitor">Monitor</button>
+            <button class="nav-item" data-action="switch-tab" data-tab="containers">Containers</button>
+            <button class="nav-item" data-action="switch-tab" data-tab="settings">Settings</button>
         </div>
         <div class="nav-actions">
             <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle color theme" title="Toggle light / dark">
@@ -188,28 +188,28 @@
       <!-- Inner navigation sidebar -->
       <nav class="settings-sidenav" aria-label="Settings sections">
         <span class="settings-sidenav-label">Configuration</span>
-        <button class="settings-sidenav-item active" data-section="servers" aria-current="true" onclick="showSettingsSection('servers')">
+        <button class="settings-sidenav-item active" data-section="servers" aria-current="true" data-action="show-settings-section">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/><circle cx="18" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>
           Servers
         </button>
         {% if is_admin %}
-        <button class="settings-sidenav-item" data-section="ssh-keys" onclick="showSettingsSection('ssh-keys')">
+        <button class="settings-sidenav-item" data-section="ssh-keys" data-action="show-settings-section">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
           SSH Keys
         </button>
         {% endif %}
         {% if is_admin %}
-        <button class="settings-sidenav-item" data-section="users" onclick="showSettingsSection('users')">
+        <button class="settings-sidenav-item" data-section="users" data-action="show-settings-section">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Users
         </button>
         {% endif %}
-        <button class="settings-sidenav-item" data-section="themes" onclick="showSettingsSection('themes')">
+        <button class="settings-sidenav-item" data-section="themes" data-action="show-settings-section">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           Themes
         </button>
         {% if is_admin %}
-        <button class="settings-sidenav-item" data-section="admin" onclick="showSettingsSection('admin')">
+        <button class="settings-sidenav-item" data-section="admin" data-action="show-settings-section">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
           Admin
         </button>
