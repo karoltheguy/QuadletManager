@@ -27,6 +27,10 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "toggleBottomPanel",
     "sessionAddNew",
     "disconnectTerminal",
+    # group 3 (#392): monitor pane controls
+    "selectMonitoringServer",
+    "applyContainerFilter",
+    "loadMonitorCharts",
 })
 
 
@@ -213,6 +217,78 @@ def test_bottom_panel_buttons_declare_delegated_actions():
 
 
 @pytest.mark.unit
+def test_monitor_controls_declare_delegated_actions():
+    """Verify that monitor pane controls declare data-action and target identifiers."""
+    dashboard_path = REPO_ROOT / "templates" / "dashboard.html"
+    content = dashboard_path.read_text(encoding="utf-8")
+
+    select_pattern = re.compile(
+        r'<select\b[^>]*\bid=["\']monitoring-server-select["\'][^>]*>', re.IGNORECASE
+    )
+    select_match = select_pattern.search(content)
+    assert select_match, (
+        "Expected <select id=\"monitoring-server-select\"> in templates/dashboard.html"
+    )
+    select_attrs = select_match.group(0)
+    action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', select_attrs)
+    assert action_match, (
+        f"Expected #monitoring-server-select to have a data-action attribute, got: {select_attrs}"
+    )
+    assert action_match.group(1) == "select-monitoring-server", (
+        f"Expected #monitoring-server-select to have data-action='select-monitoring-server', got: {select_attrs}"
+    )
+
+    input_pattern = re.compile(
+        r'<input\b[^>]*\bid=["\']monitor-container-filter["\'][^>]*>', re.IGNORECASE
+    )
+    input_match = input_pattern.search(content)
+    assert input_match, (
+        "Expected <input id=\"monitor-container-filter\"> in templates/dashboard.html"
+    )
+    input_attrs = input_match.group(0)
+    action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', input_attrs)
+    assert action_match, (
+        f"Expected #monitor-container-filter to have a data-action attribute, got: {input_attrs}"
+    )
+    assert action_match.group(1) == "filter-monitor-containers", (
+        f"Expected #monitor-container-filter to have data-action='filter-monitor-containers', got: {input_attrs}"
+    )
+
+    button_pattern = re.compile(r"<button\b([^>]*)>", re.IGNORECASE)
+    all_buttons = button_pattern.findall(content)
+
+    health_range_buttons = [
+        attrs for attrs in all_buttons
+        if re.search(r'\bclass=["\'][^"\']*\bhealth-range-btn\b[^"\']*["\']', attrs)
+    ]
+
+    assert health_range_buttons, "No health-range-btn buttons found in templates/dashboard.html"
+    assert len(health_range_buttons) == 4, (
+        f"Expected 4 health-range-btn buttons in templates/dashboard.html, found {len(health_range_buttons)}"
+    )
+
+    minutes_values = []
+    for attrs in health_range_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f'Expected health-range-btn button to have a data-action attribute, got: <button{attrs}>'
+        )
+        assert action_match.group(1) == "load-monitor-charts", (
+            f'Expected health-range-btn button to have data-action="load-monitor-charts", got: <button{attrs}>'
+        )
+        minutes_match = re.search(r'\bdata-minutes=["\']([^"\']+)["\']', attrs)
+        assert minutes_match, (
+            f'Expected health-range-btn button to have a data-minutes attribute, got: <button{attrs}>'
+        )
+        minutes_values.append(minutes_match.group(1).strip())
+
+    expected_minutes = ["60", "360", "1440", "10080"]
+    assert minutes_values == expected_minutes, (
+        f"Expected health-range-btn data-minutes values to be {expected_minutes}, got: {minutes_values}"
+    )
+
+
+@pytest.mark.unit
 def test_js_dispatches_every_delegated_action():
     """Verify that static JS contains delegated action handlers and a click listener."""
     js_source = read_static_js()
@@ -226,6 +302,9 @@ def test_js_dispatches_every_delegated_action():
         "toggle-bottom-panel-expand",
         "toggle-bottom-panel",
         "session-add-new",
+        "select-monitoring-server",
+        "filter-monitor-containers",
+        "load-monitor-charts",
     ]
     for action in expected_actions:
         # Quoted, so that 'toggle-bottom-panel' is not satisfied by the
@@ -235,6 +314,12 @@ def test_js_dispatches_every_delegated_action():
         )
     assert "document.addEventListener('click'" in js_source, (
         "Expected static JS to register a document-level click listener with document.addEventListener('click'"
+    )
+    assert "document.addEventListener('change'" in js_source, (
+        "Expected static JS to register a document-level change listener with document.addEventListener('change'"
+    )
+    assert "document.addEventListener('input'" in js_source, (
+        "Expected static JS to register a document-level input listener with document.addEventListener('input'"
     )
 
 
