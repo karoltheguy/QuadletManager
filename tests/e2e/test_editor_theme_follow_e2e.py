@@ -84,3 +84,29 @@ def test_editor_follows_theme_toggle_in_follow_mode(page: Page):
         " return e && e.classList.contains('vs-dark'); }",
         timeout=5_000,
     )
+
+
+@pytest.mark.e2e
+def test_editor_theme_radio_persists_the_selection(page: Page):
+    """Clicking an Editor Theme radio must persist it (#416).
+
+    The other test in this file seeds 'qm-editor-theme' through localStorage, so
+    nothing exercised the radio itself. Once the inline onchange became a
+    delegated 'toggle-editor-theme' action, a broken dispatch would leave these
+    radios inert with every unit test still green.
+    """
+    try:
+        page.goto(BASE_URL + "/")
+    except Exception:
+        pytest.skip("Backend is not running on localhost:8000 - skipping E2E test.")
+
+    page.click("button.nav-item:has-text('Settings')")
+    page.click(".settings-sidenav-item[data-section='themes']")
+    page.locator("#editor-theme-light").check()
+
+    stored = page.evaluate("localStorage.getItem('qm-editor-theme')")
+    assert stored == "light", (
+        f"Expected the Editor Theme radio to persist 'light', got {stored!r}. "
+        "The 'toggle-editor-theme' delegated action is not reaching the "
+        "toggleEditorTheme handler."
+    )
