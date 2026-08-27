@@ -30,7 +30,6 @@ MONITOR_EXPORT_FUNCTIONS = [
 ]
 
 MAIN_JS_MONITOR_IMPORTS = [
-    "updateMonitoringView",
     "selectMonitoringServer",
     "applyContainerFilter",
     "restoreMonitoringServerSelection",
