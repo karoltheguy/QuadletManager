@@ -68,10 +68,11 @@ Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 1 of 13 done. #399 landed `dom.js` and `color.js`.
-  `static/main.js` is still 3,369 lines.
-- **Window bridge (#392):** 3 template groups converted (#401, #404, #409). The
-  bridge at `static/main.js:3315` still lists 40 names.
+- **JS extractions:** 3 of 13 done. #399 landed `dom.js` and `color.js`, #420
+  landed `theme.js`, #422 landed `toast.js`. `static/main.js` is down to 3,195
+  lines. Next in sequence is `modals.js`.
+- **Window bridge (#392):** 7 template groups converted (#401, #404, #409, #412,
+  #414, #416, #418). The bridge at `static/main.js:3151` still lists 30 names.
 - **CSS foundation:** not started. C1 and C2 are unfiled.
 - **CSS split:** not started.
 
@@ -207,10 +208,10 @@ the shape `state.js` actually takes. Record the order as a checklist comment on
    `getRelativeTime`, `setStatText`, `sendNotification`; WCAG math (`linearize`,
    `relativeLuminance`, `contrastRatio`, `onPrimaryFor`). Pure functions, zero
    inbound coupling.
-2. `toast.js`: one `showToast(message, kind)` helper replacing four near-identical
-   render blocks. See the section below; this one has a test trap the others do
-   not.
-3. `theme.js`: theme/density/editor-theme toggles, theme preview,
+2. `toast.js` (#422, done): one `showToast(message, kind)` helper replacing three
+   near-identical render blocks. See the section below; this one had a test trap
+   the others do not.
+3. `theme.js` (#420, done): theme/density/editor-theme toggles, theme preview,
    `applyChartTheme`, `applyEditorTheme`.
 4. `modals.js`: `bindModalDismissal`, `setupModalDismissal`. A leaf.
 5. `panel.js`: bottom-panel chrome, sessions strip, resize handles.

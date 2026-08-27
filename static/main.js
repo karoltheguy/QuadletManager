@@ -7,6 +7,7 @@ import { toggleTheme, toggleDensity, initDensityRadio, toggleEditorTheme,
          initEditorThemeRadio, applyThemePreview, clearThemePreview,
          setEditorMode, getChartTheme, applyChartTheme,
          applyEditorTheme } from '@qm/theme';
+import { showToast } from '@qm/toast';
 
 // ── Server Collapse ───────────────────────────────────────
 function toggleServerCollapse(serverId) {
@@ -306,8 +307,6 @@ document.body.addEventListener('htmx:beforeRequest', function(evt) {
 
 document.body.addEventListener('htmx:responseError', function(evt) {
     const xhr = evt.detail.xhr;
-    const toast = document.getElementById('status-toast');
-    if (!toast) return;
 
     let message = '';
     const responseText = xhr.responseText || '';
@@ -326,34 +325,12 @@ document.body.addEventListener('htmx:responseError', function(evt) {
         message = 'Request failed (HTTP ' + xhr.status + ')';
     }
 
-    toast.textContent = '';
-    toast.appendChild(
-        el('div', { className: 'toast-msg toast-danger toast-enter' }, message)
-    );
-    // Auto-dismiss after 8 seconds
-    setTimeout(function() {
-        if (toast.querySelector('.toast-enter')) {
-            toast.textContent = '';
-        }
-    }, 8000);
+    showToast(message, 'danger');
 });
 
 document.body.addEventListener('user-updated', function(evt) {
-    const toast = document.getElementById('status-toast');
-    if (!toast) return;
-
     const message = evt.detail?.message || 'User updated';
-
-    toast.textContent = '';
-    toast.appendChild(
-        el('div', { className: 'toast-msg toast-success toast-enter' }, message)
-    );
-    // Auto-dismiss after 8 seconds
-    setTimeout(function() {
-        if (toast.querySelector('.toast-enter')) {
-            toast.textContent = '';
-        }
-    }, 8000);
+    showToast(message, 'success');
 });
 
 
@@ -1328,19 +1305,7 @@ function connectSSE() {
     evtSource.addEventListener('file_changed', function(e) {
         try {
             const data = JSON.parse(e.data);
-            const toast = document.getElementById('status-toast');
-            if (toast) {
-                toast.textContent = '';
-                toast.appendChild(
-                    el('div', { className: 'toast-msg toast-warning toast-enter' }, '⚠ ' + data.message + ' (' + data.file_path + ')')
-                );
-                // Auto-dismiss after 8 seconds
-                setTimeout(function() {
-                    if (toast.querySelector('.toast-enter')) {
-                        toast.textContent = '';
-                    }
-                }, 8000);
-            }
+            showToast('⚠ ' + data.message + ' (' + data.file_path + ')', 'warning');
         } catch (err) {
             console.error('File changed parse error:', err);
         }
