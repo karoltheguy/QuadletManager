@@ -8,6 +8,7 @@ import { toggleTheme, toggleDensity, initDensityRadio, toggleEditorTheme,
          setEditorMode, getChartTheme, applyChartTheme,
          applyEditorTheme } from '@qm/theme';
 import { showToast } from '@qm/toast';
+import { setupModalDismissal, initModalDismissal } from '@qm/modals';
 
 // ── Server Collapse ───────────────────────────────────────
 function toggleServerCollapse(serverId) {
@@ -2695,7 +2696,7 @@ function confirmDeleteFile(serverId, path, scope) {
     content.appendChild(btnContainer);
     modal.appendChild(content);
     document.body.appendChild(modal);
-    window.setupModalDismissal('delete-confirm-modal');
+    setupModalDismissal('delete-confirm-modal');
 }
 
 async function executeDeleteFile(serverId, path, scope) {
@@ -3106,43 +3107,7 @@ async function saveQuadlet() {
     document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
 }
 
-// ── Modal Dismissal Handlers ───────────────────────────────
-// Wire ESC-key and backdrop-click dismissal onto an already-resolved element.
-// Both entry points below (the by-id window helper and the htmx auto-setup)
-// share this so the two handler pairs cannot drift apart.
-function bindModalDismissal(modal) {
-  // Close on ESC key
-  const escHandler = function(e) {
-    if (e.key === 'Escape' || e.key === 'Esc') {
-      modal.remove();
-      document.removeEventListener('keydown', escHandler);
-    }
-  };
-  document.addEventListener('keydown', escHandler);
-
-  // Close on backdrop click (outside modal-content)
-  modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-      modal.remove();
-      document.removeEventListener('keydown', escHandler);
-    }
-  });
-}
-
-function setupModalDismissal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (!modal) return;
-  bindModalDismissal(modal);
-}
-
-// Auto-setup for modals added via HTMX
-document.body.addEventListener('htmx:afterSwap', function() {
-  const modals = document.querySelectorAll('.modal-overlay:not([data-dismissal-setup])');
-  modals.forEach(function(modal) {
-    modal.dataset.dismissalSetup = 'true';
-    bindModalDismissal(modal);
-  });
-});
+initModalDismissal();
 
 // ── Window Bridge ──────────────────────────────────────────
 // Expose functions and state on `window` for backward compatibility with 45
@@ -3169,7 +3134,6 @@ Object.assign(window, {
   selectContainerStem,
   setActiveServer,
   setSelectedQuadletBtn,
-  setupModalDismissal,
   showFileContextMenu,
   stemFromUnitName,
   switchLogTab,
