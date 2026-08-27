@@ -68,10 +68,24 @@ Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 5 of 13 done. #399 landed `dom.js` and `color.js`, #420
+- **JS extractions:** 6 of 13 done. #399 landed `dom.js` and `color.js`, #420
   landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`, #426
-  landed `panel.js`. `static/main.js` is down to 2,911 lines. Next in sequence
-  is `logs.js`.
+  landed `panel.js`, #428 landed `logs.js`. `static/main.js` is down to 2,667
+  lines. Next in sequence is `terminal.js`.
+
+  #428 also produced `units.js`, which is not in the numbered sequence.
+  `tailLogsFromPanel` calls `unitNameFor`, so leaving that helper in `main.js`
+  would have made `main.js` import `logs.js` while `logs.js` imported
+  `main.js`. `unitNameFor` and `stemFromUnitName` are pure leaves, so they got
+  their own module rather than a cycle. `tree.js` will import them too.
+  `refreshSessionsStripVisibility` moved into `panel.js` for the same reason.
+
+  #428 also hit the byte-window trap the `toast.js` section warns about.
+  `tests/test_frontend_unit_naming.py` sliced source from a function to the
+  next `\nwindow.` line; once `tailLogsFromPanel` moved to a file with no such
+  line after it, the slice ran to the end of the concatenated source. It now
+  brace-matches the body instead. Later extractions should expect more of
+  these: grep for `\\nwindow.` before moving a function.
 - **Window bridge (#392):** 7 template groups converted (#401, #404, #409, #412,
   #414, #416, #418), plus `setupModalDismissal` dropped by #424 as a dead entry
   no template referenced. The bridge at `static/main.js:2868` still lists 29

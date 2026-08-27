@@ -28,6 +28,27 @@ def _read_editor_pane():
         return f.read()
 
 
+def _function_source(js, signature):
+    """Source of the function introduced by `signature`, brace-matched.
+
+    Slicing to the next `\nwindow.` no longer bounds anything: the extraction of
+    static/main.js into ES modules (#174) left some functions with no such line
+    after them, so the slice ran to the end of the concatenated source and swept
+    up unrelated code. Matching braces bounds the body wherever it lives.
+    """
+    start = js.find(signature)
+    assert start != -1, f"{signature} must be defined"
+    depth = 0
+    for i in range(js.index("{", start), len(js)):
+        if js[i] == "{":
+            depth += 1
+        elif js[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return js[start:i + 1]
+    raise AssertionError(f"unbalanced braces after {signature}")
+
+
 # =============================================================================
 # Shared SUFFIXED_QUADLET_TYPES / unitNameFor helper
 # =============================================================================
@@ -87,10 +108,7 @@ def test_show_file_context_menu_uses_unit_name_for():
 @pytest.mark.unit
 def test_tail_logs_from_panel_uses_unit_name_for():
     js = _read_js()
-    start = js.find("function tailLogsFromPanel(")
-    assert start != -1, "tailLogsFromPanel must be defined"
-    end = js.find("\nwindow.", start + 1)
-    body = js[start:end if end != -1 else len(js)]
+    body = _function_source(js, "function tailLogsFromPanel(")
     assert "unitNameFor" in body, \
         "tailLogsFromPanel must derive its unit name via unitNameFor"
     assert "+ '.service'" not in body, \
