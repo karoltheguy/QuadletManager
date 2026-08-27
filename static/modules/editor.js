@@ -7,13 +7,11 @@
 // of validateQuadlet so that function stays under the cognitive-complexity limit.
 async function throwValidationRequestError(response) {
     let message = 'Validation request failed with status ' + response.status;
-    try {
-        const errorBody = await response.json();
-        if (errorBody && typeof errorBody.error === 'string' && errorBody.error) {
-            message = errorBody.error;
-        }
-    } catch (e) {
-        // response body was not JSON; fall back to the default message
+    // A non-JSON body is expected on some error paths, so fall back to the
+    // status message rather than letting the parse rejection escape.
+    const errorBody = await response.json().catch(function () { return null; });
+    if (errorBody && typeof errorBody.error === 'string' && errorBody.error) {
+        message = errorBody.error;
     }
     const resultsEl = document.getElementById('validation-results');
     if (resultsEl) {
