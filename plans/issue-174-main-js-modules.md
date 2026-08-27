@@ -68,14 +68,15 @@ Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 4 of 13 done. #399 landed `dom.js` and `color.js`, #420
-  landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`.
-  `static/main.js` is down to 3,159 lines. Next in sequence is `panel.js`, the
-  first substantial one.
+- **JS extractions:** 5 of 13 done. #399 landed `dom.js` and `color.js`, #420
+  landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`, #426
+  landed `panel.js`. `static/main.js` is down to 2,911 lines. Next in sequence
+  is `logs.js`.
 - **Window bridge (#392):** 7 template groups converted (#401, #404, #409, #412,
   #414, #416, #418), plus `setupModalDismissal` dropped by #424 as a dead entry
-  no template referenced. The bridge at `static/main.js:3116` still lists 29
-  names.
+  no template referenced. The bridge at `static/main.js:2868` still lists 29
+  names. `openBottomPanel` looks equally dead but must stay: two e2e tests reach
+  it through `page.evaluate`.
 - **CSS foundation:** not started. C1 and C2 are unfiled.
 - **CSS split:** not started.
 
@@ -219,7 +220,11 @@ the shape `state.js` actually takes. Record the order as a checklist comment on
 4. `modals.js` (#424, done): `bindModalDismissal`, `setupModalDismissal`, and
    the htmx auto-setup listener behind an exported `initModalDismissal()` so
    importing the module registers nothing. A leaf.
-5. `panel.js`: bottom-panel chrome, sessions strip, resize handles.
+5. `panel.js` (#426, done): bottom-panel chrome and the four resize handles.
+   The resize block was already a named `initResizableHandles()` called from
+   `DOMContentLoaded`, so only the Ctrl+1/Ctrl+2 listener needed an
+   `initPanel()` wrapper. The sessions strip named here turned out to be
+   template and CSS only, with no JS.
 6. `logs.js`: the `/ws/logs` client.
 7. `terminal.js`: xterm + `/ws/exec` client.
 8. `sse.js`: the `EventSource` subscription, dispatch, poll health.
