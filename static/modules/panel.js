@@ -2,7 +2,7 @@
  * Bottom panel management, tab switching, and resizable layout handles.
  */
 
-import { _terminalTabs, state } from '@qm/state';
+import { _terminalTabs, _logTabs, state } from '@qm/state';
 
 // ── Bottom Panel Management ───────────────────────────────
 export function openBottomPanel(tab) {
@@ -103,6 +103,15 @@ export function switchBottomTab(pane) {
             });
         }
     }
+}
+
+// Sessions strip (#terminal-conn-tabs) is shared by terminal and log chips, so its
+// .has-tabs visibility must reflect both maps, not just whichever kind changed.
+export function refreshSessionsStripVisibility() {
+    const tabsEl = document.getElementById('terminal-conn-tabs');
+    if (!tabsEl) return;
+    const hasAny = _terminalTabs.size > 0 || _logTabs.size > 0;
+    tabsEl.classList.toggle('has-tabs', hasAny);
 }
 
 export function initPanel() {
