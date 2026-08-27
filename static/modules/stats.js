@@ -23,12 +23,14 @@ export function getPercentClass(val) {
     return '';
 }
 
-export function getHealthBadgeInfo(health) {
-    const h = health || '';
-    if (h === '') return { badgeClass: 'running', label: 'running' };
-    if (h === 'healthy') return { badgeClass: 'healthy', label: h };
-    if (h === 'starting') return { badgeClass: 'starting', label: h };
-    return { badgeClass: 'unhealthy', label: h };
+// The default only covers `undefined`, which is all this needs: the stats
+// engine sets `health` from `health_map.get(name, "")` and always sends a
+// string, so a null never reaches here.
+export function getHealthBadgeInfo(health = '') {
+    if (health === '') return { badgeClass: 'running', label: 'running' };
+    if (health === 'healthy') return { badgeClass: 'healthy', label: health };
+    if (health === 'starting') return { badgeClass: 'starting', label: health };
+    return { badgeClass: 'unhealthy', label: health };
 }
 
 // The Monitor table joins each container to its systemd unit by the unit name
