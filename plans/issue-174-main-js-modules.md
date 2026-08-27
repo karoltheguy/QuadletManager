@@ -68,11 +68,14 @@ Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 3 of 13 done. #399 landed `dom.js` and `color.js`, #420
-  landed `theme.js`, #422 landed `toast.js`. `static/main.js` is down to 3,195
-  lines. Next in sequence is `modals.js`.
+- **JS extractions:** 4 of 13 done. #399 landed `dom.js` and `color.js`, #420
+  landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`.
+  `static/main.js` is down to 3,159 lines. Next in sequence is `panel.js`, the
+  first substantial one.
 - **Window bridge (#392):** 7 template groups converted (#401, #404, #409, #412,
-  #414, #416, #418). The bridge at `static/main.js:3151` still lists 30 names.
+  #414, #416, #418), plus `setupModalDismissal` dropped by #424 as a dead entry
+  no template referenced. The bridge at `static/main.js:3116` still lists 29
+  names.
 - **CSS foundation:** not started. C1 and C2 are unfiled.
 - **CSS split:** not started.
 
@@ -213,7 +216,9 @@ the shape `state.js` actually takes. Record the order as a checklist comment on
    the others do not.
 3. `theme.js` (#420, done): theme/density/editor-theme toggles, theme preview,
    `applyChartTheme`, `applyEditorTheme`.
-4. `modals.js`: `bindModalDismissal`, `setupModalDismissal`. A leaf.
+4. `modals.js` (#424, done): `bindModalDismissal`, `setupModalDismissal`, and
+   the htmx auto-setup listener behind an exported `initModalDismissal()` so
+   importing the module registers nothing. A leaf.
 5. `panel.js`: bottom-panel chrome, sessions strip, resize handles.
 6. `logs.js`: the `/ws/logs` client.
 7. `terminal.js`: xterm + `/ws/exec` client.
