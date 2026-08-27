@@ -68,10 +68,23 @@ Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 7 of 13 done. #399 landed `dom.js` and `color.js`, #420
+- **JS extractions:** 8 of 13 done. #399 landed `dom.js` and `color.js`, #420
   landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`, #426
-  landed `panel.js`, #428 landed `logs.js`, #430 landed `terminal.js`.
-  `static/main.js` is down to 2,375 lines. Next in sequence is `sse.js`.
+  landed `panel.js`, #428 landed `logs.js`, #430 landed `terminal.js`, #432
+  landed `charts.js`. `static/main.js` is down to 2,127 lines.
+
+  **The extraction order below is wrong from here on, and #432 already
+  departed from it.** `sse.js` is listed sixth but cannot go next:
+  `handleStatsUpdate` calls `applyStatusDots`, `updateInspectorStatsCard` and
+  `updateMonitoringView`, all of which stay in `main.js` until `stats.js`,
+  `inspector.js` and the monitor pane land. Extracting it now would make
+  `sse.js` import `main.js`, the cycle the whole sequence exists to avoid.
+  `sse.js` is a dispatcher, so it must come after everything it dispatches to.
+  Revised order for the rest: `stats.js`, `inspector.js`, `tree.js`,
+  `editor.js`, then `sse.js` last.
+
+  #432 also deleted the dead `monitoringChart` global. `healthHistoryChart` was
+  already gone, so both dead globals named in this plan are now retired.
 
   #430 deleted `hideTerminalSection` rather than moving it: empty body, dead
   since terminals stopped auto-closing on deselect. Session persistence

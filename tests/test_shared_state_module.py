@@ -207,5 +207,13 @@ def test_main_js_imports_the_shared_state_module():
 
     imported = {n.strip() for n in match.group(1).split(",") if n.strip()}
     assert "state" in imported, "main.js must import the `state` object holding the scalars"
-    missing = [n for n in COLLECTION_NAMES if n not in imported]
-    assert not missing, f"main.js must import these collections from @qm/state: {missing}"
+
+    # Every collection main.js still REFERENCES must be imported, but it need not
+    # import all of them. As #174 moves clusters into modules, each collection's
+    # last consumer in main.js leaves with its cluster: chartColorByName went to
+    # charts.js in #432. Demanding the full list would force main.js to keep
+    # imports it never uses, which is exactly what a static analyzer flags.
+    body = content[match.end():]
+    referenced = [n for n in COLLECTION_NAMES if re.search(rf"\b{re.escape(n)}\b", body)]
+    missing = [n for n in referenced if n not in imported]
+    assert not missing, f"main.js references these collections without importing them: {missing}"
