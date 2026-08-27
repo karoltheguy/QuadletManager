@@ -16,7 +16,7 @@ def _src():
 def test_update_monitoring_view_does_not_blind_spread_data():
     """updateMonitoringView must build filteredData from named fields, not Object.assign({}, data, ...)."""
     src = _src()
-    m = re.search(r'function\s+updateMonitoringView\s*\(data\)(.*?)(?=\nfunction\s|\Z)', src, re.DOTALL)
+    m = re.search(r'function\s+updateMonitoringView\s*\(data\)(.*?)(?=\nfunction |\nexport function |\nwindow\.|\Z)', src, re.DOTALL)
     assert m, "updateMonitoringView not found"
     body = m.group(1)
     assert not re.search(r'Object\.assign\(\s*\{\s*\}\s*,\s*data\s*,', body), (

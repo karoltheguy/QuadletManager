@@ -44,7 +44,7 @@ def test_render_container_stats_table_exists():
 def test_update_monitoring_view_uses_shared_table_renderer():
     """updateMonitoringView must delegate table rendering to renderContainerStatsTable."""
     src = _src()
-    m = re.search(r'function\s+updateMonitoringView\s*\(data\)(.*?)(?=\n\nfunction\s|\Z)', src, re.DOTALL)
+    m = re.search(r'function\s+updateMonitoringView\s*\(data\)(.*?)(?=\nfunction |\nexport function |\nwindow\.|\Z)', src, re.DOTALL)
     assert m, "updateMonitoringView not found"
     body = m.group(1)
     assert 'renderContainerStatsTable' in body, (
