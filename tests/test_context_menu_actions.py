@@ -84,10 +84,18 @@ def test_edit_action_uses_outerhtml_swap():
 
 @pytest.mark.unit
 def test_edit_action_switches_to_editor_tab():
+    """The editor lives inside the containers tab; the Edit action must reveal it.
+
+    tree.js cannot call switchTab directly without importing main.js (#443), so
+    it asks for the tab through a qm:switch-tab event that main.js listens for.
+    """
     js = _read_js()
-    # The editor lives inside the containers tab; edit action must switch to it
-    assert "switchTab('containers')" in js, \
-        "Edit action must call switchTab('containers') to reveal the editor pane"
+    assert "new CustomEvent('qm:switch-tab'" in js, \
+        "Edit action must request the tab switch via a qm:switch-tab event"
+    assert "tabId: 'containers'" in js, \
+        "Edit action must ask for the containers tab, which holds the editor pane"
+    assert "addEventListener('qm:switch-tab'" in js, \
+        "main.js must listen for qm:switch-tab and call switchTab"
 
 
 @pytest.mark.unit

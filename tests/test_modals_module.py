@@ -105,7 +105,11 @@ def test_main_js_no_longer_registers_htmx_after_swap_modal_listener():
 
 @pytest.mark.unit
 def test_main_js_imports_modal_functions_by_bare_specifier():
-    """Assert main.js imports setupModalDismissal and initModalDismissal from @qm/modals."""
+    """Assert main.js imports initModalDismissal from @qm/modals.
+
+    setupModalDismissal left main.js with confirmDeleteFile in #443; see
+    test_tree_module_imports_setup_modal_dismissal below.
+    """
     main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
     assert main_js_file is not None, "main.js not found in static_js_files()"
 
@@ -114,8 +118,21 @@ def test_main_js_imports_modal_functions_by_bare_specifier():
     assert modals_match, "main.js must import from the '@qm/modals' bare specifier"
 
     imported = {n.strip() for n in modals_match.group(1).split(",") if n.strip()}
-    for name in ["setupModalDismissal", "initModalDismissal"]:
-        assert name in imported, f"main.js must import {name} from @qm/modals"
+    assert "initModalDismissal" in imported, "main.js must import initModalDismissal from @qm/modals"
+
+
+@pytest.mark.unit
+def test_tree_module_imports_setup_modal_dismissal():
+    """Assert tree.js imports setupModalDismissal, whose only caller now lives there."""
+    tree_js_file = next((f for f in static_js_files() if f.name == "tree.js"), None)
+    assert tree_js_file is not None, "tree.js not found in static_js_files()"
+
+    content = tree_js_file.read_text(encoding="utf-8")
+    modals_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/modals['\"]", content)
+    assert modals_match, "tree.js must import from the '@qm/modals' bare specifier"
+
+    imported = {n.strip() for n in modals_match.group(1).split(",") if n.strip()}
+    assert "setupModalDismissal" in imported, "tree.js must import setupModalDismissal from @qm/modals"
 
 
 @pytest.mark.unit
