@@ -64,15 +64,19 @@ prerequisite.
 
 ## Progress
 
-Status as of 2026-08-26. Update this section whenever a sub-issue closes. It is
+Status as of 2026-08-27. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 11 of 13 done. #399 landed `dom.js` and `color.js`, #420
+- **JS extractions:** 13 of 14 done. #399 landed `dom.js` and `color.js`, #420
   landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`, #426
   landed `panel.js`, #428 landed `logs.js`, #430 landed `terminal.js`, #432
-  landed `charts.js`, #435 landed `editor.js`, #437 landed `stats.js`.
-  `static/main.js` is down to 1,614 lines.
+  landed `charts.js`, #435 landed `editor.js`, #437 landed `stats.js`, #439
+  landed `monitor.js`, #441 landed `inspector.js`. The monitor pane was not in
+  the original numbered sequence; #437 left `applyContainerFilter`,
+  `applyMonitorFilter` and `updateMonitoringView` behind for it, so it became an
+  extraction of its own. `static/main.js` is down to 1,227 lines. Only `tree.js`
+  and then `sse.js` remain.
 
   **The extraction order below is wrong from here on, and #432 already
   departed from it.** `sse.js` is listed sixth but cannot go next:
@@ -81,7 +85,7 @@ the only place that shows how much of #174 is left.
   `inspector.js` and the monitor pane land. Extracting it now would make
   `sse.js` import `main.js`, the cycle the whole sequence exists to avoid.
   `sse.js` is a dispatcher, so it must come after everything it dispatches to.
-  Remaining order: `inspector.js`, `tree.js`, then `sse.js` last. #435 took
+  Remaining order: `tree.js`, then `sse.js` last. #435 took
   `editor.js` out of turn: that cluster has no inbound coupling, so it could
   move whenever.
 
@@ -98,6 +102,10 @@ the only place that shows how much of #174 is left.
   not match, so regions ran to the end of the concatenated source or failed to
   match at all. Grep for `\nfunction ` alongside `\nwindow.` before moving a
   function.
+
+  #441 hit the stranded-import trap directly rather than two modules away:
+  `updateInspectorActivityLog` held the last `getRelativeTime` call in
+  `main.js`, so the name had to leave the `@qm/dom` clause in the same change.
 
   Extracting a function can strand an import two modules away: once
   `renderContainerRow` moved, `main.js` no longer used `applySwatchState`, and
