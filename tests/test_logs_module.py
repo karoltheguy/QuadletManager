@@ -229,13 +229,12 @@ def test_main_js_imports_moved_functions_by_bare_specifier():
     for name in ["unitNameFor", "stemFromUnitName"]:
         assert name in imported_units, f"main.js must import {name} from @qm/units"
 
-    # 3. Imports refreshSessionsStripVisibility from @qm/panel
-    panel_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/panel['\"]", content)
-    assert panel_match, "main.js must import from the '@qm/panel' bare specifier"
-    imported_panel = {n.strip() for n in panel_match.group(1).split(",") if n.strip()}
-    assert "refreshSessionsStripVisibility" in imported_panel, (
-        "main.js must import refreshSessionsStripVisibility from @qm/panel"
-    )
+    # main.js no longer imports refreshSessionsStripVisibility itself. #428 needed
+    # it because handleClosedTabFallback still lived here; #430 moved that into
+    # terminal.js, which imports the helper directly. The rule this assertion was
+    # protecting -- that the helper lives in panel.js rather than main.js, so
+    # logs.js and terminal.js can reach it without importing main.js -- is covered
+    # by test_panel_module_exports_refresh_sessions_strip_visibility above.
 
 
 @pytest.mark.unit

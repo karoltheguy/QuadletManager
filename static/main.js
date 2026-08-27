@@ -1,4 +1,4 @@
-/* global htmx, Chart, Terminal, monitoringChart, require */
+/* global htmx, Chart, monitoringChart, require */
 import { lastStatsPerServer, runningContainersBySid, manualStops,
          pendingStarts, chartColorByName, monitorChartSelection,
          _terminalTabs, _logTabs, state } from '@qm/state';
@@ -10,8 +10,7 @@ import { toggleTheme, toggleDensity, initDensityRadio, toggleEditorTheme,
 import { showToast } from '@qm/toast';
 import { setupModalDismissal, initModalDismissal } from '@qm/modals';
 import { openBottomPanel, toggleBottomPanel, toggleBottomPanelExpand,
-         switchBottomTab, initResizableHandles, initPanel,
-         refreshSessionsStripVisibility } from '@qm/panel';
+         switchBottomTab, initResizableHandles, initPanel } from '@qm/panel';
 import { unitNameFor, stemFromUnitName } from '@qm/units';
 import { tailLogsFromPanel, createLogTab, switchLogTab,
          closeLogTab, initLogs } from '@qm/logs';
