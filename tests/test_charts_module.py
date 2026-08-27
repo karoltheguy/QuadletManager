@@ -42,9 +42,10 @@ MOVED_FUNCTIONS = [
     "loadMonitorCharts",
 ]
 
+# `applySwatchState` left this list with issue #437: its only main.js caller was
+# `renderContainerRow`, which now lives in stats.js and imports it from here.
 MAIN_JS_CHARTS_IMPORTS = [
     "chartColorFor",
-    "applySwatchState",
     "toggleChartSelection",
     "applyChartSelection",
     "loadMonitorCharts",

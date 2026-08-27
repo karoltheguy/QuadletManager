@@ -28,7 +28,7 @@ def _extract_function_body(js, name):
     next top-level `function ` or `window.` declaration (mirrors the
     approach used in test_editor_unsaved_indicator.py)."""
     match = re.search(
-        r"function " + re.escape(name) + r"\([^)]*\)\s*\{.*?(?=\nfunction |\nwindow\.)",
+        r"function " + re.escape(name) + r"\([^)]*\)\s*\{.*?(?=\nfunction |\nexport function |\nwindow\.|\Z)",
         js,
         re.DOTALL,
     )
