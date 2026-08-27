@@ -7,6 +7,7 @@ stem + '.service' in multiple places, and that templates/partials/
 quadlet_tree.html exposes the quadlet type needed to drive that logic.
 """
 import os
+import re
 
 from tests.js_source import read_static_js
 
@@ -99,8 +100,9 @@ def test_show_file_context_menu_uses_unit_name_for():
     js = _read_js()
     start = js.find("function showFileContextMenu(")
     assert start != -1, "showFileContextMenu must be defined"
-    end = js.find("\nwindow.", start + 1)
-    body = js[start:end if end != -1 else len(js)]
+    m = re.search(r'(?=\nfunction |\nexport function |\nwindow\.|\Z)', js[start + 1:])
+    end = start + 1 + m.start() if m else len(js)
+    body = js[start:end]
     assert "unitNameFor(fileName)" in body, \
         "showFileContextMenu must derive its unit name via unitNameFor(fileName)"
 
@@ -208,8 +210,9 @@ def test_context_menu_start_url_includes_quadlet_type():
     js = _read_js()
     start = js.find("function showFileContextMenu(")
     assert start != -1, "showFileContextMenu must be defined"
-    end = js.find("\nwindow.", start + 1)
-    body = js[start:end if end != -1 else len(js)]
+    m = re.search(r'(?=\nfunction |\nexport function |\nwindow\.|\Z)', js[start + 1:])
+    end = start + 1 + m.start() if m else len(js)
+    body = js[start:end]
     start_btn_start = body.find("startBtn.onclick")
     assert start_btn_start != -1, "startBtn.onclick must be defined inside showFileContextMenu"
     start_btn_end = body.find("_ctxMenu.appendChild(startBtn)", start_btn_start)
@@ -223,8 +226,9 @@ def test_context_menu_stop_url_includes_quadlet_type():
     js = _read_js()
     start = js.find("function showFileContextMenu(")
     assert start != -1, "showFileContextMenu must be defined"
-    end = js.find("\nwindow.", start + 1)
-    body = js[start:end if end != -1 else len(js)]
+    m = re.search(r'(?=\nfunction |\nexport function |\nwindow\.|\Z)', js[start + 1:])
+    end = start + 1 + m.start() if m else len(js)
+    body = js[start:end]
     stop_btn_start = body.find("stopBtn.onclick")
     assert stop_btn_start != -1, "stopBtn.onclick must be defined inside showFileContextMenu"
     stop_btn_end = body.find("_ctxMenu.appendChild(stopBtn)", stop_btn_start)
