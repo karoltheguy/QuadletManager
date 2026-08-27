@@ -40,19 +40,8 @@ STATS_EXPORT_FUNCTIONS = [
 ]
 
 MAIN_JS_STATS_IMPORTS = [
-    "parsePercent",
-    "mergeUnitRows",
     "renderContainerStatsTable",
-    "updateSummaryStrip",
-    "updateFilterCount",
 ]
-
-MONITOR_PANE_RETAINED_FUNCTIONS = [
-    "applyContainerFilter",
-    "applyMonitorFilter",
-    "updateMonitoringView",
-]
-
 
 @pytest.mark.unit
 def test_stats_module_exports_its_functions():
@@ -199,20 +188,6 @@ def test_main_js_imports_the_stats_module():
     assert imported_stats == set(MAIN_JS_STATS_IMPORTS), (
         f"main.js must import exactly {MAIN_JS_STATS_IMPORTS} from @qm/stats with no unused imports; issue #437"
     )
-
-
-@pytest.mark.unit
-def test_monitor_pane_functions_stay_in_main_js():
-    """Assert static/main.js still declares applyContainerFilter, applyMonitorFilter, and updateMonitoringView."""
-    main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
-    assert main_js_file is not None, "main.js not found in static_js_files()"
-
-    content = main_js_file.read_text(encoding="utf-8")
-    for name in MONITOR_PANE_RETAINED_FUNCTIONS:
-        assert re.search(rf"\bfunction\s+{re.escape(name)}\b", content), (
-            f"main.js must still declare function {name}; "
-            "it stays in main.js to prevent circular imports for issue #437"
-        )
 
 
 @pytest.mark.unit
