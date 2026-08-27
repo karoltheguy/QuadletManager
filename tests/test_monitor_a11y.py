@@ -55,6 +55,17 @@ def _js():
     return read_static_js()
 
 
+def _find_next_function(js, start):
+    r"""Return index of nearest '\nfunction ' or '\nexport function ' after start, or len(js)."""
+    candidates = [
+        pos for pos in (
+            js.find("\nfunction ", start),
+            js.find("\nexport function ", start),
+        ) if pos != -1
+    ]
+    return min(candidates) if candidates else len(js)
+
+
 # =============================================================================
 # templates/dashboard.html: monitor stat bar list semantics
 # =============================================================================
@@ -176,8 +187,7 @@ class TestMainJsUnhealthyIndicatorAndAnnouncement:
         )
         # Walk forwards to the next top-level function declaration to
         # bound the region.
-        next_fn = self.js.find("\nfunction ", start)
-        end = next_fn if next_fn != -1 else len(self.js)
+        end = _find_next_function(self.js, start)
         return self.js[fn_start:end]
 
     def _stats_update_region(self):
@@ -268,8 +278,7 @@ class TestApplyPercentSeverityHelper:
         assert start != -1, (
             "expected a function named applyPercentSeverity in main.js"
         )
-        next_fn = self.js.find("\nfunction ", start)
-        end = next_fn if next_fn != -1 else len(self.js)
+        end = _find_next_function(self.js, start)
         return self.js[start:end]
 
     @pytest.mark.unit
@@ -302,8 +311,7 @@ class TestApplyPercentSeverityHelper:
         assert start != -1, (
             "expected a function named renderContainerRow in main.js"
         )
-        next_fn = self.js.find("\nfunction ", start)
-        end = next_fn if next_fn != -1 else len(self.js)
+        end = _find_next_function(self.js, start)
         region = self.js[start:end]
 
         calls = re.findall(r"applyPercentSeverity\s*\(", region)
@@ -329,8 +337,7 @@ class TestRenderContainerStatsTableSemantics:
             "expected a function named renderContainerStatsTable in "
             "main.js"
         )
-        next_fn = self.js.find("\nfunction ", start)
-        end = next_fn if next_fn != -1 else len(self.js)
+        end = _find_next_function(self.js, start)
         return self.js[start:end]
 
     @pytest.mark.unit
