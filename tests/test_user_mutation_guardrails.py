@@ -29,6 +29,9 @@ SETTINGS_USERS_HTML_PATH = os.path.join(
     os.path.dirname(__file__), "..", "templates", "partials", "settings_users.html"
 )
 ROUTES_PY_PATH = os.path.join(os.path.dirname(__file__), "..", "api", "routes.py")
+TOAST_JS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "static", "modules", "toast.js"
+)
 
 
 def _settings_users_html():
@@ -38,6 +41,11 @@ def _settings_users_html():
 
 def _routes_py():
     with open(ROUTES_PY_PATH, encoding="utf-8") as f:
+        return f.read()
+
+
+def _toast_js():
+    with open(TOAST_JS_PATH, encoding="utf-8") as f:
         return f.read()
 
 
@@ -214,28 +222,31 @@ class TestMainJsUserUpdatedListener:
     @pytest.mark.unit
     def test_handler_references_status_toast(self):
         region = self._handler_region()
-        assert "status-toast" in region, (
-            "expected the user-updated handler to reference the "
-            "#status-toast element to display the confirmation message"
+        assert "showToast" in region, (
+            "expected the user-updated handler to render through "
+            "the shared showToast helper"
         )
 
     @pytest.mark.unit
     def test_handler_references_toast_success_class(self):
         region = self._handler_region()
-        assert "toast-success" in region, (
-            "expected the user-updated handler to style the toast with "
-            "the toast-success class"
+        assert re.search(r"showToast\([^)]*,\s*['\"]success['\"]", region), (
+            "expected the user-updated handler to pass 'success' kind to showToast"
         )
 
     @pytest.mark.unit
     def test_handler_uses_text_content_not_inner_html(self):
         region = self._handler_region()
-        assert "textContent" in region, (
-            "expected the user-updated handler to assign the message text "
-            "via .textContent (or pass it as a text argument to the el() "
-            "helper)"
+        assert "showToast" in region, (
+            "expected the user-updated handler to render through "
+            "the shared showToast helper"
         )
-        assert "innerHTML" not in region, (
-            "the user-updated handler must not use innerHTML to insert "
+        toast_js = _toast_js()
+        assert "textContent" in toast_js, (
+            "expected static/modules/toast.js to assign the message text "
+            "via .textContent"
+        )
+        assert "innerHTML" not in toast_js, (
+            "static/modules/toast.js must not use innerHTML to insert "
             "the message"
         )

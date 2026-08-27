@@ -27,6 +27,9 @@ DASHBOARD_HTML_PATH = os.path.join(
 SETTINGS_THEMES_HTML_PATH = os.path.join(
     os.path.dirname(__file__), "..", "templates", "partials", "settings_themes.html"
 )
+TOAST_JS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "static", "modules", "toast.js"
+)
 
 # Matches `this.reset()` gated behind a check of event.detail.successful,
 # e.g. `if(event.detail.successful) this.reset()` or with extra whitespace.
@@ -53,6 +56,11 @@ def _dashboard_html():
 
 def _settings_themes_html():
     with open(SETTINGS_THEMES_HTML_PATH, encoding="utf-8") as f:
+        return f.read()
+
+
+def _toast_js():
+    with open(TOAST_JS_PATH, encoding="utf-8") as f:
         return f.read()
 
 
@@ -149,9 +157,9 @@ class TestMainJsResponseErrorListener:
     @pytest.mark.unit
     def test_handler_references_status_toast(self):
         region = self._handler_region()
-        assert "status-toast" in region, (
-            "expected the htmx:responseError handler to reference the "
-            "#status-toast element to display the error"
+        assert "showToast" in region, (
+            "expected the htmx:responseError handler to render through "
+            "the shared showToast helper"
         )
 
     @pytest.mark.unit
@@ -170,11 +178,16 @@ class TestMainJsResponseErrorListener:
     @pytest.mark.unit
     def test_handler_uses_text_content_not_inner_html(self):
         region = self._handler_region()
-        assert "textContent" in region, (
-            "expected the htmx:responseError handler to assign the error "
+        assert "showToast" in region, (
+            "expected the htmx:responseError handler to render through "
+            "the shared showToast helper"
+        )
+        toast_js = _toast_js()
+        assert "textContent" in toast_js, (
+            "expected static/modules/toast.js to assign the error "
             "message via .textContent"
         )
-        assert "innerHTML" not in region, (
-            "the htmx:responseError handler must not use innerHTML to "
+        assert "innerHTML" not in toast_js, (
+            "static/modules/toast.js must not use innerHTML to "
             "insert the (potentially untrusted) error message"
         )
