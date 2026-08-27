@@ -18,7 +18,7 @@ import { connectTerminal, createTerminalTab, loadFitAddon,
          switchTerminalTab, closeTerminalTab, sessionAddNew,
          initTerminal } from '@qm/terminal';
 import { chartColorFor, applySwatchState, toggleChartSelection,
-         applyChartSelection, refreshChartSwatches, loadMonitorCharts,
+         applyChartSelection, loadMonitorCharts,
          initCpuChart, initMemChart } from '@qm/charts';
 
 // ── Server Collapse ───────────────────────────────────────

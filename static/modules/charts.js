@@ -160,7 +160,17 @@ export function loadMonitorCharts(minutes, btnEl) {
   const serverId = state._monitoringServerId;
   if (!serverId) return;
 
-  fetch('/api/health/history/' + serverId + '?minutes=' + minutes)
+  // Build the URL rather than concatenating into fetch: serverId and minutes
+  // reach here from DOM datasets and shared state, so encoding them is what
+  // keeps a crafted value from escaping the path segment. openLogSocket in
+  // logs.js constructs its WebSocket URL the same way.
+  const historyUrl = new URL(
+    '/api/health/history/' + encodeURIComponent(serverId),
+    window.location.origin
+  );
+  historyUrl.searchParams.set('minutes', minutes);
+
+  fetch(historyUrl)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       const emptyEl = document.getElementById('monitor-charts-empty');

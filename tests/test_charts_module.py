@@ -47,7 +47,6 @@ MAIN_JS_CHARTS_IMPORTS = [
     "applySwatchState",
     "toggleChartSelection",
     "applyChartSelection",
-    "refreshChartSwatches",
     "loadMonitorCharts",
     "initCpuChart",
     "initMemChart",
