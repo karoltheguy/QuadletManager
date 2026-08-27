@@ -998,7 +998,7 @@ document.addEventListener('input', function(e) {
 // attributes because htmx hx-on bodies are evaluated against globals (depending on the
 // window bridge just like inline handlers) while the inline-handler test cannot see them.
 document.addEventListener('htmx:afterRequest', function (e) {
-  if (e.target.closest && e.target.closest('.color-editor-form')) {
+  if (e.target.closest?.('.color-editor-form')) {
     clearThemePreview();
   }
 });
