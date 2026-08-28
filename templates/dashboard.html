@@ -25,7 +25,9 @@
     <script src="{{ asset_url('vendor/xterm/xterm-addon-fit.js') }}"></script>
     <script type="importmap">{{ module_import_map()|tojson }}</script>
     <link rel="stylesheet" href="{{ asset_url('vendor/xterm/xterm.css') }}">
-    <link rel="stylesheet" href="{{ asset_url('style.css') }}">
+    {% for sheet in ['tokens.css', 'style.css'] %}
+    <link rel="stylesheet" href="{{ asset_url(sheet) }}">
+    {% endfor %}
     <style id="qm-theme-overrides">
       :root[data-theme="light"] {
         {% for k, v in active_theme_light.items() %}--{{ k|replace('_','-') }}: {{ v }};{% endfor %}

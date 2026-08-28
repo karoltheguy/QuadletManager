@@ -1,0 +1,141 @@
+/* Design tokens: color themes (dark/light), OS preference overrides, and UI density. */
+
+/* ── Default (dark) tokens ─────────────────────────────────
+   The light/dark switch happens via [data-theme] on <html>.
+   Dark is the fallback so the app still renders if JS fails. */
+:root,
+:root[data-theme="dark"] {
+    --bg-base: #1c1f24;        /* Main canvas (warm charcoal, not slate) */
+    --bg-surface: #22262d;     /* Raised panels */
+    --bg-element: #2a2e36;     /* Inputs / secondary */
+    --bg-element-hover: #333842;
+    --border-color: #2e333b;
+
+    --text-primary: #e8ecf0;
+    --text-secondary: #b9c0c9;  /* Supporting text — between primary and muted */
+    --text-muted: #8b9199;
+    --text-accent: #2dd4bf;
+
+    --brand-primary: #14b8a6;  /* Teal — desaturated, reads as uptime/health */
+    --brand-hover: #2dd4bf;
+    --brand-on-primary: #1c1f24;
+
+    --success: #10b981;
+    --danger:  #ef4444;
+    --warning: #f59e0b;
+    --success-hover: #059669;
+    --danger-hover:  #dc2626;
+    --warning-hover: #d97706;
+
+    /* Neumorphism shadow pair — dual light source (top-left lit, bottom-right shadowed).
+       The 1px inset highlight on top simulates physical edge refraction. */
+    --nm-shadow-dark:  rgba(0, 0, 0, 0.55);
+    --nm-shadow-light: rgba(255, 255, 255, 0.04);
+    --shadow-raised:
+        8px 8px 20px var(--nm-shadow-dark),
+        -6px -6px 16px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-raised-sm:
+        4px 4px 10px var(--nm-shadow-dark),
+        -3px -3px 8px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-inset:
+        inset 4px 4px 10px var(--nm-shadow-dark),
+        inset -3px -3px 8px var(--nm-shadow-light);
+
+    --radius-lg: 1.25rem;
+    --radius-md: 0.75rem;
+
+    --settings-content-max: 820px;   /* settings content column */
+    --settings-control-max: 26rem;   /* form / single-control reading width */
+
+    /* Resizable panel widths (overridden by JS / localStorage) */
+    --sidebar-width: 300px;
+    --inspector-width: 360px;
+}
+
+:root[data-theme="light"] {
+    --bg-base: #e8ecf0;        /* Classic neumorphism canvas — never pure white */
+    --bg-surface: #eef1f5;
+    --bg-element: #e0e4ea;
+    --bg-element-hover: #d6dae2;
+    --border-color: #d3d8e0;
+
+    --text-primary: #1c1f24;
+    --text-secondary: #414852;  /* Supporting text — between primary and muted */
+    --text-muted: #6b7280;
+    --text-accent: #0e7268;
+
+    --brand-primary: #0e7268;
+    --brand-hover: #115e59;
+    --brand-on-primary: #ffffff;
+
+    --success: #059669;
+    --danger:  #dc2626;
+    --warning: #d97706;
+    --success-hover: #047857;
+    --danger-hover:  #b91c1c;
+    --warning-hover: #b45309;
+
+    --nm-shadow-dark:  rgba(163, 177, 198, 0.55);
+    --nm-shadow-light: rgba(255, 255, 255, 0.9);
+    --shadow-raised:
+        8px 8px 20px var(--nm-shadow-dark),
+        -8px -8px 20px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --shadow-raised-sm:
+        4px 4px 10px var(--nm-shadow-dark),
+        -4px -4px 10px var(--nm-shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --shadow-inset:
+        inset 4px 4px 10px var(--nm-shadow-dark),
+        inset -4px -4px 10px var(--nm-shadow-light);
+}
+
+/* Follow OS preference when no explicit theme is set */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+        --bg-base: #e8ecf0;
+        --bg-surface: #eef1f5;
+        --bg-element: #e0e4ea;
+        --bg-element-hover: #d6dae2;
+        --border-color: #d3d8e0;
+        --text-primary: #1c1f24;
+        --text-secondary: #414852;
+        --text-muted: #6b7280;
+        --text-accent: #0e7268;
+        --brand-primary: #0e7268;
+        --brand-hover: #115e59;
+        --brand-on-primary: #ffffff;
+        --success: #059669;
+        --danger:  #dc2626;
+        --warning: #d97706;
+        --nm-shadow-dark:  rgba(163, 177, 198, 0.55);
+        --nm-shadow-light: rgba(255, 255, 255, 0.9);
+        --shadow-raised:
+            8px 8px 20px var(--nm-shadow-dark),
+            -8px -8px 20px var(--nm-shadow-light),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        --shadow-raised-sm:
+            4px 4px 10px var(--nm-shadow-dark),
+            -4px -4px 10px var(--nm-shadow-light),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        --shadow-inset:
+            inset 4px 4px 10px var(--nm-shadow-dark),
+            inset -4px -4px 10px var(--nm-shadow-light);
+    }
+}
+
+/* ── UI Density tokens ─────────────────────────────────────
+   Relaxed (default): generous spacing. Compact: tighter layout.
+   Toggled via [data-density="compact"] on <html>. */
+:root {
+    --density-panel-padding: 1.5rem;
+    --density-gap: 1.5rem;
+    --density-section-padding: 1.5rem 1.75rem;
+}
+[data-density="compact"] {
+    --density-panel-padding: 0.75rem;
+    --density-gap: 0.75rem;
+    --density-section-padding: 0.75rem 1rem;
+}

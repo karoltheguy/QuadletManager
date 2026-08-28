@@ -179,15 +179,39 @@ the only place that shows how much of #174 is left.
   no template referenced. The bridge at `static/main.js:2868` still lists 29
   names. `openBottomPanel` looks equally dead but must stay: two e2e tests reach
   it through `page.evaluate`.
-- **CSS foundation:** C1 is filed as #447. C2 is still unfiled; file it once C1
-  lands, since the sheets it links do not exist until the split starts.
-- **CSS split:** not started. The ten sheets below are unfiled.
+- **CSS foundation:** complete. #447 landed `tests/css_source.py` (C1), and #450
+  landed C2: `templates/dashboard.html:28` is now a Jinja loop over an ordered
+  literal list of sheets, each through `asset_url`.
+
+  C2 absorbed sheet 1 rather than shipping plumbing alone. Its done-condition
+  names more than one linked sheet, and no second sheet existed, so `tokens.css`
+  came out in the same change as proof the link list works. Nine sheets remain,
+  not ten.
+
+  The line ranges in the sequence below are stale, and #450 hit that
+  immediately: tokens were listed as `style.css:1` to `:231`, but line 220 is
+  already `.inspector-widget-grid`. The real boundary was 141. Re-derive every
+  range against the current file before filing its sub-issue rather than
+  trusting the number here.
+
+  Two things #450 turned up that the next sheet extraction will hit too:
+
+  - `static/style.css:1` is a Google Fonts `@import`. CSS requires `@import` to
+    precede every other rule in its sheet, so it must stay line 1 of whichever
+    sheet holds it. It is unrelated to this plan's "no `@import`" rule, which is
+    about linking sheets to each other.
+  - C1's own guard, `test_no_test_module_hardcodes_style_css_source_path`,
+    fails on any test that names `static/style.css` directly. A test asserting
+    *which* sheet a rule lives in has to name files, so it cannot use
+    `read_static_css()` and belongs in `ALLOWLISTED_BASENAMES` in
+    `tests/test_css_source_helper.py`. `test_css_sheet_split.py` is there now.
+- **CSS split:** 1 of 10 landed. `tokens.css` came out with C2 (#450). The nine
+  sheets from `layout.css` down are unfiled.
 
 **Everything left on #174 is CSS.** The JS half meets its close conditions: all
 fifteen extractions landed, both dead globals are gone, and no test hardcodes
-`static/main.js` as a source path. The parent stays open for C1, C2 and the ten
-sheet extractions, which is twelve sub-issues at the granularity the JS side
-used.
+`static/main.js` as a source path. Both CSS foundation issues have now landed
+too, so the parent stays open for the nine remaining sheet extractions.
 
 Two things the JS half left behind, neither of them blocking:
 
@@ -448,7 +472,8 @@ example).
 Proposed sheets, in link order, with their current line ranges:
 
 1. `tokens.css`: default and light-theme design tokens, OS preference block,
-   density tokens (`style.css:1` to `:231`).
+   density tokens. **Landed with C2 (#450)**, moved from `style.css:6` to `:141`,
+   not the `:231` this line originally claimed.
 2. `layout.css`: app shell, content wrapper, view control classes, the Containers
    grid, resize handles, raised panel chrome (`:232` to `:437`, `:1559` to `:1744`).
 3. `components.css`: typography utilities, buttons, status outputs, context menu,
@@ -515,9 +540,25 @@ For the CSS sub-issues, add:
    change the cascade if link order slips, and no unit test in this repo would
    see it. Load the dashboard before and after, and compare computed styles on a
    sample from each pane.
-7. `venv/bin/pytest -m e2e` is mandatory for C2 and for any split that touches
-   the Containers grid or the bottom panel, since layout regressions surface as
-   element-not-visible failures there and nowhere else.
+7. `venv/bin/python -m pytest -m e2e` is mandatory for C2 and for any split
+   that touches the Containers grid or the bottom panel, since layout
+   regressions surface as element-not-visible failures there and nowhere else.
+
+   Use `venv/bin/python -m pytest`, not the bare `venv/bin/pytest` console
+   script: the latter leaves the repo root off `sys.path`, so every test doing
+   `from main import app` fails to collect.
+
+   The e2e suite skips itself wholesale unless an app is answering on
+   `http://localhost:8000`, and 146 silent skips read like a pass. CI brings it
+   up with `docker compose -f docker-compose.test.yml up -d --build`. With no
+   compose provider installed, the `quadlet-manager` service is reproducible
+   directly:
+
+       QUADLET_MASTER_KEY=<64 hex chars> DEV_AUTO_LOGIN=1 \
+         venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
+
+   That omits the `remote-systemd` sidecar, which is what the deselected and
+   skipped counts cover. It was enough to exercise every layout path for #450.
 
 Work lands through pull requests against `main`, one per sub-issue, each with
 `Fixes #N`.
@@ -531,7 +572,8 @@ around it.
 - All 13 JS extractions have landed and `static/main.js` is bootstrap plus the
   bridge.
 - The two dead globals `monitoringChart` and `healthHistoryChart` are gone.
-- C1 and C2 have landed and the CSS split sequence is complete.
+- C1 and C2 have landed and the CSS split sequence is complete. C1 (#447) and
+  C2 (#450) are done; nine sheets remain.
 - No test hardcodes `static/main.js` or `static/style.css` as a source path.
 
 Retiring the window bridge (#392) is deliberately **not** on this list. It is a
