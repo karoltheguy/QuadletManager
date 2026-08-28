@@ -6,8 +6,8 @@ main.js and that the duplicated inline logic has been extracted into them.
 No running backend is required.
 """
 import re
-import pathlib
 
+from tests.css_source import read_static_css
 from tests.js_source import read_static_js
 
 
@@ -81,8 +81,7 @@ def test_dead_stats_table_paths_removed():
 @pytest.mark.unit
 def test_dead_stats_table_css_removed():
     """The dead #stats-table selector must be gone from style.css."""
-    style_css = pathlib.Path(__file__).parent.parent / "static" / "style.css"
-    css = style_css.read_text()
+    css = read_static_css()
     assert not re.search(r'(?<!monitoring-)#stats-table', css), (
         "#stats-table selector still present in style.css — dead styling not removed"
     )

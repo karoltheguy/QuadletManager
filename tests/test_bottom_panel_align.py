@@ -14,10 +14,10 @@ Verifies:
 import os
 from html.parser import HTMLParser
 
+from tests.css_source import read_static_css
 from tests.js_source import read_static_js
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "dashboard.html")
-CSS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "style.css")
 
 
 # ── HTML structure ────────────────────────────────────────────────────────────
@@ -181,8 +181,7 @@ def test_navigator_not_inside_workspace_row():
 # ── CSS rules ─────────────────────────────────────────────────────────────────
 
 def _read_css():
-    with open(CSS_PATH) as f:
-        return f.read()
+    return read_static_css()
 
 
 @pytest.mark.unit

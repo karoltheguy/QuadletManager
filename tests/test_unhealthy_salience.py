@@ -10,12 +10,10 @@ Covers:
 - getHealthBadgeInfo() in main.js handles a 'starting' health value
 - prefers-reduced-motion media block disables motion for all animated selectors
 """
-import os
 import re
 
+from tests.css_source import read_static_css
 from tests.js_source import read_static_js
-
-CSS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "style.css")
 
 
 def _js():
@@ -23,8 +21,7 @@ def _js():
 
 
 def _css():
-    with open(CSS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_css()
 
 
 def _extract_rule_block(css, selector_regex):

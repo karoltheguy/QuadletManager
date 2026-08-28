@@ -17,8 +17,9 @@ import re
 
 import pytest
 
+from tests.css_source import read_static_css
+
 REPO_ROOT = os.path.join(os.path.dirname(__file__), "..")
-CSS_PATH = os.path.join(REPO_ROOT, "static", "style.css")
 LOGIN_PATH = os.path.join(REPO_ROOT, "templates", "login.html")
 CHANGE_PW_PATH = os.path.join(REPO_ROOT, "templates", "change_password.html")
 ROUTES_PATH = os.path.join(REPO_ROOT, "api", "routes.py")
@@ -98,7 +99,7 @@ def _extract_tokens(block: str) -> dict:
 
 
 def _load_style_css_blocks():
-    css = _read(CSS_PATH)
+    css = read_static_css()
 
     dark_block, _ = _extract_rule_block(
         css, r':root,\s*:root\[data-theme="dark"\]'
@@ -303,7 +304,7 @@ def test_parsed_sources_yielded_expected_tokens():
         for token in _STYLE_CSS_BLOCK_TOKENS:
             assert token in tokens, (
                 f"Expected token {token!r} not found in block [{block_name}] "
-                f"of {CSS_PATH} -- a rename or selector change likely broke parsing"
+                "of the static CSS sources -- a rename or selector change likely broke parsing"
             )
 
     for path_name, path, tokens in (

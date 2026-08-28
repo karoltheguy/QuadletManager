@@ -28,18 +28,15 @@ This test module is expected to FAIL until that CSS lands:
   4. No `.settings-pane .form-control` (or `#settings-pane .form-control`)
      rule exists yet with a visible border.
 """
-import os
 import re
 
 import pytest
 
-REPO_ROOT = os.path.join(os.path.dirname(__file__), "..")
-CSS_PATH = os.path.join(REPO_ROOT, "static", "style.css")
+from tests.css_source import read_static_css
 
 
 def _css():
-    with open(CSS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_css()
 
 
 # ── Rule-block helpers (same approach as tests/test_design_lint_style.py) ──

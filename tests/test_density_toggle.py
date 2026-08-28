@@ -8,8 +8,9 @@ Tests for UI Density toggle (Issue #109).
 import os
 import re
 
+from tests.css_source import read_static_css
+
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "dashboard.html")
-CSS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "style.css")
 
 
 def _read(path):
@@ -69,7 +70,7 @@ class TestDensityHTML:
 
 class TestDensityCSS:
     def setup_method(self):
-        self.css = _read(CSS_PATH)
+        self.css = read_static_css()
 
     @pytest.mark.unit
     def test_density_panel_padding_token_defined(self):
