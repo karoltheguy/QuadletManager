@@ -27,17 +27,14 @@ Covers:
 - main.js applies border-b to body rows via renderContainerRow
 - the Monitor stats table header row deliberately does not carry border-b
 """
-import os
 import re
 
+from tests.css_source import read_static_css
 from tests.js_source import read_static_js
-
-CSS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "style.css")
 
 
 def _css():
-    with open(CSS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_css()
 
 
 def _js():

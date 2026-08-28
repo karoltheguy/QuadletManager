@@ -6,15 +6,13 @@ Covers:
 - .settings-table td.actions-col should use display:flex + gap so its
   action buttons have breathing room instead of being crammed together.
 """
-import os
 import re
 
-CSS_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "style.css")
+from tests.css_source import read_static_css
 
 
 def _css():
-    with open(CSS_PATH, encoding="utf-8") as f:
-        return f.read()
+    return read_static_css()
 
 
 def _extract_rule_block(css, selector_regex):
