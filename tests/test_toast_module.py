@@ -11,7 +11,7 @@ import re
 
 import pytest
 
-from tests.js_source import static_js_files
+from tests.js_source import read_static_js, static_js_files
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 
@@ -97,17 +97,19 @@ def test_main_js_no_longer_builds_toast_markup_inline():
 
 @pytest.mark.unit
 def test_event_handlers_call_show_toast():
-    """Assert htmx:responseError, user-updated, and file_changed handlers call showToast."""
-    main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
-    assert main_js_file is not None, "main.js not found in static_js_files()"
+    """Assert htmx:responseError, user-updated, and file_changed handlers call showToast.
 
-    content = main_js_file.read_text(encoding="utf-8")
+    Read across every static JS file rather than main.js alone: #445 moved the
+    file_changed handler into static/modules/sse.js, and which file a handler
+    lives in is not what this test is about.
+    """
+    content = read_static_js()
     events = ["htmx:responseError", "user-updated", "file_changed"]
     for event_name in events:
         match = re.search(
             rf"addEventListener\(\s*['\"]{re.escape(event_name)}['\"]", content
         )
-        assert match, f"Event handler registration for '{event_name}' not found in main.js"
+        assert match, f"Event handler registration for '{event_name}' not found in the static JS"
         window = content[match.start() : match.start() + 1500]
         assert "showToast" in window, (
             f"Event handler for '{event_name}' must call showToast within 1500 chars of event registration"

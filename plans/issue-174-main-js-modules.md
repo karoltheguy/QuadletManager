@@ -68,15 +68,32 @@ Status as of 2026-08-27. Update this section whenever a sub-issue closes. It is
 the only place that shows how much of #174 is left.
 
 - **JS foundation:** complete. #388, #389, #390 and #391 are all closed.
-- **JS extractions:** 14 of 15 done. #399 landed `dom.js` and `color.js`, #420
+- **JS extractions:** complete. #399 landed `dom.js` and `color.js`, #420
   landed `theme.js`, #422 landed `toast.js`, #424 landed `modals.js`, #426
   landed `panel.js`, #428 landed `logs.js`, #430 landed `terminal.js`, #432
   landed `charts.js`, #435 landed `editor.js`, #437 landed `stats.js`, #439
-  landed `monitor.js`, #441 landed `inspector.js`, #443 landed `tree.js`. The
-  monitor pane was not in the original numbered sequence; #437 left
-  `applyContainerFilter`, `applyMonitorFilter` and `updateMonitoringView`
-  behind for it, so it became an extraction of its own. `static/main.js` is
-  down to 873 lines. Only `sse.js` remains.
+  landed `monitor.js`, #441 landed `inspector.js`, #443 landed `tree.js`, #445
+  landed `sse.js`. The monitor pane was not in the original numbered sequence;
+  #437 left `applyContainerFilter`, `applyMonitorFilter` and
+  `updateMonitoringView` behind for it, so it became an extraction of its own.
+  `static/main.js` is down to 623 lines, and is now bootstrap, tab and settings
+  navigation, the delegated-action tables, session persistence and the window
+  bridge.
+
+  #445 took the `_statsReceived` / `_statsWaitTimeout` pair with it. The flags
+  are written by `handleStatsUpdate` and read by the 15s "no stats received
+  yet" placeholder timeout, so the timeout moved too, behind an exported
+  `startStatsWaitTimeout()` called from `DOMContentLoaded`. Putting the flags
+  on `state.js` was the alternative and would have spent shared state on
+  something only this cluster reads.
+
+  #445 hit the byte-window trap once more, in a new shape.
+  `tests/test_toast_module.py` searched `main.js` alone for
+  `addEventListener('file_changed'`, and the handler moved into `sse.js`. A
+  comment naming the moved handler would have kept it green, which is a test
+  held up by a comment; it now reads `read_static_js()` instead. Before moving
+  a listener, grep the test suite for its event name, not just for the function
+  names.
 
   **The extraction order below is wrong from here on, and #432 already
   departed from it.** `sse.js` is listed sixth but cannot go next:
