@@ -15,6 +15,7 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ALLOWLISTED_BASENAMES = {
     "test_static_asset_cache_busting.py",  # reads style.css mtime, not source text
     "test_css_source_helper.py",  # this file defines the pattern itself
+    "test_css_sheet_split.py",  # asserts which sheet a rule lives in, so it must name the file
 }
 STYLE_CSS_PATH_PATTERN = re.compile(
     r"""["']static["']\s*[,/]\s*["']style\.css["']"""
