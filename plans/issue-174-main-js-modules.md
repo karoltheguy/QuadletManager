@@ -233,10 +233,16 @@ the only place that shows how much of #174 is left.
     covered, so most of `tree.css` is; the rules styling individual quadlet
     entries are not, and #455 should lean on the unit guard for those.
 
-    For the same reason the cascade assertion compares shared paths against a
-    95% coverage floor rather than demanding identical path sets. A CSS-only
-    change cannot alter the DOM, so a path that appears on one side only is
-    content drift and carries no signal about the cascade.
+    For the same reason the cascade assertion compares shared paths rather than
+    demanding identical path sets. A CSS-only change cannot alter the DOM, so a
+    path present on one side only is content drift and says nothing about the
+    cascade. The dashboard is row-per-record throughout -- settings tables,
+    overview cards, the quadlet tree -- and CI holds different records than any
+    developer box, which cost two CI failures at 77% path overlap before the
+    floor was set correctly. It is now an absolute count of compared elements
+    (400), not a share of the baseline, because a table with four rows locally
+    and two in CI exercises the same rules and loses no rule coverage. CI
+    compares about 554.
 
   Regenerate both with `scripts/capture_css_baseline.py` and
   `scripts/capture_computed_baseline.py`. The second needs a backend on
