@@ -24,6 +24,9 @@
     <script src="{{ asset_url('vendor/xterm/xterm.js') }}"></script>
     <script src="{{ asset_url('vendor/xterm/xterm-addon-fit.js') }}"></script>
     <script type="importmap">{{ module_import_map()|tojson }}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset_url('vendor/xterm/xterm.css') }}">
     {% for sheet in stylesheets %}
     <link rel="stylesheet" href="{{ asset_url(sheet) }}">

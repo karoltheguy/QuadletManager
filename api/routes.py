@@ -93,7 +93,7 @@ def _asset_version(filename: str) -> int:
         return 0
 
 
-STYLESHEETS = ("tokens.css", "style.css")
+STYLESHEETS = ("tokens.css", "layout.css", "components.css", "style.css")
 
 
 def asset_url(filename: str) -> str:
