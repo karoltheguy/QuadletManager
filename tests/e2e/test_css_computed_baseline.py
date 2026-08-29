@@ -55,11 +55,19 @@ MIN_COMPARED_ELEMENTS = 400
 # stays covered; only the walk into its children stops.
 OPAQUE_CLASSES = ["server-quadlet-tree"]
 
+# Each captured line is the element's SIGNATURE (tag name plus class list)
+# followed by its property values. The signature exists because a child-index
+# path is not a stable identity: when the page renders different records, an
+# index can land on a different element instead of vanishing, which reads as a
+# style change when it is really content drift. Comparing signatures first tells
+# the two apart.
 DUMP_JS = """([props, opaque]) => {
   const out = {};
   const walk = (el, path) => {
     const cs = getComputedStyle(el);
-    out[path] = props.map(p => cs.getPropertyValue(p)).join('|');
+    const cls = typeof el.className === 'string' ? el.className.trim().split(/\\s+/).sort().join(' ') : '';
+    const signature = el.tagName + '.' + cls;
+    out[path] = [signature].concat(props.map(p => cs.getPropertyValue(p))).join('|');
     if (opaque.some(c => el.classList.contains(c))) return;
     [...el.children].forEach((c, i) => walk(c, path + '/' + i));
   };
@@ -144,21 +152,29 @@ def test_computed_styles_match_baseline(page: Page, theme: str, density: str):
 
     differing_paths = []
     diff_examples = []
+    aliased_paths = []
+    compared_paths = []
     for path in common_paths:
-        live_val = live_data[path]
-        fix_val = fixture_data[path]
+        live_sig, _, live_val = live_data[path].partition("|")
+        fix_sig, _, fix_val = fixture_data[path].partition("|")
+        if live_sig != fix_sig:
+            # Same index path, different element. Content drift, not a cascade
+            # change, so it is not comparable and must not be reported as a diff.
+            aliased_paths.append(f"{path} ({fix_sig} -> {live_sig})")
+            continue
+        compared_paths.append(path)
         if live_val != fix_val:
             differing_paths.append(path)
             if len(diff_examples) < 5:
-                live_props = live_val.split("|")
-                fix_props = fix_val.split("|")
                 prop_diffs = []
-                for prop_name, expected, actual in zip(PROPS, fix_props, live_props):
+                for prop_name, expected, actual in zip(
+                    PROPS, fix_val.split("|"), live_val.split("|")
+                ):
                     if expected != actual:
                         prop_diffs.append(
                             f"{prop_name}: expected {expected!r}, got {actual!r}"
                         )
-                diff_examples.append(f"  Path '{path}': " + "; ".join(prop_diffs))
+                diff_examples.append(f"  Path '{path}' [{fix_sig}]: " + "; ".join(prop_diffs))
 
     # A CSS-only change cannot alter the DOM, so a path present on one side and
     # not the other says nothing about the cascade -- it means the page rendered
@@ -167,20 +183,22 @@ def test_computed_styles_match_baseline(page: Page, theme: str, density: str):
     # row that moved. So the cascade assertion is made over the shared paths,
     # and path drift is only held to a coverage floor that keeps the guard from
     # silently shrinking to nothing.
-    coverage = len(common_paths) / len(fixture_data) if fixture_data else 0.0
-    assert len(common_paths) >= MIN_COMPARED_ELEMENTS, (
-        f"Only {len(common_paths)} elements could be compared for theme={theme!r}, "
+    coverage = len(compared_paths) / len(fixture_data) if fixture_data else 0.0
+    assert len(compared_paths) >= MIN_COMPARED_ELEMENTS, (
+        f"Only {len(compared_paths)} elements could be compared for theme={theme!r}, "
         f"density={density!r} (floor is {MIN_COMPARED_ELEMENTS}); that is "
         f"{coverage:.1%} of the baseline. Too little of the page rendered for this "
         f"run to verify the cascade -- check the app actually loaded its "
         f"stylesheets. Paths only in live ({len(only_live)}): {only_live[:5]}; "
-        f"only in fixture ({len(only_fixture)}): {only_fixture[:5]}"
+        f"only in fixture ({len(only_fixture)}): {only_fixture[:5]}; "
+        f"paths whose element changed ({len(aliased_paths)}): {aliased_paths[:5]}"
     )
 
     if differing_paths:
         failure_msg = (
             f"Computed styles mismatch for theme={theme!r}, density={density!r}:\n"
-            f"  - Shared paths compared: {len(common_paths)} ({coverage:.1%} of baseline)\n"
+            f"  - Elements compared: {len(compared_paths)} ({coverage:.1%} of baseline)\n"
+            f"  - Skipped, element at that path changed: {len(aliased_paths)}\n"
             f"  - Differing paths count: {len(differing_paths)}\n"
         )
         if diff_examples:

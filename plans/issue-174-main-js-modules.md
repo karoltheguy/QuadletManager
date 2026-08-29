@@ -233,6 +233,14 @@ the only place that shows how much of #174 is left.
     covered, so most of `tree.css` is; the rules styling individual quadlet
     entries are not, and #455 should lean on the unit guard for those.
 
+    Each captured element carries its tag and class signature ahead of its
+    values, and only signature-matched paths are compared. A child-index path is
+    not a stable identity: when the page renders different records an index can
+    land on a *different* element rather than vanishing, which reads as a style
+    change when it is really content drift. That produced a CI failure reporting
+    `display: expected 'table', got 'block'`. A CSS-only change never alters a
+    tag or class, so this cannot mask a real regression.
+
     For the same reason the cascade assertion compares shared paths rather than
     demanding identical path sets. A CSS-only change cannot alter the DOM, so a
     path present on one side only is content drift and says nothing about the
