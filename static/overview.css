@@ -1,0 +1,215 @@
+/* Overview pane styles: fleet glance tiles, server cards, and container rows.
+   Extracted from static/style.css for issue #454. */
+
+/* ── Overview Pane ───────────────────────────────────────── */
+.overview-pane {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  background-color: var(--bg-base);
+  overflow-y: auto;
+}
+
+.overview-content {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Stat tiles row */
+.overview-stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.overview-stat-tile {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.overview-stat-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.overview-stat-running { color: var(--success); }
+.overview-stat-stopped { color: var(--text-muted); }
+.overview-stat-muted   { color: var(--text-muted); }
+
+.overview-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Per-server cards — 2-column grid so multiple servers sit side by side */
+.overview-servers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.overview-server-card {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+}
+
+.overview-server-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.overview-server-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.overview-server-counts {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.overview-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.overview-pill-running {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+}
+
+.overview-pill-stopped {
+  background-color: rgba(139, 145, 153, 0.12);
+  color: var(--text-muted);
+}
+
+/* Healthcheck status badge inside a container row */
+.overview-health-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.overview-health-healthy {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+}
+
+@keyframes attention-unhealthy {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+.overview-health-unhealthy {
+  background-color: var(--danger-hover);
+  color: #fff;
+  animation: attention-unhealthy 1.8s ease-in-out infinite;
+}
+
+.overview-health-starting {
+  background-color: rgba(251, 191, 36, 0.12);
+  color: var(--warning, #f59e0b);
+}
+
+/* Container list inside a server card */
+.overview-container-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-container-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.15s;
+}
+
+.overview-container-row:last-child {
+  border-bottom: none;
+}
+
+.overview-container-row:hover {
+  background-color: var(--bg-element);
+}
+
+.overview-container-name {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.overview-container-status {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.overview-no-containers {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Empty state */
+.overview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.overview-empty-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  opacity: 0.4;
+}
+
+.overview-empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.overview-empty-hint {
+  font-size: 0.875rem;
+  max-width: 32ch;
+  text-wrap: balance;
+}

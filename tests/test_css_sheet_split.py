@@ -33,6 +33,9 @@ from main import app
 TOKENS_CSS_PATH = os.path.join(REPO_ROOT, "static", "tokens.css")
 LAYOUT_CSS_PATH = os.path.join(REPO_ROOT, "static", "layout.css")
 COMPONENTS_CSS_PATH = os.path.join(REPO_ROOT, "static", "components.css")
+MONITOR_CSS_PATH = os.path.join(REPO_ROOT, "static", "monitor.css")
+INSPECTOR_CSS_PATH = os.path.join(REPO_ROOT, "static", "inspector.css")
+OVERVIEW_CSS_PATH = os.path.join(REPO_ROOT, "static", "overview.css")
 STYLE_CSS_PATH = os.path.join(REPO_ROOT, "static", "style.css")
 
 
@@ -159,12 +162,26 @@ def test_layout_and_components_css_exist_on_disk():
 
 @pytest.mark.unit
 def test_stylesheets_constant_declares_the_split_sheets_in_order():
-    """STYLESHEETS in api.routes must declare the split stylesheets in order."""
+    """STYLESHEETS must order tokens, layout and components ahead of style.css.
+
+    This asserts relative order rather than the whole tuple: later issues in the
+    #174 split insert further sheets between components.css and style.css, and
+    pinning the exact tuple here would fail every one of them for no reason.
+    """
     from api.routes import STYLESHEETS
 
-    expected = ("tokens.css", "layout.css", "components.css", "style.css")
-    assert tuple(STYLESHEETS) == expected, (
-        f"Expected STYLESHEETS to be {expected!r}, got {tuple(STYLESHEETS)!r}"
+    sheets = list(STYLESHEETS)
+    for name in ("tokens.css", "layout.css", "components.css", "style.css"):
+        assert name in sheets, f"Expected {name!r} in STYLESHEETS, got {sheets!r}"
+
+    positions = [sheets.index(name) for name in
+                 ("tokens.css", "layout.css", "components.css", "style.css")]
+    assert positions == sorted(positions), (
+        "Expected tokens.css, layout.css, components.css to precede style.css, "
+        f"got {sheets!r}"
+    )
+    assert sheets[-1] == "style.css", (
+        f"Expected style.css to link last, got {sheets[-1]!r}"
     )
 
 
@@ -191,4 +208,55 @@ def test_dashboard_links_layout_before_components_before_style(client):
         f"Expected stylesheet link order: /static/tokens.css ({tokens_pos}) < "
         f"/static/layout.css ({layout_pos}) < /static/components.css ({components_pos}) < "
         f"/static/style.css ({style_pos})"
+    )
+
+
+@pytest.mark.unit
+def test_view_pane_sheets_exist_on_disk():
+    """The three view-pane sheets must exist on disk with non-empty content."""
+    for path in (MONITOR_CSS_PATH, INSPECTOR_CSS_PATH, OVERVIEW_CSS_PATH):
+        assert os.path.isfile(path), f"{path} does not exist"
+        with open(path, "r", encoding="utf-8") as f:
+            assert f.read().strip() != "", f"{path} is empty"
+
+
+@pytest.mark.unit
+def test_stylesheets_constant_declares_the_view_pane_sheets_in_order():
+    """STYLESHEETS must place the view-pane sheets after components.css and before style.css."""
+    from api.routes import STYLESHEETS
+
+    expected = (
+        "tokens.css",
+        "layout.css",
+        "components.css",
+        "monitor.css",
+        "inspector.css",
+        "overview.css",
+        "style.css",
+    )
+    assert tuple(STYLESHEETS) == expected, (
+        f"Expected STYLESHEETS to be {expected!r}, got {tuple(STYLESHEETS)!r}"
+    )
+
+
+@pytest.mark.unit
+def test_dashboard_links_view_pane_sheets_in_order(client):
+    """The rendered dashboard must link the view-pane sheets in STYLESHEETS order."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+
+    ordered = [
+        "/static/components.css",
+        "/static/monitor.css",
+        "/static/inspector.css",
+        "/static/overview.css",
+        "/static/style.css",
+    ]
+    for href in ordered:
+        assert href in html, f"dashboard HTML does not link {href}"
+
+    positions = [html.index(href) for href in ordered]
+    assert positions == sorted(positions), (
+        f"Expected link order {ordered}, got positions {positions}"
     )
