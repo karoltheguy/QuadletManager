@@ -1,0 +1,175 @@
+/* Inspector pane styles: container stats, activity log, and empty state.
+   Extracted from static/style.css for issue #454. */
+
+.inspector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.inspector-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.inspector-empty-state svg {
+    width: 2rem;
+    height: 2rem;
+    opacity: 0.35;
+}
+
+.inspector-empty-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.inspector-empty-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 22ch;
+    line-height: 1.5;
+}
+
+.inspector-widget-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+/* Inspector toggle button — icon driven by body class so it's always correct
+   even after HTMX replaces the editor pane. */
+#inspector-expand-btn::after {
+    content: '\25B6'; /* ▶ — collapse inspector (push right) */
+    font-size: 0.65rem;
+}
+body.view-containers.inspector-expanded #inspector-expand-btn::after {
+    content: '\25C0'; /* ◀ — restore inspector (pull from right) */
+}
+
+/* ── Container Stats Card (Inspector) ──────────────────── */
+.container-stats-card {
+    background-color: var(--bg-base);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.container-stats-card .stats-card-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.container-stats-card .stats-card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+}
+
+.container-stats-card .stats-card-item {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.container-stats-card .stats-card-item:last-child {
+    border-bottom: none;
+}
+
+.container-stats-card .stats-card-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.container-stats-card .stats-card-value {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.container-stats-card .stats-card-not-running {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.8rem;
+}
+
+.container-activity-log {
+    background-color: var(--bg-base);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.container-activity-log .section-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.container-activity-log .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.container-activity-log .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem;
+    background-color: var(--bg-element);
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.container-activity-log .activity-icon {
+    font-weight: 600;
+    color: var(--brand-primary);
+    min-width: 1rem;
+    text-align: center;
+}
+
+.container-activity-log .activity-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: capitalize;
+}
+
+.container-activity-log .activity-time {
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.container-activity-log .activity-user {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
