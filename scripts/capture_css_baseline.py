@@ -32,8 +32,7 @@ def capture_css_baseline() -> None:
     baseline_path = os.path.join(fixtures_dir, "css_cascade_baseline.txt")
 
     with open(baseline_path, "w", encoding="utf-8") as f:
-        for block in sorted_blocks:
-            f.write(f"{block}\n")
+        f.writelines(f"{block}\n" for block in sorted_blocks)
 
     print(f"Wrote {len(sorted_blocks)} rule blocks to {baseline_path}")
 

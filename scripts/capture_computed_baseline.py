@@ -15,6 +15,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from playwright.sync_api import sync_playwright
+
 from tests.e2e.test_css_computed_baseline import COMBOS, _capture, _fixture_path
 
 
@@ -31,8 +32,7 @@ def capture_computed_baseline() -> None:
             fixture_path = _fixture_path(theme, density)
             sorted_paths = sorted(data.keys())
             with open(fixture_path, "w", encoding="utf-8") as f:
-                for path in sorted_paths:
-                    f.write(f"{path}\t{data[path]}\n")
+                f.writelines(f"{path}\t{data[path]}\n" for path in sorted_paths)
             print(f"Wrote {len(sorted_paths)} elements to {fixture_path}")
         browser.close()
 
