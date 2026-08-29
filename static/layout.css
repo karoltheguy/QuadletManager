@@ -1,0 +1,334 @@
+/* Layout styles: shell, panels, grids, and view containers.
+   Extracted from static/style.css for issue #453.
+
+   ══════════════════════════════════════════════════════════
+   SELECTIVE NEUMORPHISM — applies to all views, and now spans
+   layout.css, components.css and style.css.
+   ──────────────────────────────────────────────────────────
+   Chrome surfaces (nav, sidebar, inspector, settings sidenav,
+   buttons, inputs) get the raised/inset neumorphic treatment.
+   Data surfaces (status box, stats table, activity log,
+   charts, Monaco, xterm) stay flat with an inset hairline —
+   per the "anti-card-overuse" rule for dense data.
+   ══════════════════════════════════════════════════════════ */
+
+.sidebar {
+    width: var(--sidebar-width);
+    min-width: 180px;
+    max-width: 500px;
+    flex-shrink: 0;
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    padding: 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content, .settings-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.inspector-panel {
+    width: var(--inspector-width);
+    min-width: 220px;
+    max-width: 900px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background-color: var(--bg-surface);
+    padding: 1rem;
+}
+
+/* Inner content wrapper — provides max-width constraint so content never
+   stretches edge-to-edge when the inspector is resized very wide. */
+.inspector-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Expanded (focus-editor) mode — hides inspector panel on Containers tab */
+body.view-containers.inspector-expanded #inspector,
+body.view-containers.inspector-expanded #resize-handle-right {
+    display: none !important;
+}
+
+/* ── Resize Handles ─────────────────────────────────────── */
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    inset: 0 -3px;   /* wider invisible hit-area for easier grabbing */
+}
+
+/* Prevent text selection while dragging */
+body.is-resizing {
+    user-select: none;
+    cursor: col-resize;
+}
+
+/* View Control Classes */
+
+/* Overview — hide everything except the overview pane */
+body.view-overview #navigator,
+body.view-overview #editor-pane,
+body.view-overview #inspector,
+body.view-overview #settings-pane,
+body.view-overview #monitoring-pane,
+body.view-overview .resize-handle { display: none !important; }
+
+body.view-overview #overview-pane { display: flex !important; }
+
+/* Containers — unified editor + inspector workspace */
+body.view-containers #settings-pane,
+body.view-containers #monitoring-pane,
+body.view-containers #overview-pane { display: none !important; }
+
+body.view-settings #navigator,
+body.view-settings #editor-pane,
+body.view-settings #inspector,
+body.view-settings #resize-handle-left,
+body.view-settings #resize-handle-right,
+body.view-settings #monitoring-pane,
+body.view-settings #overview-pane { display: none !important; }
+
+body.view-monitor #navigator,
+body.view-monitor #editor-pane,
+body.view-monitor #inspector,
+body.view-monitor #settings-pane,
+body.view-monitor #overview-pane,
+body.view-monitor .resize-handle { display: none !important; }
+
+body.view-monitor #monitoring-pane { display: flex !important; }
+
+.header-bar {
+    padding: 1rem;
+    background-color: var(--bg-surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+body {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--bg-base);
+    padding: 1.25rem;
+    gap: 1.25rem;
+}
+
+.top-nav {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-surface);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    height: 56px;
+    padding: 0 1rem;
+    margin-bottom: 1.25rem;
+    flex-shrink: 0;
+}
+
+.nav-brand {
+    flex: 1;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.nav-tabs {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.nav-actions {
+    height: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.nav-item {
+    font-size: 0.875rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    border: none;
+    border-radius: 999px;
+    margin: 0 0.2rem;
+    padding: 0.45rem 1.1rem;
+    height: auto;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    transition: color 0.2s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+.nav-item:hover {
+    color: var(--text-primary);
+    background: transparent;
+}
+.nav-item.active {
+    color: var(--brand-primary);
+    box-shadow: var(--shadow-inset);
+    border-bottom: none;
+}
+
+/* Workspace row holds the gap-ed raised panels; app-container is now a column wrapper */
+.workspace-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    gap: 1.25rem;
+    overflow: visible;
+    padding: 0 1.25rem;  /* horizontal breathing room matching the gap */
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+    padding-top: 1.25rem;  /* top breathing room */
+}
+
+/* ── Containers view: CSS grid layout ────────────────────────────────────────
+   #navigator is a direct child of .app-container (promoted out of .workspace-row)
+   so it can span both the workspace row (row 1) and the bottom panel row (row 2),
+   visually extending alongside the terminal widget when it is editor-aligned.
+
+   Columns: [auto = sidebar width] [0 = resize handle] [1fr = main content]
+   Rows:    [1fr = workspace]      [auto = bottom panel]                     */
+body.view-containers .app-container {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1.25rem minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    column-gap: 0;
+    row-gap: 1.25rem;
+    padding: 1.25rem;
+}
+
+/* Sidebar spans both rows so it fills the space alongside the bottom panel */
+body.view-containers #navigator {
+    grid-column: 1;
+    grid-row: 1 / 3;
+}
+
+/* Resize handle sits at the boundary between navigator and workspace content */
+body.view-containers #resize-handle-left {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    justify-self: center;
+}
+
+/* Workspace row: occupies the main content column, row 1 */
+body.view-containers .workspace-row {
+    grid-column: 3;
+    grid-row: 1;
+    padding: 0; /* outer spacing handled by app-container padding + row-gap */
+}
+
+/* Bottom panel: editor-aligned by default (column 3, row 2) */
+body.view-containers #bottom-panel {
+    grid-column: 3;
+    grid-row: 2;
+    margin: 0; /* spacing handled by app-container padding + row-gap */
+}
+
+/* Handle is now a sibling grid item (not inside #bottom-panel which has overflow:hidden).
+   Placed in row 2, col 3, aligned to start then pulled up by half the row-gap plus half
+   its own height so its center lands at the exact midpoint of the 1.25rem gap. */
+body.view-containers #bottom-panel-resize-handle {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: start;
+    margin-top: calc(-1.25rem / 2 - 2.5px);
+    z-index: 2;
+}
+
+/* Expand-left: panel covers the full width including the sidebar area */
+body.view-containers #bottom-panel.is-expanded {
+    grid-column: 1 / 4;
+}
+
+/* Handle follows panel width when expanded */
+body.bottom-panel-expanded #bottom-panel-resize-handle {
+    grid-column: 1 / 4;
+}
+
+/* When expanded, retract navigator to row 1 only so it doesn't underlap the panel */
+body.bottom-panel-expanded #navigator {
+    grid-row: 1;
+}
+
+/* ── Raised panel chrome — applies across every view ── */
+#navigator,
+#inspector,
+.monitoring-pane,
+.settings-pane,
+.main-content {
+    background-color: var(--bg-surface);
+    border: none !important;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    padding: var(--density-panel-padding);
+}
+
+/* Header bars lose their own background/border and blend into the panel */
+.header-bar,
+#inspector .inspector-header,
+.settings-pane .header-bar,
+.monitoring-pane .header-bar {
+    background: transparent !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 0 0 0.9rem 0 !important;
+    margin-bottom: 1rem;
+}
+
+.panel-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* Resize handles disappear into the gap */
+.resize-handle {
+    flex-shrink: 0;
+    cursor: col-resize;
+    position: relative;
+    transition: background-color 0.15s ease;
+    z-index: 10;
+    background: transparent;
+    width: 4px;
+}
+.resize-handle:hover,
+.resize-handle.dragging {
+    background: var(--brand-primary);
+    border-radius: 999px;
+    box-shadow: none;
+}

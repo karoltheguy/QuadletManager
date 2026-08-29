@@ -18,16 +18,21 @@ These tests assert this contract and are expected to FAIL until Issue #450
 is implemented.
 """
 import os
+import sys
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 from main import app
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
 TOKENS_CSS_PATH = os.path.join(REPO_ROOT, "static", "tokens.css")
+LAYOUT_CSS_PATH = os.path.join(REPO_ROOT, "static", "layout.css")
+COMPONENTS_CSS_PATH = os.path.join(REPO_ROOT, "static", "components.css")
 STYLE_CSS_PATH = os.path.join(REPO_ROOT, "static", "style.css")
 
 
@@ -133,4 +138,57 @@ def test_style_css_no_longer_contains_split_tokens():
         'static/style.css still declares --density-panel-padding; '
         'the declaration should have been moved to static/tokens.css. '
         'var(--density-panel-padding) references are expected to remain.'
+    )
+
+
+@pytest.mark.unit
+def test_layout_and_components_css_exist_on_disk():
+    """static/layout.css and static/components.css must exist on disk and have non-empty content."""
+    assert os.path.isfile(LAYOUT_CSS_PATH), (
+        f"static/layout.css does not exist at {LAYOUT_CSS_PATH}"
+    )
+    with open(LAYOUT_CSS_PATH, "r", encoding="utf-8") as f:
+        assert f.read().strip() != "", "static/layout.css is empty"
+
+    assert os.path.isfile(COMPONENTS_CSS_PATH), (
+        f"static/components.css does not exist at {COMPONENTS_CSS_PATH}"
+    )
+    with open(COMPONENTS_CSS_PATH, "r", encoding="utf-8") as f:
+        assert f.read().strip() != "", "static/components.css is empty"
+
+
+@pytest.mark.unit
+def test_stylesheets_constant_declares_the_split_sheets_in_order():
+    """STYLESHEETS in api.routes must declare the split stylesheets in order."""
+    from api.routes import STYLESHEETS
+
+    expected = ("tokens.css", "layout.css", "components.css", "style.css")
+    assert tuple(STYLESHEETS) == expected, (
+        f"Expected STYLESHEETS to be {expected!r}, got {tuple(STYLESHEETS)!r}"
+    )
+
+
+@pytest.mark.unit
+def test_dashboard_links_layout_before_components_before_style(client):
+    """The rendered dashboard HTML must link layout.css and components.css in order before style.css."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+
+    assert "/static/layout.css" in html, (
+        "dashboard HTML does not link /static/layout.css"
+    )
+    assert "/static/components.css" in html, (
+        "dashboard HTML does not link /static/components.css"
+    )
+
+    tokens_pos = html.index("/static/tokens.css")
+    layout_pos = html.index("/static/layout.css")
+    components_pos = html.index("/static/components.css")
+    style_pos = html.index("/static/style.css")
+
+    assert tokens_pos < layout_pos < components_pos < style_pos, (
+        f"Expected stylesheet link order: /static/tokens.css ({tokens_pos}) < "
+        f"/static/layout.css ({layout_pos}) < /static/components.css ({components_pos}) < "
+        f"/static/style.css ({style_pos})"
     )
