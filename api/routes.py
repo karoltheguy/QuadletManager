@@ -93,6 +93,9 @@ def _asset_version(filename: str) -> int:
         return 0
 
 
+STYLESHEETS = ("tokens.css", "style.css")
+
+
 def asset_url(filename: str) -> str:
     """Return a cache-busted URL for a static asset, e.g. /static/main.js?v=1712345678.
 
@@ -124,6 +127,7 @@ def module_import_map() -> dict:
 
 templates.env.globals["asset_url"] = asset_url
 templates.env.globals["module_import_map"] = module_import_map
+templates.env.globals["stylesheets"] = STYLESHEETS
 
 
 # Fire-and-forget tasks are parked here until they finish. The event loop only
