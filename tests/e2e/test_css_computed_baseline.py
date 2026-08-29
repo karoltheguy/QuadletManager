@@ -43,11 +43,20 @@ COMBOS = [("dark", "normal"), ("light", "normal"), ("dark", "compact"), ("light"
 # rows; anything approaching this floor means the page is not comparable.
 MIN_PATH_COVERAGE = 0.95
 
-DUMP_JS = """(props) => {
+# Elements whose CONTENTS are data-driven and therefore not comparable between
+# machines. `.server-quadlet-tree` holds the quadlet list fetched over SSH from
+# each configured server: it is populated on a developer box with a reachable
+# Podman host, empty in CI, and empty locally too whenever that connection is
+# slow or failing. The container itself is still measured, so its own styling
+# stays covered; only the walk into its children stops.
+OPAQUE_CLASSES = ["server-quadlet-tree"]
+
+DUMP_JS = """([props, opaque]) => {
   const out = {};
   const walk = (el, path) => {
     const cs = getComputedStyle(el);
     out[path] = props.map(p => cs.getPropertyValue(p)).join('|');
+    if (opaque.some(c => el.classList.contains(c))) return;
     [...el.children].forEach((c, i) => walk(c, path + '/' + i));
   };
   walk(document.body, 'body');
@@ -77,7 +86,7 @@ def _capture(page: Page, theme: str, density: str):
     else:
         page.evaluate(f"document.documentElement.setAttribute('data-density', {density!r})")
     page.wait_for_timeout(200)
-    return page.evaluate(DUMP_JS, PROPS)
+    return page.evaluate(DUMP_JS, [PROPS, OPAQUE_CLASSES])
 
 
 def _fixture_path(theme: str, density: str) -> str:

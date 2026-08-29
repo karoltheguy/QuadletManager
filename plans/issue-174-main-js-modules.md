@@ -221,9 +221,22 @@ the only place that shows how much of #174 is left.
     normalized rule blocks against `tests/fixtures/css_cascade_baseline.txt`.
     Deliberately order-agnostic, because the batches do reorder blocks. It
     catches a lost, duplicated or rewritten block, not a cascade change.
-  - `tests/e2e/test_css_computed_baseline.py` snapshots computed styles for 713
+  - `tests/e2e/test_css_computed_baseline.py` snapshots computed styles for 711
     elements across four theme and density combinations. This is the only guard
     that sees ordering.
+
+    It does not descend into `.server-quadlet-tree`, whose contents are fetched
+    over SSH per server: populated on a box with a reachable Podman host, empty
+    in CI, and empty locally whenever that connection is slow. Keying elements
+    by child-index path made that a 159-element difference and a CI failure at
+    77.7% coverage. Server rows, scope labels and the collapse toggle are still
+    covered, so most of `tree.css` is; the rules styling individual quadlet
+    entries are not, and #455 should lean on the unit guard for those.
+
+    For the same reason the cascade assertion compares shared paths against a
+    95% coverage floor rather than demanding identical path sets. A CSS-only
+    change cannot alter the DOM, so a path that appears on one side only is
+    content drift and carries no signal about the cascade.
 
   Regenerate both with `scripts/capture_css_baseline.py` and
   `scripts/capture_computed_baseline.py`. The second needs a backend on
