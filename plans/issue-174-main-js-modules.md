@@ -206,7 +206,29 @@ the only place that shows how much of #174 is left.
     `read_static_css()` and belongs in `ALLOWLISTED_BASENAMES` in
     `tests/test_css_source_helper.py`. `test_css_sheet_split.py` is there now.
 - **CSS split:** 1 of 10 landed. `tokens.css` came out with C2 (#450). The nine
-  sheets from `layout.css` down are unfiled.
+  remaining sheets are now filed as three batches, #453, #454 and #455, ahead of
+  a cascade guard in #452.
+- **Cascade guards (#452):** filed after re-reading the file showed the split
+  cannot preserve source order. `static/style.css:1197` opens a second design
+  pass, `SELECTIVE NEUMORPHISM`, that overrides the base rules above it and
+  redefines `body`. Every proposed sheet draws from both layers, so once two
+  sheets interleave them no link order reproduces today's order. Measured
+  damage is small: 5 of 320 selectors are redefined across that boundary, and
+  3 of the 5 straddle two different sheets. Small is not zero, and nothing in
+  the suite could see it, hence two guards:
+
+  - `tests/test_css_cascade_baseline.py` (unit) compares the multiset of
+    normalized rule blocks against `tests/fixtures/css_cascade_baseline.txt`.
+    Deliberately order-agnostic, because the batches do reorder blocks. It
+    catches a lost, duplicated or rewritten block, not a cascade change.
+  - `tests/e2e/test_css_computed_baseline.py` snapshots computed styles for 713
+    elements across four theme and density combinations. This is the only guard
+    that sees ordering.
+
+  Regenerate both with `scripts/capture_css_baseline.py` and
+  `scripts/capture_computed_baseline.py`. The second needs a backend on
+  localhost:8000. Regenerating is a deliberate act: it redefines what "unchanged"
+  means, so do it only when CSS legitimately changed.
 
 **Everything left on #174 is CSS.** The JS half meets its close conditions: all
 fifteen extractions landed, both dead globals are gone, and no test hardcodes
@@ -462,12 +484,28 @@ of them versioned, with no visual change.
 
 ## CSS split sequence (file each when its turn comes)
 
-Same discipline as the JS side: one sub-issue at a time, each a pure move of
-whole rule blocks with no rewriting, no consolidation of near-duplicate rules,
-and no specificity changes. The link order in `dashboard.html` must reproduce
-today's source order exactly, since several later blocks deliberately override
-earlier ones (the light-theme status dot tweaks at `style.css:2001` are one
-example).
+Each sheet is a pure move of whole rule blocks with no rewriting, no
+consolidation of near-duplicate rules, and no specificity changes.
+
+The sheets ship in three batches rather than one at a time, because the guards
+in #452 make a batch as verifiable as a single sheet while the per-sheet cost of
+capture and review does not shrink. Batching does not relax the move rules.
+
+- **#453:** `layout.css` and `components.css`. Together, since both draw heavily
+  on the override layer and their relative link order has to be settled once.
+  This batch also finds a home for the `@import` at `style.css:1`; a `<link>` in
+  the template is preferred to carrying it between sheets.
+- **#454:** `monitor.css`, `inspector.css`, `overview.css`. Self-contained panes.
+- **#455:** `terminal.css`, `settings.css`, `tree.css`,
+  `theme_customization.css`.
+
+The earlier claim that link order must reproduce source order exactly is not
+achievable and has been dropped; see the #452 note above. Two ordering
+constraints are real and were measured, both from selectors declared twice:
+`terminal.css` links before `settings.css` (`.terminal-shell-select` at
+`style.css:1100` and again at `:1630`), and `theme_customization.css` links last
+(it ends with the reduced-motion block). `.stat-badge.unhealthy` is the third
+straddler, at `:898` and near end of file, and lands inside #454.
 
 Proposed sheets, in link order, with their current line ranges:
 
@@ -573,7 +611,8 @@ around it.
   bridge.
 - The two dead globals `monitoringChart` and `healthHistoryChart` are gone.
 - C1 and C2 have landed and the CSS split sequence is complete. C1 (#447) and
-  C2 (#450) are done; nine sheets remain.
+  C2 (#450) are done. The nine remaining sheets ship as #453, #454 and #455,
+  behind the cascade guards in #452.
 - No test hardcodes `static/main.js` or `static/style.css` as a source path.
 
 Retiring the window bridge (#392) is deliberately **not** on this list. It is a
