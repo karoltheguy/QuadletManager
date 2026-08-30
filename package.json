@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server",
-    "eslint": "10.8.1",
+    "eslint": "10.9.1",
     "globals": "17.11.0"
   },
   "scripts": {
