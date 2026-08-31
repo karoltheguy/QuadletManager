@@ -1,0 +1,13 @@
+/* Editor pane styles: the Monaco host and its inset code well.
+   Extracted from static/style.css for issue #455. */
+
+/* Editor pane (Monaco host) — raised panel containing an inset code well */
+#editor-pane { padding: 1.5rem; }
+#editor-container {
+    background-color: var(--bg-base);
+    font-family: monospace;
+    font-size: 0.875rem;
+    flex: 1;
+    padding: 0.75rem;
+    min-height: 0;
+}
