@@ -95,12 +95,17 @@ def _asset_version(filename: str) -> int:
 
 STYLESHEETS = (
     "tokens.css",
+    "base.css",
     "layout.css",
     "components.css",
     "monitor.css",
     "inspector.css",
     "overview.css",
-    "style.css",
+    "editor.css",
+    "terminal.css",
+    "settings.css",
+    "tree.css",
+    "theme_customization.css",
 )
 
 
