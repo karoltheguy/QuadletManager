@@ -1,7 +1,7 @@
 """
 Tests for static asset cache-busting on the dashboard route.
 
-Issue: static/main.js and static/style.css are referenced from
+Issue: static/main.js and the stylesheets are referenced from
 templates/dashboard.html with no cache-busting query parameter, so a
 browser can keep serving a stale cached copy after a JS/CSS fix ships,
 making an already-fixed bug look "still broken" until a hard refresh.
@@ -24,7 +24,7 @@ from main import app
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MAIN_JS_PATH = os.path.join(REPO_ROOT, "static", "main.js")
-STYLE_CSS_PATH = os.path.join(REPO_ROOT, "static", "style.css")
+
 
 
 @pytest.fixture
@@ -37,17 +37,26 @@ def client():
 
 @pytest.mark.unit
 def test_dashboard_static_assets_carry_mtime_cache_buster(client):
-    """The rendered dashboard HTML must reference main.js/style.css with
-    a ?v=<mtime> query string matching the real file's mtime on disk."""
+    """The rendered dashboard HTML must reference main.js and every stylesheet
+    with a ?v=<mtime> query string matching the real file's mtime on disk.
+
+    The stylesheets come from api.routes.STYLESHEETS rather than a hardcoded
+    name, so the #174 sheet split cannot silently drop one out of this guard.
+    """
+    from api.routes import STYLESHEETS
+
     main_js_mtime = int(os.path.getmtime(MAIN_JS_PATH))
-    style_css_mtime = int(os.path.getmtime(STYLE_CSS_PATH))
 
     response = client.get("/")
     assert response.status_code == 200
     html = response.text
 
     assert f"/static/main.js?v={main_js_mtime}" in html
-    assert f"/static/style.css?v={style_css_mtime}" in html
+    for sheet in STYLESHEETS:
+        sheet_mtime = int(os.path.getmtime(os.path.join(REPO_ROOT, "static", sheet)))
+        assert f"/static/{sheet}?v={sheet_mtime}" in html, (
+            f"expected /static/{sheet}?v={sheet_mtime} in rendered dashboard HTML"
+        )
 
 
 @pytest.mark.unit

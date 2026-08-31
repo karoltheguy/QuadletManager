@@ -1,0 +1,27 @@
+/* Base styles: the reset, the global focus ring, and the flat data-surface
+   rule. App-wide rules owned by no single view or component.
+   Extracted from static/style.css for issue #455. */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+/* ── Data surfaces stay FLAT — anti-card-overuse rule for dense data.
+   Hairline + inset so they feel recessed into the raised panel. ── */
+#systemd-status,
+.status-box,
+.container-stats-card,
+.container-activity-log,
+.container-terminal-section,
+.stats-container,
+.stats-table-wrapper,
+.health-history-section,
+#editor-container {
+    background-color: var(--bg-base) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-inset);
+}
