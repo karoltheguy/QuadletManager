@@ -1,0 +1,224 @@
+/* Settings styles: sidenav, tables, forms, and admin layout.
+   Extracted from static/style.css for issue #455. */
+
+.settings-pane .header-bar {
+    padding: 1rem 1.5rem;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+/* ── Inner settings layout: sidenav + content ───────────── */
+.settings-sidenav-label {
+    padding: 0 1rem 0.4rem 1rem;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.settings-sidenav-item.active {
+    color: var(--brand-primary);
+    background-color: rgba(99, 102, 241, 0.1);
+    border-left-color: var(--brand-primary);
+}
+
+.settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--density-gap);
+    max-width: var(--settings-content-max, 820px);
+}
+
+/* Flat sections: grouped by proximity and a hairline divider, not nested
+   cards. Depth stays on the outer panel (chrome) and on the controls
+   themselves; the data groupings are flat. */
+.settings-section {
+    min-width: 0;             /* allow content to shrink below its size */
+    /* No overflow clip here: it would force overflow-y to `auto` too and
+       clip the controls' neumorphic shadows at the (now padding-less) flat
+       section edges. Settings tables are table-layout:fixed/width:100% so
+       they never overflow horizontally. */
+}
+
+.settings-section + .settings-section {
+    padding-top: var(--density-gap);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Forms and single-control groups take a reading width so their fields and
+   buttons don't stretch across the full content column. */
+.add-server-form,
+#admin-root {
+    max-width: var(--settings-control-max, 26rem);
+}
+
+.settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    table-layout: fixed;          /* prevent table from growing past card width */
+}
+
+.settings-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.settings-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.settings-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Actions column needs enough width for its action buttons; without this,
+   table-layout:fixed splits columns evenly and the blanket overflow:hidden
+   rule above clips the buttons (issue #219). Width holds two buttons
+   (Edit, Remove) after issue #229 moved the reset action into the edit panel. */
+/* Space the action buttons within the cell so they don't crowd (issue #227). */
+.settings-table td.actions-col {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.settings-table th.actions-col,
+.settings-table td.actions-col {
+    width: 12rem;
+    text-overflow: clip;
+}
+
+/* Narrower tables (SSH keys, Users) only need room for a single button. */
+.settings-keys-table th.actions-col,
+.settings-keys-table td.actions-col,
+.settings-users-table th.actions-col,
+.settings-users-table td.actions-col {
+    width: 8rem;
+}
+
+.add-server-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ── Settings: flat data, soft chrome (issue #225) ──────────
+   The neumorphic override above leaves primary and secondary
+   buttons differing only by text color, which erases hierarchy
+   on settings' task-focused forms. Inside settings only, the
+   primary action takes a real brand fill (higher selector
+   specificity than the unscoped '.btn-primary' above, so it
+   wins the cascade regardless of source order); app chrome
+   (terminal Connect, Tail Logs) keeps the soft treatment. */
+.settings-pane .btn-primary {
+    background-color: var(--brand-primary);
+    color: var(--brand-on-primary);
+}
+.settings-pane .btn-primary:hover {
+    background-color: var(--brand-hover);
+    color: var(--brand-on-primary);
+}
+
+/* Inputs get a real edge so the affordance does not rely on
+   shadow alone, while keeping the inset well character. */
+.settings-pane .form-control {
+    border: 1px solid var(--border-color);
+}
+
+/* ── Settings pane: single raised panel (like Monitor/Containers) holding
+   the sidenav + content directly — no inset sub-well, so the surface uses
+   one elevation model consistent with the rest of the app. ── */
+.settings-pane {
+    display: flex;
+    flex-direction: column;
+    padding: var(--density-panel-padding);
+}
+.settings-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+    background-color: transparent;
+    box-shadow: none;
+}
+.settings-sidenav {
+    width: var(--settings-sidenav-width, 220px);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: transparent;
+    border-right: 1px solid var(--border-color);
+    padding: 1rem 0.5rem;
+}
+.settings-sidenav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 500;
+    width: 100%;
+    border-radius: 999px;
+    border-left: none;
+    margin: 0.15rem 0.25rem;
+    padding: 0.55rem 0.9rem;
+    transition: box-shadow 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+.settings-sidenav-item:hover {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-raised-sm);
+}
+.settings-sidenav-item.active,
+.settings-sidenav-item.active:hover {
+    background-color: var(--bg-base);
+    color: var(--brand-primary);
+    box-shadow: var(--shadow-inset);
+    border-left: none;
+}
+/* Extra bottom room so the last control's raised shadow (and the control
+   itself) clears the scroll edge instead of being clipped by overflow. */
+.settings-main {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: var(--density-panel-padding);
+    padding-bottom: 2.5rem;
+}
+
+/* Settings table: flat with hairlines, no card chrome */
+.settings-table th,
+.settings-table td {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.badge-role {
+    display: inline-block;
+    background-color: var(--bg-base);
+    box-shadow: var(--shadow-inset);
+    color: var(--text-primary);
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}

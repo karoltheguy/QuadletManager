@@ -271,7 +271,7 @@ The dedicated Monitoring tab provides full-width container resource visualizatio
 | [`templates/partials/servers_list.html`](templates/partials/servers_list.html) | Server list rendering |
 | [`static/main.js`](static/main.js) | Monaco & xterm initialization, SSE handling, chart updates, tab switching |
 | [`static/quadlet_lint.js`](static/quadlet_lint.js) | Debounced client-side Quadlet diagnostics wired onto the editor model |
-| [`static/style.css`](static/style.css) | Custom styles, dark theme, and view control classes |
+| [`static/*.css`](static/) | Twelve sheets linked in cascade order from `STYLESHEETS` in [`api/routes.py`](api/routes.py): `tokens` (design tokens), `base` (reset, focus ring, flat data surfaces), `layout` (app shell, grids, panel chrome), `components` (typography, buttons, forms, modals, status dots), then one per view pane (`monitor`, `inspector`, `overview`, `editor`, `terminal`, `settings`, `tree`) and `theme_customization` last, since it ends with the reduced-motion overrides |
 | [`templates/partials/settings_servers.html`](templates/partials/settings_servers.html) | Settings server list configuration |
 | [`templates/partials/settings_users.html`](templates/partials/settings_users.html) | Settings user list with inline role editing |
 | [`templates/partials/settings_themes.html`](templates/partials/settings_themes.html) | Custom theme configuration |
