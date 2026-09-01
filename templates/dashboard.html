@@ -15,7 +15,7 @@
     {% for sheet in stylesheets %}
     <link rel="stylesheet" href="{{ asset_url(sheet) }}">
     {% endfor %}
-    <style id="qm-theme-overrides">
+    <style id="qm-theme-overrides" nonce="{{ request.state.csp_nonce }}">
       :root[data-theme="light"] {
         {% for k, v in active_theme_light.items() %}--{{ k|replace('_','-') }}: {{ v }};{% endfor %}
       }
