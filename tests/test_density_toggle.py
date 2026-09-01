@@ -3,7 +3,8 @@ import pytest
 Tests for UI Density toggle (Issue #109).
 - dashboard.html must have the density section with Relaxed/Compact radio buttons
 - style.css must define --density-* tokens and [data-density="compact"] overrides
-- FOUC-prevention: dashboard.html head must apply qm-density from localStorage
+- FOUC-prevention: dashboard.html head must load the boot script that applies
+  qm-density from localStorage before first paint
 """
 import os
 import re
@@ -11,6 +12,7 @@ import re
 from tests.css_source import read_static_css
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "dashboard.html")
+THEME_BOOT_PATH = os.path.join(os.path.dirname(__file__), "..", "static", "theme_boot.js")
 
 
 def _read(path):
@@ -60,12 +62,16 @@ class TestDensityHTML:
 
     @pytest.mark.unit
     def test_fouc_prevention_in_head(self):
+        # The logic moved out of the markup in #472, so assert the <head> loads
+        # the boot script and that the script itself does the density work.
         head_end = self.html.find('</head>')
         head = self.html[:head_end]
-        assert 'qm-density' in head, "FOUC-prevention script must read qm-density in <head>"
-        assert "data-density" in head or "dataset.density" in head, (
-            "FOUC-prevention script must set data-density on <html>"
+        assert 'theme_boot.js' in head, (
+            "FOUC-prevention boot script must be loaded in <head>"
         )
+        boot = _read(THEME_BOOT_PATH)
+        assert 'qm-density' in boot, "Boot script must read qm-density from localStorage"
+        assert 'dataset.density' in boot, "Boot script must set data-density on <html>"
 
 
 class TestDensityCSS:

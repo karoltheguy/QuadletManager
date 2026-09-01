@@ -252,8 +252,7 @@ def test_client_and_server_marker_owners_coexist(page: Page):
 @pytest.mark.e2e
 def test_repeated_unit_swaps_produce_no_console_errors(page: Page):
     """Swapping between units repeatedly (A -> B -> A) must not throw --
-    guards against duplicate Monaco URIs, disposed-model lint calls, or a
-    dead 'quadlet-lint-ready' listener."""
+    guards against duplicate Monaco URIs or disposed-model lint calls."""
     unit_a = ("web.container", "[Container]\nImage=nginx\n")
     unit_b = ("db.container", "[Container]\nImage=postgres\n")
 

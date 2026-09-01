@@ -67,21 +67,15 @@ def test_polling_alert_banner(page: Page):
 @pytest.mark.e2e
 def test_template_injection_into_editor(page: Page):
     """New quadlet created from template populates the Monaco editor with the correct boilerplate."""
+    # Mirrors templates/partials/editor_pane.html: the pane carries the file on
+    # data attributes and editor.js mounts it from its htmx:afterSwap listener.
+    # An inline <script> here would not match the real partial and is blocked by
+    # the script-src CSP (#472).
     editor_html = (
         '<div id="editor-pane" class="main-content">'
-        '<div id="editor-container" style="height:400px;width:100%"></div>'
-        '<script>'
-        '(function() {'
-        '  var tgt = document.getElementById("editor-container");'
-        '  require(["vs/editor/editor.main"], function() {'
-        '    if (window.editor) { window.editor.dispose(); }'
-        '    window.editor = monaco.editor.create(tgt, {'
-        '      value: "[Container]\\nImage=\\n",'
-        '      language: "ini", theme: "vs-dark", automaticLayout: true'
-        '    });'
-        '  });'
-        '})();'
-        '</script>'
+        '<div id="editor-container" style="height:400px;width:100%"'
+        ' data-file-name="test.container"'
+        ' data-file-content="[Container]&#10;Image=&#10;"></div>'
         '</div>'
     )
 

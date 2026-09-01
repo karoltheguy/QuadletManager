@@ -3,6 +3,7 @@
  * Monaco editor configuration, validation, and save handling.
  */
 import { applyEditorTheme } from '@qm/theme';
+import { attachQuadletLint, registerQuadletLintProviders } from '@qm/quadlet_lint';
 
 // Tracks unsaved edits. main.js's beforeunload handler reads it through
 // isEditorDirty(); it was `window._editorDirty` before #468.
@@ -143,8 +144,8 @@ export function mountEditorPane(targetContainer) {
     const fileName = targetContainer ? targetContainer.dataset.fileName : '';
     const fileContent = targetContainer ? targetContainer.dataset.fileContent : '';
     require(['vs/editor/editor.main'], function() {
-        if (!window._quadletProvidersRegistered && window.registerQuadletLintProviders) {
-            window.registerQuadletLintProviders(monaco, 'ini');
+        if (!window._quadletProvidersRegistered) {
+            registerQuadletLintProviders(monaco, 'ini');
             window._quadletProvidersRegistered = true;
         }
 
@@ -173,14 +174,10 @@ export function mountEditorPane(targetContainer) {
         function startQuadletLint() {
             if (!document.body.contains(targetContainer)) return;
             if (window.editor && window.editor.getModel() !== model) return;
-            window._quadletLintDetach = window.attachQuadletLint(monaco, model);
+            window._quadletLintDetach = attachQuadletLint(monaco, model);
         }
 
-        if (window._quadletLintReady) {
-            startQuadletLint();
-        } else {
-            document.addEventListener('quadlet-lint-ready', startQuadletLint, { once: true });
-        }
+        startQuadletLint();
     });
 }
 

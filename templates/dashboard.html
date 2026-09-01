@@ -1,29 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-pref="{{ active_theme_mode_pref or 'auto' }}">
 <head>
     <title>QuadletManager Setup</title>
-    <script>
-      (function () {
-        try {
-          var pref = {{ active_theme_mode_pref | tojson }};
-          var quickOverride = localStorage.getItem('qm-theme-override');
-          var effective = quickOverride || pref || 'auto';
-          var resolved = effective === 'auto'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : effective;
-          document.documentElement.dataset.theme = resolved;
-        } catch (e) {}
-        try {
-          var density = localStorage.getItem('qm-density');
-          if (density === 'compact') document.documentElement.dataset.density = 'compact';
-        } catch (e) {}
-      })();
-    </script>
+    <script src="{{ asset_url('theme_boot.js') }}"></script>
     <script src="{{ asset_url('vendor/htmx/htmx.min.js') }}"></script>
     <script src="{{ asset_url('vendor/chartjs/chart.umd.js') }}"></script>
     <script src="{{ asset_url('vendor/xterm/xterm.js') }}"></script>
     <script src="{{ asset_url('vendor/xterm/xterm-addon-fit.js') }}"></script>
-    <script type="importmap">{{ module_import_map()|tojson }}</script>
+    <script type="importmap" nonce="{{ request.state.csp_nonce }}">{{ module_import_map()|tojson }}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -566,13 +550,6 @@
 
     <script src="{{ asset_url('vendor/monaco/vs/loader.js') }}"></script>
     <script type="module" src="{{ asset_url('quadlet_lint.js') }}" data-quadlet-lint-loader></script>
-    <script type="module">
-        import { attachQuadletLint, registerQuadletLintProviders } from '{{ asset_url('quadlet_lint.js') }}';
-        window.attachQuadletLint = attachQuadletLint;
-        window.registerQuadletLintProviders = registerQuadletLintProviders;
-        window._quadletLintReady = true;
-        document.dispatchEvent(new Event('quadlet-lint-ready'));
-    </script>
     <script type="module" src="{{ asset_url('main.js') }}"></script>
 </body>
 </html>

@@ -167,6 +167,10 @@ def test_expand_only_affects_dashboard_tab(page: Page):
 
 # ── Editor-loaded toggle (Issue #102) ───────────────────────────────────────
 
+# Mirrors templates/partials/editor_pane.html: the pane carries the file on
+# data attributes and editor.js mounts it from its htmx:afterSwap listener.
+# An inline <script> here would not match the real partial and is blocked by
+# the script-src CSP (#472).
 MOCK_EDITOR_HTML = (
     '<div id="editor-pane" class="main-content">'
     '<div class="header-bar">'
@@ -177,20 +181,9 @@ MOCK_EDITOR_HTML = (
     ' data-action="toggle-inspector-expand" title="Collapse inspector"'
     ' aria-label="Collapse inspector"></button>'
     '</div></div>'
-    '<div id="editor-container" style="flex:1;min-height:200px;"></div>'
-    '<script>'
-    '(function(){'
-    '  var tgt = document.getElementById("editor-container");'
-    '  require(["vs/editor/editor.main"], function(){'
-    '    if (!document.body.contains(tgt)) return;'
-    '    if (window.editor){ window.editor.dispose(); }'
-    '    window.editor = monaco.editor.create(tgt, {'
-    '      value: "[Container]\\nImage=nginx\\n",'
-    '      language: "ini", theme: "vs-dark", automaticLayout: true'
-    '    });'
-    '  });'
-    '})();'
-    '</script>'
+    '<div id="editor-container" style="flex:1;min-height:200px;"'
+    ' data-file-name="test.container"'
+    ' data-file-content="[Container]&#10;Image=nginx&#10;"></div>'
     '</div>'
 )
 

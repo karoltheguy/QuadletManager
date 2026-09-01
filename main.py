@@ -15,6 +15,7 @@ from api.routes import (
 from api.routes import router as web_router
 from core.crypto import ensure_master_key
 from core.database import init_db
+from core.security_headers import build_csp, generate_nonce
 from core.version import get_version
 from services.container_events import container_events_cleanup_loop
 from services.ssh_manager import pool
@@ -89,6 +90,19 @@ async def lifespan(app: FastAPI):
     await pool.close_all()
 
 app = FastAPI(title="QuadletManager Dashboard", lifespan=lifespan)
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Attach Content-Security-Policy headers with a per-request nonce.
+
+    The nonce is generated per request and stored on request.state before route
+    execution so that templates (notably the dashboard importmap) can render it.
+    """
+    nonce = generate_nonce()
+    request.state.csp_nonce = nonce
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = build_csp(nonce)
+    return response
 
 @app.exception_handler(AuthRedirect)
 async def redirect_on_auth(request: Request, exc: AuthRedirect):

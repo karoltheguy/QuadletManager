@@ -30,6 +30,11 @@ def _editor_pane_html():
         return f.read()
 
 
+def _editor_js():
+    with open(EDITOR_JS_PATH, encoding="utf-8") as f:
+        return f.read()
+
+
 def _mount_editor_pane_js():
     """Source of editor.js's mountEditorPane(), sliced out of the module.
 
@@ -240,17 +245,6 @@ def test_quadlet_lint_js_defines_register_providers_helper():
 
 
 @pytest.mark.unit
-def test_dashboard_exposes_register_providers_on_window():
-    html = _dashboard_html()
-    assert "window.registerQuadletLintProviders" in html, (
-        "Expected dashboard.html's inline <script type=\"module\"> block to assign "
-        "window.registerQuadletLintProviders = registerQuadletLintProviders (alongside "
-        "the existing window.attachQuadletLint assignment), so that non-module scripts "
-        "such as editor_pane.html can call it."
-    )
-
-
-@pytest.mark.unit
 def test_editor_pane_registers_providers_once_behind_guard():
     html = _mount_editor_pane_js()
     assert "registerQuadletLintProviders(" in html, (
@@ -285,5 +279,67 @@ def test_editor_pane_registers_providers_before_liveness_guard():
         "document.body.contains(targetContainer) liveness early-return in the require() "
         "callback. Provider registration must not be gated behind the per-pane liveness "
         "early-returns, or a fast first-pane swap can permanently skip global provider "
-        "registration (the quadlet-lint-ready listener is once:true)."
+        "registration entirely."
     )
+
+
+@pytest.mark.unit
+def test_dashboard_has_no_inline_module_script():
+    html = _dashboard_html()
+    inline_module_tags = [
+        m.group(0)
+        for m in re.finditer(r"<script\b([^>]*)>", html, re.IGNORECASE)
+        if re.search(r'\btype=["\']module["\']', m.group(1), re.IGNORECASE)
+        and not re.search(r'\bsrc\s*=', m.group(1), re.IGNORECASE)
+    ]
+    assert not inline_module_tags, (
+        "Expected dashboard.html to contain no inline <script type=\"module\"> blocks "
+        f"without a src attribute, but found: {inline_module_tags}. Issue #472 eliminates "
+        "inline module scripts so 'unsafe-inline' can be removed from the script-src CSP."
+    )
+
+
+@pytest.mark.unit
+def test_import_map_exposes_quadlet_lint():
+    from api.routes import asset_url, module_import_map
+
+    assert (
+        module_import_map()["imports"].get("@qm/quadlet_lint")
+        == asset_url("quadlet_lint.js")
+    ), (
+        'Expected module_import_map()["imports"]["@qm/quadlet_lint"] to equal '
+        f'{asset_url("quadlet_lint.js")!r} so ES modules can import "@qm/quadlet_lint" '
+        f'directly, but got {module_import_map()["imports"].get("@qm/quadlet_lint")!r}.'
+    )
+
+
+@pytest.mark.unit
+def test_editor_imports_quadlet_lint_helpers():
+    js = _editor_js()
+    match = re.search(
+        r"import\s*\{(?=[^}]*\battachQuadletLint\b)(?=[^}]*\bregisterQuadletLintProviders\b)[^}]*\}\s*from\s*['\"]@qm/quadlet_lint['\"]",
+        js,
+    )
+    assert match, (
+        "Expected static/modules/editor.js to contain a static import statement pulling "
+        "both `attachQuadletLint` and `registerQuadletLintProviders` from '@qm/quadlet_lint'."
+    )
+
+
+@pytest.mark.unit
+def test_no_static_js_reads_quadlet_lint_globals():
+    from tests.js_source import read_static_js
+
+    js = read_static_js()
+    forbidden = (
+        "window.attachQuadletLint",
+        "window.registerQuadletLintProviders",
+        "window._quadletLintReady",
+    )
+    found = [name for name in forbidden if name in js]
+    assert not found, (
+        "Expected no static JavaScript to read quadlet-lint globals on window, "
+        f"but found references to: {found}. Issue #472 removes window globals in favor "
+        "of direct ES module imports from '@qm/quadlet_lint'."
+    )
+
