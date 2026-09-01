@@ -20,7 +20,6 @@ from api.sockets import stream_logs_over_websocket, exec_terminal_over_websocket
 from services.ssh_manager import pool, SSHCommandError
 from services.quadlet_parser import validate_quadlet_syntax, QuadletValidationError
 from services.remote_fs import ensure_within_quadlet_dir, is_global_scope, quadlet_dir_for_scope, write_remote_file
-from services.tree_scanner import fetch_all_quadlets
 from services.systemd_manager import systemctl_action, reload_and_restart
 from services.quadlet_validator import validate_remote
 import services.sync_engine as sync_engine

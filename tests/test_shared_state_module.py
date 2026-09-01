@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from main import app
-from tests.js_source import read_static_js, static_js_files
+from tests.js_source import static_js_files
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 

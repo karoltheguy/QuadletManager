@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from services.remote_fs import GLOBAL_QUADLET_DIR, USER_QUADLET_SUBDIR
+from services.remote_fs import USER_QUADLET_SUBDIR
 
 
 @pytest.mark.unit

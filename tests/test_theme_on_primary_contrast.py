@@ -35,7 +35,6 @@ from core.database import init_db
 
 # Reused WCAG helper pattern (see tests/test_brand_teal_contrast.py lines 32-54).
 from tests.test_brand_teal_contrast import (
-    relative_luminance,
     contrast_ratio,
     WCAG_AA_MIN,
 )
@@ -103,7 +102,6 @@ async def test_load_active_theme_injects_brand_on_primary_for_custom_colors(fres
     light_brand = "#7a7f4a"
     dark_brand = "#767676"
 
-    now = int(_time.time())
     light_overrides = _json.dumps({"brand_primary": light_brand})
     dark_overrides = _json.dumps({"brand_primary": dark_brand})
     async with aiosqlite.connect(fresh_db) as db:

@@ -63,7 +63,7 @@ def test_get_quadlet_tree_issues_no_ssh_commands(client):
     _setup_server()
 
     with patch("api.routes.pool.execute_command", new_callable=AsyncMock) as mock_exec, \
-         patch("api.routes.fetch_all_quadlets", new_callable=AsyncMock) as mock_fetch:
+         patch("api.routes.fetch_all_quadlets", create=True, new_callable=AsyncMock) as mock_fetch:
         client.get("/api/quadlets/1")
         assert mock_exec.await_count == 0
         assert mock_fetch.await_count == 0
@@ -75,7 +75,7 @@ def test_get_quadlet_tree_renders_from_db(client):
     _setup_server_and_quadlets()
 
     with patch("api.routes.pool.execute_command", new_callable=AsyncMock) as mock_exec, \
-         patch("api.routes.fetch_all_quadlets", new_callable=AsyncMock) as mock_fetch:
+         patch("api.routes.fetch_all_quadlets", create=True, new_callable=AsyncMock) as mock_fetch:
         response = client.get("/api/quadlets/1")
         assert response.status_code == 200
         assert "web.container" in response.text
@@ -91,8 +91,8 @@ def test_get_quadlet_tree_renders_from_db(client):
 def test_get_quadlet_tree_unscanned_server(client):
     _setup_server()
 
-    with patch("api.routes.pool.execute_command", new_callable=AsyncMock) as mock_exec, \
-         patch("api.routes.fetch_all_quadlets", new_callable=AsyncMock) as mock_fetch:
+    with patch("api.routes.pool.execute_command", new_callable=AsyncMock), \
+         patch("api.routes.fetch_all_quadlets", create=True, new_callable=AsyncMock):
         response = client.get("/api/quadlets/1")
         assert response.status_code == 200
         assert "Not yet scanned" in response.text
@@ -103,8 +103,8 @@ def test_get_quadlet_tree_unscanned_server(client):
 def test_get_quadlet_tree_empty_reconciled_server(client):
     _setup_server_reconciled()
 
-    with patch("api.routes.pool.execute_command", new_callable=AsyncMock) as mock_exec, \
-         patch("api.routes.fetch_all_quadlets", new_callable=AsyncMock) as mock_fetch:
+    with patch("api.routes.pool.execute_command", new_callable=AsyncMock), \
+         patch("api.routes.fetch_all_quadlets", create=True, new_callable=AsyncMock):
         response = client.get("/api/quadlets/1")
         assert response.status_code == 200
         assert "Not yet scanned" not in response.text

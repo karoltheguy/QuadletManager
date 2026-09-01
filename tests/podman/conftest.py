@@ -190,7 +190,7 @@ async def sweep_e2e_podman_objects(server_id: int, scope: str) -> None:
     prefix = "" if is_global_scope(scope) else f"{ROOTLESS_ENV_PREFIX} "
     use_sudo = is_global_scope(scope)
 
-    for kind, list_cmd, rm_cmd in (
+    for _, list_cmd, rm_cmd in (
         ("container", "podman ps -a --format '{{.Names}}'", "podman rm -f"),
         ("pod", "podman pod ps --format '{{.Name}}'", "podman pod rm -f"),
     ):

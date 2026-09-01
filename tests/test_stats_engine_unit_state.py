@@ -13,7 +13,6 @@ clear ImportError, instead of a collection error that would kill every test
 in the file.
 """
 import json
-import time
 
 import aiosqlite
 import pytest
@@ -23,7 +22,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from services.stats_engine import (
     _fetch_scope_stats,
     fetch_server_stats,
-    ROOTLESS_ENV_PREFIX,
 )
 
 

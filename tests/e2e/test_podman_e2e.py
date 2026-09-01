@@ -28,7 +28,6 @@ from playwright.sync_api import expect
 
 from .podman_ui import (
     BASE_URL,
-    BUSYBOX_QUADLET,
     E2E_PREFIX,
     SERVER_LABEL,
     USER_QUADLET_DIR,

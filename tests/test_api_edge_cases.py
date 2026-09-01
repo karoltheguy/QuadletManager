@@ -119,7 +119,7 @@ def test_api_systemctl_post_ssh_command_error(client):
 @pytest.mark.unit
 def test_api_systemctl_post_status_fetch_failure_not_misreported(client):
     with patch("api.routes.systemctl_action") as mock_action, \
-         patch("api.routes.record_container_event", new_callable=AsyncMock) as mock_record:
+         patch("api.routes.record_container_event", new_callable=AsyncMock):
         # systemctl status exits 3 for an inactive unit; the action call itself
         # succeeded, so this must not be reported as an action failure.
         mock_action.side_effect = [

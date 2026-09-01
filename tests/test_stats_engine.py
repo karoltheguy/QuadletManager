@@ -814,7 +814,7 @@ def test_parse_running_containers_and_health():
         {"Names": "", "HealthStatus": "healthy"},  # Empty name should be skipped
     ]
 
-    names, health_map, unit_map = _parse_running_containers_and_health(ps_data)
+    names, health_map, _ = _parse_running_containers_and_health(ps_data)
     assert names == ["c1", "c2"]
     assert health_map == {"c1": "healthy", "c2": "unhealthy"}
 
@@ -848,7 +848,7 @@ def test_parse_running_containers_and_health_returns_unit_map():
         {"Names": "c4", "HealthStatus": "healthy"},
     ]
 
-    names, health_map, unit_map = _parse_running_containers_and_health(ps_data)
+    names, _, unit_map = _parse_running_containers_and_health(ps_data)
     assert names == ["c1", "c2", "c3", "c4"]
     assert unit_map == {"c1": "web.service", "c2": "", "c3": "", "c4": ""}
 
