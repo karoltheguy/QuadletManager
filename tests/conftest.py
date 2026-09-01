@@ -1,5 +1,4 @@
 import asyncio
-import os
 import shutil
 import socket
 from urllib.parse import urlparse
