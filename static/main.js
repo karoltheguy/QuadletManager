@@ -11,12 +11,10 @@ import { initModalDismissal, dismissModal } from '@qm/modals';
 import { toggleServerEdit, initServerReorder } from '@qm/settings';
 import { openBottomPanel, toggleBottomPanel, toggleBottomPanelExpand,
          switchBottomTab, initResizableHandles, initPanel } from '@qm/panel';
-import { unitNameFor, stemFromUnitName } from '@qm/units';
-import { tailLogsFromPanel, createLogTab, switchLogTab,
-         closeLogTab, initLogs } from '@qm/logs';
+import { stemFromUnitName } from '@qm/units';
+import { tailLogsFromPanel, createLogTab, initLogs } from '@qm/logs';
 import { connectTerminal, createTerminalTab, loadFitAddon,
-         switchTerminalTab, closeTerminalTab, sessionAddNew,
-         initTerminal } from '@qm/terminal';
+         sessionAddNew, initTerminal } from '@qm/terminal';
 import { toggleChartSelection, loadMonitorCharts,
          initCpuChart, initMemChart } from '@qm/charts';
 import { validateQuadlet, saveQuadlet, initEditor } from '@qm/editor';
@@ -32,7 +30,7 @@ import { toggleServerCollapse, restoreServerCollapseStates,
          applyStatusDots, showFileContextMenu, confirmDeleteFile,
          executeDeleteFile, initTree } from '@qm/tree';
 import { connectSSE, fetchPollHealthSnapshot, applyPollHealthBadges,
-         handleQuadletsChanged, handleStatsUpdate, handleStatsError,
+         handleStatsUpdate, handleStatsError,
          startStatsWaitTimeout } from '@qm/sse';
 
 // ── Profile Menu ─────────────────────────────────────────
@@ -609,36 +607,28 @@ initServerReorder();
 initEditor();
 
 // ── Window Bridge ──────────────────────────────────────────
-// Expose functions and state on `window` for the three consumers still reading
-// global names: the few remaining inline handlers in templates/, main.js's own
-// window reads, and tests/e2e/ via page.evaluate. selectContainerStem and
-// setActiveServer are held here only by that last one, test_inspector_stats_card.py
-// and test_monitoring_ui.py, and no longer by any inline handler.
+// Expose functions and state on `window` for the two consumers still reading
+// global names: main.js's own window reads, and tests/e2e/ via page.evaluate.
+// No inline handler in templates/ reaches the bridge any more, so a name is
+// held here only by one of those two, and an entry neither of them names is
+// dead weight.
 Object.assign(window, {
   _editorDirty: false,
   _logTabs,
   _terminalTabs,
   applyEditorTheme,
   applyStatusDots,
-  closeLogTab,
-  closeTerminalTab,
   confirmDeleteFile,
   executeDeleteFile,
-  handleQuadletsChanged,
   handleStatsError,
   handleStatsUpdate,
   lastStatsPerServer,
   openBottomPanel,
   renderContainerStatsTable,
   runningContainersBySid,
-  safeReload,
   selectContainerStem,
   setActiveServer,
-  stemFromUnitName,
-  switchLogTab,
-  switchTerminalTab,
   toggleChartSelection,
-  unitNameFor,
   updateInspectorActivityLog,
   updateInspectorStatsCard,
 });

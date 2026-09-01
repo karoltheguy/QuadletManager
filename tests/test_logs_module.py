@@ -213,11 +213,12 @@ def test_main_js_imports_moved_functions_by_bare_specifier():
     logs_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/logs['\"]", content)
     assert logs_match, "main.js must import from the '@qm/logs' bare specifier"
     imported_logs = {n.strip() for n in logs_match.group(1).split(",") if n.strip()}
+    # switchLogTab and closeLogTab left this list in #465, for the same reason
+    # refreshSessionsStripVisibility left it below: main.js held them only for the
+    # window bridge, so retiring the bridge entry left the import unused.
     for name in [
         "tailLogsFromPanel",
         "createLogTab",
-        "switchLogTab",
-        "closeLogTab",
         "initLogs",
     ]:
         assert name in imported_logs, f"main.js must import {name} from @qm/logs"
@@ -226,7 +227,8 @@ def test_main_js_imports_moved_functions_by_bare_specifier():
     units_match = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]@qm/units['\"]", content)
     assert units_match, "main.js must import from the '@qm/units' bare specifier"
     imported_units = {n.strip() for n in units_match.group(1).split(",") if n.strip()}
-    for name in ["unitNameFor", "stemFromUnitName"]:
+    # unitNameFor left this list in #465; main.js no longer calls it.
+    for name in ["stemFromUnitName"]:
         assert name in imported_units, f"main.js must import {name} from @qm/units"
 
     # main.js no longer imports refreshSessionsStripVisibility itself. #428 needed
@@ -251,7 +253,7 @@ def test_main_js_calls_init_logs():
 
 @pytest.mark.unit
 def test_window_bridge_retains_log_and_unit_globals():
-    """Assert _logTabs, closeLogTab, switchLogTab, unitNameFor, and stemFromUnitName remain in the window bridge."""
+    """Assert _logTabs remains in the window bridge."""
     main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
     assert main_js_file is not None, "main.js not found in static_js_files()"
 
@@ -263,14 +265,11 @@ def test_window_bridge_retains_log_and_unit_globals():
     assert bridge_end != -1, "End of Object.assign(window, { ... }); block not found in main.js"
 
     bridge_body = content[bridge_start:bridge_end]
-    for name in [
-        "_logTabs",
-        "closeLogTab",
-        "switchLogTab",
-        "unitNameFor",
-        "stemFromUnitName",
-    ]:
+    # main.js reads `window._logTabs` directly, so this one entry is load-bearing.
+    # closeLogTab, switchLogTab, unitNameFor and stemFromUnitName left the bridge
+    # in #465: nothing outside main.js's own imports referenced them any more.
+    for name in ["_logTabs"]:
         assert name in bridge_body, (
             f"{name} must remain in the Object.assign(window, {{ ... }}) bridge; "
-            "templates and e2e tests access it via window and would break without it"
+            "main.js reads it as window.NAME and would see undefined without it"
         )
