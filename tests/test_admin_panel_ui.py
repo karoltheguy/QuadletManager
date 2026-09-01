@@ -138,6 +138,7 @@ def _render_dashboard(is_admin: bool, user_role: str = 'editor') -> str:
     """Render dashboard.html with Jinja2 directly and return the HTML string."""
     from jinja2 import Environment, FileSystemLoader
     import os
+    from types import SimpleNamespace
 
     from api.routes import asset_url, module_import_map
 
@@ -148,7 +149,12 @@ def _render_dashboard(is_admin: bool, user_role: str = 'editor') -> str:
     env.globals['asset_url'] = asset_url
     env.globals['module_import_map'] = module_import_map
     template = env.get_template('dashboard.html')
+    # dashboard.html reads request.state.csp_nonce for the import map's CSP
+    # nonce (#472). The app supplies it from middleware; this bare render has
+    # no real request, so stand one in.
+    request = SimpleNamespace(state=SimpleNamespace(csp_nonce="test-nonce"))
     return template.render(
+        request=request,
         user_role=user_role,
         is_admin=is_admin,
         active_theme_mode_pref="auto",

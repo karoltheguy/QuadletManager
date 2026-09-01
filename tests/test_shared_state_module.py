@@ -96,11 +96,14 @@ def test_dashboard_emits_the_import_map_before_any_module_script():
             assert response.status_code == 200
             html = response.text
 
-    assert '<script type="importmap">' in html, (
-        'Dashboard HTML does not contain <script type="importmap">'
+    importmap_match = re.search(
+        r'<script\b[^>]*type=["\']importmap["\'][^>]*>', html, re.IGNORECASE
+    )
+    assert importmap_match, (
+        'Dashboard HTML does not contain a <script type="importmap"> tag'
     )
 
-    importmap_index = html.index('<script type="importmap">')
+    importmap_index = importmap_match.start()
     module_matches = list(re.finditer(r'<script\b[^>]*type=["\']module["\'][^>]*>', html, re.IGNORECASE))
     assert module_matches, 'Dashboard HTML must contain at least one type="module" script tag'
 
