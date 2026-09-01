@@ -20,15 +20,12 @@ pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT, reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 
 
 @pytest.mark.e2e
 def test_editor_follows_theme_toggle_in_follow_mode(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 - skipping E2E test.")
+    goto_app(page)
 
     # Precondition: reproduce the editor-view condition where 'monitoringChart' is
     # an undefined global. If some monitoring script defined it this session, the
@@ -93,10 +90,7 @@ def test_editor_theme_radio_persists_the_selection(page: Page):
     delegated 'toggle-editor-theme' action, a broken dispatch would leave these
     radios inert with every unit test still green.
     """
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 - skipping E2E test.")
+    goto_app(page)
 
     page.click("button.nav-item:has-text('Settings')")
     page.click(".settings-sidenav-item[data-section='themes']")

@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 
 
 @pytest.mark.e2e
@@ -39,10 +39,7 @@ def test_add_server_button_resolves_unambiguously_via_get_by_role(page: Page):
     the visible 'Add Server' button in DOM order, so a CSS-class selector
     like '#settings-pane .btn-primary' is ambiguous. A role-based locator
     must resolve to exactly the visible 'Add Server' button instead."""
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    goto_app(page)
 
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()

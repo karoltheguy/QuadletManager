@@ -17,7 +17,7 @@ clears 4.5:1.
 Expected to FAIL until static/main.js's applyThemePreview() derives and
 emits a WCAG-AA-compliant --brand-on-primary (Issue #233).
 
-NOTE: the backend is not running on localhost:8000 in CI/dev sandboxes, so
+NOTE: the backend is not running at QM_APP_URL in CI/dev sandboxes, so
 this test is expected to SKIP via _goto_themes()'s page.goto() guard.
 """
 import pytest
@@ -35,7 +35,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 _HOSTILE_BRAND = "#7a7f4a"
 
 
@@ -83,10 +83,7 @@ def _normalize_color(value: str) -> str:
 
 
 def _goto_themes(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    goto_app(page)
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()
     page.click(".settings-sidenav-item[data-section='themes']")

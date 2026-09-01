@@ -1,6 +1,6 @@
 """Playwright E2E tests for SSH key dropdown in Add Server form (issues #64, #86).
 
-Requires the backend running on localhost:8000.
+Requires the backend running at QM_APP_URL.
 Unit tests (no browser required) live in tests/test_server_key_dropdown.py.
 """
 import pytest
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT, reason="Playwright not installed"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright not installed")

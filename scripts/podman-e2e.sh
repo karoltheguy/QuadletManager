@@ -12,6 +12,9 @@
 # Two targets, one test suite. See docs/TESTING.md.
 #   A) container (default): localhost:2223, user `editor`. What CI runs.
 #   B) loopback (opt-in):   localhost:22, user `quadlet-test`, native podman.
+#
+# For the browser (`e2e`) suite, use scripts/browser-e2e.sh instead. It
+# provisions an app the same way but seeds no podman host.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

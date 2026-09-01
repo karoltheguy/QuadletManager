@@ -1,4 +1,5 @@
 import pytest
+from tests.app_url import BASE_URL
 
 try:
     from playwright.sync_api import Page, expect
@@ -11,14 +12,14 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="Playwright is not installed in this environment")
 
 # E2E test using Playwright
-# To run this, the backend must be running on localhost:8000
+# To run this, the backend must be running at QM_APP_URL
 # pytest tests/test_e2e.py
 
 @pytest.mark.e2e
 def test_editor_load(page: Page):
     """Test that the application UI loads the main elements"""
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -51,7 +52,7 @@ def test_polling_alert_banner(page: Page):
     )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -89,7 +90,7 @@ def test_template_injection_into_editor(page: Page):
     )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 

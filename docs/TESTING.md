@@ -51,17 +51,66 @@ These tests run entirely in-process with mocked dependencies. No backend, databa
 PYTHONPATH=. pytest tests/
 ```
 
-E2E tests require:
-- The backend running on `http://localhost:8000` (`python main.py`)
-- Chromium installed via `playwright install chromium`
-
-E2E tests that cannot reach the backend will skip automatically rather than fail.
+E2E tests require a running backend and Chromium (`playwright install chromium`).
+They skip automatically rather than fail when they cannot reach the backend, so
+a green run is not by itself proof that the browser suite executed. Check the
+count.
 
 ### Browser (E2E) tests only
 
 ```bash
-PYTHONPATH=. pytest tests/e2e/
+scripts/browser-e2e.sh test
 ```
+
+That is the whole thing. The script provisions an app for the run and removes it
+afterwards, so nothing is left behind and no port has to be free in advance.
+
+#### What it does behind the curtain
+
+1. Makes a temp directory and points `QUADLET_DB_PATH` at a scratch database
+   inside it, so your own `quadlets.db` is never touched.
+2. Sets `QUADLET_MASTER_KEY` to a throwaway value and runs `init_db()` and
+   `scripts/seed_test_db.py` against the scratch database. The seeder and the app
+   must share that key, or the seeded server's encrypted SSH key cannot be
+   decrypted and the server list renders broken.
+3. Picks a free port, starts `uvicorn main:app` on it with `DEV_AUTO_LOGIN=1`
+   (the browser tests all start from an authenticated dashboard, and
+   `docker-compose.test.yml` sets the same variable in CI), and waits for it to
+   answer.
+4. Exports `QM_APP_URL` to that port's URL and runs `pytest tests/ -m e2e`.
+5. On exit, for any reason, kills the app and deletes the temp directory.
+
+Three tests in `test_server_reorder_e2e.py` skip under this script: the seeder
+creates one server and they need two. That is expected, not a broken setup.
+
+Extra arguments go to pytest:
+
+```bash
+scripts/browser-e2e.sh test tests/e2e/test_profile_menu.py -v
+scripts/browser-e2e.sh test -k theme
+```
+
+To drive the UI by hand against the same scratch app, use `scripts/browser-e2e.sh app`.
+It starts the app, prints its URL and waits until you interrupt it.
+
+#### Pointing the suite at your own app
+
+Set `QM_APP_URL` and the script stands aside:
+
+```bash
+QM_APP_URL=http://localhost:8000 scripts/browser-e2e.sh test
+```
+
+Every browser test reads its base URL from `tests/app_url.py`, which is the one
+place `QM_APP_URL` is resolved and where the `http://localhost:8000` default
+lives. Do not hardcode a URL in a test; `tests/test_e2e_base_url.py` fails the
+build if you do.
+
+`QM_APP_URL` must be exported for the *whole* pytest invocation, not just for the
+app process. `tests/conftest.py` reads it to decide whether an app is reachable
+at all, and skips every `page`-fixture test when nothing answers. A suite pointed
+at the wrong port therefore reports a green run with zero browser coverage rather
+than an error, which is the failure this arrangement exists to prevent.
 
 ### Single file
 
@@ -418,16 +467,18 @@ Use `await` directly — never `asyncio.run()` inside a fixture or test. `asynci
 
 ### Adding a new E2E test
 
-Create a file in `tests/e2e/`. Use the `page: Page` fixture from pytest-playwright. Always guard with a `try/except` and `pytest.skip()` so the test skips gracefully when the backend is not running:
+Create a file in `tests/e2e/`. Use the `page: Page` fixture from pytest-playwright. Import `BASE_URL` rather than writing a URL: `tests/test_e2e_base_url.py` fails the build on a hardcoded one, because a test that ignores `QM_APP_URL` silently skips instead of failing. Always guard with a `try/except` and `pytest.skip()` so the test skips gracefully when the backend is not running:
 
 ```python
 from playwright.sync_api import Page, expect
 
+from tests.app_url import BASE_URL
+
 def test_my_feature(page: Page):
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend not running on localhost:8000")
+        pytest.skip(f"Backend not running at {BASE_URL}")
 
     expect(page.locator("#my-element")).to_be_visible()
 ```
