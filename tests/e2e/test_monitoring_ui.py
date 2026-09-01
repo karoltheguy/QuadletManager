@@ -114,7 +114,7 @@ def select_injected_server(page: Page, server_id, option_count):
     the test supplied `servers=` to `open_monitor_pane`.
     """
     page.wait_for_function(
-        "document.getElementById('monitoring-server-select').options.length >= "
+        "() => document.getElementById('monitoring-server-select').options.length >= "
         f"{option_count}"
     )
     page.locator("#monitoring-server-select").select_option(str(server_id))
@@ -130,7 +130,7 @@ def select_injected_server(page: Page, server_id, option_count):
 
 def wait_for_chart_series(page: Page, count):
     page.wait_for_function(
-        "Chart.getChart('cpu-history-chart') && "
+        "() => Chart.getChart('cpu-history-chart') && "
         "Chart.getChart('cpu-history-chart').data.datasets.length === "
         f"{count}"
     )
@@ -230,7 +230,7 @@ def test_monitor_charts_show_error_on_history_fetch_failure(page: Page):
         # interval; give them a moment to show up before giving up.
         with contextlib.suppress(PlaywrightError):
             page.wait_for_function(
-                "document.getElementById('monitoring-server-select').options.length > 1",
+                "() => document.getElementById('monitoring-server-select').options.length > 1",
                 timeout=8000,
             )
         options = select.locator("option").all()
@@ -401,7 +401,7 @@ def test_chart_colors_are_stable_across_history_reordering(page: Page):
 
     wait_for_chart_series(page, 2)
     page.wait_for_function(
-        "Chart.getChart('cpu-history-chart').data.datasets.map(d => d.label)"
+        "() => Chart.getChart('cpu-history-chart').data.datasets.map(d => d.label)"
         "[0] === 'db'"
     )
 
@@ -563,7 +563,7 @@ def test_switching_between_three_servers_renders_each_selection(page: Page):
     inject_stats(page, 103, "gamma", [CACHE_CONTAINER])
 
     page.wait_for_function(
-        "['101', '102', '103'].every(v => "
+        "() => ['101', '102', '103'].every(v => "
         "Array.from(document.getElementById('monitoring-server-select').options)"
         ".some(o => o.value === v))"
     )
@@ -709,7 +709,7 @@ def test_stats_frames_never_touch_the_server_dropdown(page: Page):
     open_monitor_pane(page, history=[], servers=[(101, "alpha"), (102, "beta")])
 
     page.wait_for_function(
-        "document.getElementById('monitoring-server-select').options.length === 3"
+        "() => document.getElementById('monitoring-server-select').options.length === 3"
     )
 
     page.evaluate(
@@ -792,7 +792,7 @@ def test_reload_servers_swap_keeps_the_monitor_selection(page: Page):
 
     page.evaluate("() => htmx.trigger(document.body, 'reload-servers')")
     page.wait_for_function(
-        "document.getElementById('monitoring-server-select').options.length === 3"
+        "() => document.getElementById('monitoring-server-select').options.length === 3"
     )
 
     expect(page.locator("#monitoring-server-select")).to_have_value("101")
