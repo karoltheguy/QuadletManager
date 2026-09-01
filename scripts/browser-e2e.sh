@@ -53,11 +53,14 @@ _APP_PID=""
 _APP_DIR=""
 
 cleanup() {
-    [ -n "$_APP_PID" ] && kill "$_APP_PID" 2>/dev/null
-    [ -n "$_APP_DIR" ] && rm -rf "$_APP_DIR"
+    [[ -n "$_APP_PID" ]] && kill "$_APP_PID" 2>/dev/null
+    [[ -n "$_APP_DIR" ]] && rm -rf "$_APP_DIR"
     return 0
 }
-trap cleanup EXIT
+# INT and TERM as well as EXIT. A bash script killed by a signal it does not
+# trap dies without running its EXIT trap, and `app` is documented as something
+# you stop with ctrl-c -- which would otherwise leave uvicorn holding its port.
+trap cleanup EXIT INT TERM
 
 free_port() {
     "$PYTHON" -c 'import socket; s = socket.socket(); s.bind(("localhost", 0)); print(s.getsockname()[1]); s.close()'
@@ -103,7 +106,7 @@ start_scratch_app() {
 }
 
 cmd_test() {
-    if [ -z "${QM_APP_URL:-}" ]; then
+    if [[ -z "${QM_APP_URL:-}" ]]; then
         start_scratch_app
     else
         log "QM_APP_URL is already set; using the app at $QM_APP_URL"
@@ -113,7 +116,7 @@ cmd_test() {
 }
 
 cmd_app() {
-    [ -n "${QM_APP_URL:-}" ] && die "QM_APP_URL is already set to $QM_APP_URL; nothing to start"
+    [[ -n "${QM_APP_URL:-}" ]] && die "QM_APP_URL is already set to $QM_APP_URL; nothing to start"
     start_scratch_app
     log "ctrl-c to stop; the database and logs live in $_APP_DIR"
     wait "$_APP_PID"
