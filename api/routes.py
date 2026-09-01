@@ -747,7 +747,6 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
         quadlet_type = quadlet_type_of(name)
         pod_name = base_name if quadlet_type == 'pod' else None
         
-        safe_content = content.replace('`', '\\`').replace('$', '\\$').replace('<', '\\u003c')
         status_url = f"/api/systemctl/status/{server_id}?unit={unit_name}&scope={scope}"
         
         return templates.TemplateResponse(request, "partials/editor_pane.html", {
@@ -756,7 +755,7 @@ async def fetch_file(request: Request, server_id: int, path: str, scope: str, na
             "path": path,
             "scope": scope,
             "unit_name": unit_name,
-            "safe_content": safe_content,
+            "content": content,
             "status_url": status_url,
             "user_role": role,
             "quadlet_type": quadlet_type,

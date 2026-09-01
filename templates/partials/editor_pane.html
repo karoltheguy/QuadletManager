@@ -22,9 +22,9 @@
         <input type="hidden" name="scope" value="{{ scope }}">
         <input type="hidden" name="unit_name" value="{{ unit_name }}">
         <input type="hidden" name="quadlet_type" value="{{ quadlet_type }}">
-        <textarea name="content" id="hidden-content" aria-label="Quadlet file content"></textarea>
+        <textarea name="content" id="hidden-content" aria-label="Quadlet file content">{{ content }}</textarea>
     </form>
-    <div id="editor-container"></div>
+    <div id="editor-container" data-file-name="{{ name }}"></div>
     <div id="validation-results" hidden></div>
 
     <!-- Update the Inspector Pane simultaneously using HTMX OOB Swaps -->
@@ -71,9 +71,13 @@
         // Capture the container reference *synchronously* (before require fires) so
         // that even if Monaco's async callback is delayed, it always writes into the
         // element that was present when THIS script block ran – not a later swap's
-        // element that happens to share the same ID.
+        // element that happens to share the same ID. The file name and content are
+        // captured synchronously for the same reason.
         (function() {
             var targetContainer = document.getElementById('editor-container');
+            var fileName = targetContainer ? targetContainer.dataset.fileName : '';
+            var hiddenContent = document.getElementById('hidden-content');
+            var fileContent = hiddenContent ? hiddenContent.value : '';
             require(['vs/editor/editor.main'], function() {
                 if (!window._quadletProvidersRegistered && window.registerQuadletLintProviders) {
                     window.registerQuadletLintProviders(monaco, 'ini');
@@ -84,10 +88,10 @@
                 // click happened and HTMX already replaced this pane), skip init.
                 if (!document.body.contains(targetContainer)) return;
 
-                var uri = monaco.Uri.file('{{ name }}');
+                var uri = monaco.Uri.file(fileName);
                 var old = monaco.editor.getModel(uri);
                 if (old) old.dispose();
-                var model = monaco.editor.createModel(`{{ safe_content | safe }}`, 'ini', uri);
+                var model = monaco.editor.createModel(fileContent, 'ini', uri);
 
                 window.editor = monaco.editor.create(targetContainer, {
                     model: model,
