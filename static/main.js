@@ -7,7 +7,8 @@ import { toggleTheme, toggleDensity, initDensityRadio, toggleEditorTheme,
          setEditorMode, applyChartTheme,
          applyEditorTheme } from '@qm/theme';
 import { showToast } from '@qm/toast';
-import { initModalDismissal } from '@qm/modals';
+import { initModalDismissal, dismissModal } from '@qm/modals';
+import { toggleServerEdit, initServerReorder } from '@qm/settings';
 import { openBottomPanel, toggleBottomPanel, toggleBottomPanelExpand,
          switchBottomTab, initResizableHandles, initPanel } from '@qm/panel';
 import { unitNameFor, stemFromUnitName } from '@qm/units';
@@ -368,6 +369,12 @@ const delegatedActions = {
     selectContainerStem(btn.dataset.stem, btn.dataset.serverId,
                         btn.dataset.scope, btn.dataset.type);
   },
+  'toggle-server-edit': function(btn) {
+    toggleServerEdit(btn.dataset.serverId);
+  },
+  'dismiss-modal': function(btn) {
+    dismissModal(btn);
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -598,6 +605,7 @@ function softRefresh() {
 }
 
 initModalDismissal();
+initServerReorder();
 initEditor();
 
 // ── Window Bridge ──────────────────────────────────────────

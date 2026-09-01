@@ -25,7 +25,8 @@
       {% if is_admin %}
       <td class="actions-col" style="white-space:nowrap">
         <button class="btn btn-sm btn-secondary"
-                onclick="toggleServerEdit({{ s[0] }})">
+                data-action="toggle-server-edit"
+                data-server-id="{{ s[0] }}">
           Edit
         </button>
         <button class="btn btn-sm btn-danger"
@@ -68,7 +69,8 @@
           <div>
             <button type="submit" class="btn btn-sm btn-primary">Save</button>
             <button type="button" class="btn btn-sm btn-secondary"
-                    onclick="toggleServerEdit({{ s[0] }})">Cancel</button>
+                    data-action="toggle-server-edit"
+                    data-server-id="{{ s[0] }}">Cancel</button>
             <button class="btn btn-sm btn-danger"
                     hx-post="/api/settings/servers/{{ s[0] }}/repin-host-key"
                     hx-target="#servers-list"
@@ -88,79 +90,3 @@
 <p class="text-muted italic">No servers configured yet.</p>
 {% endif %}
 
-<script>
-function toggleServerEdit(id) {
-  const row = document.getElementById('server-edit-row-' + id);
-  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
-}
-
-(function () {
-  let draggedRow = null;
-
-  function initServerDrag() {
-    const tbody = document.getElementById('servers-tbody');
-    if (!tbody) return;
-
-    tbody.addEventListener('dragstart', function (e) {
-      const row = e.target.closest('tr[data-server-id]');
-      if (!row) return;
-      draggedRow = row;
-      row.classList.add('dragging');
-    });
-
-    tbody.addEventListener('dragend', function (e) {
-      if (draggedRow) draggedRow.classList.remove('dragging');
-      draggedRow = null;
-      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
-    });
-
-    tbody.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      const target = e.target.closest('tr[data-server-id]');
-      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
-      if (target && target !== draggedRow) target.classList.add('drag-over');
-    });
-
-    tbody.addEventListener('dragleave', function (e) {
-      const target = e.target.closest('tr[data-server-id]');
-      if (target) target.classList.remove('drag-over');
-    });
-
-    tbody.addEventListener('drop', function (e) {
-      e.preventDefault();
-      const target = e.target.closest('tr[data-server-id]');
-      if (!target || target === draggedRow || !draggedRow) return;
-
-      target.classList.remove('drag-over');
-
-      // Move dragged row before the target in the DOM
-      target.before(draggedRow);
-
-      // Also move its edit row (hidden form row) right after it
-      const editRow = document.getElementById('server-edit-row-' + draggedRow.dataset.serverId);
-      if (editRow) tbody.insertBefore(editRow, draggedRow.nextSibling);
-
-      // Collect new order from visible data rows
-      const order = Array.from(tbody.querySelectorAll('tr[data-server-id]'))
-        .map(r => Number.parseInt(r.dataset.serverId, 10));
-
-      fetch('/api/settings/servers/reorder', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order }),
-      }).then(res => {
-        if (!res.ok) { console.error('Reorder failed', res.status); return; }
-        const list = document.getElementById('servers-list');
-        if (list) list.dispatchEvent(new CustomEvent('refresh-servers'));
-        document.body.dispatchEvent(new CustomEvent('reload-servers'));
-      });
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initServerDrag);
-  } else {
-    initServerDrag();
-  }
-})();
-</script>

@@ -49,6 +49,8 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "toggleServerCollapse",
     "setSelectedQuadletBtn",
     "showFileContextMenu",
+    # group 9 (#463): settings server rows and new-quadlet modal
+    "toggleServerEdit",
 })
 
 
@@ -808,3 +810,68 @@ def test_settings_themes_partial_has_no_inline_script():
         "event handlers, which this refactoring removes."
     )
 
+
+@pytest.mark.unit
+def test_settings_servers_and_modal_declare_delegated_actions():
+    """Verify that settings server rows and new-quadlet modal buttons declare data-action attributes."""
+    button_pattern = re.compile(r"<button\b([^>]*)>", re.IGNORECASE)
+
+    # a. templates/partials/settings_servers.html: toggle-server-edit buttons
+    settings_servers_path = REPO_ROOT / "templates" / "partials" / "settings_servers.html"
+    settings_servers_content = settings_servers_path.read_text(encoding="utf-8")
+    settings_servers_buttons = button_pattern.findall(settings_servers_content)
+
+    toggle_server_edit_buttons = []
+    for attrs in settings_servers_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        if action_match and action_match.group(1) == "toggle-server-edit":
+            toggle_server_edit_buttons.append(attrs)
+
+    assert len(toggle_server_edit_buttons) == 2, (
+        f"Expected exactly 2 buttons with data-action='toggle-server-edit' in templates/partials/settings_servers.html, found {len(toggle_server_edit_buttons)}"
+    )
+    for attrs in toggle_server_edit_buttons:
+        server_id_match = re.search(r'\bdata-server-id=["\']([^"\']+)["\']', attrs)
+        assert server_id_match, (
+            f"Expected toggle-server-edit button in templates/partials/settings_servers.html to have a data-server-id attribute, got: <button{attrs}>"
+        )
+        assert server_id_match.group(1).strip(), (
+            f"Expected toggle-server-edit button in templates/partials/settings_servers.html to have a non-empty data-server-id attribute, got: <button{attrs}>"
+        )
+
+    # b. templates/partials/settings_servers.html contains no <script tag at all (case-insensitive)
+    assert not re.search(r"<script\b", settings_servers_content, re.IGNORECASE), (
+        "Expected templates/partials/settings_servers.html to contain no <script> tags"
+    )
+
+    # c. templates/partials/modal_new.html: dismiss-modal button
+    modal_new_path = REPO_ROOT / "templates" / "partials" / "modal_new.html"
+    modal_new_content = modal_new_path.read_text(encoding="utf-8")
+    modal_new_buttons = button_pattern.findall(modal_new_content)
+
+    dismiss_modal_buttons = []
+    for attrs in modal_new_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        if action_match and action_match.group(1) == "dismiss-modal":
+            dismiss_modal_buttons.append(attrs)
+
+    assert len(dismiss_modal_buttons) == 1, (
+        f"Expected exactly 1 button with data-action='dismiss-modal' in templates/partials/modal_new.html, found {len(dismiss_modal_buttons)}"
+    )
+
+    # d. Static JS source: quoted actions
+    js_source = read_static_js()
+    expected_actions = [
+        "toggle-server-edit",
+        "dismiss-modal",
+    ]
+    for action in expected_actions:
+        assert f"'{action}'" in js_source, (
+            f"Expected '{action}' as a quoted action name in static JS source"
+        )
+
+    # e. static/modules/settings.js exists
+    settings_js_path = REPO_ROOT / "static" / "modules" / "settings.js"
+    assert settings_js_path.is_file(), (
+        "Expected static/modules/settings.js to exist"
+    )

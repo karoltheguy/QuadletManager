@@ -8,6 +8,8 @@ import os
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 
+from tests.js_source import read_static_js
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
@@ -295,12 +297,10 @@ def test_servers_list_div_has_send_error_handler():
 @pytest.mark.unit
 def test_reorder_handler_dispatches_refresh_servers_event():
     """The drag-and-drop reorder handler must dispatch refresh-servers, not call htmx.process(target)."""
-    html = _render_settings_servers(is_admin=True)
-    assert 'refresh-servers' in html
+    assert 'refresh-servers' in read_static_js()
 
 
 @pytest.mark.unit
 def test_reorder_handler_does_not_call_htmx_process_on_outer_target():
     """The reorder handler must not call htmx.process(target) on #servers-list (re-fires load trigger)."""
-    html = _render_settings_servers(is_admin=True)
-    assert 'htmx.process(target)' not in html
+    assert 'htmx.process(target)' not in read_static_js()
