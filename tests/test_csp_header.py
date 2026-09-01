@@ -189,3 +189,18 @@ def test_csp_restricts_objects_framing_and_base_uri(client):
     assert parsed.get("base-uri") == ["'self'"], (
         f"Expected base-uri to be [\"'self'\"], got {parsed.get('base-uri')}"
     )
+
+
+@pytest.mark.unit
+def test_font_src_allows_monaco_data_uri_font(client):
+    """Monaco's codicon icon font is a base64 data: URL inside its own CSS."""
+    response = client.get("/")
+    assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+    parsed = parse_csp_header(response.headers.get("Content-Security-Policy", ""))
+    font_src = parsed.get("font-src")
+    assert font_src is not None, "Content-Security-Policy header must include a 'font-src' directive"
+    assert "data:" in font_src, (
+        f"font-src must allow data: URIs, got {font_src}. Monaco embeds its codicon "
+        "icon font as a base64 data URL in vendor/monaco/vs/vs/editor/editor.main.css; "
+        "blocking it renders the editor with missing glyphs."
+    )
