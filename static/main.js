@@ -359,6 +359,15 @@ const delegatedActions = {
   'set-editor-mode': function(btn) {
     setEditorMode(btn.closest('.color-editor'), btn.dataset.mode);
   },
+  'toggle-server-collapse': function(btn) {
+    toggleServerCollapse(btn.dataset.serverId);
+  },
+  'select-quadlet': function(btn) {
+    setSelectedQuadletBtn(btn);
+    setActiveServer(btn.dataset.serverId);
+    selectContainerStem(btn.dataset.stem, btn.dataset.serverId,
+                        btn.dataset.scope, btn.dataset.type);
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -401,6 +410,24 @@ document.addEventListener('input', function(e) {
   const action = elt.dataset.action;
   if (!Object.hasOwn(delegatedInputActions, action)) return;
   Reflect.get(delegatedInputActions, action)(elt);
+});
+
+// Right-click actions read `data-context-action` rather than `data-action`,
+// because the quadlet tree button carries both and one attribute cannot hold
+// two. The dispatch passes the event through: showFileContextMenu needs it for
+// preventDefault() and the pointer coordinates.
+const delegatedContextMenuActions = {
+  'show-file-context-menu': function(elt, e) {
+    showFileContextMenu(e, elt.dataset.serverId, elt.dataset.path, elt.dataset.scope);
+  },
+};
+
+document.addEventListener('contextmenu', function(e) {
+  const elt = e.target.closest('[data-context-action]');
+  if (!elt) return;
+  const action = elt.dataset.contextAction;
+  if (!Object.hasOwn(delegatedContextMenuActions, action)) return;
+  Reflect.get(delegatedContextMenuActions, action)(elt, e);
 });
 
 // Clear theme preview after color editor form submissions. Replaces hx-on::after-request
@@ -574,9 +601,11 @@ initModalDismissal();
 initEditor();
 
 // ── Window Bridge ──────────────────────────────────────────
-// Expose functions and state on `window` for backward compatibility with 45
-// inline event handlers across templates/ that still depend on global names.
-// This bridge shrinks over time as handlers are converted to delegated listeners.
+// Expose functions and state on `window` for the three consumers still reading
+// global names: the few remaining inline handlers in templates/, main.js's own
+// window reads, and tests/e2e/ via page.evaluate. selectContainerStem and
+// setActiveServer are held here only by that last one, test_inspector_stats_card.py
+// and test_monitoring_ui.py, and no longer by any inline handler.
 Object.assign(window, {
   _editorDirty: false,
   _logTabs,
@@ -597,13 +626,10 @@ Object.assign(window, {
   safeReload,
   selectContainerStem,
   setActiveServer,
-  setSelectedQuadletBtn,
-  showFileContextMenu,
   stemFromUnitName,
   switchLogTab,
   switchTerminalTab,
   toggleChartSelection,
-  toggleServerCollapse,
   unitNameFor,
   updateInspectorActivityLog,
   updateInspectorStatsCard,

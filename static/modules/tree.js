@@ -68,7 +68,7 @@ export function initTree() {
 }
 
 // Mark the clicked quadlet tree button as selected (inset state).
-// Called inline from partials/quadlet_tree.html onclick.
+// Called from the delegated 'select-quadlet' action in main.js.
 export function setSelectedQuadletBtn(el) {
     document.querySelectorAll('.quadlet-tree-btn.is-selected')
         .forEach(function (b) { b.classList.remove('is-selected'); });

@@ -45,6 +45,10 @@ RETIRED_BRIDGE_NAMES = frozenset({
     # group 7 (#418): theme customization controls
     "applyThemePreview",
     "clearThemePreview",
+    # group 8 (#392): server tree
+    "toggleServerCollapse",
+    "setSelectedQuadletBtn",
+    "showFileContextMenu",
 })
 
 
@@ -680,6 +684,91 @@ def test_theme_customization_controls_declare_delegated_actions():
         assert mode_match.group(1) == expected_mode, (
             f"Expected '{mode_text}' button to have data-mode='{expected_mode}', got: <button{attrs}>"
         )
+
+
+@pytest.mark.unit
+def test_server_tree_buttons_declare_delegated_actions():
+    """Verify that server tree buttons declare data-action, data-context-action, and target identifiers."""
+    button_pattern = re.compile(r"<button\b([^>]*)>", re.IGNORECASE)
+
+    # a. templates/partials/servers_list.html: server-row-toggle button
+    servers_list_path = REPO_ROOT / "templates" / "partials" / "servers_list.html"
+    servers_list_content = servers_list_path.read_text(encoding="utf-8")
+    servers_list_buttons = button_pattern.findall(servers_list_content)
+
+    toggle_buttons = [
+        attrs for attrs in servers_list_buttons
+        if re.search(r'\bclass=["\'][^"\']*\bserver-row-toggle\b[^"\']*["\']', attrs)
+    ]
+    assert toggle_buttons, (
+        "No server-row-toggle buttons found in templates/partials/servers_list.html"
+    )
+    for attrs in toggle_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected server-row-toggle button in templates/partials/servers_list.html to have a data-action attribute, got: <button{attrs}>"
+        )
+        assert action_match.group(1) == "toggle-server-collapse", (
+            f'Expected server-row-toggle button in templates/partials/servers_list.html to have data-action="toggle-server-collapse", got: <button{attrs}>'
+        )
+        server_id_match = re.search(r'\bdata-server-id=["\']([^"\']+)["\']', attrs)
+        assert server_id_match, (
+            f"Expected server-row-toggle button in templates/partials/servers_list.html to have a data-server-id attribute, got: <button{attrs}>"
+        )
+        assert server_id_match.group(1).strip(), (
+            f"Expected server-row-toggle button in templates/partials/servers_list.html to have a non-empty data-server-id attribute, got: <button{attrs}>"
+        )
+
+    # b. templates/partials/quadlet_tree.html: quadlet-tree-btn button
+    quadlet_tree_path = REPO_ROOT / "templates" / "partials" / "quadlet_tree.html"
+    quadlet_tree_content = quadlet_tree_path.read_text(encoding="utf-8")
+    quadlet_tree_buttons = button_pattern.findall(quadlet_tree_content)
+
+    quadlet_buttons = [
+        attrs for attrs in quadlet_tree_buttons
+        if re.search(r'\bclass=["\'][^"\']*\bquadlet-tree-btn\b[^"\']*["\']', attrs)
+    ]
+    assert quadlet_buttons, (
+        "No quadlet-tree-btn buttons found in templates/partials/quadlet_tree.html"
+    )
+    for attrs in quadlet_buttons:
+        action_match = re.search(r'\bdata-action=["\']([^"\']+)["\']', attrs)
+        assert action_match, (
+            f"Expected quadlet-tree-btn button in templates/partials/quadlet_tree.html to have a data-action attribute, got: <button{attrs}>"
+        )
+        assert action_match.group(1) == "select-quadlet", (
+            f'Expected quadlet-tree-btn button in templates/partials/quadlet_tree.html to have data-action="select-quadlet", got: <button{attrs}>'
+        )
+        context_action_match = re.search(r'\bdata-context-action=["\']([^"\']+)["\']', attrs)
+        assert context_action_match, (
+            f"Expected quadlet-tree-btn button in templates/partials/quadlet_tree.html to have a data-context-action attribute, got: <button{attrs}>"
+        )
+        assert context_action_match.group(1) == "show-file-context-menu", (
+            f'Expected quadlet-tree-btn button in templates/partials/quadlet_tree.html to have data-context-action="show-file-context-menu", got: <button{attrs}>'
+        )
+        for attr_name in ("data-server-id", "data-stem", "data-path", "data-scope", "data-type"):
+            attr_match = re.search(rf'\b{re.escape(attr_name)}=["\']([^"\']+)["\']', attrs)
+            assert attr_match, (
+                f"Expected quadlet-tree-btn button in templates/partials/quadlet_tree.html to have a {attr_name} attribute, got: <button{attrs}>"
+            )
+            assert attr_match.group(1).strip(), (
+                f"Expected quadlet-tree-btn button in templates/partials/quadlet_tree.html to have a non-empty {attr_name} attribute, got: <button{attrs}>"
+            )
+
+    # c. Static JS source: quoted actions and contextmenu listener
+    js_source = read_static_js()
+    expected_actions = [
+        "toggle-server-collapse",
+        "select-quadlet",
+        "show-file-context-menu",
+    ]
+    for action in expected_actions:
+        assert f"'{action}'" in js_source, (
+            f"Expected '{action}' as a quoted action name in static JS source"
+        )
+    assert "document.addEventListener('contextmenu'" in js_source, (
+        "Expected static JS to register a document-level contextmenu listener with document.addEventListener('contextmenu'"
+    )
 
 
 @pytest.mark.unit

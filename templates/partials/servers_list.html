@@ -3,7 +3,8 @@
     <li data-server-id="{{ server[0] }}">
         <div class="server-row">
             <button class="server-row-toggle"
-                    onclick="window.toggleServerCollapse({{ server[0] }})"
+                    data-action="toggle-server-collapse"
+                    data-server-id="{{ server[0] }}"
                     aria-expanded="true"
                     aria-label="Toggle {{ server[1] }}">
                 <span class="server-chevron">▾</span>
