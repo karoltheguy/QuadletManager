@@ -14,7 +14,7 @@ import shlex
 import pytest
 
 from services.quadlet_validator import validate_remote
-from services.remote_fs import is_global_scope, quadlet_dir_for_scope, write_remote_file
+from services.remote_fs import is_global_scope, write_remote_file
 from services.ssh_manager import pool
 from tests.podman.conftest import ensure_quadlet_dir, fixture_content
 

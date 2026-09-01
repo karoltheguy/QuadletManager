@@ -22,7 +22,7 @@ import pytest
 from tests.e2e.console_errors import app_console_errors
 
 try:
-    from playwright.sync_api import Page, expect
+    from playwright.sync_api import Page
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False

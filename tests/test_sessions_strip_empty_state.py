@@ -77,7 +77,6 @@ class SessionsStripParser(HTMLParser):
         if not self._stack:
             return
         depth = len(self._stack)
-        _, _, classes = self._stack[-1]
 
         if self._in_hint and self._hint_depth and depth == self._hint_depth:
             self._in_hint = False
