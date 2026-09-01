@@ -6,6 +6,10 @@ env/
 .env
 .DS_Store
 *.db
+# SQLite writes these beside the database; they are transient per-process
+# state and are rewritten by any run that opens it.
+*.db-wal
+*.db-shm
 *.sqlite3
 .pytest_cache/
 node_modules/
