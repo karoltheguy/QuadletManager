@@ -86,3 +86,32 @@ export function initServerReorder() {
     });
   });
 }
+
+function renderServerListError(elt, message) {
+  const p = document.createElement('p');
+  p.className = 'text-danger';
+  p.textContent = message;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-sm btn-secondary';
+  btn.dataset.action = 'retry-servers-list';
+  btn.textContent = 'Retry';
+  p.appendChild(btn);
+  elt.replaceChildren(p);
+}
+
+// Replaces two hx-on attributes whose bodies each contained an inline onclick.
+// Both the attribute body and that onclick needed 'unsafe-inline'. Delegating
+// on document.body survives htmx swaps of #servers-list.
+export function initServerListRetry() {
+  document.body.addEventListener('htmx:responseError', function (e) {
+    const elt = e.detail?.elt || e.target;
+    if (elt?.id !== 'servers-list') return;
+    renderServerListError(elt, 'Failed to load servers. ');
+  });
+
+  document.body.addEventListener('htmx:sendError', function (e) {
+    const elt = e.detail?.elt || e.target;
+    if (elt?.id !== 'servers-list') return;
+    renderServerListError(elt, 'Network error loading servers. ');
+  });
+}

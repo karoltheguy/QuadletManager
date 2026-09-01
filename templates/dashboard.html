@@ -232,9 +232,7 @@
             <h3 class="section-title mb-4">Server Management</h3>
             <div id="servers-list"
                  hx-get="/api/settings/servers"
-                 hx-trigger="load, refresh-servers"
-                 hx-on::response-error="this.innerHTML='<p class=&quot;text-danger&quot;>Failed to load servers. <button class=&quot;btn btn-sm btn-secondary&quot; onclick=&quot;htmx.trigger(document.getElementById(\'servers-list\'),\'refresh-servers\')&quot;>Retry</button></p>'"
-                 hx-on::send-error="this.innerHTML='<p class=&quot;text-danger&quot;>Network error loading servers. <button class=&quot;btn btn-sm btn-secondary&quot; onclick=&quot;htmx.trigger(document.getElementById(\'servers-list\'),\'refresh-servers\')&quot;>Retry</button></p>'">
+                 hx-trigger="load, refresh-servers">
               <p class="text-muted">Loading servers...</p>
             </div>
           </div>
@@ -246,7 +244,7 @@
                   hx-post="/api/settings/servers"
                   hx-target="#servers-list"
                   hx-swap="innerHTML"
-                  hx-on::after-request="if(event.detail.successful) this.reset()">
+                  data-after-request="reset-form">
               <div class="form-row">
                 <label class="form-label" for="add-server-name">Name</label>
                 <input type="text" name="name" id="add-server-name" class="form-control" required placeholder="my-server">
@@ -297,7 +295,7 @@
                   hx-post="/api/keys"
                   hx-target="#keys-list"
                   hx-swap="innerHTML"
-                  hx-on::after-request="if(event.detail.successful) this.reset()"
+                  data-after-request="reset-form"
                   enctype="multipart/form-data">
               <div class="form-row">
                 <label class="form-label" for="add-key-name">Key Name</label>
@@ -334,7 +332,7 @@
                   hx-post="/api/settings/users"
                   hx-target="#users-list"
                   hx-swap="innerHTML"
-                  hx-on::after-request="if(event.detail.successful) this.reset()">
+                  data-after-request="reset-form">
               <div class="form-row">
                 <label class="form-label" for="add-user-username">Username</label>
                 <input type="text" name="username" id="add-user-username" class="form-control" required placeholder="jane">

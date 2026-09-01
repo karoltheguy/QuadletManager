@@ -1,7 +1,7 @@
 <div id="new-modal" class="modal-overlay">
     <div class="modal-content">
         <h2 class="panel-title mb-4">Create New Quadlet</h2>
-        <form hx-post="/api/create" hx-target="#status-toast" hx-swap="innerHTML" hx-on::after-request="document.getElementById('new-modal')?.remove()">
+        <form hx-post="/api/create" hx-target="#status-toast" hx-swap="innerHTML" data-after-request="dismiss-modal">
             <div class="form-group">
                 <label class="form-label" for="new-quadlet-server">Target Server</label>
                 <select name="server_id" id="new-quadlet-server" class="form-control">

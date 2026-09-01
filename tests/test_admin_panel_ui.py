@@ -281,17 +281,23 @@ def test_servers_list_div_has_refresh_servers_trigger():
 
 
 @pytest.mark.unit
-def test_servers_list_div_has_response_error_handler():
-    """#servers-list must have an htmx:responseError handler to surface load failures."""
-    html = _render_dashboard(is_admin=True)
-    assert 'response-error' in html
+def test_servers_list_response_error_is_handled_in_js():
+    """A #servers-list load failure must still surface, now via a delegated listener.
+
+    The handler moved out of an hx-on::response-error attribute in issue #392,
+    so the guarantee from #103 is asserted against the JS that replaced it.
+    """
+    js = read_static_js()
+    assert 'htmx:responseError' in js
+    assert 'retry-servers-list' in js
 
 
 @pytest.mark.unit
-def test_servers_list_div_has_send_error_handler():
-    """#servers-list must have an htmx:sendError handler to surface network failures."""
-    html = _render_dashboard(is_admin=True)
-    assert 'send-error' in html
+def test_servers_list_send_error_is_handled_in_js():
+    """A #servers-list network failure must still surface, now via a delegated listener."""
+    js = read_static_js()
+    assert 'htmx:sendError' in js
+    assert 'retry-servers-list' in js
 
 
 @pytest.mark.unit

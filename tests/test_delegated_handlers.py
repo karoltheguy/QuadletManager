@@ -901,3 +901,94 @@ def test_editor_pane_partial_has_no_inline_script():
         "event handlers, which this refactoring removes."
     )
 
+
+@pytest.mark.unit
+def test_templates_carry_no_hx_on_attributes():
+    """Verify that templates carry no hx-on attributes."""
+    templates_dir = REPO_ROOT / "templates"
+    hx_on_attr_pattern = re.compile(
+        r'\b(hx-on[^\s=>]*)\s*=\s*(["\'])(.*?)\2', re.IGNORECASE | re.DOTALL
+    )
+
+    violations = []
+    for html_file in templates_dir.rglob("*.html"):
+        content = html_file.read_text(encoding="utf-8")
+        for match in hx_on_attr_pattern.finditer(content):
+            rel_path = html_file.relative_to(REPO_ROOT)
+            attr_name = match.group(1)
+            violations.append(f"{rel_path}: {attr_name}")
+
+    assert not violations, (
+        f"Found hx-on attributes in templates ({len(violations)}). "
+        "htmx hx-on attribute bodies are evaluated against globals exactly like inline "
+        "event handlers, so they need the same 'unsafe-inline' CSP allowance that issue "
+        "#392 is removing:\n"
+        + "\n".join(f"  - {v}" for v in violations)
+    )
+
+
+@pytest.mark.unit
+def test_templates_carry_no_inline_event_handlers():
+    """Verify that templates carry no inline DOM event handlers."""
+    templates_dir = REPO_ROOT / "templates"
+    inline_handler_pattern = re.compile(
+        r'(?<!-)\b(on[a-zA-Z]+)\s*=\s*(?:(["\'])(.*?)\2|&quot;(.*?)&quot;)',
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    violations = []
+    for html_file in templates_dir.rglob("*.html"):
+        content = html_file.read_text(encoding="utf-8")
+        for match in inline_handler_pattern.finditer(content):
+            rel_path = html_file.relative_to(REPO_ROOT)
+            handler_name = match.group(1)
+            violations.append(f"{rel_path}: {handler_name}")
+
+    assert not violations, (
+        f"Found inline DOM event handlers in templates ({len(violations)}):\n"
+        + "\n".join(f"  - {v}" for v in violations)
+    )
+
+
+@pytest.mark.unit
+def test_servers_list_retry_is_a_delegated_action():
+    """Verify that servers-list retry is handled via delegated actions and events."""
+    js_source = read_static_js()
+
+    assert "'retry-servers-list'" in js_source, (
+        "Expected 'retry-servers-list' as a quoted action name in static JS source: "
+        "the #servers-list load-failure retry must come from a delegated listener plus a "
+        "data-action button instead of an hx-on attribute containing an inline onclick"
+    )
+    assert "htmx:responseError" in js_source, (
+        "Expected 'htmx:responseError' listener in static JS source: "
+        "the #servers-list load-failure retry must come from a delegated listener plus a "
+        "data-action button instead of an hx-on attribute containing an inline onclick"
+    )
+    assert "htmx:sendError" in js_source, (
+        "Expected 'htmx:sendError' listener in static JS source: "
+        "the #servers-list load-failure retry must come from a delegated listener plus a "
+        "data-action button instead of an hx-on attribute containing an inline onclick"
+    )
+
+
+@pytest.mark.unit
+def test_after_request_actions_are_delegated():
+    """Verify that after-request actions are handled via delegated dispatch."""
+    js_source = read_static_js()
+
+    assert "dataset.afterRequest" in js_source, (
+        "Expected static JS to read dataset.afterRequest (from data-after-request): "
+        "hx-on::after-request attributes are replaced by a single delegated htmx:afterRequest "
+        "dispatcher keyed on a data-after-request attribute, mirroring the existing data-action dispatcher"
+    )
+    assert "'reset-form'" in js_source, (
+        "Expected 'reset-form' as a quoted action name in static JS source: "
+        "hx-on::after-request attributes are replaced by a single delegated htmx:afterRequest "
+        "dispatcher keyed on a data-after-request attribute, mirroring the existing data-action dispatcher"
+    )
+    assert "'dismiss-modal'" in js_source, (
+        "Expected 'dismiss-modal' as a quoted action name in static JS source: "
+        "hx-on::after-request attributes are replaced by a single delegated htmx:afterRequest "
+        "dispatcher keyed on a data-after-request attribute, mirroring the existing data-action dispatcher"
+    )
