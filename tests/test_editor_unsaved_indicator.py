@@ -5,13 +5,14 @@ Covers:
   header so the client can reliably know the save actually succeeded
   (both success and validation-failure paths return HTTP 200).
 - POST /api/save validation-failure path does NOT set that header.
-- static/main.js registers an htmx:confirm listener that guards
-  #editor-pane swaps while window._editorDirty is truthy.
-- static/main.js listens for the quadlet-saved event and clears
-  window._editorDirty.
-- static/main.js's _beforeunloadHandler also considers window._editorDirty.
-- templates/partials/editor_pane.html tracks dirty state via Monaco's
-  onDidChangeModelContent and exposes an #unsaved-indicator element.
+- static/modules/editor.js registers an htmx:confirm listener that guards
+  #editor-pane swaps while its editorDirty flag is truthy.
+- static/modules/editor.js listens for the quadlet-saved event and clears
+  editorDirty.
+- static/main.js's _beforeunloadHandler consults it through isEditorDirty().
+- static/modules/editor.js tracks dirty state via Monaco's
+  onDidChangeModelContent, and templates/partials/editor_pane.html exposes an
+  #unsaved-indicator element. #468 moved the tracking out of the template.
 """
 import os
 import re
@@ -124,7 +125,7 @@ class TestMainJsDirtyTracking:
         assert match, "expected an htmx:confirm event listener in main.js"
         block = match.group(0)
         assert "editor-pane" in block
-        assert "window._editorDirty" in block
+        assert "editorDirty" in block
         assert "confirm(" in block
 
     @pytest.mark.unit
@@ -136,7 +137,7 @@ class TestMainJsDirtyTracking:
         )
         assert match, "expected a quadlet-saved event listener in main.js"
         block = match.group(0)
-        assert "window._editorDirty = false" in block
+        assert "editorDirty = false" in block
 
     @pytest.mark.unit
     def test_beforeunload_handler_checks_editor_dirty(self):
@@ -146,7 +147,7 @@ class TestMainJsDirtyTracking:
             re.DOTALL,
         )
         assert match, "expected _beforeunloadHandler in main.js"
-        assert "window._editorDirty" in match.group(0)
+        assert "isEditorDirty()" in match.group(0)
 
 
 # =============================================================================
@@ -160,8 +161,11 @@ class TestEditorPaneTemplate:
 
     @pytest.mark.unit
     def test_monaco_init_tracks_dirty_state(self):
-        assert "onDidChangeModelContent" in self.html
-        assert "window._editorDirty" in self.html
+        # The dirty tracking moved into mountEditorPane() in #468; the template
+        # keeps only the indicator element the handler unhides.
+        js = _js()
+        assert "onDidChangeModelContent" in js
+        assert "editorDirty = true" in js
 
     @pytest.mark.unit
     def test_unsaved_indicator_element_present(self):

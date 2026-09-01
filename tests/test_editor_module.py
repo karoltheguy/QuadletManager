@@ -119,8 +119,8 @@ def test_editor_module_contains_quadlet_saved_listener():
     assert "quadlet-saved" in content, (
         "static/modules/editor.js must contain 'quadlet-saved' event listener"
     )
-    assert "window._editorDirty = false" in content, (
-        "static/modules/editor.js must clear window._editorDirty on quadlet-saved"
+    assert "editorDirty = false" in content, (
+        "static/modules/editor.js must clear its editorDirty flag on quadlet-saved"
     )
 
 

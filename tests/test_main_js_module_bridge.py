@@ -51,13 +51,12 @@ BUILTIN_IDENTIFIERS = {
 
 # Names owned by other modules, not the main script bundle:
 # - attachQuadletLint and registerQuadletLintProviders come from static/quadlet_lint.js
-# - editor, _editorDirty, _quadletLintDetach, _quadletLintReady and _quadletProvidersRegistered
-#   are owned by templates/partials/editor_pane.html
+# - editor, _quadletLintDetach, _quadletLintReady and _quadletProvidersRegistered
+#   are owned by static/modules/editor.js, which #468 moved them into
 OTHER_MODULE_IDENTIFIERS = {
     "attachQuadletLint",
     "registerQuadletLintProviders",
     "editor",
-    "_editorDirty",
     "_quadletLintDetach",
     "_quadletLintReady",
     "_quadletProvidersRegistered",

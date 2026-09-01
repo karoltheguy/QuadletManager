@@ -17,6 +17,7 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 DASHBOARD_HTML_PATH = os.path.join(BASE_DIR, "templates", "dashboard.html")
 EDITOR_PANE_HTML_PATH = os.path.join(BASE_DIR, "templates", "partials", "editor_pane.html")
 QUADLET_LINT_JS_PATH = os.path.join(BASE_DIR, "static", "quadlet_lint.js")
+EDITOR_JS_PATH = os.path.join(BASE_DIR, "static", "modules", "editor.js")
 
 
 def _dashboard_html():
@@ -27,6 +28,29 @@ def _dashboard_html():
 def _editor_pane_html():
     with open(EDITOR_PANE_HTML_PATH, encoding="utf-8") as f:
         return f.read()
+
+
+def _mount_editor_pane_js():
+    """Source of editor.js's mountEditorPane(), sliced out of the module.
+
+    The assertions below look for strings such as `'quadlet'` and
+    `if (window.editor)` that also occur elsewhere in editor.js, in the
+    server-validate path and in initEditor(). Slicing to this one
+    function keeps each check aimed at the editor-pane mount it was
+    written for.
+    """
+    with open(EDITOR_JS_PATH, encoding="utf-8") as f:
+        source = f.read()
+    marker = "export function mountEditorPane("
+    start = source.find(marker)
+    if start == -1:
+        pytest.fail(
+            "static/modules/editor.js must export mountEditorPane(); issue #468 "
+            "moves the editor pane's inline <script> into that function"
+        )
+    rest = source[start + len(marker):]
+    end = re.search(r"^export\s", rest, re.MULTILINE)
+    return rest[: end.start()] if end else rest
 
 
 def _quadlet_lint_js():
@@ -54,14 +78,14 @@ def test_dashboard_loads_quadlet_lint_as_module_script():
 
 @pytest.mark.unit
 def test_editor_pane_creates_model_explicitly():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
     assert "monaco.Uri.file(" in html, (
-        "Expected editor_pane.html to build an explicit monaco.Uri.file(...) so the "
+        "Expected mountEditorPane() to build an explicit monaco.Uri.file(...) so the "
         "model's uri.path can drive quadlet-lint's file-type rules. Without an explicit "
         "URI, lintModel() cannot infer the unit type from the filename."
     )
     assert "monaco.editor.createModel(" in html, (
-        "Expected editor_pane.html to create the Monaco model explicitly via "
+        "Expected mountEditorPane() to create the Monaco model explicitly via "
         "monaco.editor.createModel(...) (passed to editor.create via the `model` option), "
         "instead of relying on monaco.editor.create()'s implicit model creation. An "
         "explicit model is required so it can be handed to attachQuadletLint() and "
@@ -71,9 +95,9 @@ def test_editor_pane_creates_model_explicitly():
 
 @pytest.mark.unit
 def test_editor_pane_calls_attach_quadlet_lint():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
     assert "attachQuadletLint" in html, (
-        "Expected editor_pane.html to call attachQuadletLint(...) to wire live linting "
+        "Expected mountEditorPane() to call attachQuadletLint(...) to wire live linting "
         "into the newly created editor model. Without this call, quadlet-lint never runs "
         "in the editor."
     )
@@ -81,7 +105,7 @@ def test_editor_pane_calls_attach_quadlet_lint():
 
 @pytest.mark.unit
 def test_editor_pane_teardown_disposes_previous_model():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
 
     # Find the teardown block: the `if (window.editor) { ... }` guard that runs
     # before a new pane is created. It must capture the previous model, dispose
@@ -93,7 +117,7 @@ def test_editor_pane_teardown_disposes_previous_model():
         r"if\s*\(\s*window\.editor\s*\)\s*\{(.*?)\}", html, re.DOTALL
     )
     assert teardown_match, (
-        "Expected editor_pane.html to still contain an `if (window.editor) { ... }` "
+        "Expected mountEditorPane() to still contain an `if (window.editor) { ... }` "
         "teardown block that disposes the previous editor and model."
     )
 
@@ -128,9 +152,9 @@ def test_editor_pane_teardown_disposes_previous_model():
 
 @pytest.mark.unit
 def test_editor_pane_teardown_calls_detach_function():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
     assert "window._quadletLintDetach" in html, (
-        "Expected editor_pane.html to store the detach() function returned by "
+        "Expected mountEditorPane() to store the detach() function returned by "
         "attachQuadletLint() on window._quadletLintDetach, and to call it during "
         "teardown (before disposing the previous model/editor). Without calling detach(), "
         "a pending debounced lint from the previous pane can fire against an already-"
@@ -149,14 +173,14 @@ def test_editor_pane_teardown_calls_detach_function():
 
 @pytest.mark.unit
 def test_editor_pane_does_not_reuse_quadlet_owner_string():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
     assert "attachQuadletLint" in html, (
-        "Expected editor_pane.html to call attachQuadletLint(...) so the owner-string "
+        "Expected mountEditorPane() to call attachQuadletLint(...) so the owner-string "
         "guard below is actually exercised. Without this call, quadlet-lint never runs "
         "in the editor."
     )
     assert "'quadlet'" not in html, (
-        "editor_pane.html must not pass the marker owner string 'quadlet' to "
+        "mountEditorPane() must not pass the marker owner string 'quadlet' to "
         "attachQuadletLint (or setModelMarkers). That owner string belongs to the "
         "server-validate path at static/main.js:2779 (monaco.editor.setModelMarkers"
         "(window.editor.getModel(), 'quadlet', markers)); sharing it with the client-side "
@@ -165,7 +189,7 @@ def test_editor_pane_does_not_reuse_quadlet_owner_string():
         "called without an owner override so it uses its own 'quadlet-lint' owner."
     )
     assert '"quadlet"' not in html, (
-        "editor_pane.html must not pass the marker owner string 'quadlet' to "
+        "mountEditorPane() must not pass the marker owner string 'quadlet' to "
         "attachQuadletLint (or setModelMarkers). That owner string belongs to the "
         "server-validate path at static/main.js:2779 (monaco.editor.setModelMarkers"
         "(window.editor.getModel(), 'quadlet', markers)); sharing it with the client-side "
@@ -228,14 +252,14 @@ def test_dashboard_exposes_register_providers_on_window():
 
 @pytest.mark.unit
 def test_editor_pane_registers_providers_once_behind_guard():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
     assert "registerQuadletLintProviders(" in html, (
-        "Expected editor_pane.html to call registerQuadletLintProviders(...) so that "
+        "Expected mountEditorPane() to call registerQuadletLintProviders(...) so that "
         "Monaco completion/hover/code-action support for quadlet-lint is actually "
         "registered against the editor's language."
     )
     assert "window._quadletProvidersRegistered" in html, (
-        "Expected editor_pane.html to guard the registerQuadletLintProviders(...) call "
+        "Expected mountEditorPane() to guard the registerQuadletLintProviders(...) call "
         "with a window._quadletProvidersRegistered boolean flag, so the providers are "
         "registered only once no matter how many times the editor pane is (re)created."
     )
@@ -243,17 +267,17 @@ def test_editor_pane_registers_providers_once_behind_guard():
 
 @pytest.mark.unit
 def test_editor_pane_registers_providers_before_liveness_guard():
-    html = _editor_pane_html()
+    html = _mount_editor_pane_js()
 
     registration_index = html.find("registerQuadletLintProviders(")
     guard_index = html.find("document.body.contains(targetContainer)")
 
     assert registration_index != -1, (
-        "Expected editor_pane.html to call registerQuadletLintProviders(...) inside the "
+        "Expected mountEditorPane() to call registerQuadletLintProviders(...) inside the "
         "require() callback."
     )
     assert guard_index != -1, (
-        "Expected editor_pane.html to still contain the "
+        "Expected mountEditorPane() to still contain the "
         "document.body.contains(targetContainer) liveness guard."
     )
     assert registration_index < guard_index, (

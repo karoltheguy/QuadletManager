@@ -17,7 +17,7 @@ import { connectTerminal, createTerminalTab, loadFitAddon,
          sessionAddNew, initTerminal } from '@qm/terminal';
 import { toggleChartSelection, loadMonitorCharts,
          initCpuChart, initMemChart } from '@qm/charts';
-import { validateQuadlet, saveQuadlet, initEditor } from '@qm/editor';
+import { validateQuadlet, saveQuadlet, initEditor, isEditorDirty } from '@qm/editor';
 import { renderContainerStatsTable } from '@qm/stats';
 import { selectMonitoringServer, applyContainerFilter,
          restoreMonitoringServerSelection,
@@ -585,7 +585,7 @@ function saveActiveSessionsToStorage() {
 }
 
 function _beforeunloadHandler(e) {
-    if (window._terminalTabs.size > 0 || window._logTabs.size > 0 || window._editorDirty) {
+    if (window._terminalTabs.size > 0 || window._logTabs.size > 0 || isEditorDirty()) {
         e.preventDefault();
         e.returnValue = '';
     }
@@ -613,10 +613,8 @@ initEditor();
 // held here only by one of those two, and an entry neither of them names is
 // dead weight.
 Object.assign(window, {
-  _editorDirty: false,
   _logTabs,
   _terminalTabs,
-  applyEditorTheme,
   applyStatusDots,
   confirmDeleteFile,
   executeDeleteFile,

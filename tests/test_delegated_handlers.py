@@ -60,6 +60,9 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "switchLogTab",
     "switchTerminalTab",
     "unitNameFor",
+    # group 11 (#468): editor pane mount
+    "applyEditorTheme",
+    "_editorDirty",
 })
 
 
@@ -884,3 +887,17 @@ def test_settings_servers_and_modal_declare_delegated_actions():
     assert settings_js_path.is_file(), (
         "Expected static/modules/settings.js to exist"
     )
+
+
+@pytest.mark.unit
+def test_editor_pane_partial_has_no_inline_script():
+    """Verify that templates/partials/editor_pane.html contains no inline script blocks."""
+    partial_path = REPO_ROOT / "templates" / "partials" / "editor_pane.html"
+    content = partial_path.read_text(encoding="utf-8")
+
+    assert not re.search(r"<script\b", content, re.IGNORECASE), (
+        "Expected templates/partials/editor_pane.html to contain no inline <script> blocks. "
+        "Template-local script blocks require the same 'unsafe-inline' CSP allowance as inline "
+        "event handlers, which this refactoring removes."
+    )
+
