@@ -49,16 +49,21 @@ _jinja_env = None
 def _env():
     global _jinja_env
     if _jinja_env is None:
+        # autoescape matches starlette's Jinja2Templates, which the app uses.
+        # #467 made it load-bearing: the file content now reaches the browser as
+        # the #hidden-content textarea body rather than through `| safe`, so an
+        # unescaped env here would render a different document than production.
         _jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(TEMPLATES_DIR)
+            loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
+            autoescape=True,
         )
     return _jinja_env
 
 
 def render_editor_pane(name, content, server_id=1, path=None, scope="global", user_role="editor"):
     """Render templates/partials/editor_pane.html the same way
-    api/routes.py:fetch_file() does, reproducing the exact context keys and
-    the exact unit_name / safe_content derivation from api/routes.py:556-575.
+    api/routes.py:fetch_file() does, reproducing its exact context keys and
+    unit_name derivation.
     """
     if path is None:
         path = f"/etc/containers/systemd/{name}"
@@ -68,7 +73,6 @@ def render_editor_pane(name, content, server_id=1, path=None, scope="global", us
     quadlet_type = name.rsplit(".", 1)[-1].lower() if "." in name else ""
     pod_name = base_name if quadlet_type == "pod" else None
 
-    safe_content = content.replace("`", "\\`").replace("$", "\\$").replace("<", "\\u003c")
     status_url = f"/api/systemctl/status/{server_id}?unit={unit_name}&scope={scope}"
 
     template = _env().get_template("partials/editor_pane.html")
@@ -78,7 +82,7 @@ def render_editor_pane(name, content, server_id=1, path=None, scope="global", us
         path=path,
         scope=scope,
         unit_name=unit_name,
-        safe_content=safe_content,
+        content=content,
         status_url=status_url,
         user_role=user_role,
         quadlet_type=quadlet_type,
