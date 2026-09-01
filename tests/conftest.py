@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 
 import pytest
 
+from tests.app_url import app_base_url as _app_base_url
+
 
 @pytest.fixture(scope="session")
 def _database_template(tmp_path_factory):
@@ -78,19 +80,6 @@ def isolated_background_loops(monkeypatch):
     monkeypatch.setattr(main, "polling_engine_loop", _noop)
     monkeypatch.setattr(main, "stats_engine_loop", _noop)
     monkeypatch.setattr(main, "container_events_cleanup_loop", _noop)
-
-
-def _app_base_url() -> str:
-    """Where the browser tests expect to find a running app.
-
-    Must agree with tests/e2e/test_podman_e2e.py, which reads the same variable
-    to build its BASE_URL. When the two disagree the failure is silent in the
-    worst direction: docs/TESTING.md documents running a second instance on
-    :8001 with QM_APP_URL, and a gate hardcoded to :8000 then skips every
-    page-fixture test. On a machine without a dev server on :8000 that recipe
-    produced a green run with zero browser coverage.
-    """
-    return os.environ.get("QM_APP_URL", "http://localhost:8000")
 
 
 def _server_is_up(url: str | None = None) -> bool:

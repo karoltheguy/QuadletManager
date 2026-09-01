@@ -16,14 +16,11 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 
 
 def _goto_containers(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    goto_app(page)
     page.click("button.nav-item:has-text('Containers')")
 
 

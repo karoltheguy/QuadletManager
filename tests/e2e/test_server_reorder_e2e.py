@@ -1,6 +1,6 @@
 """Playwright E2E tests for server drag-and-drop reordering (issue #95).
 
-Requires the backend running on localhost:8000 with at least two servers configured.
+Requires the backend running at QM_APP_URL with at least two servers configured.
 """
 import pytest
 
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT, reason="Playwright not installed"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 def _goto_servers_settings(page: Page):
@@ -34,7 +34,7 @@ def _goto_servers_settings(page: Page):
         ):
             page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()
     page.click(".settings-sidenav-item[data-section='servers']")

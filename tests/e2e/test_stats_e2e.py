@@ -2,9 +2,10 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .podman_ui import BASE_URL, open_containers_tab, quadlet_on_host, skip_unless_seeded
+from tests.app_url import BASE_URL
 
-# To run this, the backend must be running on localhost:8000
-# DEV_AUTO_LOGIN=1 venv/bin/uvicorn main:app --port 8000
+# To run this, the backend must be running at QM_APP_URL
+# scripts/browser-e2e.sh test provisions one for you.
 
 
 @pytest.fixture(scope="session")
@@ -25,7 +26,7 @@ def seeded_podman_host():
 @pytest.mark.e2e
 def test_stats_update_received(page: Page):
     """Test that the stats table updates when receiving SSE events"""
-    page.goto("http://localhost:8000/")
+    page.goto(BASE_URL + "/")
 
     # Wait for the servers list to load (Loading servers... disappear)
     page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")

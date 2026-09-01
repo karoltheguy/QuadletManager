@@ -1,7 +1,7 @@
 """
 E2E tests for mini stats card in Dashboard inspector panel (Issue #39).
 
-Requires the backend running on localhost:8000 and Playwright installed.
+Requires the backend running at QM_APP_URL and Playwright installed.
 Run with: pytest tests/test_inspector_stats_card.py
 """
 import re
@@ -21,15 +21,12 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 
 
 def _goto(page: Page):
     """Navigate to the dashboard, skip test if backend is not running."""
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    goto_app(page)
     # Inspector is only visible on the Containers tab (hidden on default Overview tab)
     page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector("#inspector", state="visible")

@@ -1,7 +1,7 @@
 """
 E2E tests for the profile menu (Issue #414).
 
-Requires the backend running on localhost:8000 and Playwright installed.
+Requires the backend running at QM_APP_URL and Playwright installed.
 Run with: pytest tests/e2e/test_profile_menu.py
 """
 import pytest  # type: ignore
@@ -20,15 +20,12 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 
 
 def _goto(page: Page):
     """Navigate to the dashboard, skip test if backend is not running."""
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000, skipping E2E tests.")
+    goto_app(page)
 
 
 @pytest.mark.e2e
