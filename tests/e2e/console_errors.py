@@ -1,5 +1,12 @@
 """Helpers for asserting on captured browser console/page errors in E2E tests."""
 import re
+from urllib.parse import urlparse
+
+from tests.app_url import BASE_URL
+
+# host:port of the app under test, so the cross-origin filter below follows
+# QM_APP_URL instead of assuming the default port (#476).
+_APP_HOST = urlparse(BASE_URL).netloc
 
 _URL_RE = re.compile(r"https?://[^\s'\"]+")
 
@@ -12,7 +19,7 @@ _LOAD_FAILURE_MARKERS = (
 )
 
 
-def app_console_errors(logs, app_host="localhost:8000"):
+def app_console_errors(logs, app_host=None):
     """Return the console/page error entries that count as application errors.
 
     Keeps every "PAGE ERROR" entry unconditionally (an uncaught JS exception
@@ -26,7 +33,11 @@ def app_console_errors(logs, app_host="localhost:8000"):
     resource-load failures.
 
     All other log entries (e.g. "CONSOLE [log]") are ignored.
+
+    app_host defaults to the host:port of QM_APP_URL.
     """
+    if app_host is None:
+        app_host = _APP_HOST
     kept = []
     for entry in logs:
         if "PAGE ERROR" in entry:

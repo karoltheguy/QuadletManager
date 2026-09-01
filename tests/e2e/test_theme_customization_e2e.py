@@ -17,16 +17,13 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.e2e.app_page import goto_app
 _CANARY_DARK_BG = "#0a1628"
 _DEFAULT_DARK_BG = "#1c1f24"
 
 
 def _goto_themes(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    goto_app(page)
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()
     page.click(".settings-sidenav-item[data-section='themes']")
@@ -36,10 +33,7 @@ def _goto_themes(page: Page):
 @pytest.mark.e2e
 def test_themes_tab_appears_in_settings_sidenav(page: Page):
     """Settings sidenav must show a Themes item that reveals the htmx-loaded theme editor."""
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+    goto_app(page)
 
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()

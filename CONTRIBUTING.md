@@ -92,7 +92,7 @@ locally is the most reliable way to know your PR will go green:
 | `unit` | `python -m pytest tests/ -m unit -n auto` | nothing |
 | `unmarked` | `python -m pytest tests/ -m "not unit and not integration and not e2e and not podman" -n auto` | nothing |
 | `integration` | `python -m pytest tests/ -m integration -n auto --dist=loadfile` | mock environment |
-| `e2e` | `python -m pytest tests/ -m e2e -n auto --dist=loadfile` | mock environment + Chromium |
+| `e2e` | `./scripts/browser-e2e.sh test` | Chromium |
 | `podman` | `./scripts/podman-e2e.sh test` | a live Podman 5 host |
 
 The first two run fully mocked in a couple of seconds and cover most changes.
@@ -101,7 +101,13 @@ If you change the `unmarked` marker expression, change
 `UNMARKED_MARKEXPR` in `tests/conftest.py` to match. They are compared by string
 equality; `tests/test_unmarked_marker_sync.py` fails if they drift.
 
-For `integration` and `e2e`, start the mock environment first. It boots a
+`e2e` needs an app to point a browser at, and `scripts/browser-e2e.sh` builds a
+throwaway one for the run: scratch database, seeder, uvicorn on a free port, all
+removed on exit. See docs/TESTING.md for what it does and how to point the suite
+at an app you already have. CI runs the same suite under compose instead; three
+reorder tests skip locally because the seeder creates only one server.
+
+For `integration`, start the mock environment first. It boots a
 container running real systemd to stand in for a remote host:
 
 ```bash

@@ -27,7 +27,8 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
+from tests.e2e.app_page import goto_app
 
 PROPS = [
     "color", "background-color", "border-top-color", "border-top-width",
@@ -78,10 +79,7 @@ DUMP_JS = """([props, opaque]) => {
 
 def _capture(page: Page, theme: str, density: str):
     page.set_viewport_size({"width": 1440, "height": 900})
-    try:
-        page.goto(BASE_URL + "/", wait_until="load")
-    except Exception:
-        pytest.skip("Backend is not running on localhost:8000 - skipping E2E tests.")
+    goto_app(page, wait_until="load")
     # The app persists `qm-active-tab` and `qm-bottom-tab` in localStorage, so a
     # prior test that switched tabs changes which pane renders here and shifts
     # every child-index path after it. Clear storage and reload so the snapshot
