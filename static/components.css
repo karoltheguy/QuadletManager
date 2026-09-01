@@ -450,3 +450,10 @@ ul { list-style: none; }
 :root[data-theme="light"] .status-dot.dot-running {
     box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
 }
+
+/* ── HTMX Indicators ───────────────────────────────────────
+   Replaces htmx's injected style block, disabled by the
+   htmx-config meta tag for CSP issue #484. */
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+.htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }

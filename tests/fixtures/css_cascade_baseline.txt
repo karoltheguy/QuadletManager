@@ -112,6 +112,9 @@
 .health-range-btn { font-size: 0.75rem; color: var(--text-muted); }
 .health-range-btn.active { box-shadow: var(--shadow-inset); color: var(--brand-primary); }
 .hidden { display: none; }
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+.htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
 .inspector-empty-hint { font-size: 0.8rem; color: var(--text-muted); margin: 0; max-width: 22ch; line-height: 1.5; }
 .inspector-empty-state svg { width: 2rem; height: 2rem; opacity: 0.35; }
 .inspector-empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 2.5rem 1rem; text-align: center; color: var(--text-muted); }
