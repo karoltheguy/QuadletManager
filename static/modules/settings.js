@@ -105,13 +105,13 @@ function renderServerListError(elt, message) {
 export function initServerListRetry() {
   document.body.addEventListener('htmx:responseError', function (e) {
     const elt = e.detail?.elt || e.target;
-    if (!elt || elt.id !== 'servers-list') return;
+    if (elt?.id !== 'servers-list') return;
     renderServerListError(elt, 'Failed to load servers. ');
   });
 
   document.body.addEventListener('htmx:sendError', function (e) {
     const elt = e.detail?.elt || e.target;
-    if (!elt || elt.id !== 'servers-list') return;
+    if (elt?.id !== 'servers-list') return;
     renderServerListError(elt, 'Network error loading servers. ');
   });
 }
