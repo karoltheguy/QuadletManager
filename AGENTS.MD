@@ -18,6 +18,25 @@
 
 **See docs subfolder for directives and documentation on this project**
 
+## Security: no inline CSS or JS, ever
+
+The Content-Security-Policy in `core/security_headers.py` must never contain
+`'unsafe-inline'` or `'unsafe-eval'` in any directive, and no `style-src-attr`
+escape hatch. This is a hard rule, not a default to weigh against convenience.
+
+Concretely, do not add:
+* `style="..."` attributes in templates or in HTML built by JavaScript. Use a CSS
+  class, or set the property from JavaScript via `element.style` / `setProperty`,
+  which CSP does not restrict.
+* inline `<script>` blocks or `on*=` event-handler attributes. Use a module in
+  `static/modules/` and delegated listeners.
+* a `<style>` element created at runtime without the request nonce assigned to
+  its `.nonce` property.
+
+If a third-party library forces inline styles or scripts and offers no nonce
+hook, isolate it rather than relaxing the header.
+
+
 ## E2E Playwright Testing Best Practices
 
 ### Prevent Race Conditions on Page Load
