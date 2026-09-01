@@ -42,8 +42,11 @@ def test_dashboard_response_sets_csp_header(client):
     response = client.get("/")
     assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
     csp = response.headers.get("Content-Security-Policy")
-    assert csp is not None and len(csp.strip()) > 0, (
-        "GET '/' response must include a non-empty 'Content-Security-Policy' header"
+    assert csp is not None, (
+        "GET '/' response must include a 'Content-Security-Policy' header"
+    )
+    assert csp.strip(), (
+        "GET '/' response's 'Content-Security-Policy' header must not be empty"
     )
 
 

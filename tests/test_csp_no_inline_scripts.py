@@ -113,6 +113,9 @@ def test_dashboard_html_element_carries_theme_pref(client):
 
     html_attrs = html_tag_match.group(1)
     pref_match = re.search(r'\bdata-theme-pref=[\'"]([^\'"]+)[\'"]', html_attrs)
-    assert pref_match is not None and pref_match.group(1).strip() != "", (
-        f"The <html> tag must carry a non-empty data-theme-pref attribute, found <html> tag: {html_tag_match.group(0)}"
+    assert pref_match is not None, (
+        f"The <html> tag must carry a data-theme-pref attribute, found <html> tag: {html_tag_match.group(0)}"
+    )
+    assert pref_match.group(1).strip(), (
+        f"The <html> tag's data-theme-pref attribute must not be empty, found <html> tag: {html_tag_match.group(0)}"
     )

@@ -1,6 +1,6 @@
 (function () {
     try {
-        var saved = localStorage.getItem('qm-theme');
+        const saved = localStorage.getItem('qm-theme');
         if (saved === 'light' || saved === 'dark') {
             document.documentElement.dataset.theme = saved;
         }

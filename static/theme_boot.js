@@ -1,18 +1,20 @@
 (function () {
     try {
-        var pref = document.documentElement.dataset.themePref || 'auto';
-        var quickOverride = localStorage.getItem('qm-theme-override');
-        var effective = quickOverride || pref || 'auto';
-        var resolved = effective === 'auto'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : effective;
+        const pref = document.documentElement.dataset.themePref || 'auto';
+        const quickOverride = localStorage.getItem('qm-theme-override');
+        const effective = quickOverride || pref || 'auto';
+        let resolved = effective;
+        if (effective === 'auto') {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            resolved = prefersDark ? 'dark' : 'light';
+        }
         document.documentElement.dataset.theme = resolved;
     } catch {
         // localStorage is unavailable (private mode / blocked storage);
         // fall through and keep the default theme.
     }
     try {
-        var density = localStorage.getItem('qm-density');
+        const density = localStorage.getItem('qm-density');
         if (density === 'compact') {
             document.documentElement.dataset.density = 'compact';
         }
