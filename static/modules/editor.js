@@ -129,7 +129,7 @@ export function mountEditorPane(targetContainer) {
 
     // Dispose any previously-running Monaco instance before requesting a new one.
     if (window.editor) {
-        var prevModel = window.editor.getModel();
+        const prevModel = window.editor.getModel();
         window.editor.dispose();
         if (prevModel) prevModel.dispose();
         window.editor = null;
@@ -140,8 +140,8 @@ export function mountEditorPane(targetContainer) {
     // here, before require fires. Monaco's callback can be delayed past a later
     // swap, and re-reading at that point would write the new pane's file into
     // this editor.
-    var fileName = targetContainer ? targetContainer.dataset.fileName : '';
-    var fileContent = targetContainer ? targetContainer.dataset.fileContent : '';
+    const fileName = targetContainer ? targetContainer.dataset.fileName : '';
+    const fileContent = targetContainer ? targetContainer.dataset.fileContent : '';
     require(['vs/editor/editor.main'], function() {
         if (!window._quadletProvidersRegistered && window.registerQuadletLintProviders) {
             window.registerQuadletLintProviders(monaco, 'ini');
@@ -152,10 +152,10 @@ export function mountEditorPane(targetContainer) {
         // click happened and HTMX already replaced this pane), skip init.
         if (!document.body.contains(targetContainer)) return;
 
-        var uri = monaco.Uri.file(fileName);
-        var old = monaco.editor.getModel(uri);
+        const uri = monaco.Uri.file(fileName);
+        const old = monaco.editor.getModel(uri);
         if (old) old.dispose();
-        var model = monaco.editor.createModel(fileContent, 'ini', uri);
+        const model = monaco.editor.createModel(fileContent, 'ini', uri);
 
         window.editor = monaco.editor.create(targetContainer, {
             model: model,
@@ -166,7 +166,7 @@ export function mountEditorPane(targetContainer) {
         editorDirty = false;
         window.editor.onDidChangeModelContent(function() {
             editorDirty = true;
-            var indicator = document.getElementById('unsaved-indicator');
+            const indicator = document.getElementById('unsaved-indicator');
             if (indicator) indicator.removeAttribute('hidden');
         });
 
@@ -221,7 +221,7 @@ export function initEditor() {
     // #editor-container with no file attributes that must never be mounted.
     document.body.addEventListener('htmx:afterSwap', function() {
         const container = document.getElementById('editor-container');
-        if (!container || container.dataset.fileName === undefined) return;
+        if (container?.dataset.fileName === undefined) return;
         if (container.dataset.editorMounted) return;
         container.dataset.editorMounted = '1';
         mountEditorPane(container);
