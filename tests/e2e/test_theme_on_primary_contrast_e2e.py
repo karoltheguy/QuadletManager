@@ -34,7 +34,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-from tests.app_url import BASE_URL
+from tests.e2e.app_page import goto_app
 _HOSTILE_BRAND = "#7a7f4a"
 _DEFAULT_DARK_BRAND = "#14b8a6"
 
@@ -83,10 +83,7 @@ def _normalize_color(value: str) -> str:
 
 
 def _goto_themes(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
+    goto_app(page)
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()
     page.click(".settings-sidenav-item[data-section='themes']")

@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-from tests.app_url import BASE_URL
+from tests.e2e.app_page import goto_app
 
 
 # ── WCAG contrast helpers (mirrors tests/test_brand_teal_contrast.py) ──
@@ -78,10 +78,7 @@ WCAG_AA_MIN = 4.5
 
 
 def _goto_settings(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
+    goto_app(page)
     # `.btn` transitions `color` (and box-shadow/transform) but not
     # `background-color` (see static/style.css). When a test switches
     # data-theme, the background snaps to the new theme instantly while
@@ -220,10 +217,7 @@ def test_non_settings_primary_button_keeps_soft_surface_scoping(page: Page):
     A non-settings primary button (#terminal-connect-btn, outside
     #settings-pane) must still resolve to the soft --bg-surface treatment,
     not the brand-primary fill."""
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
+    goto_app(page)
 
     button = page.locator("#terminal-connect-btn")
     if button.count() == 0:

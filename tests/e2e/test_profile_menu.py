@@ -20,15 +20,12 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-from tests.app_url import BASE_URL
+from tests.e2e.app_page import goto_app
 
 
 def _goto(page: Page):
     """Navigate to the dashboard, skip test if backend is not running."""
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip(f"Backend is not running on {BASE_URL}, skipping E2E tests.")
+    goto_app(page)
 
 
 @pytest.mark.e2e

@@ -21,14 +21,11 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-from tests.app_url import BASE_URL
+from tests.e2e.app_page import goto_app
 
 
 def _goto_settings(page: Page):
-    try:
-        page.goto(BASE_URL + "/")
-    except Exception:
-        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
+    goto_app(page)
     page.click("button.nav-item:has-text('Settings')")
     expect(page.locator("#settings-pane")).to_be_visible()
 

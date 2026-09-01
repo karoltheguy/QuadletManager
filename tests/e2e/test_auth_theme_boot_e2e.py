@@ -28,7 +28,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 from tests.app_url import BASE_URL
-AUTH_PAGE_URL = BASE_URL + "/change-password"
+from tests.e2e.app_page import goto_app
+
+AUTH_PAGE_PATH = "/change-password"
 
 
 @pytest.fixture
@@ -50,15 +52,12 @@ def auth_page(browser: Browser):
 def test_auth_page_applies_the_saved_theme_override(auth_page, saved_theme):
     """A qm-theme-override value written by toggleTheme must reach <html data-theme>."""
     page = auth_page
-    try:
-        response = page.goto(AUTH_PAGE_URL)
-    except Exception:
-        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
+    response = goto_app(page, AUTH_PAGE_PATH)
     if response is None or response.status != 200:
-        pytest.skip(f"GET {AUTH_PAGE_URL} did not return 200 — skipping E2E tests.")
+        pytest.skip(f"GET {BASE_URL + AUTH_PAGE_PATH} did not return 200 — skipping E2E tests.")
 
     assert "auth_theme_boot" in page.content(), (
-        f"{AUTH_PAGE_URL} did not render the auth template (landed on {page.url}). "
+        f"{BASE_URL + AUTH_PAGE_PATH} did not render the auth template (landed on {page.url}). "
         "This test needs a page that loads static/auth_theme_boot.js."
     )
 
