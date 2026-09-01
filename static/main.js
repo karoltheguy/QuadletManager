@@ -8,7 +8,7 @@ import { toggleTheme, toggleDensity, initDensityRadio, toggleEditorTheme,
          applyEditorTheme } from '@qm/theme';
 import { showToast } from '@qm/toast';
 import { initModalDismissal, dismissModal } from '@qm/modals';
-import { toggleServerEdit, initServerReorder } from '@qm/settings';
+import { toggleServerEdit, initServerReorder, initServerListRetry } from '@qm/settings';
 import { openBottomPanel, toggleBottomPanel, toggleBottomPanelExpand,
          switchBottomTab, initResizableHandles, initPanel } from '@qm/panel';
 import { stemFromUnitName } from '@qm/units';
@@ -373,6 +373,10 @@ const delegatedActions = {
   'dismiss-modal': function(btn) {
     dismissModal(btn);
   },
+  'retry-servers-list': function() {
+    const list = document.getElementById('servers-list');
+    if (list) list.dispatchEvent(new CustomEvent('refresh-servers'));
+  },
 };
 
 document.addEventListener('click', function(e) {
@@ -442,6 +446,23 @@ document.addEventListener('htmx:afterRequest', function (e) {
   if (e.target.closest?.('.color-editor-form')) {
     clearThemePreview();
   }
+});
+
+const delegatedAfterRequestActions = {
+  'reset-form': function(elt, e) {
+    if (e.detail?.successful) elt.reset();
+  },
+  'dismiss-modal': function(elt) {
+    dismissModal(elt);
+  },
+};
+
+document.body.addEventListener('htmx:afterRequest', function (e) {
+  const elt = e.target.closest?.('[data-after-request]');
+  if (!elt) return;
+  const action = elt.dataset.afterRequest;
+  if (!Object.hasOwn(delegatedAfterRequestActions, action)) return;
+  Reflect.get(delegatedAfterRequestActions, action)(elt, e);
 });
 
 initPanel();
@@ -604,6 +625,7 @@ function softRefresh() {
 
 initModalDismissal();
 initServerReorder();
+initServerListRetry();
 initEditor();
 
 // ── Window Bridge ──────────────────────────────────────────

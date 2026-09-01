@@ -25,9 +25,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 @pytest.mark.unit
 async def test_modal_does_not_use_onsubmit(mock_db):
     """The form must NOT use an `onsubmit` handler that removes the modal
-    before HTMX sends the request. Instead, `hx-on::after-request`
-    (or equivalent) should be used so the modal is dismissed only
-    *after* the request completes."""
+    before HTMX sends the request. Instead it declares
+    `data-after-request="dismiss-modal"`, which the delegated
+    htmx:afterRequest dispatcher acts on only *after* the request
+    completes."""
     from api.routes import new_file_modal
 
     # Fake DB returning one server
@@ -58,9 +59,10 @@ async def test_modal_does_not_use_onsubmit(mock_db):
     assert 'hx-target="#status-toast"' in body
 
     # Must include a mechanism to close the modal after the request
-    assert 'hx-on::after-request' in body, (
-        "Form should use hx-on::after-request to close the modal "
-        "only after the HTMX request has completed."
+    assert 'data-after-request="dismiss-modal"' in body, (
+        "Form should declare data-after-request=\"dismiss-modal\" so the "
+        "delegated htmx:afterRequest dispatcher closes the modal only after "
+        "the HTMX request has completed."
     )
 
 

@@ -2,10 +2,12 @@
 
 Covers:
 - templates/dashboard.html has three settings forms (Add Server, Add SSH
-  Key, Add User) that each carry an `hx-on::after-request="this.reset()"`
-  attribute. That reset must only fire when the request actually
-  succeeded (i.e. gated on `event.detail.successful`); otherwise a failed
-  submit silently wipes the user's input with no feedback.
+  Key, Add User) whose reset must only fire when the request actually
+  succeeded; otherwise a failed submit silently wipes the user's input
+  with no feedback. Issue #392 moved the reset off an
+  `hx-on::after-request` attribute onto a `data-after-request="reset-form"`
+  declaration, so the gate now lives in the delegated dispatcher and both
+  halves are asserted here.
 - templates/partials/settings_themes.html has the same bug on its New
   Theme form.
 - static/main.js must register a global `htmx:responseError` listener on
@@ -31,18 +33,29 @@ TOAST_JS_PATH = os.path.join(
     os.path.dirname(__file__), "..", "static", "modules", "toast.js"
 )
 
-# Matches `this.reset()` gated behind a check of event.detail.successful,
-# e.g. `if(event.detail.successful) this.reset()` or with extra whitespace.
-GATED_RESET_RE = re.compile(
-    r"if\s*\(\s*event\.detail\.successful\s*\)\s*this\.reset\(\)"
-)
-
 # Matches a bare, unconditional `this.reset()` inside an
 # hx-on::after-request attribute value (i.e. the whole attribute value is
 # just `this.reset()`, with no gating condition present).
 UNCONDITIONAL_RESET_ATTR_RE = re.compile(
     r'hx-on::after-request="\s*this\.reset\(\)\s*"'
 )
+
+# Matches a form declaring the delegated reset action that replaced the
+# hx-on::after-request attribute in issue #392.
+RESET_FORM_ATTR_RE = re.compile(r'data-after-request="reset-form"')
+
+
+def _reset_form_handler_body():
+    """The body of the delegated 'reset-form' handler in the static JS."""
+    js = read_static_js()
+    start = js.find("'reset-form'")
+    assert start != -1, (
+        "expected a quoted 'reset-form' action in the delegated "
+        "htmx:afterRequest dispatcher"
+    )
+    end = js.find("},", start)
+    assert end != -1, "could not find the end of the 'reset-form' handler body"
+    return js[start:end]
 
 
 def _js():
@@ -83,12 +96,24 @@ class TestDashboardSettingsFormResetGating:
         )
 
     @pytest.mark.unit
-    def test_settings_forms_gate_reset_on_successful_request(self):
-        matches = GATED_RESET_RE.findall(self.html)
+    def test_settings_forms_declare_the_delegated_reset_action(self):
+        matches = RESET_FORM_ATTR_RE.findall(self.html)
         assert len(matches) >= 3, (
             "expected at least 3 forms in dashboard.html (Add Server, "
-            "Add SSH Key, Add User) to gate their this.reset() call on "
-            f"event.detail.successful; found {len(matches)}"
+            "Add SSH Key, Add User) to declare "
+            f'data-after-request="reset-form"; found {len(matches)}'
+        )
+
+    @pytest.mark.unit
+    def test_delegated_reset_gates_on_successful_request(self):
+        body = _reset_form_handler_body()
+        assert "successful" in body, (
+            "expected the delegated 'reset-form' handler to gate its reset() "
+            f"call on the request being successful; body was: {body!r}"
+        )
+        assert ".reset()" in body, (
+            "expected the delegated 'reset-form' handler to call reset() on "
+            f"the form; body was: {body!r}"
         )
 
 
@@ -111,11 +136,12 @@ class TestSettingsThemesFormResetGating:
         )
 
     @pytest.mark.unit
-    def test_new_theme_form_gates_reset_on_successful_request(self):
-        matches = GATED_RESET_RE.findall(self.html)
+    def test_new_theme_form_declares_the_delegated_reset_action(self):
+        matches = RESET_FORM_ATTR_RE.findall(self.html)
         assert matches, (
-            "expected the New Theme form's this.reset() call in "
-            "settings_themes.html to be gated on event.detail.successful"
+            "expected the New Theme form in settings_themes.html to declare "
+            'data-after-request="reset-form", so the delegated dispatcher '
+            "gates its reset on the request succeeding"
         )
 
 
