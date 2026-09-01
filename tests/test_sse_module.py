@@ -33,11 +33,13 @@ SSE_EXPORT_FUNCTIONS = [
     "startStatsWaitTimeout",
 ]
 
+# handleQuadletsChanged left this list in #465. main.js imported it only to put it on
+# the window bridge, and nothing outside main.js referenced it any more,
+# so dropping the bridge entry left the import unused.
 MAIN_JS_SSE_IMPORTS = [
     "connectSSE",
     "fetchPollHealthSnapshot",
     "applyPollHealthBadges",
-    "handleQuadletsChanged",
     "handleStatsUpdate",
     "handleStatsError",
     "startStatsWaitTimeout",

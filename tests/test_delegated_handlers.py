@@ -51,6 +51,15 @@ RETIRED_BRIDGE_NAMES = frozenset({
     "showFileContextMenu",
     # group 9 (#463): settings server rows and new-quadlet modal
     "toggleServerEdit",
+    # group 10 (#465): bridge entries left without a consumer
+    "closeLogTab",
+    "closeTerminalTab",
+    "handleQuadletsChanged",
+    "safeReload",
+    "stemFromUnitName",
+    "switchLogTab",
+    "switchTerminalTab",
+    "unitNameFor",
 })
 
 

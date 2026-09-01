@@ -48,20 +48,22 @@ MOVED_FUNCTIONS = [
     "sessionAddNew",
 ]
 
+# switchTerminalTab and closeTerminalTab left this list in #465. main.js imported them only to put them on
+# the window bridge, and nothing outside main.js referenced them any more,
+# so dropping the bridge entry left the import unused.
 MAIN_JS_TERMINAL_IMPORTS = [
     "connectTerminal",
     "createTerminalTab",
     "loadFitAddon",
-    "switchTerminalTab",
-    "closeTerminalTab",
     "sessionAddNew",
     "initTerminal",
 ]
 
+# main.js reads `window._terminalTabs` directly, so this one entry is load-bearing.
+# closeTerminalTab and switchTerminalTab left the bridge in #465: nothing outside
+# main.js's own imports referenced them any more.
 WINDOW_BRIDGE_TERMINAL_NAMES = [
     "_terminalTabs",
-    "closeTerminalTab",
-    "switchTerminalTab",
 ]
 
 
@@ -260,7 +262,7 @@ def test_main_js_calls_init_terminal():
 
 @pytest.mark.unit
 def test_window_bridge_retains_terminal_globals():
-    """Assert _terminalTabs, closeTerminalTab, and switchTerminalTab remain in the window bridge."""
+    """Assert _terminalTabs remains in the window bridge."""
     main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
     assert main_js_file is not None, "main.js not found in static_js_files()"
 
@@ -275,5 +277,5 @@ def test_window_bridge_retains_terminal_globals():
     for name in WINDOW_BRIDGE_TERMINAL_NAMES:
         assert name in bridge_body, (
             f"{name} must remain in the Object.assign(window, {{ ... }}) bridge; "
-            "templates and e2e tests access it via window and would break without it"
+            "main.js reads it as window.NAME and would see undefined without it"
         )
