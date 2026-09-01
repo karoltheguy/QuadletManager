@@ -19,10 +19,22 @@ from tests.js_source import read_static_js
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 EDITOR_PANE_HTML_PATH = os.path.join(BASE_DIR, "templates", "partials", "editor_pane.html")
+EDITOR_JS_PATH = os.path.join(BASE_DIR, "static", "modules", "editor.js")
 
 
 def _editor_pane_html():
     with open(EDITOR_PANE_HTML_PATH, encoding="utf-8") as f:
+        return f.read()
+
+
+def _editor_js():
+    """Source of static/modules/editor.js.
+
+    #468 moved the editor pane's mount code out of the template and into
+    mountEditorPane() here, so the theme wiring these tests guard lives in the
+    module now. Asserting against the template would pass vacuously.
+    """
+    with open(EDITOR_JS_PATH, encoding="utf-8") as f:
         return f.read()
 
 
@@ -32,9 +44,9 @@ def _main_js():
 
 @pytest.mark.unit
 def test_editor_pane_does_not_hardcode_vs_dark():
-    html = _editor_pane_html()
+    html = _editor_js()
     assert "theme: 'vs-dark'" not in html, (
-        "Expected editor_pane.html to no longer hardcode theme: 'vs-dark' in the "
+        "Expected mountEditorPane() to no longer hardcode theme: 'vs-dark' in the "
         "monaco.editor.create(...) options. A hardcoded 'vs-dark' theme means the "
         "editor never follows the app's light/dark theme toggle."
     )
@@ -42,9 +54,9 @@ def test_editor_pane_does_not_hardcode_vs_dark():
 
 @pytest.mark.unit
 def test_editor_pane_calls_apply_editor_theme():
-    html = _editor_pane_html()
+    html = _editor_js()
     assert "applyEditorTheme" in html, (
-        "Expected editor_pane.html to call applyEditorTheme() after creating the "
+        "Expected mountEditorPane() to call applyEditorTheme() after creating the "
         "editor, so the editor's Monaco theme matches the app's current light/dark "
         "theme immediately on creation."
     )

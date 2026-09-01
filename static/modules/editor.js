@@ -2,6 +2,16 @@
 /**
  * Monaco editor configuration, validation, and save handling.
  */
+import { applyEditorTheme } from '@qm/theme';
+
+// Tracks unsaved edits. main.js's beforeunload handler reads it through
+// isEditorDirty(); it was `window._editorDirty` before #468.
+let editorDirty = false;
+
+export function isEditorDirty() {
+    return editorDirty;
+}
+
 
 // Report a failed validation request in the results pane and throw. Split out
 // of validateQuadlet so that function stays under the cognitive-complexity limit.
@@ -109,6 +119,71 @@ export async function saveQuadlet() {
     document.getElementById('save-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
 }
 
+export function mountEditorPane(targetContainer) {
+    // Cancel any pending debounced lint from the previous pane before it can fire
+    // against a model we are about to dispose.
+    if (window._quadletLintDetach) {
+        window._quadletLintDetach();
+        window._quadletLintDetach = null;
+    }
+
+    // Dispose any previously-running Monaco instance before requesting a new one.
+    if (window.editor) {
+        var prevModel = window.editor.getModel();
+        window.editor.dispose();
+        if (prevModel) prevModel.dispose();
+        window.editor = null;
+    }
+
+    // The caller hands us the container that was in the document when the swap
+    // landed, and the file name and content are read off it *synchronously*
+    // here, before require fires. Monaco's callback can be delayed past a later
+    // swap, and re-reading at that point would write the new pane's file into
+    // this editor.
+    var fileName = targetContainer ? targetContainer.dataset.fileName : '';
+    var fileContent = targetContainer ? targetContainer.dataset.fileContent : '';
+    require(['vs/editor/editor.main'], function() {
+        if (!window._quadletProvidersRegistered && window.registerQuadletLintProviders) {
+            window.registerQuadletLintProviders(monaco, 'ini');
+            window._quadletProvidersRegistered = true;
+        }
+
+        // Guard: if this container is no longer in the document (i.e. another
+        // click happened and HTMX already replaced this pane), skip init.
+        if (!document.body.contains(targetContainer)) return;
+
+        var uri = monaco.Uri.file(fileName);
+        var old = monaco.editor.getModel(uri);
+        if (old) old.dispose();
+        var model = monaco.editor.createModel(fileContent, 'ini', uri);
+
+        window.editor = monaco.editor.create(targetContainer, {
+            model: model,
+            theme: document.documentElement.dataset.theme === 'light' ? 'vs' : 'vs-dark',
+            automaticLayout: true
+        });
+        applyEditorTheme();
+        editorDirty = false;
+        window.editor.onDidChangeModelContent(function() {
+            editorDirty = true;
+            var indicator = document.getElementById('unsaved-indicator');
+            if (indicator) indicator.removeAttribute('hidden');
+        });
+
+        function startQuadletLint() {
+            if (!document.body.contains(targetContainer)) return;
+            if (window.editor && window.editor.getModel() !== model) return;
+            window._quadletLintDetach = window.attachQuadletLint(monaco, model);
+        }
+
+        if (window._quadletLintReady) {
+            startQuadletLint();
+        } else {
+            document.addEventListener('quadlet-lint-ready', startQuadletLint, { once: true });
+        }
+    });
+}
+
 export function initEditor() {
     // ── Monaco Editor Configuration ──────────────────────────
     require.config({ paths: { 'vs': '/static/vendor/monaco/vs' }});
@@ -123,7 +198,7 @@ export function initEditor() {
     // Guard htmx swaps of the editor pane when there are unsaved changes.
     document.body.addEventListener('htmx:confirm', function(evt) {
         const target = evt.detail?.target;
-        if (target?.id !== 'editor-pane' || !window._editorDirty) {
+        if (target?.id !== 'editor-pane' || !editorDirty) {
             return;
         }
         evt.preventDefault();
@@ -134,8 +209,21 @@ export function initEditor() {
 
     // The server sets HX-Trigger: quadlet-saved on a successful /api/save response.
     document.body.addEventListener('quadlet-saved', function() {
-        window._editorDirty = false;
+        editorDirty = false;
         const indicator = document.getElementById('unsaved-indicator');
         if (indicator) indicator.setAttribute('hidden', '');
+    });
+
+    // The pane arrives as an htmx swap, so mounting rides on afterSwap
+    // rather than an inline script in the partial. Two guards matter: the
+    // response also carries out-of-band swaps, so afterSwap fires several
+    // times per response, and dashboard.html ships a placeholder
+    // #editor-container with no file attributes that must never be mounted.
+    document.body.addEventListener('htmx:afterSwap', function() {
+        const container = document.getElementById('editor-container');
+        if (!container || container.dataset.fileName === undefined) return;
+        if (container.dataset.editorMounted) return;
+        container.dataset.editorMounted = '1';
+        mountEditorPane(container);
     });
 }
