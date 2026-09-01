@@ -1,7 +1,7 @@
 """
 E2E tests for resizable panel handles (Issue #12).
 
-Requires the backend running on localhost:8000 and Playwright installed.
+Requires the backend running at QM_APP_URL and Playwright installed.
 Run with: pytest tests/test_resizable_panels.py
 """
 import pytest  # type: ignore
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 def _goto(page: Page):
@@ -28,7 +28,7 @@ def _goto(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
     # Navigator and resize handles are only visible on the Containers tab
     page.click("button.nav-item:has-text('Containers')")
 

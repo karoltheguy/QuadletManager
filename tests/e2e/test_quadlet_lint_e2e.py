@@ -20,6 +20,7 @@ import os
 import pytest
 
 from tests.e2e.console_errors import app_console_errors
+from tests.app_url import BASE_URL
 
 try:
     from playwright.sync_api import Page, expect
@@ -135,7 +136,7 @@ def test_quadlet_lint_publishes_markers(page: Page):
     )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -173,7 +174,7 @@ def test_quadlet_lint_file_type_rule_fires(page: Page):
     )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -209,7 +210,7 @@ def test_client_and_server_marker_owners_coexist(page: Page):
     )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -268,7 +269,7 @@ def test_repeated_unit_swaps_produce_no_console_errors(page: Page):
     page.route("**/api/file/**", handle_route)
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -299,7 +300,7 @@ def test_lint_is_debounced(page: Page):
     )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 
@@ -365,7 +366,7 @@ def test_swap_during_debounce_produces_no_page_error(page: Page):
     page.route("**/api/file/**", handle_route)
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 

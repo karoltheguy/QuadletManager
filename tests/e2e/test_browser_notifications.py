@@ -22,13 +22,13 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment",
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 def _goto_and_mock_notifications(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
         
     # Navigator is only visible on the Containers tab (hidden on default Overview tab)
     page.click("button.nav-item:has-text('Containers')")

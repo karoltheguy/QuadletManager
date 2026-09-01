@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
     not HAS_PLAYWRIGHT, reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 @pytest.mark.e2e
@@ -28,7 +28,7 @@ def test_editor_follows_theme_toggle_in_follow_mode(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 - skipping E2E test.")
+        pytest.skip(f"Backend is not running at {BASE_URL} - skipping E2E test.")
 
     # Precondition: reproduce the editor-view condition where 'monitoringChart' is
     # an undefined global. If some monitoring script defined it this session, the
@@ -96,7 +96,7 @@ def test_editor_theme_radio_persists_the_selection(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 - skipping E2E test.")
+        pytest.skip(f"Backend is not running at {BASE_URL} - skipping E2E test.")
 
     page.click("button.nav-item:has-text('Settings')")
     page.click(".settings-sidenav-item[data-section='themes']")

@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 # ── WCAG contrast helpers (mirrors tests/test_brand_teal_contrast.py) ──
@@ -81,7 +81,7 @@ def _goto_settings(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
     # `.btn` transitions `color` (and box-shadow/transform) but not
     # `background-color` (see static/style.css). When a test switches
     # data-theme, the background snaps to the new theme instantly while
@@ -223,7 +223,7 @@ def test_non_settings_primary_button_keeps_soft_surface_scoping(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
 
     button = page.locator("#terminal-connect-btn")
     if button.count() == 0:

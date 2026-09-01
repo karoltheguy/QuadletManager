@@ -20,6 +20,8 @@ import pytest
 from typing import Any, Callable, Dict, Generator, Optional
 from playwright.sync_api import Browser, BrowserType, Playwright, sync_playwright
 
+from tests.app_url import BASE_URL
+
 @pytest.fixture(scope="package", autouse=True)
 def seed_e2e_database_if_empty():
     """Ensure the backend database has at least one server for E2E tests."""
@@ -157,7 +159,7 @@ def page(context: Any) -> Generator[Any, None, None]:
     def robust_goto(*args, **kwargs):
         response = orig_goto(*args, **kwargs)
         try:
-            if response and response.status == 200 and "localhost:8000" in page.url:
+            if response and response.status == 200 and page.url.startswith(BASE_URL):
                 page.wait_for_function("document.documentElement.dataset.appReady === '1'", timeout=10000)
         except Exception:
             pass

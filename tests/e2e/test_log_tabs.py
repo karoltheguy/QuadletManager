@@ -1,11 +1,12 @@
 """E2E tests for mode-independent, multi-session log tabs (issue #123).
 
 Mirrors tests/e2e/test_terminal_connect.py's mocking approach, but intercepts
-/ws/logs/ instead of /ws/exec/. Only the backend (localhost:8000) needs to be
+/ws/logs/ instead of /ws/exec/. Only the backend (QM_APP_URL) needs to be
 running; no live container needed.
 """
 import pytest
 from playwright.sync_api import Page, expect
+from tests.app_url import BASE_URL
 
 _WS_MOCK_INIT = """
 (function () {
@@ -78,7 +79,7 @@ _SSE_MOCK_INIT = """
 def _goto_or_skip(page: Page) -> None:
     page.add_init_script(_SSE_MOCK_INIT)
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except Exception:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
     page.locator("#navigator").get_by_text("Loading servers...").wait_for(state="hidden")

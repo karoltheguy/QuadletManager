@@ -1,7 +1,7 @@
 """
 E2E tests for expandable inspector panel on Dashboard tab (Issue #38, #102).
 
-Requires the backend running on localhost:8000 and Playwright installed.
+Requires the backend running at QM_APP_URL and Playwright installed.
 Run with: pytest tests/test_expandable_inspector.py
 """
 import pytest  # type: ignore
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 def _goto(page: Page):
@@ -28,7 +28,7 @@ def _goto(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
     # Inspector is only visible on the Containers tab (hidden on default Overview tab)
     page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector("#inspector", state="visible")
@@ -209,7 +209,7 @@ def test_extend_right_retracts_after_editor_load(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
 
     page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector("#inspector", state="visible")

@@ -27,7 +27,7 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 AUTH_PAGE_URL = BASE_URL + "/change-password"
 
 
@@ -53,7 +53,7 @@ def test_auth_page_applies_the_saved_theme_override(auth_page, saved_theme):
     try:
         response = page.goto(AUTH_PAGE_URL)
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
     if response is None or response.status != 200:
         pytest.skip(f"GET {AUTH_PAGE_URL} did not return 200 — skipping E2E tests.")
 

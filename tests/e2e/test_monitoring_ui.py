@@ -2,9 +2,10 @@ import json
 import pytest
 from playwright.sync_api import Page, expect, Error as PlaywrightError
 import contextlib
+from tests.app_url import BASE_URL
 
-# To run this, the backend must be running on localhost:8000
-# DEV_AUTO_LOGIN=1 venv/bin/uvicorn main:app --port 8000
+# To run this, the backend must be running at QM_APP_URL
+# scripts/browser-e2e.sh test provisions one for you.
 
 # Shared read-only fixtures. Tests pass these straight to page.evaluate or
 # json.dumps and must never mutate them.
@@ -61,7 +62,7 @@ def open_monitor_pane(page: Page, history=None, servers=None):
         )
 
     try:
-        page.goto("http://localhost:8000/")
+        page.goto(BASE_URL + "/")
     except PlaywrightError:
         pytest.skip("Backend is not running locally on 8000 for E2E tests.")
 

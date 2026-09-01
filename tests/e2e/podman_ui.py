@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import urllib.request
 
-BASE_URL = os.environ.get("QM_APP_URL", "http://localhost:8000")
+from tests.app_url import BASE_URL
 SERVER_LABEL = "Podman Host"
 
 # Same env contract as tests/podman/conftest.py.

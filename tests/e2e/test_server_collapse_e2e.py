@@ -1,7 +1,7 @@
 """
 E2E tests for collapsible server rows with chevron and keyboard nav (Issue #114).
 
-Requires the backend running on localhost:8000 and Playwright installed.
+Requires the backend running at QM_APP_URL and Playwright installed.
 Run with: pytest tests/e2e/test_server_collapse_e2e.py
 """
 import pytest
@@ -20,14 +20,14 @@ pytestmark = pytest.mark.skipif(
     reason="Playwright is not installed in this environment"
 )
 
-BASE_URL = "http://localhost:8000"
+from tests.app_url import BASE_URL
 
 
 def _goto(page: Page):
     try:
         page.goto(BASE_URL + "/")
     except Exception:
-        pytest.skip("Backend is not running on localhost:8000 — skipping E2E tests.")
+        pytest.skip(f"Backend is not running on {BASE_URL} — skipping E2E tests.")
     page.click("button.nav-item:has-text('Containers')")
     page.wait_for_selector(".server-row-toggle", timeout=5000)
 
