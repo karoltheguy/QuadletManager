@@ -23,9 +23,9 @@ BASE_URL = "http://localhost:8000"
 
 
 def _goto_servers_settings(page: Page):
-    # Wait for the htmx load of servers content during page load.
-    # This ensures initServerDrag() runs (sets drag listeners) before any test interaction.
-    # A forced refresh-servers would replace #servers-tbody without re-running the inline script.
+    # Wait for the htmx load of servers content during page load, so the rows
+    # exist before any test interaction. The drag listeners themselves are
+    # delegated on `document` by initServerReorder(), so they survive the swap.
     try:
         with page.expect_response(
             lambda r: r.url.rstrip("/").endswith("/api/settings/servers")

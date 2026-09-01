@@ -40,3 +40,10 @@ export function initModalDismissal() {
     });
   });
 }
+
+// Dismiss the closest containing modal overlay.
+export function dismissModal(el) {
+  const modal = el.closest('.modal-overlay');
+  if (modal) modal.remove();
+}
+
