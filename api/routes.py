@@ -119,7 +119,10 @@ def asset_url(filename: str) -> str:
 
 
 def module_import_map() -> dict:
-    """Import map for the ES modules under static/modules/.
+    """Import map for the app's ES modules, keyed @qm/<stem>.
+
+    Covers every module under static/modules/, plus static/quadlet_lint.js,
+    which sits outside that directory but is imported the same way.
 
     Module-to-module imports bypass the asset_url busting that template script
     tags get, so without this a changed module could be served stale behind an
@@ -135,6 +138,7 @@ def module_import_map() -> dict:
             if entry.endswith(".js"):
                 stem = entry[:-3]
                 imports[f"@qm/{stem}"] = f"/static/modules/{entry}?v={_asset_version(os.path.join('modules', entry))}"
+    imports["@qm/quadlet_lint"] = asset_url("quadlet_lint.js")
     return {"imports": imports}
 
 

@@ -566,13 +566,6 @@
 
     <script src="{{ asset_url('vendor/monaco/vs/loader.js') }}"></script>
     <script type="module" src="{{ asset_url('quadlet_lint.js') }}" data-quadlet-lint-loader></script>
-    <script type="module">
-        import { attachQuadletLint, registerQuadletLintProviders } from '{{ asset_url('quadlet_lint.js') }}';
-        window.attachQuadletLint = attachQuadletLint;
-        window.registerQuadletLintProviders = registerQuadletLintProviders;
-        window._quadletLintReady = true;
-        document.dispatchEvent(new Event('quadlet-lint-ready'));
-    </script>
     <script type="module" src="{{ asset_url('main.js') }}"></script>
 </body>
 </html>

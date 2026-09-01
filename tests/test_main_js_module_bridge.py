@@ -49,16 +49,12 @@ BUILTIN_IDENTIFIERS = {
     "typeof",
 }
 
-# Names owned by other modules, not the main script bundle:
-# - attachQuadletLint and registerQuadletLintProviders come from static/quadlet_lint.js
-# - editor, _quadletLintDetach, _quadletLintReady and _quadletProvidersRegistered
-#   are owned by static/modules/editor.js, which #468 moved them into
+# Names owned by other modules, not the main script bundle: editor,
+# _quadletLintDetach and _quadletProvidersRegistered belong to
+# static/modules/editor.js, which #468 moved them into.
 OTHER_MODULE_IDENTIFIERS = {
-    "attachQuadletLint",
-    "registerQuadletLintProviders",
     "editor",
     "_quadletLintDetach",
-    "_quadletLintReady",
     "_quadletProvidersRegistered",
 }
 
