@@ -1,24 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-pref="{{ active_theme_mode_pref or 'auto' }}">
 <head>
     <title>QuadletManager Setup</title>
-    <script>
-      (function () {
-        try {
-          var pref = {{ active_theme_mode_pref | tojson }};
-          var quickOverride = localStorage.getItem('qm-theme-override');
-          var effective = quickOverride || pref || 'auto';
-          var resolved = effective === 'auto'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : effective;
-          document.documentElement.dataset.theme = resolved;
-        } catch (e) {}
-        try {
-          var density = localStorage.getItem('qm-density');
-          if (density === 'compact') document.documentElement.dataset.density = 'compact';
-        } catch (e) {}
-      })();
-    </script>
+    <script src="{{ asset_url('theme_boot.js') }}"></script>
     <script src="{{ asset_url('vendor/htmx/htmx.min.js') }}"></script>
     <script src="{{ asset_url('vendor/chartjs/chart.umd.js') }}"></script>
     <script src="{{ asset_url('vendor/xterm/xterm.js') }}"></script>
