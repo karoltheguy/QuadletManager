@@ -22,9 +22,9 @@
         <input type="hidden" name="scope" value="{{ scope }}">
         <input type="hidden" name="unit_name" value="{{ unit_name }}">
         <input type="hidden" name="quadlet_type" value="{{ quadlet_type }}">
-        <textarea name="content" id="hidden-content" aria-label="Quadlet file content">{{ content }}</textarea>
+        <textarea name="content" id="hidden-content" aria-label="Quadlet file content"></textarea>
     </form>
-    <div id="editor-container" data-file-name="{{ name }}"></div>
+    <div id="editor-container" data-file-name="{{ name }}" data-file-content="{{ content }}"></div>
     <div id="validation-results" hidden></div>
 
     <!-- Update the Inspector Pane simultaneously using HTMX OOB Swaps -->
@@ -76,8 +76,7 @@
         (function() {
             var targetContainer = document.getElementById('editor-container');
             var fileName = targetContainer ? targetContainer.dataset.fileName : '';
-            var hiddenContent = document.getElementById('hidden-content');
-            var fileContent = hiddenContent ? hiddenContent.value : '';
+            var fileContent = targetContainer ? targetContainer.dataset.fileContent : '';
             require(['vs/editor/editor.main'], function() {
                 if (!window._quadletProvidersRegistered && window.registerQuadletLintProviders) {
                     window.registerQuadletLintProviders(monaco, 'ini');

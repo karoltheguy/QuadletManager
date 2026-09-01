@@ -26,13 +26,24 @@ def _routes_py():
 
 
 @pytest.mark.unit
-def test_hidden_content_textarea_carries_the_file_content():
-    """Verify that #hidden-content textarea contains exact {{ content }} without whitespace."""
+def test_editor_container_carries_the_file_content():
+    """Verify that #editor-container carries the file content as a data attribute."""
     html = _editor_pane_html()
-    assert ">{{ content }}</textarea>" in html, (
-        "Expected templates/partials/editor_pane.html to contain a <textarea> with "
-        "id 'hidden-content' populated exactly as `>{{ content }}</textarea>` without "
-        "surrounding whitespace or newlines, so Monaco can read file contents from the DOM."
+    assert 'data-file-content="{{ content }}"' in html, (
+        "Expected templates/partials/editor_pane.html to carry the file content as "
+        '`data-file-content="{{ content }}"` on #editor-container, so Monaco reads it '
+        "from the DOM rather than from a JS template literal."
+    )
+
+
+@pytest.mark.unit
+def test_hidden_content_textarea_stays_empty():
+    """Verify that the #hidden-content textarea renders no body text."""
+    html = _editor_pane_html()
+    assert 'id="hidden-content" aria-label="Quadlet file content"></textarea>' in html, (
+        "Expected the #hidden-content textarea to render empty. The save path fills it "
+        "from the editor, and body text there reads as a visible label that contradicts "
+        "its aria-label."
     )
 
 
