@@ -62,86 +62,49 @@ def parse_css_rules(css_clean: str) -> dict[str, set[str]]:
     return rules
 
 
-@pytest.mark.unit
-def test_theme_placeholder_partial_has_no_inline_styles():
-    """Assert templates/partials/settings_themes_placeholder.html contains zero style= attributes."""
-    rel_path = SETTINGS_THEMES_PLACEHOLDER_PATH.relative_to(REPO_ROOT).as_posix()
-    assert SETTINGS_THEMES_PLACEHOLDER_PATH.exists(), f"Expected {rel_path} to exist on disk"
-    content = SETTINGS_THEMES_PLACEHOLDER_PATH.read_text(encoding="utf-8")
-
-    offenders = []
-    for match in re.finditer(r"<[^>]*\bstyle\s*=\s*([\"'])(.*?)\1[^>]*>", content, re.IGNORECASE):
-        tag = " ".join(match.group(0).split())
-        offenders.append(tag)
-
-    assert not offenders, (
-        f"{rel_path} must contain zero style= attributes, but found {len(offenders)}:\n"
-        + "\n".join(f"  - {tag}" for tag in offenders)
-    )
+STYLE_ATTR_RE = re.compile(r"<[^>]*\bstyle\s*=\s*([\"'])(.*?)\1[^>]*>", re.IGNORECASE)
 
 
-@pytest.mark.unit
-def test_dashboard_retains_only_display_toggles():
-    """Assert templates/dashboard.html retains only style='display:none' attributes."""
-    rel_path = DASHBOARD_HTML_PATH.relative_to(REPO_ROOT).as_posix()
-    assert DASHBOARD_HTML_PATH.exists(), f"Expected {rel_path} to exist on disk"
-    content = DASHBOARD_HTML_PATH.read_text(encoding="utf-8")
+def _inline_styles(path):
+    """Yield (normalized value, whitespace-collapsed tag) for every style= attribute."""
+    for match in STYLE_ATTR_RE.finditer(path.read_text(encoding="utf-8")):
+        yield normalize_style_value(match.group(2)), " ".join(match.group(0).split())
 
-    offenders = []
-    for match in re.finditer(r"<[^>]*\bstyle\s*=\s*([\"'])(.*?)\1[^>]*>", content, re.IGNORECASE):
-        tag = " ".join(match.group(0).split())
-        style_val = match.group(2)
-        norm = normalize_style_value(style_val)
-        if norm != "display:none":
-            offenders.append(f'style="{style_val}" in tag: {tag}')
 
-    assert not offenders, (
-        f"{rel_path} must only contain style attributes with 'display:none', but found non-conforming:\n"
-        + "\n".join(f"  - {item}" for item in offenders)
-    )
+# Issue #481 strips the static cosmetics. What each template may still carry
+# afterwards belongs to issue #482: the display:none initial states everywhere,
+# plus the one dynamic background: swatch in settings_themes.html.
+ALLOWED_INLINE_STYLES = [
+    pytest.param(SETTINGS_THEMES_PLACEHOLDER_PATH, (), id="settings_themes_placeholder"),
+    pytest.param(DASHBOARD_HTML_PATH, ("display:none",), id="dashboard"),
+    pytest.param(SETTINGS_SERVERS_HTML_PATH, ("display:none",), id="settings_servers"),
+    pytest.param(SETTINGS_THEMES_HTML_PATH, ("display:none", "background:"), id="settings_themes"),
+]
 
 
 @pytest.mark.unit
-def test_settings_servers_retains_only_display_toggles():
-    """Assert templates/partials/settings_servers.html retains only style='display:none' attributes."""
-    rel_path = SETTINGS_SERVERS_HTML_PATH.relative_to(REPO_ROOT).as_posix()
-    assert SETTINGS_SERVERS_HTML_PATH.exists(), f"Expected {rel_path} to exist on disk"
-    content = SETTINGS_SERVERS_HTML_PATH.read_text(encoding="utf-8")
+@pytest.mark.parametrize("template_path,allowed", ALLOWED_INLINE_STYLES)
+def test_template_retains_only_allowed_inline_styles(template_path, allowed):
+    """Every remaining style= attribute must match one of the allowances for that template.
 
-    offenders = []
-    for match in re.finditer(r"<[^>]*\bstyle\s*=\s*([\"'])(.*?)\1[^>]*>", content, re.IGNORECASE):
-        tag = " ".join(match.group(0).split())
-        style_val = match.group(2)
-        norm = normalize_style_value(style_val)
-        if norm != "display:none":
-            offenders.append(f'style="{style_val}" in tag: {tag}')
-
-    assert not offenders, (
-        f"{rel_path} must only contain style attributes with 'display:none', but found non-conforming:\n"
-        + "\n".join(f"  - {item}" for item in offenders)
-    )
-
-
-@pytest.mark.unit
-def test_settings_themes_partial_retains_only_dynamic_and_display_styles():
-    """Assert templates/partials/settings_themes.html retains only style='display:none'
-    and dynamic 'background:' swatch styles.
+    An allowance matches when the normalized value equals it exactly, or, for a
+    prefix allowance ending in ':', when the value starts with it.
     """
-    rel_path = SETTINGS_THEMES_HTML_PATH.relative_to(REPO_ROOT).as_posix()
-    assert SETTINGS_THEMES_HTML_PATH.exists(), f"Expected {rel_path} to exist on disk"
-    content = SETTINGS_THEMES_HTML_PATH.read_text(encoding="utf-8")
+    rel_path = template_path.relative_to(REPO_ROOT).as_posix()
+    assert template_path.exists(), f"Expected {rel_path} to exist on disk"
 
-    offenders = []
-    for match in re.finditer(r"<[^>]*\bstyle\s*=\s*([\"'])(.*?)\1[^>]*>", content, re.IGNORECASE):
-        tag = " ".join(match.group(0).split())
-        style_val = match.group(2)
-        norm = normalize_style_value(style_val)
-        if norm != "display:none" and not norm.startswith("background:"):
-            offenders.append(f'style="{style_val}" in tag: {tag}')
+    offenders = [
+        f'style="{norm}" in tag: {tag}'
+        for norm, tag in _inline_styles(template_path)
+        if not any(
+            norm.startswith(rule) if rule.endswith(":") else norm == rule
+            for rule in allowed
+        )
+    ]
 
+    permitted = ", ".join(allowed) if allowed else "nothing"
     assert not offenders, (
-        f"{rel_path} must only contain style attributes that normalize to 'display:none' "
-        f"or start with 'background:', but found non-conforming:\n"
+        f"{rel_path} may only carry these inline styles: {permitted}. Found:\n"
         + "\n".join(f"  - {item}" for item in offenders)
     )
 
