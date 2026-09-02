@@ -29,7 +29,11 @@ def client():
 
 
 def _extract_function_body(source: str, function_name: str) -> str:
-    """Extract the body of a JS function by matching its name and balanced braces."""
+    """Extract the body of a JS function by matching its name and balanced braces.
+
+    Note: brace counting does not skip string literals or comments, so an
+    unbalanced brace inside one would truncate or overrun the extracted body.
+    """
     pattern = rf"(?:export\s+)?function\s+{function_name}\s*\([^)]*\)\s*\{{"
     match = re.search(pattern, source)
     if not match:
@@ -78,6 +82,9 @@ def test_dashboard_style_nonce_matches_the_csp_header(client):
     assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
 
     csp_header = response.headers.get("Content-Security-Policy", "")
+    # The nonce is read from script-src because style-src carries no nonce token
+    # yet. Both directives share the one per-request nonce, so this stays valid
+    # when #487 adds it to style-src.
     header_nonce_match = re.search(r"script-src\s+[^;]*'nonce-([A-Za-z0-9_-]+)'", csp_header)
     assert header_nonce_match is not None, (
         f"Content-Security-Policy header must include a 'nonce-...' token in script-src. Header: {csp_header}"

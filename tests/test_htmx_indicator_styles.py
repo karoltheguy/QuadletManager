@@ -37,10 +37,7 @@ def test_dashboard_disables_htmx_indicator_styles():
     )
 
     raw_json = html.unescape(content_match.group(2))
-    try:
-        config = json.loads(raw_json)
-    except Exception as err:
-        pytest.fail(f"{rel_path}: Failed to parse JSON from <meta name=\"htmx-config\"> content {raw_json!r}: {err}")
+    config = json.loads(raw_json)
 
     assert config.get("includeIndicatorStyles") is False, (
         f"{rel_path}: htmx-config content JSON must set 'includeIndicatorStyles' to false, got: {config}"
