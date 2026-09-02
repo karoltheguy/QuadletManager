@@ -5,7 +5,7 @@ import { el, sendNotification } from '@qm/dom';
 import { toggleTheme, toggleDensity, initDensityRadio, toggleEditorTheme,
          initEditorThemeRadio, applyThemePreview, clearThemePreview,
          setEditorMode, applyChartTheme,
-         applyEditorTheme } from '@qm/theme';
+         applyEditorTheme, paintThemeSwatches } from '@qm/theme';
 import { showToast } from '@qm/toast';
 import { initModalDismissal, dismissModal } from '@qm/modals';
 import { toggleServerEdit, initServerReorder, initServerListRetry } from '@qm/settings';
@@ -104,6 +104,9 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
     // drops the user's selection along with the old options.
     if (e.target?.id === 'monitoring-server-select') {
         restoreMonitoringServerSelection(e.target);
+    }
+    if (e.target?.querySelector?.('[data-swatch-color]')) {
+        paintThemeSwatches(e.target);
     }
 });
 
@@ -283,7 +286,7 @@ function refreshSshKeyDropdown() {
 // ── Settings Section Switcher ─────────────────────────────
 function showSettingsSection(name) {
   document.querySelectorAll('.settings-group').forEach(function(g) {
-    g.style.display = g.dataset.group === name ? 'grid' : 'none';
+    g.classList.toggle('hidden', g.dataset.group !== name);
   });
   document.querySelectorAll('.settings-sidenav-item').forEach(function(btn) {
     const isActive = btn.dataset.section === name;
@@ -495,6 +498,7 @@ initMemChart();
 initTerminal();
 initLogs();
 initTree();
+paintThemeSwatches();
 try {
     const storedLogSince = localStorage.getItem('qm-log-since-range');
     const logSinceSelect = document.getElementById('log-since-select');

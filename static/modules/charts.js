@@ -175,13 +175,13 @@ export function loadMonitorCharts(minutes, btnEl) {
     .then(function(data) {
       const emptyEl = document.getElementById('monitor-charts-empty');
       const errorEl = document.getElementById('monitor-charts-error');
-      if (errorEl) errorEl.style.display = 'none';
+      if (errorEl) errorEl.classList.add('hidden');
 
       if (!data || data.length === 0) {
-        if (emptyEl) emptyEl.style.display = '';
+        if (emptyEl) emptyEl.classList.remove('hidden');
         return;
       }
-      if (emptyEl) emptyEl.style.display = 'none';
+      if (emptyEl) emptyEl.classList.add('hidden');
 
       if (!state.cpuHistoryChart || !state.memHistoryChart) return;
 
@@ -262,6 +262,6 @@ export function loadMonitorCharts(minutes, btnEl) {
     .catch(function(err) {
       console.error('Monitor chart fetch error:', err);
       const errorEl = document.getElementById('monitor-charts-error');
-      if (errorEl) errorEl.style.display = '';
+      if (errorEl) errorEl.classList.remove('hidden');
     });
 }

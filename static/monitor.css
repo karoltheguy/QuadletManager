@@ -66,6 +66,8 @@
   margin-bottom: var(--monitor-glance-gap);
   border-bottom: 1px solid var(--border-color);
 }
+/* Outranks .hidden from components.css, which loads earlier */
+.monitor-stat-bar.hidden { display: none; }
 
 .monitor-stat-group {
   display: flex;
@@ -458,3 +460,5 @@
     gap: var(--monitor-section-gap);
     min-height: 0;
 }
+/* Outranks .hidden from components.css, which loads earlier */
+.monitoring-content.hidden { display: none; }

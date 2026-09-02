@@ -10,10 +10,10 @@ import { parsePercent, mergeUnitRows, renderContainerStatsTable,
 import { chartColorFor, applyChartSelection, loadMonitorCharts } from '@qm/charts';
 
 export function showMonitoringEmptyState(emptyEl, contentEl) {
-  if (emptyEl) emptyEl.style.display = '';
-  if (contentEl) contentEl.style.display = 'none';
+  if (emptyEl) emptyEl.classList.remove('hidden');
+  if (contentEl) contentEl.classList.add('hidden');
   const barEl = document.getElementById('monitor-stat-bar');
-  if (barEl) barEl.style.display = 'none';
+  if (barEl) barEl.classList.add('hidden');
   state._monitoringServerId = null;
 }
 
@@ -75,8 +75,8 @@ export function selectMonitoringServer(serverId) {
     return;
   }
 
-  if (emptyEl) emptyEl.style.display = 'none';
-  if (contentEl) contentEl.style.display = '';
+  if (emptyEl) emptyEl.classList.add('hidden');
+  if (contentEl) contentEl.classList.remove('hidden');
 
   state._monitoringServerId = numId;
 

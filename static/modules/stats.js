@@ -391,7 +391,7 @@ export function updateSummaryStrip(data) {
   setStatText('mstat-mem', hasLoad ? totals.mem.toFixed(1) + '%' : STAT_PLACEHOLDER);
 
   const elBar = document.getElementById('monitor-stat-bar');
-  if (elBar) elBar.style.display = '';
+  if (elBar) elBar.classList.remove('hidden');
 
   announceHealthChange(unhealthy);
 }

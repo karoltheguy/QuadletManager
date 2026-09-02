@@ -11,7 +11,7 @@ export function showLogMessage(msg) {
     const hint = document.getElementById('log-empty-hint');
     if (hint) {
         hint.textContent = msg;
-        hint.style.display = '';
+        hint.classList.remove('hidden');
         setTimeout(function() {
             if (hint.textContent === msg) {
                 hint.textContent = 'Click "Tail Logs" to start streaming a container\'s logs';
@@ -93,7 +93,7 @@ export function createLogTab(tabKey, serverId, unitName, scope) {
     if (bodyEl) bodyEl.appendChild(paneEl);
 
     const hint = document.getElementById('log-empty-hint');
-    if (hint) hint.style.display = 'none';
+    if (hint) hint.classList.add('hidden');
 
     const sinceSelect = document.getElementById('log-since-select');
     const since = sinceSelect ? sinceSelect.value : '15m';
@@ -169,7 +169,7 @@ export function switchLogTab(key) {
 export function handleClosedLogTabFallback(key) {
     if (_logTabs.size === 0) {
         const hint = document.getElementById('log-empty-hint');
-        if (hint) hint.style.display = '';
+        if (hint) hint.classList.remove('hidden');
         state._activeLogTabKey = null;
     } else if (state._activeLogTabKey === key) {
         switchLogTab(_logTabs.keys().next().value);

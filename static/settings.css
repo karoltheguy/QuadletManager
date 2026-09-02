@@ -30,6 +30,8 @@
     gap: var(--density-gap);
     max-width: var(--settings-content-max, 820px);
 }
+/* Outranks .hidden from components.css, which loads earlier */
+.settings-group.hidden { display: none; }
 
 /* Flat sections: grouped by proximity and a hairline divider, not nested
    cards. Depth stays on the outer panel (chrome) and on the controls

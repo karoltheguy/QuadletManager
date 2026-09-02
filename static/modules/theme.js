@@ -117,10 +117,18 @@ export function clearThemePreview() {
     if (el) el.remove();
 }
 
+// Setting .style from JavaScript is not blocked by the Content-Security-Policy;
+// only a parsed style= attribute in markup is, which is why this indirection is needed.
+export function paintThemeSwatches(root = document) {
+    root.querySelectorAll('[data-swatch-color]').forEach(function(el) {
+        el.style.backgroundColor = el.dataset.swatchColor;
+    });
+}
+
 export function setEditorMode(editor, mode) {
   editor.dataset.editingMode = mode;
   editor.querySelectorAll('.color-editor-form').forEach(f => {
-    f.style.display = f.dataset.mode === mode ? '' : 'none';
+    f.classList.toggle('hidden', f.dataset.mode !== mode);
   });
   // Match on data-mode instead of button text so translation or rewording does not break active state.
   editor.querySelectorAll('.seg-btn').forEach(b => {

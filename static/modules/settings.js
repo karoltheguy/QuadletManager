@@ -4,7 +4,7 @@
 
 export function toggleServerEdit(serverId) {
   const row = document.getElementById('server-edit-row-' + serverId);
-  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+  if (row) row.classList.toggle('hidden');
 }
 
 // Resolve the server row an event happened in, but only when it belongs to the

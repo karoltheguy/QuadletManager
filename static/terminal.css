@@ -502,6 +502,8 @@ body.view-settings #bottom-panel-resize-handle { display: none !important; }
     font-style: italic;
     padding: 1rem;
 }
+/* Outranks .hidden from components.css, which loads earlier */
+.terminal-empty-state.hidden { display: none; }
 
 /* ── Multi-tab log connection tabs (mirrors terminal-conn-tab*) ── */
 
