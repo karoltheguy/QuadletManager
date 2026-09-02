@@ -8,7 +8,7 @@
     <script src="{{ asset_url('auth_theme_boot.js') }}"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
+    <style nonce="{{ request.state.csp_nonce }}">
         /* ── Design tokens (subset of style.css) ────────────────
            Self-contained so the login page has zero external CSS deps. */
         :root,

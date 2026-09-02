@@ -97,6 +97,14 @@ export function applyThemePreview(form) {
     if (!el) {
         el = document.createElement('style');
         el.id = 'qm-theme-preview';
+        // Read the CSP nonce from the importmap script tag via the IDL .nonce property.
+        // Browsers blank the visible nonce content attribute after parsing, so
+        // getAttribute('nonce') returns '' while .nonce retains the value.
+        const importmap = document.querySelector('script[type="importmap"]');
+        const nonce = importmap ? importmap.nonce : '';
+        if (nonce) {
+            el.nonce = nonce;
+        }
         const anchor = document.getElementById('qm-theme-overrides');
         if (anchor) anchor.after(el);
         else document.head.appendChild(el);
