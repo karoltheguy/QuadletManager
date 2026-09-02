@@ -275,7 +275,7 @@
 .session-add-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border-color); background: transparent; color: var(--text-muted); font-size: 1rem; line-height: 1; cursor: pointer; flex-shrink: 0; margin-left: auto; padding: 0; transition: background-color 0.15s, color 0.15s; }
 .session-add-btn:hover { background-color: var(--bg-element); color: var(--text-primary); }
 .sessions-strip-empty-hint { color: var(--text-muted); font-size: 0.75rem; font-style: italic; pointer-events: none; }
-.settings-group { display: grid; gap: var(--density-gap); max-width: var(--settings-content-max, 820px); }
+.settings-group { display: flex; flex-direction: column; gap: var(--density-gap); max-width: var(--settings-content-max, 820px); }
 .settings-group.hidden { display: none; }
 .settings-keys-table th.actions-col, .settings-keys-table td.actions-col, .settings-users-table th.actions-col, .settings-users-table td.actions-col { width: 8rem; }
 .settings-layout { flex: 1; display: flex; overflow: hidden; min-height: 0; background-color: transparent; box-shadow: none; }
