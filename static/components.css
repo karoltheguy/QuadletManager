@@ -457,3 +457,10 @@ ul { list-style: none; }
 .htmx-indicator { opacity: 0; }
 .htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
 .htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+
+/* ── Late utilities ─────────────────────────────────────────
+   These utilities live at the end of the file so they outrank the
+   component rules they override (.form-label sets margin-bottom
+   and .form-row sets gap earlier in this file). */
+.mb-0 { margin-bottom: 0; }
+.gap-2 { gap: 0.5rem; }

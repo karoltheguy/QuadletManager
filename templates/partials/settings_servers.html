@@ -2,7 +2,7 @@
 <table class="settings-table">
   <thead>
     <tr>
-      {% if is_admin %}<th style="width:2rem"><span class="visually-hidden">Reorder</span></th>{% endif %}
+      {% if is_admin %}<th class="col-reorder"><span class="visually-hidden">Reorder</span></th>{% endif %}
       <th>Name</th>
       <th>IP Address</th>
       <th>SSH User</th>
@@ -23,7 +23,7 @@
       <td>{{ s[4] or '—' }}</td>
       <td>{{ s[5] or 'both' }}</td>
       {% if is_admin %}
-      <td class="actions-col" style="white-space:nowrap">
+      <td class="actions-col">
         <button class="btn btn-sm btn-secondary"
                 data-action="toggle-server-edit"
                 data-server-id="{{ s[0] }}">
@@ -42,24 +42,24 @@
     {% if is_admin %}
     <tr id="server-edit-row-{{ s[0] }}" style="display:none">
       <td colspan="7">
-        <form hx-put="/api/settings/servers/{{ s[0] }}"
+        <form class="server-edit-form"
+              hx-put="/api/settings/servers/{{ s[0] }}"
               hx-target="#servers-list"
-              hx-swap="innerHTML"
-              style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap; padding:0.5rem 0;">
+              hx-swap="innerHTML">
           <div>
-            <label class="form-label" style="font-size:0.75rem" for="server-edit-name-{{ s[0] }}">Name</label>
+            <label class="form-label" for="server-edit-name-{{ s[0] }}">Name</label>
             <input type="text" name="name" id="server-edit-name-{{ s[0] }}" class="form-control" value="{{ s[1] }}" required>
           </div>
           <div>
-            <label class="form-label" style="font-size:0.75rem" for="server-edit-ip-address-{{ s[0] }}">IP Address</label>
+            <label class="form-label" for="server-edit-ip-address-{{ s[0] }}">IP Address</label>
             <input type="text" name="ip_address" id="server-edit-ip-address-{{ s[0] }}" class="form-control" value="{{ s[2] }}" required>
           </div>
           <div>
-            <label class="form-label" style="font-size:0.75rem" for="server-edit-ssh-user-{{ s[0] }}">SSH User</label>
+            <label class="form-label" for="server-edit-ssh-user-{{ s[0] }}">SSH User</label>
             <input type="text" name="ssh_user" id="server-edit-ssh-user-{{ s[0] }}" class="form-control" value="{{ s[3] }}" required>
           </div>
           <div>
-            <label class="form-label" style="font-size:0.75rem" for="server-edit-scope-filter-{{ s[0] }}">Scope Filter</label>
+            <label class="form-label" for="server-edit-scope-filter-{{ s[0] }}">Scope Filter</label>
             <select name="scope_filter" id="server-edit-scope-filter-{{ s[0] }}" class="form-control">
               <option value="both" {% if (s[5] or 'both') == 'both' %}selected{% endif %}>Both</option>
               <option value="user" {% if s[5] == 'user' %}selected{% endif %}>User only</option>
