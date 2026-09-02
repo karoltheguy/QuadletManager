@@ -8,6 +8,7 @@ import re
 import pytest
 
 from tests.css_source import rule_blocks, strip_comments
+from tests.js_source import static_js_files
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = REPO_ROOT / "templates"
@@ -63,6 +64,7 @@ def parse_css_rules(css_clean: str) -> dict[str, set[str]]:
 
 
 STYLE_ATTR_RE = re.compile(r"<[^>]*\bstyle\s*=\s*([\"'])(.*?)\1[^>]*>", re.IGNORECASE)
+STYLE_DISPLAY_ASSIGN_RE = re.compile(r"\.style\s*\.\s*display\s*=(?!=)")
 
 
 def _inline_styles(path):
@@ -71,14 +73,12 @@ def _inline_styles(path):
         yield normalize_style_value(match.group(2)), " ".join(match.group(0).split())
 
 
-# Issue #481 strips the static cosmetics. What each template may still carry
-# afterwards belongs to issue #482: the display:none initial states everywhere,
-# plus the one dynamic background: swatch in settings_themes.html.
+# Issue #481 stripped the static cosmetics; these allowances are now closed by issue #482.
 ALLOWED_INLINE_STYLES = [
     pytest.param(SETTINGS_THEMES_PLACEHOLDER_PATH, (), id="settings_themes_placeholder"),
-    pytest.param(DASHBOARD_HTML_PATH, ("display:none",), id="dashboard"),
-    pytest.param(SETTINGS_SERVERS_HTML_PATH, ("display:none",), id="settings_servers"),
-    pytest.param(SETTINGS_THEMES_HTML_PATH, ("display:none", "background:"), id="settings_themes"),
+    pytest.param(DASHBOARD_HTML_PATH, (), id="dashboard"),
+    pytest.param(SETTINGS_SERVERS_HTML_PATH, (), id="settings_servers"),
+    pytest.param(SETTINGS_THEMES_HTML_PATH, (), id="settings_themes"),
 ]
 
 
@@ -183,3 +183,21 @@ def test_new_utilities_outrank_the_component_rules_they_override():
             )
 
     assert not problems, "\n".join(f"  - {p}" for p in problems)
+
+
+@pytest.mark.unit
+def test_no_static_js_assigns_style_display():
+    """Assert no static JavaScript file assigns to element.style.display."""
+    offenders = []
+    for file_path in static_js_files():
+        rel_path = file_path.relative_to(REPO_ROOT).as_posix()
+        for line_number, line in enumerate(
+            file_path.read_text(encoding="utf-8").splitlines(), 1
+        ):
+            if STYLE_DISPLAY_ASSIGN_RE.search(line):
+                offenders.append(f"{rel_path}:{line_number}: {line.strip()}")
+
+    assert not offenders, (
+        "Visibility must be driven through classList and a CSS class instead of inline element.style.display:\n"
+        + "\n".join(f"  - {item}" for item in offenders)
+    )

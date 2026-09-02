@@ -103,7 +103,7 @@
       <p class="monitoring-empty-hint">Choose a server from the dropdown above to view its charts and stats.</p>
     </div>
     <output id="monitor-health-status" class="visually-hidden"></output>
-    <div id="monitor-stat-bar" class="monitor-stat-bar" style="display:none;">
+    <div id="monitor-stat-bar" class="monitor-stat-bar hidden">
       <ul class="monitor-stat-group">
         <li class="monitor-stat-block">
           <span class="monitor-stat-num" id="mstat-total">—</span>
@@ -137,7 +137,7 @@
         </li>
       </ul>
     </div>
-    <div id="monitoring-content" class="monitoring-content" style="display:none;">
+    <div id="monitoring-content" class="monitoring-content hidden">
       <div id="monitoring-stats-table" class="stats-table-wrapper">
         <div class="p-4 text-muted italic">Waiting for stats data...</div>
       </div>
@@ -163,8 +163,8 @@
             <canvas id="mem-history-chart"></canvas>
           </div>
         </figure>
-        <div id="monitor-charts-empty" class="p-4 text-muted italic" style="display:none;">No history data yet — data accumulates every 5 seconds.</div>
-        <div id="monitor-charts-error" class="p-4 text-muted italic" style="display:none;">Failed to load chart history. Please try again.</div>
+        <div id="monitor-charts-empty" class="p-4 text-muted italic hidden">No history data yet — data accumulates every 5 seconds.</div>
+        <div id="monitor-charts-error" class="p-4 text-muted italic hidden">Failed to load chart history. Please try again.</div>
       </div>
     </div>
   </div>
@@ -266,7 +266,7 @@
 
         <!-- SSH KEYS (admin only) -->
         {% if is_admin %}
-        <div class="settings-group" data-group="ssh-keys" style="display:none">
+        <div class="settings-group hidden" data-group="ssh-keys">
           <div class="settings-section">
             <h3 class="section-title mb-4">SSH Key Management</h3>
             <div id="keys-list" hx-get="/api/keys" hx-trigger="load">
@@ -303,7 +303,7 @@
 
         <!-- USERS (admin only) -->
         {% if is_admin %}
-        <div class="settings-group" data-group="users" style="display:none">
+        <div class="settings-group hidden" data-group="users">
           <div class="settings-section">
             <h3 class="section-title mb-4">User Management</h3>
             <div id="users-list" hx-get="/api/settings/users" hx-trigger="load">
@@ -344,7 +344,7 @@
         {% endif %}
 
         <!-- THEMES -->
-        <div class="settings-group" data-group="themes" style="display:none">
+        <div class="settings-group hidden" data-group="themes">
           <div class="settings-section">
             <h3 class="section-title mb-4">Theme Customization</h3>
             <div id="themes-root"
@@ -399,7 +399,7 @@
 
         <!-- ADMIN (admin only) -->
         {% if is_admin %}
-        <div class="settings-group" data-group="admin" style="display:none">
+        <div class="settings-group hidden" data-group="admin">
           <div class="settings-section">
             <h3 class="section-title mb-4">Instance Settings</h3>
             <div id="admin-root"

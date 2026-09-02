@@ -12,7 +12,7 @@
       <div class="theme-swatch-strip">
         {% for k in ["bg_base", "bg_surface", "text_primary", "brand_primary", "success", "danger"] %}
         <span class="theme-swatch" title="{{ k }}"
-              style="background:{{ t.light.get(k, default_light[k]) }}"></span>
+              data-swatch-color="{{ t.light.get(k, default_light[k]) }}"></span>
         {% endfor %}
       </div>
       <div class="theme-card-actions">
@@ -121,9 +121,8 @@
     </form>
 
     <!-- Dark mode form -->
-    <form class="color-editor-form"
+    <form class="color-editor-form hidden"
           data-mode="dark"
-          style="display:none"
           hx-put="/api/settings/themes/{{ active_theme.id }}/colors"
           hx-target="#themes-root"
           hx-swap="outerHTML">

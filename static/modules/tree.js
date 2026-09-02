@@ -131,7 +131,7 @@ export function selectContainerStem(stem, serverId, scope, type) {
         // Ignore localStorage restrictions
     }
     const emptyEl = document.getElementById('inspector-empty-state');
-    if (emptyEl) emptyEl.style.display = stem ? 'none' : '';
+    if (emptyEl) emptyEl.classList.toggle('hidden', Boolean(stem));
     updateInspectorStatsCard();
     updateInspectorActivityLog();
 }

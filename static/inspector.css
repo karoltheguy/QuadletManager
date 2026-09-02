@@ -19,6 +19,8 @@
     text-align: center;
     color: var(--text-muted);
 }
+/* Outranks .hidden from components.css, which loads earlier */
+.inspector-empty-state.hidden { display: none; }
 
 .inspector-empty-state svg {
     width: 2rem;

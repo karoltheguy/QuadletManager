@@ -37,12 +37,13 @@ THEME_FUNCTIONS = [
     "patchChartOptions",
     "applyChartTheme",
     "applyEditorTheme",
+    "paintThemeSwatches",
 ]
 
 
 @pytest.mark.unit
 def test_theme_module_exports_its_functions():
-    """Assert static/modules/theme.js exists and exports all twelve theme functions."""
+    """Assert static/modules/theme.js exists and exports all thirteen theme functions."""
     theme_js_path = REPO_ROOT / "static" / "modules" / "theme.js"
     assert theme_js_path.is_file(), f"Expected theme module file to exist at {theme_js_path}"
 
@@ -56,7 +57,7 @@ def test_theme_module_exports_its_functions():
 
 @pytest.mark.unit
 def test_main_js_declares_none_of_the_theme_functions():
-    """Assert main.js no longer declares any of the twelve theme functions."""
+    """Assert main.js no longer declares any of the thirteen theme functions."""
     main_js_file = next((f for f in static_js_files() if f.name == "main.js"), None)
     assert main_js_file is not None, "main.js not found in static_js_files()"
 

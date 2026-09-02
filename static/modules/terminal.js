@@ -18,7 +18,7 @@ export function showTerminalMessage(msg) {
     const hint = document.getElementById('terminal-empty-hint');
     if (hint) {
         hint.textContent = msg;
-        hint.style.display = '';
+        hint.classList.remove('hidden');
         setTimeout(function() {
             if (hint.textContent === msg) {
                 hint.textContent = 'Select a running container and click Connect';
@@ -135,7 +135,7 @@ export function createTerminalTab(tabKey, serverId, containerName, cmd, scope) {
 
     // Hide empty hint
     const hint = document.getElementById('terminal-empty-hint');
-    if (hint) hint.style.display = 'none';
+    if (hint) hint.classList.add('hidden');
 
     // Toggle DOM visibility BEFORE creating xterm to avoid 0x0 size calculation
     _terminalTabs.set(tabKey, { tabEl: tabEl, paneEl: paneEl, serverId: serverId, containerName: containerName, scope: scope, cmd: cmd });
@@ -232,7 +232,7 @@ export function removeTerminalDOM(session) {
 export function handleClosedTabFallback(key) {
     if (_terminalTabs.size === 0) {
         const hint = document.getElementById('terminal-empty-hint');
-        if (hint) hint.style.display = '';
+        if (hint) hint.classList.remove('hidden');
         state._activeTerminalTabKey = null;
     } else if (state._activeTerminalTabKey === key) {
         switchTerminalTab(_terminalTabs.keys().next().value);
