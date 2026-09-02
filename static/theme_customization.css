@@ -3,6 +3,22 @@
 
 /* ── Theme customization ──────────────────────── */
 
+.theme-placeholder-note {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.theme-placeholder-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.theme-placeholder-item {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
 .theme-list {
     display: flex;
     flex-direction: column;

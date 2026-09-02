@@ -56,7 +56,7 @@
         <!-- Navigator + resize handle: direct children of app-container so CSS grid
              can span #navigator across both the workspace row and the bottom panel row. -->
         <div id="navigator" class="sidebar">
-            <div class="header-bar pb-0" style="padding-left:0; padding-right:0; padding-top:0;">
+            <div class="header-bar pb-0">
                 <h2 class="panel-title">Servers</h2>
                 <button type="button" class="panel-reload-btn" data-action="soft-refresh" aria-label="Refresh server list" title="Refresh server list (keeps terminals open)">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -333,8 +333,8 @@
                   <option value="editor">editor</option>
                 </select>
               </div>
-              <div class="form-row" style="align-items:center; gap:0.5rem;">
-                <label class="form-label" style="margin-bottom:0;" for="add-user-admin">Admin</label>
+              <div class="form-row items-center gap-2">
+                <label class="form-label mb-0" for="add-user-admin">Admin</label>
                 <input type="checkbox" name="new_is_admin" id="add-user-admin" value="true">
               </div>
               <button type="submit" class="btn btn-primary mt-2">Add User</button>
