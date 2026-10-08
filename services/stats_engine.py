@@ -187,12 +187,11 @@ async def _unit_names_for_scope(server_id: int, scope: str) -> list[str]:
     so blindly mapping every quadlet to <base>.service would query units that
     do not exist.
     """
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT file_path FROM quadlets WHERE server_id = ? AND scope = ?",
-            (server_id, scope),
-        ) as cursor:
-            rows = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute(
+        "SELECT file_path FROM quadlets WHERE server_id = ? AND scope = ?",
+        (server_id, scope),
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     names: list[str] = []
     seen = set()
@@ -548,9 +547,8 @@ def _build_unit_rows(unit_states_by_scope: dict) -> list[dict] | None:
 
 async def fetch_server_stats():
     """Polls all registered servers for Podman stats and pushes via SSE."""
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, name, scope_filter FROM servers") as cursor:
-            servers = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, name, scope_filter FROM servers") as cursor:
+        servers = await cursor.fetchall()
 
     for server in servers:
         server_id = server[0]
