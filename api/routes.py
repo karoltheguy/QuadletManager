@@ -412,12 +412,6 @@ async def get_current_username(request: Request) -> str:
     return session["username"]
 
 
-async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> None:
-    """Verify that the current user has admin privileges, raising 403 if not."""
-    if not is_admin:
-        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
-
-
 async def get_current_user_id(username: str = Depends(get_current_username)) -> int:
     """Resolve the current session username to a numeric user id (404 if missing)."""
     async with get_db_connection() as db:
@@ -765,7 +759,7 @@ async def _record_quadlet_row(server_id, file_path, scope, content, use_sudo) ->
     """Keep the sync poller from flagging the app's own write as an external modification."""
     stat_cmd = f"stat -c %Y {shlex.quote(file_path)}"
     mtime_str = await pool.execute_command(server_id, stat_cmd, use_sudo=use_sudo)
-    new_mtime = await parse_mtime(mtime_str)
+    new_mtime = parse_mtime(mtime_str)
     content_hash = hashlib.sha256(content.encode()).hexdigest()
 
     async with get_db_connection() as db:
