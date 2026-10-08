@@ -83,7 +83,8 @@ export function initServerReorder() {
       const list = document.getElementById('servers-list');
       if (list) list.dispatchEvent(new CustomEvent('refresh-servers'));
       document.body.dispatchEvent(new CustomEvent('reload-servers'));
-    });
+    })
+    .catch(err => { console.error('Reorder failed', err); });
   });
 }
 

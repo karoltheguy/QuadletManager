@@ -56,16 +56,15 @@ async def get_container_activity(
     :param limit: Maximum number of events to return. Defaults to 10.
     :return: List of dicts with event details, most recent first.
     """
-    async with get_db_connection() as db:
-        async with db.execute(
-            """SELECT id, server_id, container_name, event_type, triggered_by, details, occurred_at
-            FROM container_events
-            WHERE server_id = ? AND container_name = ?
-            ORDER BY occurred_at DESC
-            LIMIT ?""",
-            (server_id, container_name, limit)
-        ) as cursor:
-            rows = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute(
+        """SELECT id, server_id, container_name, event_type, triggered_by, details, occurred_at
+        FROM container_events
+        WHERE server_id = ? AND container_name = ?
+        ORDER BY occurred_at DESC
+        LIMIT ?""",
+        (server_id, container_name, limit)
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     return [
         {
