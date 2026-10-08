@@ -99,7 +99,7 @@ class PollHealthTracker:
 
 health_tracker = PollHealthTracker()
 
-async def parse_mtime(stdout: str) -> int:
+def parse_mtime(stdout: str) -> int:
     try:
         return int(stdout.strip())
     except ValueError:

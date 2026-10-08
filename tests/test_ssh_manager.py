@@ -237,10 +237,14 @@ async def test_execute_command_reconnects_on_disconnect(pool):
 async def test_close_all(pool):
     mock_conn1 = MagicMock()
     mock_conn2 = MagicMock()
+    mock_conn1.wait_closed = AsyncMock()
+    mock_conn2.wait_closed = AsyncMock()
     pool.connections = {1: mock_conn1, 2: mock_conn2}
     await pool.close_all()
     mock_conn1.close.assert_called_once()
     mock_conn2.close.assert_called_once()
+    mock_conn1.wait_closed.assert_called_once()
+    mock_conn2.wait_closed.assert_called_once()
     assert len(pool.connections) == 0
 
 @pytest.mark.asyncio

@@ -322,7 +322,9 @@ export function confirmDeleteFile(serverId, path, scope) {
     deleteBtn.className = 'btn btn-danger';
     deleteBtn.textContent = 'Delete';
     deleteBtn.addEventListener('click', function() {
-        executeDeleteFile(serverId, path, scope);
+        executeDeleteFile(serverId, path, scope).catch(err => {
+            console.error('Delete failed', err);
+        });
     });
     btnContainer.appendChild(deleteBtn);
 

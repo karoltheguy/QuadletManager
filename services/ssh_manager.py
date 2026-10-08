@@ -285,6 +285,13 @@ class SSHConnectionPool:
     async def close_all(self):
         for conn in self.connections.values():
             conn.close()
+        # asyncssh's close() only starts the shutdown; wait_closed() finishes it.
+        # Awaiting here ensures the connections are actually closed before we return,
+        # so app shutdown doesn't race the connection teardown.
+        await asyncio.gather(
+            *(c.wait_closed() for c in self.connections.values()),
+            return_exceptions=True,
+        )
         self.connections.clear()
 
 # Global singleton
