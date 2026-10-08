@@ -109,13 +109,12 @@ class SSHConnectionPool:
 
     async def connect_to_server(self, server_id: int):
         logger.info(f"Establishing new SSH connection to server {server_id}")
-        async with get_db_connection() as db:
-            async with db.execute("""
-                SELECT s.ip_address, s.ssh_user, k.encrypted_private_key, s.host_key
-                FROM servers s JOIN ssh_keys k ON s.ssh_key_id = k.id
-                WHERE s.id = ?
-            """, (server_id,)) as cursor:
-                row = await cursor.fetchone()
+        async with get_db_connection() as db, db.execute("""
+            SELECT s.ip_address, s.ssh_user, k.encrypted_private_key, s.host_key
+            FROM servers s JOIN ssh_keys k ON s.ssh_key_id = k.id
+            WHERE s.id = ?
+        """, (server_id,)) as cursor:
+            row = await cursor.fetchone()
             if not row:
                 raise ServerConfigurationError(f"Server {server_id} not found or missing SSH key mapping.")
 
