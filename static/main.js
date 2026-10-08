@@ -113,7 +113,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 
 // ── Notifications Configuration ──────────────────────────
 if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-    Notification.requestPermission();
+    void Notification.requestPermission();
 }
 
 
