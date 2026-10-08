@@ -294,11 +294,10 @@ def _read_session_cookie(cookie_value: str) -> dict | None:
 async def _load_session_duration_from_db() -> None:
     """Hydrate the in-memory session duration from the persisted setting, if any."""
     global _session_duration_seconds
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT value FROM settings WHERE key = ?", (SESSION_DURATION_SETTING_KEY,)
-        ) as cursor:
-            row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute(
+        "SELECT value FROM settings WHERE key = ?", (SESSION_DURATION_SETTING_KEY,)
+    ) as cursor:
+        row = await cursor.fetchone()
     if row:
         _session_duration_seconds = int(row[0])
 
@@ -319,11 +318,10 @@ async def _persist_session_duration(seconds: int) -> None:
 async def _load_log_level_from_db() -> None:
     """Hydrate the in-memory log level from the persisted setting, if any."""
     global _log_level
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT value FROM settings WHERE key = ?", (LOG_LEVEL_SETTING_KEY,)
-        ) as cursor:
-            row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute(
+        "SELECT value FROM settings WHERE key = ?", (LOG_LEVEL_SETTING_KEY,)
+    ) as cursor:
+        row = await cursor.fetchone()
     if row:
         stored_value = row[0]
         if stored_value not in LOG_LEVEL_CHOICES:
@@ -414,12 +412,6 @@ async def get_current_username(request: Request) -> str:
     return session["username"]
 
 
-async def require_admin(is_admin: bool = Depends(get_current_user_is_admin)) -> None:
-    """Verify that the current user has admin privileges, raising 403 if not."""
-    if not is_admin:
-        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
-
-
 async def get_current_user_id(username: str = Depends(get_current_username)) -> int:
     """Resolve the current session username to a numeric user id (404 if missing)."""
     async with get_db_connection() as db:
@@ -486,12 +478,11 @@ async def login_page(request: Request):
 
 @router.post(LOGIN_PATH, response_class=HTMLResponse)
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT password_hash, role, is_admin, must_change_password FROM users WHERE username = ?",
-            (username,)
-        ) as cursor:
-            row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute(
+        "SELECT password_hash, role, is_admin, must_change_password FROM users WHERE username = ?",
+        (username,)
+    ) as cursor:
+        row = await cursor.fetchone()
 
     if not row:
         return templates.TemplateResponse(request, LOGIN_TEMPLATE, {
@@ -607,9 +598,8 @@ async def dashboard_view(
 
 @router.get("/api/servers", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_servers(request: Request, role: str = Depends(get_current_user_role)):
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
-            servers = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
+        servers = await cursor.fetchall()
 
     return templates.TemplateResponse(request, "partials/servers_list.html", {
         "servers": servers,
@@ -626,9 +616,8 @@ async def api_servers_options(request: Request, role: str = Depends(get_current_
     stats cache on every SSE frame, which destroyed the options underneath an
     open native dropdown and swallowed the user's click (issue #365).
     """
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
-            servers = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, name FROM servers ORDER BY position") as cursor:
+        servers = await cursor.fetchall()
 
     options = '<option value="">Select a server...</option>'
     for server_id, name in servers:
@@ -638,9 +627,8 @@ async def api_servers_options(request: Request, role: str = Depends(get_current_
 @router.get("/api/overview", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_overview(request: Request, role: str = Depends(get_current_user_role)):
     """Return the fleet-level overview partial for HTMX polling."""
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, name FROM servers") as cursor:
-            server_rows = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, name FROM servers") as cursor:
+        server_rows = await cursor.fetchall()
 
         servers = []
         for server_id, server_name in server_rows:
@@ -698,11 +686,10 @@ async def api_overview(request: Request, role: str = Depends(get_current_user_ro
 @router.get("/api/quadlets/{server_id}", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def fetch_quadlet_tree(request: Request, server_id: int, role: str = Depends(get_current_user_role)):
     try:
-        async with get_db_connection() as db:
-            async with db.execute(
-                "SELECT last_reconciled_at FROM servers WHERE id = ?", (server_id,)
-            ) as cursor:
-                server_row = await cursor.fetchone()
+        async with get_db_connection() as db, db.execute(
+            "SELECT last_reconciled_at FROM servers WHERE id = ?", (server_id,)
+        ) as cursor:
+            server_row = await cursor.fetchone()
 
             last_reconciled_at = server_row[0] if server_row else None
 
@@ -772,7 +759,7 @@ async def _record_quadlet_row(server_id, file_path, scope, content, use_sudo) ->
     """Keep the sync poller from flagging the app's own write as an external modification."""
     stat_cmd = f"stat -c %Y {shlex.quote(file_path)}"
     mtime_str = await pool.execute_command(server_id, stat_cmd, use_sudo=use_sudo)
-    new_mtime = await parse_mtime(mtime_str)
+    new_mtime = parse_mtime(mtime_str)
     content_hash = hashlib.sha256(content.encode()).hexdigest()
 
     async with get_db_connection() as db:
@@ -968,9 +955,8 @@ async def new_file_modal(request: Request, server_id: int | None = None, role: s
     if role != "editor":
         return HTMLResponse("<div class='bg-red-600 p-2 rounded'>Permission denied</div>", status_code=403)
 
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, name FROM servers") as cursor:
-            servers = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, name FROM servers") as cursor:
+        servers = await cursor.fetchall()
 
     return templates.TemplateResponse(request, "partials/modal_new.html", {
         "servers": servers,
@@ -989,10 +975,9 @@ async def create_new_quadlet(
     if role != "editor":
         raise HTTPException(status_code=403, detail="Viewer role cannot create files.")
         
-    async with get_db_connection() as db:
-        async with db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (quadlet_type,)) as cursor:
-            row = await cursor.fetchone()
-            content = row[0] if row else f"[{quadlet_type.capitalize()}]\n"
+    async with get_db_connection() as db, db.execute("SELECT content FROM templates WHERE type = ? LIMIT 1", (quadlet_type,)) as cursor:
+        row = await cursor.fetchone()
+        content = row[0] if row else f"[{quadlet_type.capitalize()}]\n"
             
     file_name = f"{name}.{quadlet_type}"
     use_sudo = is_global_scope(scope)
@@ -1024,15 +1009,14 @@ async def create_new_quadlet(
 async def api_health_history(server_id: int, minutes: int = 60, role: str = Depends(get_current_user_role)):
     """Return per-container health history for the last N minutes."""
     cutoff = int(time.time()) - minutes * 60
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT container_name, is_running, cpu_pct, mem_pct, recorded_at "
-            "FROM container_health_history "
-            "WHERE server_id = ? AND recorded_at >= ? "
-            "ORDER BY recorded_at ASC",
-            (server_id, cutoff),
-        ) as cursor:
-            rows = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute(
+        "SELECT container_name, is_running, cpu_pct, mem_pct, recorded_at "
+        "FROM container_health_history "
+        "WHERE server_id = ? AND recorded_at >= ? "
+        "ORDER BY recorded_at ASC",
+        (server_id, cutoff),
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     containers: dict[str, dict] = {}
     for row in rows:
@@ -1061,13 +1045,12 @@ async def settings_list_servers(
     role: str = Depends(get_current_user_role),
     is_admin: bool = Depends(get_current_user_is_admin),
 ):
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name, s.scope_filter "
-            "FROM servers s LEFT JOIN ssh_keys k ON s.ssh_key_id = k.id "
-            "ORDER BY s.position"
-        ) as cursor:
-            servers = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute(
+        "SELECT s.id, s.name, s.ip_address, s.ssh_user, k.key_name, s.scope_filter "
+        "FROM servers s LEFT JOIN ssh_keys k ON s.ssh_key_id = k.id "
+        "ORDER BY s.position"
+    ) as cursor:
+        servers = await cursor.fetchall()
     return templates.TemplateResponse(request, "partials/settings_servers.html", {
         "servers": servers,
         "user_role": role,
@@ -1093,9 +1076,8 @@ async def settings_add_server(
     if scope_filter not in VALID_SCOPE_FILTERS:
         raise HTTPException(status_code=422, detail="scope_filter must be 'user', 'global', or 'both'.")
 
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id FROM ssh_keys WHERE id = ?", (ssh_key_id,)) as cursor:
-            key_row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute("SELECT id FROM ssh_keys WHERE id = ?", (ssh_key_id,)) as cursor:
+        key_row = await cursor.fetchone()
         if not key_row:
             raise HTTPException(status_code=400, detail="Selected SSH key does not exist.")
         async with db.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM servers") as cur:
@@ -1152,9 +1134,8 @@ async def settings_delete_server(
     # Close cached SSH connection if present
     pool.connections.pop(server_id, None)
 
-    async with get_db_connection() as db:
-        async with db.execute("SELECT ssh_key_id FROM servers WHERE id = ?", (server_id,)) as cursor:
-            row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute("SELECT ssh_key_id FROM servers WHERE id = ?", (server_id,)) as cursor:
+        row = await cursor.fetchone()
         await db.execute("DELETE FROM servers WHERE id = ?", (server_id,))
         await db.commit()
 
@@ -1215,9 +1196,8 @@ async def settings_reorder_servers(
     if not isinstance(order, list) or not all(isinstance(i, int) for i in order):
         raise HTTPException(status_code=422, detail="'order' must be a list of integer server IDs.")
 
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id FROM servers") as cursor:
-            existing_ids = {row[0] for row in await cursor.fetchall()}
+    async with get_db_connection() as db, db.execute("SELECT id FROM servers") as cursor:
+        existing_ids = {row[0] for row in await cursor.fetchall()}
 
     if set(order) != existing_ids or len(order) != len(existing_ids):
         raise HTTPException(status_code=422, detail="'order' must contain every server ID exactly once.")
@@ -1322,11 +1302,10 @@ async def settings_list_users(
         return HTMLResponse(PERMISSION_DENIED_HTML, status_code=403)
 
     session = await _get_session(request)
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT id, username, role, is_admin FROM users ORDER BY username"
-        ) as cursor:
-            users = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute(
+        "SELECT id, username, role, is_admin FROM users ORDER BY username"
+    ) as cursor:
+        users = await cursor.fetchall()
     return templates.TemplateResponse(request, "partials/settings_users.html", {
         "users": users,
         "current_username": session["username"],
@@ -1419,9 +1398,8 @@ async def settings_toggle_admin(
         raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
     session = await _get_session(request)
-    async with get_db_connection() as db:
-        async with db.execute(SELECT_USERNAME_BY_ID_SQL, (user_id,)) as cursor:
-            row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute(SELECT_USERNAME_BY_ID_SQL, (user_id,)) as cursor:
+        row = await cursor.fetchone()
         if row and row[0] == session["username"]:
             return HTMLResponse(
                 "<p class='text-danger'>Cannot change your own admin status.</p>",
@@ -1793,9 +1771,8 @@ async def settings_active_css(user_id: int = Depends(get_current_user_id)):
 @router.get("/api/keys/options", response_class=HTMLResponse, responses=AUTH_REDIRECT_RESPONSES)
 async def api_keys_options(request: Request, role: str = Depends(get_current_user_role)):
     """Return <option> elements for SSH key dropdown."""
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
-            keys = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
+        keys = await cursor.fetchall()
     if not keys:
         return HTMLResponse('<option value="">No keys available</option>')
     options = '<option value="">Select a key...</option>'
@@ -1812,9 +1789,8 @@ async def api_list_keys(
     if not is_admin:
         return HTMLResponse(PERMISSION_DENIED_HTML, status_code=403)
 
-    async with get_db_connection() as db:
-        async with db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
-            keys = await cursor.fetchall()
+    async with get_db_connection() as db, db.execute("SELECT id, key_name FROM ssh_keys ORDER BY key_name") as cursor:
+        keys = await cursor.fetchall()
 
     return templates.TemplateResponse(request, "partials/settings_keys.html", {
         "keys": keys,
@@ -1862,11 +1838,10 @@ async def api_delete_key(
     if not is_admin:
         raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
-    async with get_db_connection() as db:
-        async with db.execute(
-            "SELECT COUNT(*) FROM servers WHERE ssh_key_id = ?", (key_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
+    async with get_db_connection() as db, db.execute(
+        "SELECT COUNT(*) FROM servers WHERE ssh_key_id = ?", (key_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
         if row and row[0] > 0:
             raise HTTPException(
                 status_code=409,
