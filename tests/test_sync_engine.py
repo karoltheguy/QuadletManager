@@ -14,51 +14,45 @@ from services.sync_engine import parse_mtime, check_quadlets
 # =============================================================================
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
-async def test_valid_timestamp():
+def test_valid_timestamp():
     """Standard numeric timestamp string parses correctly."""
-    result = await parse_mtime("1709827200\n")
+    result = parse_mtime("1709827200\n")
     assert result == 1709827200
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
-async def test_timestamp_with_whitespace():
+def test_timestamp_with_whitespace():
     """Timestamp padded with whitespace/newlines is trimmed and parsed."""
-    result = await parse_mtime(" 1709827200 \n")
+    result = parse_mtime(" 1709827200 \n")
     assert result == 1709827200
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
-async def test_empty_string_returns_zero():
+def test_empty_string_returns_zero():
     """Empty string (e.g. file not found) falls back to 0."""
-    result = await parse_mtime("")
+    result = parse_mtime("")
     assert result == 0
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
-async def test_non_numeric_returns_zero():
+def test_non_numeric_returns_zero():
     """Non-numeric output (e.g. stat error message) falls back to 0."""
-    result = await parse_mtime("stat: cannot statx '/missing': No such file or directory")
+    result = parse_mtime("stat: cannot statx '/missing': No such file or directory")
     assert result == 0
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
-async def test_float_string_returns_zero():
+def test_float_string_returns_zero():
     """Float-like string (e.g. '1709827200.5') cannot int-parse, falls back to 0."""
-    result = await parse_mtime("1709827200.5")
+    result = parse_mtime("1709827200.5")
     assert result == 0
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
-async def test_zero_timestamp():
+def test_zero_timestamp():
     """Explicit zero is a valid mtime (epoch start)."""
-    result = await parse_mtime("0")
+    result = parse_mtime("0")
     assert result == 0
 
 
