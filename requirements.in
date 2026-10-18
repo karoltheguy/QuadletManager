@@ -8,7 +8,7 @@
 #       --output-file requirements.txt requirements.in
 #   pip-compile --generate-hashes --allow-unsafe --strip-extras \
 #       -c requirements.txt --output-file requirements-test.txt requirements-test.in
-fastapi>=0.142.4
+fastapi>=0.143.1
 uvicorn[standard]>=0.54.0
 asyncssh>=2.24.1
 cryptography>=50.0.2
