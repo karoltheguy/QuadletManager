@@ -2,7 +2,7 @@
   "name": "quadlet-manager",
   "private": true,
   "dependencies": {
-    "chart.js": "4.5.1",
+    "chart.js": "4.6.1",
     "htmx.org": "2.0.11",
     "monaco-editor": "0.57.0",
     "quadlet-lint": "0.1.91",
@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "@codacy/codacy-mcp": "github:karoltheguy/codacy-mcp-server",
-    "eslint": "10.12.0",
+    "eslint": "10.13.0",
     "globals": "17.13.0"
   },
   "scripts": {
