@@ -2,13 +2,13 @@
 # hash-pinned lock compiled from this file against requirements.txt, so the
 # two locks always agree on any package they share. See requirements.in for
 # the regeneration commands.
-pytest>=9.1.1
-pytest-asyncio>=1.4.0
+pytest>=9.2.0
+pytest-asyncio>=1.4.1
 pytest-xdist
 pytest-rerunfailures
 pytest-timeout
-playwright==1.63.0
-pytest-playwright==0.9.0
+playwright==1.64.1
+pytest-playwright==0.10.0
 pytest-cov
 coverage
 httpx2
