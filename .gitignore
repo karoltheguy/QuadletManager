@@ -21,6 +21,10 @@ static/vendor/
 # Added by ggshield
 .cache_ggshield
 
+# Local buildx cache for the podman host image (CI only, see
+# docker-compose.ci-cache.yml); also where local builds may drop one
+.cache/
+
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md

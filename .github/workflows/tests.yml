@@ -185,7 +185,10 @@ jobs:
         if: ${{ matrix.compose_profile != '' }}
         uses: actions/cache@v6
         with:
-          path: /tmp/podman-host-cache
+          # Workspace-relative on purpose: the cache must sit under the build
+          # CWD or buildx's fs-entitlement check rejects it (see
+          # docker-compose.ci-cache.yml).
+          path: .cache/podman-host-cache
           key: podman-host-${{ hashFiles('Dockerfile.podman-host', 'tests/fixtures/podman-host/**', 'tests/fixtures/test_key.pub') }}
           # A stale cache is still most of the layers, so a near miss beats a
           # cold build: buildx revalidates and rebuilds from the first changed
@@ -201,14 +204,15 @@ jobs:
           if [ -n "${{ matrix.compose_profile }}" ]; then
             COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.ci-cache.yml"
           fi
+          mkdir -p .cache/podman-host-cache-new
           docker compose $COMPOSE_FILES ${{ matrix.compose_profile }} up -d --build
 
           # cache_to writes to a separate directory so it never appends to the
           # one it just read, which is how a local buildx cache grows without
           # bound. Rotate it into place for actions/cache to save.
-          if [ -d /tmp/podman-host-cache-new ]; then
-            rm -rf /tmp/podman-host-cache
-            mv /tmp/podman-host-cache-new /tmp/podman-host-cache
+          if [ -d .cache/podman-host-cache-new ]; then
+            rm -rf .cache/podman-host-cache
+            mv .cache/podman-host-cache-new .cache/podman-host-cache
           fi
           echo "Waiting for app to start..."
           python -c '
