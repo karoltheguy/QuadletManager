@@ -16,10 +16,17 @@
 # Worth caching because this image is a full Fedora dnf install plus a skopeo
 # pull of the test image, and none of it changes between runs unless
 # Dockerfile.podman-host does. The workflow keys the cache on exactly that.
+# The cache lives under the workspace (the build CWD), not in /tmp, because
+# buildx >= 0.36 refuses `type=local` cache paths outside the CWD without an
+# explicit `--allow fs.read/fs.write` grant, and compose cannot forward such a
+# grant to buildx — it only grants the build context. The CWD itself is
+# auto-granted in every buildx version, which keeps this working across runner
+# image and toolchain bumps. The workflow keeps the directory in sync with
+# actions/cache; see .github/workflows/tests.yml.
 services:
   podman-host:
     build:
       cache_from:
-        - type=local,src=/tmp/podman-host-cache
+        - type=local,src=.cache/podman-host-cache
       cache_to:
-        - type=local,dest=/tmp/podman-host-cache-new,mode=max
+        - type=local,dest=.cache/podman-host-cache-new,mode=max
