@@ -166,8 +166,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      # Always runs, even on a cache hit. The prefix restore-keys above can
+      # restore a browser installed by an OLDER playwright version, and a
+      # cache hit does not guarantee the pinned browser revision is present
+      # (a restored stale browser is even re-saved under this job's key, so
+      # the drift persists). `playwright install` is a fast no-op when the
+      # pinned browser is already present, so the steady-state cost is only
+      # the apt dependency check from --with-deps.
       - name: Install Playwright Browsers
-        if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.needs_playwright }}
         run: playwright install --with-deps
 
       # Only the podman host is worth caching, and only it gets these two
@@ -618,8 +625,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      # Always runs, even on a cache hit. The prefix restore-keys above can
+      # restore a browser installed by an OLDER playwright version, and a
+      # cache hit does not guarantee the pinned browser revision is present
+      # (a restored stale browser is even re-saved under this job's key, so
+      # the drift persists). `playwright install` is a fast no-op when the
+      # pinned browser is already present, so the steady-state cost is only
+      # the apt dependency check from --with-deps.
       - name: Install Playwright Browsers
-        if: ${{ matrix.needs_playwright && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.needs_playwright }}
         run: playwright install --with-deps
 
       - name: Start Mock Environment
