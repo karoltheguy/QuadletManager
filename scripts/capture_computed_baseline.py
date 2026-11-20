@@ -5,10 +5,14 @@ tracked in issue #174.
 
 This script REQUIRES a backend running on localhost:8000 and Playwright browsers
 installed. The fixtures must be regenerated deliberately whenever CSS
-legitimately changes.
+legitimately changes AND whenever the pinned playwright version (and therefore
+the Chromium build) is bumped: each fixture records the browser that captured
+it in its `# captured-with:` header, and the baseline test refuses to run
+against a fixture recorded with a different Chromium version.
 """
 import os
 import sys
+from importlib.metadata import version as dist_version
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
@@ -26,14 +30,24 @@ def capture_computed_baseline() -> None:
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
+        # First line of every fixture: which browser captured it. The baseline
+        # test compares this against page.context.browser.version and fails
+        # hard on a mismatch, so a playwright bump that is not accompanied by
+        # a re-capture cannot pass CI silently.
+        captured_with = (
+            f"# captured-with: chromium {browser.version}, "
+            f"playwright {dist_version('playwright')}"
+        )
         page = browser.new_page()
         for theme, density in COMBOS:
             data = _capture(page, theme, density)
             fixture_path = _fixture_path(theme, density)
             sorted_paths = sorted(data.keys())
             with open(fixture_path, "w", encoding="utf-8") as f:
+                f.write(captured_with + "\n")
                 f.writelines(f"{path}\t{data[path]}\n" for path in sorted_paths)
-            print(f"Wrote {len(sorted_paths)} elements to {fixture_path}")
+            print(f"Wrote {len(sorted_paths)} elements to {fixture_path} "
+                  f"({captured_with})")
         browser.close()
 
 

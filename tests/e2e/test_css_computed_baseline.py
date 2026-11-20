@@ -5,6 +5,15 @@ Snapshots the computed styles of every rendered DOM element under document.body
 across theme (dark/light) and density (normal/compact) combinations and compares
 them against committed baseline fixtures to detect unintended cascade changes
 during CSS refactoring.
+
+Version contract: every fixture's first line is a `# captured-with:` header
+recording the Chromium and Playwright versions that captured it (written by
+scripts/capture_computed_baseline.py). Computed styles of browser-rendered
+elements (e.g. native radio buttons) come from the browser's UA stylesheet and
+change between browser builds even when the app CSS is untouched, so the test
+refuses to run against a fixture recorded with a different Chromium version:
+when the pinned playwright version is bumped, the fixtures must be regenerated
+in the same PR.
 """
 import os
 import sys
@@ -103,6 +112,35 @@ def _fixture_path(theme: str, density: str) -> str:
     return os.path.join(REPO_ROOT, "tests", "fixtures", f"computed_{theme}_{density}.txt")
 
 
+CAPTURED_WITH = "# captured-with: "
+
+
+def _parse_fixture(fixture_path: str):
+    """Parse a baseline fixture into (path -> values) plus its version header.
+
+    Returns (data, captured_with) where captured_with is the dict of versions
+    recorded on the `# captured-with:` first line, or None when the fixture
+    predates version stamping.
+    """
+    data = {}
+    captured_with = None
+    with open(fixture_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(CAPTURED_WITH):
+                meta = {}
+                for part in line[len(CAPTURED_WITH):].split(","):
+                    key, _, value = part.strip().partition(" ")
+                    meta[key] = value
+                captured_with = meta
+                continue
+            path, values = line.split("\t", 1)
+            data[path] = values
+    return data, captured_with
+
+
 @pytest.mark.e2e
 def test_computed_baseline_fixtures_exist():
     """For each (theme, density) in COMBOS assert os.path.isfile(_fixture_path(theme, density)),
@@ -130,14 +168,33 @@ def test_computed_styles_match_baseline(page: Page, theme: str, density: str):
         f"Computed baseline fixture does not exist at {fixture_path}"
     )
 
-    fixture_data = {}
-    with open(fixture_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            path, values = line.split("\t", 1)
-            fixture_data[path] = values
+    fixture_data, captured_with = _parse_fixture(fixture_path)
+
+    live_chromium = page.context.browser.version
+    if captured_with is None:
+        pytest.fail(
+            f"{fixture_path} has no '# captured-with:' header. The baseline is "
+            "bound to the browser build that captured it; regenerate it with "
+            "`python scripts/capture_computed_baseline.py` (backend running "
+            "with the e2e seed)."
+        )
+    if captured_with.get("chromium") != live_chromium:
+        pytest.fail(
+            "Computed baseline fixture was captured with a different browser "
+            "than the one running this test:\n"
+            f"  fixture : chromium {captured_with.get('chromium')} "
+            f"(playwright {captured_with.get('playwright')})\n"
+            f"  this run: chromium {live_chromium}\n"
+            "Computed styles of browser-rendered elements (e.g. native radio "
+            "buttons) come from the browser's UA stylesheet and change between "
+            "browser builds even when the app CSS is untouched.\n"
+            "- If this PR bumped the pinned playwright version on purpose: "
+            "regenerate the fixtures with "
+            "`python scripts/capture_computed_baseline.py` and commit them in "
+            "the same PR.\n"
+            "- If it did not: this run used an unpinned or stale browser. Check "
+            "the 'Install Playwright Browsers' step in .github/workflows/tests.yml."
+        )
 
     live_data = _capture(page, theme, density)
 
@@ -201,5 +258,12 @@ def test_computed_styles_match_baseline(page: Page, theme: str, density: str):
         )
         if diff_examples:
             failure_msg += "Differing examples (up to 5):\n" + "\n".join(diff_examples)
+        failure_msg += (
+            "If every differing element is one the browser renders itself "
+            "(native radio/checkbox/text controls), the running browser likely "
+            "differs from the fixture's '# captured-with:' header: regenerate "
+            "the fixtures (scripts/capture_computed_baseline.py) rather than "
+            "changing app CSS."
+        )
 
         assert not differing_paths, failure_msg
